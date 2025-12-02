@@ -10,7 +10,7 @@ import Header from "@/components/Header";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-    title: "Tên Shop Của Bạn",
+    title: "Pharmacity",
     description: "Mô tả shop...",
 };
 
@@ -25,12 +25,11 @@ export default function RootLayout({
                 <Script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></Script>
                 <Script noModule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></Script>
             </head>
-            <body className={`${inter.className} p-3 h-screen w-full relative overflow-x-hidden`}>
-                <Header />
+            <body className={`${inter.className} h-screen w-full relative overflow-x-hidden`}>
                 <main className="h-full" >
                     {children} {/* Nội dung của page.tsx sẽ hiển thị ở đây */}
                 </main>
-                <div className="w-full px-3 fixed h-fit bottom-3 left-0 ">
+                <div className="w-full fixed h-fit bottom-0 left-0 ">
                     <Navbar />
                 </div>
             </body>
