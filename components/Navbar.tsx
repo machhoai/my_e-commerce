@@ -14,7 +14,7 @@ export default function Navbar() {
 
     return (
         <div className="flex text-xs text-[#727272] bg-white border-t p-2 pb-4" >
-            <div className="flex flex-col flex-1 justify-center items-center">
+            <div className="flex flex-col flex-1 justify-center items-center text-primary">
                 <span>
                     <House strokeWidth={1.5} />
                 </span>

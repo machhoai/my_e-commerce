@@ -5,9 +5,6 @@ module.exports = {
         "./app/**/*.{js,ts,jsx,tsx,mdx}",
         "./pages/**/*.{js,ts,jsx,tsx,mdx}",
         "./components/**/*.{js,ts,jsx,tsx,mdx}",
-
-        // Nếu bạn có folder src thì thêm dòng này:
-        // "./src/**/*.{js,ts,jsx,tsx,mdx}",
     ],
     theme: {
         extend: {
@@ -17,6 +14,9 @@ module.exports = {
                 sm: 'calc(var(--radius) - 4px)'
             },
             colors: {
+                primary: '#1b51a3',
+                accent: '#F6F6F6',
+                secondary: '#727272',
                 background: 'hsl(var(--background))',
                 foreground: 'hsl(var(--foreground))',
                 card: {
@@ -27,13 +27,11 @@ module.exports = {
                     DEFAULT: 'hsl(var(--popover))',
                     foreground: 'hsl(var(--popover-foreground))'
                 },
-                primary: '#1b51a3',
-                secondary: '#727272',
+
                 muted: {
                     DEFAULT: 'hsl(var(--muted))',
                     foreground: 'hsl(var(--muted-foreground))'
                 },
-                accent: '#F6F6F6',
                 destructive: {
                     DEFAULT: 'hsl(var(--destructive))',
                     foreground: 'hsl(var(--destructive-foreground))'

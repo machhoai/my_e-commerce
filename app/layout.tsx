@@ -26,12 +26,9 @@ export default function RootLayout({
                 <Script noModule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></Script>
             </head>
             <body className={`${inter.className} h-screen w-full relative overflow-x-hidden`}>
-                <main className="h-full" >
+                <main className="h-fit" >
                     {children} {/* Nội dung của page.tsx sẽ hiển thị ở đây */}
                 </main>
-                <div className="w-full fixed h-fit bottom-0 left-0 ">
-                    <Navbar />
-                </div>
             </body>
         </html>
     );

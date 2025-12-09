@@ -124,6 +124,10 @@
     }
 }
 
+:root {
+    --primary-color: #1b51a3;
+}
+
 .glass-card {
     width: 100%;
     height: 100%;
@@ -166,4 +170,57 @@
             rgba(255, 255, 255, 0.8),
             transparent,
             rgba(255, 255, 255, 0.3));
+}
+
+@layer utilities {
+
+    /* Ẩn scrollbar cho Chrome, Safari và Opera */
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Ẩn scrollbar cho IE, Edge và Firefox */
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        /* IE and Edge */
+        scrollbar-width: none;
+        /* Firefox */
+    }
+}
+
+.contact-button::before {
+    content: '';
+    border-radius: 100%;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    scale: 1;
+    background-color: var(--primary-color);
+    opacity: 50%;
+    animation: pulse 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* cubic-bezier(0, 0, 0.2, 1) */
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        /* Bắt đầu: Kích thước bình thường */
+        opacity: 0.6;
+        /* Hơi mờ nhẹ */
+    }
+
+    50% {
+        transform: scale(1.3);
+        /* Giữa hiệp: Phình to ra 1.4 lần */
+        opacity: 0.3;
+        /* Mờ đi một chút khi to ra */
+    }
+
+    100% {
+        transform: scale(1);
+        /* Kết thúc: Thu nhỏ về lại kích thước đầu */
+        opacity: 0.6;
+        /* Đậm lại như lúc đầu */
+    }
 }

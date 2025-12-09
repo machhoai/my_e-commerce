@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-, "postcss.config.mjs"  ],
+, "postcss.config.mjs", "components/form.jsx"  ],
   "exclude": ["node_modules"]
 }

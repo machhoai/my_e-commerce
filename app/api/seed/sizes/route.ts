@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
 import { doc, setDoc } from "firebase/firestore"; // Dùng setDoc để tự đặt ID
 import { SizeSchema } from "@/lib/schemas";
-import { MOCK_SIZES } from "@/lib/mock_size";
+import { MOCK_SIZES } from "@/lib/mock_products";
 
 export async function GET() {
     try {
