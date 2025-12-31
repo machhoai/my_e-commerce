@@ -3,8 +3,6 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { Inter } from "next/font/google";
 import "./global.css";
-import Navbar from "@/components/Navbar"; // Ví dụ component Navbar
-import Header from "@/components/Header";
 // import Footer from "@/components/Footer"; // Ví dụ component Footer
 
 const inter = Inter({ subsets: ["latin"] });
