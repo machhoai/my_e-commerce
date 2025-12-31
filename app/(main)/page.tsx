@@ -1,109 +1,113 @@
-import { HeaderWrapper } from "@/components/home/HeaderWrapper";
-import { ProductGroup, SwiperSlide } from "@/components/home/HomeComponents";
-import { CarouselPlugin } from "@/components/ui/ImageSlide";
+"use client";
 
-// 2. Component cha (Server Component) gọi Wrapper
-export default async function Home() {
-    const API = "http://localhost:3000/api/products?";
+import React, { useState, useEffect } from 'react';
+import { IoLogoFacebook, IoLogoTiktok } from "react-icons/io5";
 
-    // Hàm này chạy trên Server, không gây loop
-    const getProduct = async (queryString: string) => {
-        try {
-            // fetch data trực tiếp từ API Route hoặc gọi hàm Service (như bài trước tôi chỉ)
-            const res = await fetch(API + queryString, {
-                cache: 'no-store' // Đảm bảo dữ liệu mới nhất
-            });
+interface SocialLink {
+    name: string;
+    url: string;
+    icon: React.ReactNode;
+    color: string;
+}
 
-            if (!res.ok) return [];
+export default function BioPage() {
+    // State để kiểm soát việc hiển thị nội dung
+    const [isVisible, setIsVisible] = useState(false);
 
-            const json = await res.json();
-            return json.data || [];
-        } catch (error) {
-            console.error("Lỗi fetch:", error);
-            return [];
-        }
-    }
+    useEffect(() => {
+        // Đợi 1 giây sau khi trang load xong thì mới kích hoạt hiện nội dung
+        const timer = setTimeout(() => {
+            setIsVisible(true);
+        }, 1000);
 
-    const flashSaleData = await getProduct("isFlashSale=true");
-    const promotionData = await getProduct("promotions=GIFT,DISCOUNT_PERCENT");
+        return () => clearTimeout(timer);
+    }, []);
 
+    const socialLinks: SocialLink[] = [
+        {
+            name: 'B.Duck Cityfuns Vietnam',
+            url: 'https://web.facebook.com/share/1GZr1FPT9N/?mibextid=wwXIfr&_rdc=1&_rdr',
+            icon: <IoLogoFacebook />,
+            color: 'text-[#1877F2]'
+        },
+        {
+            name: 'b.duckcityfunsvietnam',
+            url: 'https://www.tiktok.com/@b.duckcityfunsvietnam?_r=1&_t=ZS-927veGnUf7Q',
+            icon: <IoLogoTiktok />,
+            color: 'text-black'
+        },
+    ];
 
     return (
-        <div className="">
-            {/* Chuyển logic Header vào Client Component */}
-            <HeaderWrapper />
-            <div className="content bg-gray-100">
-                <SwiperSlide />
-                <div className="w-full py-3">
-                    <CarouselPlugin />
-                </div>
-                <ProductGroup label="Flash Sale" data={flashSaleData} />
-                <ProductGroup label="Ưu đãi ngập tràn" data={promotionData} />
-                <ProductGroup label="Top sản phẩm tin dùng" />
-                <ProductGroup label="Sản phẩm mới tại Pharmacity" />
+        <div className="min-h-screen relative flex flex-col items-center px-6 py-12 overflow-x-hidden">
+            {/* Background - Hiện ngay lập tức */}
+            <div
+                className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+                style={{ backgroundImage: `url('./Artboard.png')` }}
+            >
+                <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]"></div>
             </div>
+
+            {/* Nội dung chính - Được bao bọc bởi hiệu ứng Transition */}
+            <div className={`relative z-10 w-full max-w-md flex flex-col items-center transition-all duration-1000 ease-out ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
+                }`}>
+
+                {/* Logo Section */}
+                <div className="w-full">
+                    <div className="w-full h-full mb-4 flex items-center justify-center overflow-hidden">
+                        <img
+                            src="./logo.png"
+                            alt="B.Duck Logo"
+                            className="w-4/5 object-contain"
+                        />
+                    </div>
+                </div>
+
+                <h1 className="text-white text-2xl font-bold mb-1 text-center drop-shadow-md">
+                    B.Duck Cityfuns Vietnam
+                </h1>
+                <p className="text-yellow-300 text-sm mb-8 italic drop-shadow-md">
+                    Be Playful • Be Fun • B.Duck
+                </p>
+
+                {/* Links Section */}
+                <div className="w-full space-y-4">
+                    {socialLinks.map((link, index) => (
+                        <a
+                            key={index}
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center p-4 bg-white/95 hover:bg-yellow-400 rounded-2xl transition-all shadow-xl group active:scale-95"
+                        >
+                            <span className={`w-10 h-10 ${link.color} rounded-xl flex items-center justify-center text-[40px]`}>
+                                {link.icon}
+                            </span>
+                            <span className="flex-1 ml-2 text-left font-bold text-gray-800 text-lg">
+                                {link.name}
+                            </span>
+                            <span className="text-gray-400 group-hover:text-white transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
+                                </svg>
+                            </span>
+                        </a>
+                    ))}
+                </div>
+
+                
+            </div>
+
+            {/* Global Animation Styles */}
+            <style jsx global>{`
+                @keyframes bounce-slow {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-12px); }
+                }
+                .animate-bounce-slow {
+                    animation: bounce-slow 3s ease-in-out infinite;
+                }
+            `}</style>
         </div>
     );
 }
-
-// const ProductGroup = ({ label = '', data = [] }: { label: string, data?: Array<any> }) => {
-//     console.log(data)
-//     return (
-//         <div className="flex flex-col gap-4 py-4 bg-white mt-3">
-//             <div className="flex justify-between items-end px-3">
-//                 <p className="font-bold text-base line-clamp-1">{label}</p>
-//                 <p className="text-sm text-blue-500">Xem tất cả</p>
-//             </div>
-//             <div className="product-list flex gap-4 overflow-x-scroll pb-3 px-3 no-scrollbar">
-//                 <ProductItem />
-//                 <ProductItem />
-//                 <ProductItem />
-//                 <ProductItem />
-//                 <ProductItem />
-//                 <ProductItem />
-//                 <ProductItem />
-//                 <ProductItem />
-//                 <ProductItem />
-//                 <ProductItem />
-//             </div>
-//         </div>
-//     )
-// }
-
-// const ProductItem = () => {
-//     return (
-//         <div className="relative p-1">
-//             <div className="absolute top-5 -left-1"> {/* Đẩy sang trái -left-2 (8px) */}
-//                 <label className="bg-red-700 text-white text-sm px-2 py-1 rounded-e-sm relative shadow-md">
-
-//                     {/* Nội dung label */}
-//                     <span className="discount-label">Giảm 20%</span>
-
-//                     {/* --- PHẦN TẠO ĐUÔI GẬP (Tam giác) --- */}
-//                     <div className="absolute top-full left-0
-//                       border-t-[8px] border-t-red-900
-//                       border-l-[8px] border-l-transparent
-//                       brightness-75">
-//                     </div>
-//                 </label>
-//             </div>
-//             <div className="bg-white flex-shrink-0 h-[330px] w-[178px] rounded-md overflow-hidden shadow-md flex flex-col">
-//                 <div className="w-full h-fit max-h-1/2 overflow-hidden flex-shrink-0">
-//                     <Image src={"/products/example_product_img.png"} width={640} height={640} className="object-cover w-full aspect-square" alt="" />
-//                 </div>
-//                 <div className="p-2 flex flex-col justify-between flex-1">
-//                     <p className="product-title font-semibold text-sm line-clamp-2">
-//                         Gel Dưỡng Ẩm NEUTROGENA  Hydro Boost Water (50g)
-//                     </p>
-//                     <div>
-//                         <p className="base-price text-sm text-[#727272] line-through">389.000&nbsp;₫</p>
-//                         <span className="mt-[2px] block h-6 text-base font-bold text-primary">311.200&nbsp;₫/Hộp</span>
-//                     </div>
-//                     <div className="bg-primary rounded-md text-white py-2 text-center font-bold text-sm">
-//                         Chọn sản phẩm
-//                     </div>
-//                 </div>
-//             </div>
-//         </div>
-//     )
-// }
