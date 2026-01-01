@@ -32,7 +32,7 @@ export default function RootLayout({
                 <Script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></Script>
                 <Script noModule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></Script>
             </head>
-            <body className={`${inter.className} h-screen w-full relative overflow-x-hidden`}>
+            <body className={`${inter.className} min-h-dvh w-full relative overflow-x-hidden flex flex-col`}>
                 <main className="h-full" >
                     {children} {/* Nội dung của page.tsx sẽ hiển thị ở đây */}
                 </main>
