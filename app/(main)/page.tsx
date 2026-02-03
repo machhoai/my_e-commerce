@@ -98,7 +98,7 @@ export default function BioPage() {
                                     <span className={`w-10 h-10 ${link.color} rounded-xl flex items-center justify-center text-[40px]`}>
                                         {link.icon}
                                     </span>
-                                    <span className="flex-1 ml-4 text-left font-bold text-gray-800 text-lg uppercase tracking-tight">
+                                    <span className="flex-1 ml-4 text-left font-bold text-gray-800 text-lg uppercase tracking-tight truncate">
                                         {link.name}
                                     </span>
                                     <span className="text-gray-400 group-hover:text-white transition-colors">
