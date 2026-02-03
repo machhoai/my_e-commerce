@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { IoLogoFacebook, IoLogoTiktok, IoQrCodeOutline, IoListOutline } from "react-icons/io5";
+import { SiZalo } from "react-icons/si";
 import { QRCodeSVG } from 'qrcode.react'; // Thư viện tạo QR nhanh và nhẹ
 
 interface SocialLink {
@@ -38,6 +39,12 @@ export default function BioPage() {
             name: 'b.duckcityfunsvietnam',
             url: 'https://www.tiktok.com/@b.duckcityfunsvietnam?_r=1&_t=ZS-927veGnUf7Q',
             icon: <IoLogoTiktok />,
+            color: 'text-black'
+        },
+        {
+            name: 'B.Duck Cityfuns Vietnam _ Cộng đồng',
+            url: 'https://zalo.me/g/gzqohy222',
+            icon: <SiZalo />,
             color: 'text-black'
         },
     ];
@@ -111,6 +118,7 @@ export default function BioPage() {
                                 bgColor={"#fffee1"}
                                 fgColor={"#000"}
                                 level={"H"}
+                                title=''
                                 includeMargin={false}
                                 imageSettings={{
                                     src: "./bduck.png", // Chèn logo nhỏ vào giữa QR
