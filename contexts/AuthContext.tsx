@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const changePassword = useCallback(
         async (currentPassword: string, newPassword: string) => {
-            if (!user || !user.email) throw new Error('Not authenticated');
+            if (!user || !user.email) throw new Error('Chưa xác thực');
             const credential = EmailAuthProvider.credential(user.email, currentPassword);
             await reauthenticateWithCredential(user, credential);
             await updatePassword(user, newPassword);

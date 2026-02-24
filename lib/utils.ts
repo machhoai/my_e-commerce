@@ -10,7 +10,7 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function formatDate(dateStr: string): string {
     const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    return d.toLocaleDateString('vi-VN', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 /**
@@ -25,6 +25,13 @@ export function getWeekStart(date: Date = new Date()): Date {
     return d;
 }
 
+export function toLocalDateString(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 /**
  * Returns an array of 7 ISO date strings (Mon-Sun) for a given week start.
  */
@@ -32,7 +39,7 @@ export function getWeekDays(weekStart: Date): string[] {
     return Array.from({ length: 7 }, (_, i) => {
         const d = new Date(weekStart);
         d.setDate(d.getDate() + i);
-        return d.toISOString().split('T')[0];
+        return toLocalDateString(d);
     });
 }
 
@@ -40,7 +47,7 @@ export function getWeekDays(weekStart: Date): string[] {
  * Returns a weekly_registrations document ID for a user+week.
  */
 export function weeklyRegId(userId: string, weekStart: Date): string {
-    return `${userId}_${weekStart.toISOString().split('T')[0]}`;
+    return `${userId}_${toLocalDateString(weekStart)}`;
 }
 
 /**

@@ -26,7 +26,7 @@ export default function CounterDropZone({ counter, assignedUsers, onRemove }: Pr
             <div className="bg-slate-50 border-b border-slate-200 p-3 flex items-center justify-between">
                 <h3 className="font-semibold text-slate-800">{counter.name}</h3>
                 <span className="text-xs font-medium text-slate-500 bg-white px-2 py-1 rounded-full border border-slate-200 shadow-sm">
-                    {assignedUsers.length} assigned
+                    {assignedUsers.length} nhân viên
                 </span>
             </div>
 
@@ -42,13 +42,13 @@ export default function CounterDropZone({ counter, assignedUsers, onRemove }: Pr
                                 <p className="font-medium text-sm text-slate-700 truncate">{user.name}</p>
                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase mt-0.5 inline-block ${user.type === 'FT' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
                                     }`}>
-                                    {user.type}
+                                    {user.type === 'FT' ? 'TT' : 'BT'}
                                 </span>
                             </div>
                             <button
                                 onClick={() => onRemove(counter.id, user.uid)}
                                 className="p-1.5 text-slate-400 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
-                                title="Remove from counter"
+                                title="Xóa khỏi quầy"
                             >
                                 <X className="w-4 h-4" />
                             </button>
@@ -57,7 +57,7 @@ export default function CounterDropZone({ counter, assignedUsers, onRemove }: Pr
                 ) : (
                     <div className="flex-1 flex items-center justify-center border-2 border-dashed border-slate-200 rounded-lg bg-slate-50/50">
                         <span className="text-sm font-medium text-slate-400">
-                            {isOver ? 'Drop here!' : 'Drag employees here'}
+                            {isOver ? 'Thả vào đây!' : 'Kéo nhân viên vào đây'}
                         </span>
                     </div>
                 )}

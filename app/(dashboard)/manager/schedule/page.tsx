@@ -4,16 +4,20 @@ import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, doc, getDoc, getDocs, setDoc, query, where, serverTimestamp } from 'firebase/firestore';
 import { UserDoc, CounterDoc, SettingsDoc, WeeklyRegistration, ScheduleDoc } from '@/types';
-import { scheduleDocId, getWeekStart, weeklyRegId, formatDate } from '@/lib/utils';
+import { scheduleDocId, getWeekStart, getWeekDays, toLocalDateString, formatDate } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import DraggableSchedule from '@/components/manager/DraggableSchedule';
-import { Calendar, Clock, Save, AlertCircle, CheckCircle2, ChevronDown } from 'lucide-react';
+import { Calendar, Clock, Save, AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function ManagerSchedulePage() {
     const { user } = useAuth();
 
     // Controls
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date()));
+    const weekDays = getWeekDays(currentWeekStart);
+
+    // Initial selected date is today in local time, but constrained by week navigation if user clicks around
+    const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()));
     const [selectedShiftId, setSelectedShiftId] = useState<string>('');
 
     // Data State
@@ -47,7 +51,7 @@ export default function ManagerSchedulePage() {
                 }
             } catch (err) {
                 console.error(err);
-                setError('Failed to load global settings');
+                setError('Không thể tải cài đặt hệ thống');
             } finally {
                 setLoadingConfig(false);
             }
@@ -142,7 +146,7 @@ export default function ManagerSchedulePage() {
 
             } catch (err) {
                 console.error(err);
-                setError('Failed to load registered employees');
+                setError('Không thể tải danh sách nhân viên đã đăng ký');
             } finally {
                 setLoadingData(false);
             }
@@ -175,13 +179,25 @@ export default function ManagerSchedulePage() {
             });
 
             await Promise.all(batchPromises);
-            setSuccess('Schedule saved and published to employees successfully!');
+            setSuccess('Đã lưu và công khai lịch làm việc cho nhân viên thành công!');
         } catch (err) {
             console.error(err);
-            setError('Failed to publish schedule');
+            setError('Không thể công khai lịch làm việc');
         } finally {
             setSaving(false);
         }
+    };
+
+    const handlePreviousWeek = () => {
+        const d = new Date(currentWeekStart);
+        d.setDate(d.getDate() - 7);
+        setCurrentWeekStart(d);
+    };
+
+    const handleNextWeek = () => {
+        const d = new Date(currentWeekStart);
+        d.setDate(d.getDate() + 7);
+        setCurrentWeekStart(d);
     };
 
     if (loadingConfig) {
@@ -193,28 +209,37 @@ export default function ManagerSchedulePage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className=" h-full flex flex-col gap-2">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
                         <Calendar className="w-7 h-7 text-blue-600" />
-                        Manager Schedule
+                        Quản lý Lịch làm việc
                     </h1>
                     <p className="text-slate-500 mt-1 flex items-center gap-2">
-                        Drag registered employees to counters to assign their shifts.
+                        Kéo nhân viên đã đăng ký vào các quầy để phân công ca làm.
                     </p>
                 </div>
 
-                {/* Date and Shift Selectors */}
+                {/* Date and Shift Selectors Top Bar */}
                 <div className="flex items-center gap-4 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-                    <div className="relative">
-                        <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                            type="date"
-                            value={selectedDate}
-                            onChange={(e) => setSelectedDate(e.target.value)}
-                            className="pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
-                        />
+                    {/* Week Navigation */}
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={handlePreviousWeek}
+                            className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-600 focus:ring-2 focus:ring-blue-500/20"
+                        >
+                            <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <div className="text-sm font-semibold text-slate-700 min-w-[140px] text-center hidden md:block">
+                            {formatDate(weekDays[0])} - {formatDate(weekDays[6])}
+                        </div>
+                        <button
+                            onClick={handleNextWeek}
+                            className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-600 focus:ring-2 focus:ring-blue-500/20"
+                        >
+                            <ChevronRight className="w-5 h-5" />
+                        </button>
                     </div>
 
                     <div className="w-px h-8 bg-slate-200" />
@@ -226,13 +251,48 @@ export default function ManagerSchedulePage() {
                             onChange={(e) => setSelectedShiftId(e.target.value)}
                             className="pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer min-w-[140px]"
                         >
-                            {shiftTimes.length === 0 && <option value="">No shifts available</option>}
+                            {shiftTimes.length === 0 && <option value="">Không có ca làm nào</option>}
                             {shiftTimes.map(shift => (
                                 <option key={shift} value={shift}>{shift}</option>
                             ))}
                         </select>
                         <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     </div>
+                </div>
+            </div>
+
+            {/* 7-Day Horizontal Selector */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-2 overflow-x-auto scroller-hide">
+                <div className="flex gap-2 min-w-max">
+                    {weekDays.map(dateStr => {
+                        const d = new Date(dateStr + "T00:00:00");
+                        const isSelected = dateStr === selectedDate;
+                        const isToday = dateStr === toLocalDateString(new Date());
+
+                        const dayName = d.toLocaleDateString('vi-VN', { weekday: 'short' });
+                        const dateNum = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+
+                        return (
+                            <button
+                                key={dateStr}
+                                onClick={() => setSelectedDate(dateStr)}
+                                className={`flex flex-col items-center justify-center flex-1 p-2 rounded-lg border-2 transition-all ${isSelected
+                                    ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
+                                    : 'border-transparent hover:border-slate-200 hover:bg-slate-50 text-slate-500'
+                                    }`}
+                            >
+                                <span className={`text-xs font-semibold uppercase ${isSelected ? 'text-blue-600' : 'text-slate-400'}`}>
+                                    {dayName}
+                                </span>
+                                <span className={`text-lg font-bold mt-0.5 flex items-center gap-1.5 ${isSelected ? 'text-blue-800' : 'text-slate-700'}`}>
+                                    {dateNum}
+                                </span>
+                                {isToday && !isSelected && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1 absolute bottom-1"></span>
+                                )}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
@@ -252,7 +312,7 @@ export default function ManagerSchedulePage() {
                             onClick={() => setSuccess('')}
                             className="text-emerald-600 hover:text-emerald-800 text-xs font-semibold px-2 py-1 bg-emerald-100/50 rounded-md"
                         >
-                            Dismiss
+                            Đóng
                         </button>
                     </div>
                 </div>
@@ -271,7 +331,7 @@ export default function ManagerSchedulePage() {
             <div className="flex items-center justify-between pt-4 border-t border-slate-200 mt-8 mb-4">
                 <div className="text-sm text-slate-500 font-medium bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200/60 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                    Changes are auto-saved to state. Click Publish to send to employees.
+                    Thay đổi được lưu tự động. Nhấn Công khai để gửi lịch cho nhân viên.
                 </div>
                 <button
                     onClick={handleSaveAndPublish}
@@ -283,7 +343,7 @@ export default function ManagerSchedulePage() {
                     ) : (
                         <Save className="w-4 h-4" />
                     )}
-                    Save & Publish Schedule
+                    Lưu & Công khai Lịch làm việc
                 </button>
             </div>
 

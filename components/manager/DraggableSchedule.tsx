@@ -5,6 +5,7 @@ import {
     closestCenter,
     KeyboardSensor,
     PointerSensor,
+    TouchSensor,
     useSensor,
     useSensors,
     DragStartEvent,
@@ -34,7 +35,13 @@ export default function DraggableSchedule({
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 5, // minimum drag distance before activation
+                distance: 5,
+            },
+        }),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                delay: 250,      // ms before drag activates on touch
+                tolerance: 5,    // px of movement allowed during delay
             },
         }),
         useSensor(KeyboardSensor)
@@ -48,13 +55,11 @@ export default function DraggableSchedule({
         const { active, over } = event;
         setActiveId(null);
 
-        if (!over) return; // Dropped outside a valid zone
+        if (!over) return;
 
         const userId = active.id as string;
         const counterId = over.id as string;
 
-        // A user can be in multiple counters during a shift
-        // Just prevent dupes in the *same* counter
         const currentCounterAssigns = assignments[counterId] || [];
         if (!currentCounterAssigns.includes(userId)) {
             onAssignmentChange({
@@ -77,7 +82,6 @@ export default function DraggableSchedule({
     const activeUser = activeId ? employees.find(e => e.uid === activeId) : null;
     const allAssignedIds = new Set(Object.values(assignments).flat());
 
-    // Split employees into Assigned and Unassigned for the left column
     const unassignedEmployees = employees.filter(e => !allAssignedIds.has(e.uid));
     const assignedEmployees = employees.filter(e => allAssignedIds.has(e.uid));
 
@@ -88,16 +92,16 @@ export default function DraggableSchedule({
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <div className="flex flex-col lg:grid lg:grid-cols-4 gap-6 bg-slate-50 border border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm">
 
-                {/* Left Column: Registered Employees */}
+                {/* Top (mobile) / Left (desktop): Registered Employees */}
                 <div className="lg:col-span-1 flex flex-col gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col h-full">
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col">
                         <h2 className="font-bold text-slate-800 text-lg border-b border-slate-100 pb-3 mb-4">
-                            Registered Staff ({employees.length})
+                            Nhân viên đã đăng ký ({employees.length})
                         </h2>
 
-                        <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+                        <div className="overflow-hidden max-h-60 lg:max-h-none pr-1 space-y-6">
                             {isLoading ? (
                                 <div className="flex flex-col gap-3">
                                     {[1, 2, 3, 4].map(i => (
@@ -105,13 +109,13 @@ export default function DraggableSchedule({
                                     ))}
                                 </div>
                             ) : employees.length === 0 ? (
-                                <p className="text-sm text-slate-500 text-center py-8">No employees registered for this shift.</p>
+                                <p className="text-sm text-slate-500 text-center py-8">Chưa có nhân viên nào đăng ký ca này.</p>
                             ) : (
                                 <>
                                     {/* Unassigned Group */}
                                     <div>
                                         <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-                                            Unassigned ({unassignedEmployees.length})
+                                            Chưa phân công ({unassignedEmployees.length})
                                         </h3>
                                         <div className="flex flex-col gap-2">
                                             {unassignedEmployees.map((user) => (
@@ -124,7 +128,7 @@ export default function DraggableSchedule({
                                     {assignedEmployees.length > 0 && (
                                         <div>
                                             <h3 className="text-xs font-semibold text-emerald-600/70 uppercase tracking-wider mb-3 pt-4 border-t border-slate-100">
-                                                Assigned ({assignedEmployees.length})
+                                                Đã phân công ({assignedEmployees.length})
                                             </h3>
                                             <div className="flex flex-col gap-2">
                                                 {assignedEmployees.map((user) => (
@@ -139,9 +143,9 @@ export default function DraggableSchedule({
                     </div>
                 </div>
 
-                {/* Right Area: Counters */}
+                {/* Bottom (mobile) / Right (desktop): Counters */}
                 <div className="lg:col-span-3">
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                         {counters.map((counter) => {
                             const assignedUserIds = assignments[counter.id] || [];
                             const assignedUsers = assignedUserIds
@@ -159,15 +163,15 @@ export default function DraggableSchedule({
                         })}
 
                         {counters.length === 0 && (
-                            <div className="md:col-span-2 xl:col-span-3 bg-white border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center text-slate-500">
-                                No counters configured. Go to global settings to add counters.
+                            <div className="sm:col-span-2 xl:col-span-3 bg-white border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center text-slate-500">
+                                Chưa có quầy nào được cấu hình. Vào Cài đặt hệ thống để thêm quầy.
                             </div>
                         )}
                     </div>
                 </div>
             </div>
 
-            {/* Drag Overlay (Visual representation while dragging) */}
+            {/* Drag Overlay */}
             <DragOverlay>
                 {activeUser ? (
                     <div className="transform rotate-3 shadow-2xl scale-105 transition-transform duration-75">

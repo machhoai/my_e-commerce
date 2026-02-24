@@ -23,11 +23,11 @@ export default function ChangePasswordPage() {
         setError('');
 
         if (newPassword !== confirmPassword) {
-            return setError('New passwords do not match');
+            return setError('Mật khẩu mới không khớp');
         }
 
         if (newPassword.length < 6) {
-            return setError('New password must be at least 6 characters');
+            return setError('Mật khẩu mới phải có ít nhất 6 ký tự');
         }
 
         setLoading(true);
@@ -41,12 +41,12 @@ export default function ChangePasswordPage() {
         } catch (err: unknown) {
             if (err instanceof Error) {
                 if (err.message.includes('auth/invalid-credential')) {
-                    setError('Incorrect current password');
+                    setError('Mật khẩu hiện tại không đúng');
                 } else {
-                    setError(err.message || 'Failed to change password');
+                    setError(err.message || 'Đổi mật khẩu thất bại');
                 }
             } else {
-                setError('An unknown error occurred');
+                setError('Đã xảy ra lỗi không xác định');
             }
         } finally {
             setLoading(false);
@@ -62,16 +62,16 @@ export default function ChangePasswordPage() {
                             href="/employee/dashboard"
                             className="absolute left-6 top-8 text-slate-400 hover:text-white transition-colors flex items-center gap-1 text-sm font-medium"
                         >
-                            <ArrowLeft className="w-4 h-4" /> Back
+                            <ArrowLeft className="w-4 h-4" /> Quay lại
                         </Link>
                         <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/20">
                             <ShieldCheck className="w-8 h-8" />
                         </div>
                         <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">
-                            Change Password
+                            Đổi Mật Khẩu
                         </h1>
                         <p className="text-slate-400 mt-2 text-sm">
-                            Update your account security credentials
+                            Cập nhật thông tin bảo mật tài khoản của bạn
                         </p>
                     </div>
 
@@ -81,8 +81,8 @@ export default function ChangePasswordPage() {
                                 <div className="w-16 h-16 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
                                     <ShieldCheck className="w-8 h-8" />
                                 </div>
-                                <h3 className="text-lg font-medium text-white mb-2">Password Updated!</h3>
-                                <p className="text-slate-400 text-sm">Redirecting you to dashboard...</p>
+                                <h3 className="text-lg font-medium text-white mb-2">Đã Cập Nhật Mật Khẩu!</h3>
+                                <p className="text-slate-400 text-sm">Đang chuyển hướng về trang chủ...</p>
                             </div>
                         ) : (
                             <form onSubmit={handleSubmit} className="space-y-5">
@@ -94,7 +94,7 @@ export default function ChangePasswordPage() {
                                 )}
 
                                 <div className="space-y-1.5">
-                                    <label className="text-sm font-medium text-slate-300 ml-1">Current Password</label>
+                                    <label className="text-sm font-medium text-slate-300 ml-1">Mật khẩu hiện tại</label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
                                             <KeyRound className="w-4 h-4" />
@@ -111,7 +111,7 @@ export default function ChangePasswordPage() {
                                 </div>
 
                                 <div className="space-y-1.5 pt-2 border-t border-slate-800">
-                                    <label className="text-sm font-medium text-slate-300 ml-1">New Password</label>
+                                    <label className="text-sm font-medium text-slate-300 ml-1">Mật khẩu mới</label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
                                             <Lock className="w-4 h-4" />
@@ -128,7 +128,7 @@ export default function ChangePasswordPage() {
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <label className="text-sm font-medium text-slate-300 ml-1">Confirm New Password</label>
+                                    <label className="text-sm font-medium text-slate-300 ml-1">Xác nhận Mật khẩu mới</label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
                                             <Lock className="w-4 h-4" />
@@ -149,7 +149,7 @@ export default function ChangePasswordPage() {
                                     disabled={loading}
                                     className="w-full text-white bg-emerald-600 hover:bg-emerald-700 focus:ring-4 focus:outline-none focus:ring-emerald-800 font-medium rounded-lg text-sm px-5 py-3 text-center transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4 shadow-lg shadow-emerald-900/20"
                                 >
-                                    {loading ? 'Updating...' : 'Update Password'}
+                                    {loading ? 'Đang cập nhật...' : 'Cập nhật Mật khẩu'}
                                 </button>
                             </form>
                         )}

@@ -24,12 +24,12 @@ export default function LoginPage() {
         } catch (err: unknown) {
             if (err instanceof Error) {
                 if (err.message.includes('auth/invalid-credential')) {
-                    setError('Invalid phone number or password');
+                    setError('Sai số điện thoại hoặc mật khẩu');
                 } else {
-                    setError(err.message || 'Failed to login');
+                    setError(err.message || 'Đăng nhập thất bại');
                 }
             } else {
-                setError('An unknown error occurred');
+                setError('Đã xảy ra lỗi không xác định');
             }
         } finally {
             setLoading(false);
@@ -44,10 +44,10 @@ export default function LoginPage() {
                         <LogIn className="w-8 h-8" />
                     </div>
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-                        Welcome Back
+                        Chào Mừng Trở Lại
                     </h1>
                     <p className="text-slate-400 mt-2 text-sm">
-                        Sign in to your scheduling dashboard
+                        Đăng nhập vào hệ thống quản lý ca làm
                     </p>
                 </div>
 
@@ -61,7 +61,7 @@ export default function LoginPage() {
                         )}
 
                         <div className="space-y-1.5">
-                            <label className="text-sm font-medium text-slate-300 ml-1">Phone Number</label>
+                            <label className="text-sm font-medium text-slate-300 ml-1">Số điện thoại</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
                                     <Phone className="w-4 h-4" />
@@ -78,7 +78,7 @@ export default function LoginPage() {
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-sm font-medium text-slate-300 ml-1">Password</label>
+                            <label className="text-sm font-medium text-slate-300 ml-1">Mật khẩu</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
                                     <Lock className="w-4 h-4" />
@@ -93,7 +93,7 @@ export default function LoginPage() {
                                 />
                             </div>
                             <p className="text-xs text-slate-500 ml-1 mt-1">
-                                Default password is the last 6 digits of your phone number
+                                Mật khẩu mặc định là 6 số cuối số điện thoại của bạn
                             </p>
                         </div>
 
@@ -102,7 +102,7 @@ export default function LoginPage() {
                             disabled={loading}
                             className="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-800 font-medium rounded-lg text-sm px-5 py-3 text-center transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4 shadow-lg shadow-blue-900/20"
                         >
-                            {loading ? 'Signing in...' : 'Sign In'}
+                            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
                         </button>
                     </form>
                 </div>

@@ -62,7 +62,7 @@ export default function EmployeeDashboardPage() {
             setSchedules(docs);
             setLoading(false);
         }, (err) => {
-            console.error('Error fetching schedules:', err);
+            console.error('Lỗi khi tải lịch làm việc:', err);
             setLoading(false);
         });
 
@@ -95,22 +95,22 @@ export default function EmployeeDashboardPage() {
             <div className="flex justify-center items-center h-64">
                 <div className="flex flex-col items-center gap-3">
                     <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-sm font-medium text-slate-500">Syncing live schedule...</span>
+                    <span className="text-sm font-medium text-slate-500">Đang đồng bộ lịch trực tuyến...</span>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6 max-w-5xl mx-auto">
+        <div className="space-y-6 w-full h-full min-h-0 mx-auto">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-500 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
                         <Activity className="w-7 h-7 text-emerald-500" />
-                        My Live Schedule
+                        Lịch làm việc Trực tuyến
                     </h1>
                     <p className="text-slate-500 mt-1">
-                        Your assigned counters and shifts update here in real-time.
+                        Quầy và ca làm được phân công sẽ cập nhật theo thời gian thực tại đây.
                     </p>
                 </div>
 
@@ -122,7 +122,7 @@ export default function EmployeeDashboardPage() {
                         <ChevronLeft className="w-5 h-5" />
                     </button>
                     <div className="text-sm font-semibold text-slate-700 min-w-[140px] text-center bg-slate-50 py-1.5 px-3 rounded-md">
-                        {formatDate(weekDays[0])} <span className="text-slate-400 font-normal mx-1">to</span> {formatDate(weekDays[6])}
+                        {formatDate(weekDays[0])} <span className="text-slate-400 font-normal mx-1">đến</span> {formatDate(weekDays[6])}
                     </div>
                     <button
                         onClick={handleNextWeek}
@@ -137,8 +137,8 @@ export default function EmployeeDashboardPage() {
                 {weekDays.map((dateStr) => {
                     const dateObj = new Date(dateStr + "T00:00:00");
                     const isToday = new Date().toDateString() === dateObj.toDateString();
-                    const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
-                    const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    const dayName = dateObj.toLocaleDateString('vi-VN', { weekday: 'long' });
+                    const formattedDate = dateObj.toLocaleDateString('vi-VN', { month: 'short', day: 'numeric' });
 
                     const daySchedules = schedulesByDate[dateStr] || [];
 
@@ -158,7 +158,7 @@ export default function EmployeeDashboardPage() {
                                 </div>
                                 {isToday && (
                                     <span className="bg-emerald-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded-full animate-pulse shadow-sm shadow-emerald-500/20">
-                                        Today
+                                        Hôm nay
                                     </span>
                                 )}
                             </div>
@@ -191,7 +191,7 @@ export default function EmployeeDashboardPage() {
                                         <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100">
                                             <Clock className="w-5 h-5 text-slate-300" />
                                         </div>
-                                        <span className="text-sm">No shifts assigned</span>
+                                        <span className="text-sm">Không có ca làm việc</span>
                                     </div>
                                 )}
                             </div>
