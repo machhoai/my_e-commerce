@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { KeyRound, ShieldCheck, AlertCircle, ArrowLeft } from 'lucide-react';
+import { KeyRound, ShieldCheck, AlertCircle, ArrowLeft, Lock } from 'lucide-react';
 import Link from 'next/link';
 import AuthGuard from '@/components/layout/AuthGuard';
 
