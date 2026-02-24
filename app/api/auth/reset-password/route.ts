@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { defaultPassword } from '@/contexts/AuthContext';
+import { defaultPassword } from '@/lib/utils';
 
 export async function POST(req: NextRequest) {
     try {
