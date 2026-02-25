@@ -21,6 +21,9 @@ export interface UserDoc {
     idCard?: string;
     bankAccount?: string;
     education?: string;
+
+    // Permissions
+    canManageHR?: boolean;
 }
 
 export interface CounterDoc {
@@ -36,6 +39,11 @@ export interface SettingsDoc {
         defaultWeekday: Record<string, number>; // shiftId -> max quota
         defaultWeekend: Record<string, number>; // shiftId -> max quota
         specialDates: Record<string, Record<string, number>>; // "YYYY-MM-DD" -> shiftId -> max quota
+    };
+    monthlyQuotas?: {
+        ftDaysOff: number;
+        ptMinShifts: number;
+        ptMaxShifts: number;
     };
 }
 

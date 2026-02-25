@@ -14,7 +14,9 @@ export async function POST(req: NextRequest) {
         if (!callerDoc.exists) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 });
 
         const callerRole = callerDoc.data()?.role;
-        if (!['admin', 'manager'].includes(callerRole)) {
+        const canManageHR = callerDoc.data()?.canManageHR;
+
+        if (callerRole !== 'admin' && (callerRole !== 'manager' || canManageHR !== true)) {
             return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 403 });
         }
 

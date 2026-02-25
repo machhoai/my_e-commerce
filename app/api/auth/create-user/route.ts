@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
             role = 'employee';
         }
 
-        const { name, phone, type, dob, jobTitle, email: realEmail, idCard, bankAccount, education } = body as {
+        const { name, phone, type, dob, jobTitle, email: realEmail, idCard, bankAccount, education, canSchedule } = body as {
             name: string;
             phone: string;
             type: UserDoc['type'];
@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
             idCard?: string;
             bankAccount?: string;
             education?: string;
+            canSchedule?: boolean;
         };
 
         if (!name || !phone || !role || !type) {

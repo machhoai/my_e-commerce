@@ -10,7 +10,7 @@ import DraggableSchedule from '@/components/manager/DraggableSchedule';
 import { Calendar, Clock, Save, AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function ManagerSchedulePage() {
-    const { user } = useAuth();
+    const { user, userDoc } = useAuth();
 
     // Controls
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date()));
@@ -74,7 +74,7 @@ export default function ManagerSchedulePage() {
                 // A. Find all registrations for this week
                 const qReg = query(
                     collection(db, 'weekly_registrations'),
-                    where('weekStartDate', '==', requestWeekStart.toISOString().split('T')[0])
+                    where('weekStartDate', '==', toLocalDateString(requestWeekStart))
                 );
                 const regSnap = await getDocs(qReg);
 
@@ -109,40 +109,26 @@ export default function ManagerSchedulePage() {
                 setRegisteredEmployees(users);
 
                 // C. Load existing schedule assignments if any
-                const schedId = scheduleDocId(selectedDate, selectedShiftId);
-                const schedSnap = await getDoc(doc(db, 'schedules', schedId));
+                // Query all schedules for Date+Shift
+                const qScheds = query(
+                    collection(db, 'schedules'),
+                    where('date', '==', selectedDate),
+                    where('shiftId', '==', selectedShiftId)
+                );
+                const schedsMulti = await getDocs(qScheds);
 
-                if (schedSnap.exists()) {
-                    const data = schedSnap.data() as ScheduleDoc;
-                    // If schedule exists, convert to dict: counterId -> UIDs
-                    // Wait, the schema in plan says: { id, date, shiftId, counterId, employeeIds: string[] }
-                    // This implies ONE document per (Date+Shift) OR ONE document per (Date+Shift+Counter)?
-                    // Let's adapt: it's better to store ONE document per (Date+Shift+Counter).
-                    // Let's implement that adaptation for simplicity & real-time efficiency.
+                const initialAssigns: Record<string, string[]> = {};
+                counters.forEach(c => initialAssigns[c.id] = []);
 
-                    // Query all schedules for Date+Shift
-                    const qScheds = query(
-                        collection(db, 'schedules'),
-                        where('date', '==', selectedDate),
-                        where('shiftId', '==', selectedShiftId)
-                    );
-                    const schedsMulti = await getDocs(qScheds);
+                schedsMulti.docs.forEach(docSnap => {
+                    const sData = docSnap.data() as ScheduleDoc;
+                    // If counter exists in assigns, merge them
+                    if (initialAssigns[sData.counterId] !== undefined) {
+                        initialAssigns[sData.counterId] = sData.employeeIds || [];
+                    }
+                });
 
-                    const initialAssigns: Record<string, string[]> = {};
-                    counters.forEach(c => initialAssigns[c.id] = []);
-
-                    schedsMulti.docs.forEach(docSnap => {
-                        const sData = docSnap.data() as ScheduleDoc;
-                        initialAssigns[sData.counterId] = sData.employeeIds;
-                    });
-
-                    setAssignments(initialAssigns);
-                } else {
-                    // Empty assignments
-                    const initialAssigns: Record<string, string[]> = {};
-                    counters.forEach(c => initialAssigns[c.id] = []);
-                    setAssignments(initialAssigns);
-                }
+                setAssignments(initialAssigns);
 
             } catch (err) {
                 console.error(err);
@@ -153,7 +139,17 @@ export default function ManagerSchedulePage() {
         }
 
         loadData();
-    }, [selectedDate, selectedShiftId, counters]);
+    }, [selectedDate, selectedShiftId, counters, userDoc]);
+
+    if (!userDoc || (userDoc.role !== 'admin' && !userDoc.canManageHR)) {
+        return (
+            <div className="flex flex-col items-center justify-center h-64 space-y-4">
+                <AlertCircle className="w-12 h-12 text-red-500" />
+                <h2 className="text-xl font-bold text-slate-800">Không có quyền truy cập</h2>
+                <p className="text-slate-500">Bạn không được cấp quyền để xếp lịch nhân viên.</p>
+            </div>
+        );
+    }
 
     const handleSaveAndPublish = async () => {
         if (!user) return;

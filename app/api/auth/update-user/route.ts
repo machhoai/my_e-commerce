@@ -41,6 +41,9 @@ export async function POST(request: Request) {
                 if (targetDoc.exists && targetDoc.data()?.role !== 'employee') {
                     return NextResponse.json({ error: 'Quản lý chỉ có thể chỉnh sửa nhân viên' }, { status: 403 });
                 }
+                if (requesterDoc.data()?.canManageHR !== true) {
+                    return NextResponse.json({ error: 'Bạn không có quyền quản lý nhân sự' }, { status: 403 });
+                }
             }
         }
 
@@ -57,14 +60,15 @@ export async function POST(request: Request) {
         if (body.education !== undefined) updateData.education = body.education;
         if (body.phone !== undefined) updateData.phone = body.phone;
 
-        // Fields ONLY Admin can update, OR Manager can update when editing an employee
-        if (requesterRole === 'admin' || (requesterRole === 'manager' && requestUid !== targetUid)) {
+        // Fields ONLY Admin can update, OR Manager (with canManageHR) can update when editing an employee
+        if (requesterRole === 'admin' || (requesterRole === 'manager' && requestUid !== targetUid && requesterDoc.data()?.canManageHR === true)) {
             if (body.type !== undefined) updateData.type = body.type;
         }
 
         // Fields ONLY Admin can update
         if (requesterRole === 'admin') {
             if (body.role !== undefined) updateData.role = body.role;
+            if (body.canManageHR !== undefined) updateData.canManageHR = Boolean(body.canManageHR);
         }
 
         updateData.updatedAt = new Date().toISOString();

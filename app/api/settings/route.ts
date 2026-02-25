@@ -31,6 +31,11 @@ export async function GET(req: NextRequest) {
                     defaultWeekday: defaultWeekdayQuota,
                     defaultWeekend: defaultWeekendQuota,
                     specialDates: {}
+                },
+                monthlyQuotas: {
+                    ftDaysOff: 4,
+                    ptMinShifts: 10,
+                    ptMaxShifts: 25
                 }
             };
             return NextResponse.json(defaults);

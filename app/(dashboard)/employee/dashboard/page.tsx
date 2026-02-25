@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, getDocs, doc, getDoc } from 'firebase/firestore';
-import { ScheduleDoc, CounterDoc } from '@/types';
-import { getWeekStart, getWeekDays, formatDate } from '@/lib/utils';
-import { Calendar as CalendarIcon, Clock, MapPin, ChevronLeft, ChevronRight, Activity } from 'lucide-react';
+import { ScheduleDoc, SettingsDoc } from '@/types';
+import { getWeekStart, getWeekDays, formatDate, toLocalDateString, cn } from '@/lib/utils';
+import { Calendar as CalendarIcon, Clock, MapPin, ChevronLeft, ChevronRight, Activity, TrendingUp } from 'lucide-react';
 
 export default function EmployeeDashboardPage() {
     const { user, userDoc } = useAuth();
@@ -14,7 +14,9 @@ export default function EmployeeDashboardPage() {
     const weekDays = getWeekDays(currentWeekStart);
 
     const [schedules, setSchedules] = useState<ScheduleDoc[]>([]);
+    const [monthlySchedules, setMonthlySchedules] = useState<ScheduleDoc[]>([]);
     const [counters, setCounters] = useState<Record<string, string>>({});
+    const [settings, setSettings] = useState<SettingsDoc | null>(null);
     const [loading, setLoading] = useState(true);
 
     // Real-time listener for current user's schedules
@@ -23,50 +25,63 @@ export default function EmployeeDashboardPage() {
 
         setLoading(true);
 
-        const fetchCounters = async () => {
+        const fetchCountersAndSettings = async () => {
             try {
-                // Trỏ đích danh vào document 'global' trong collection 'settings'
                 const docRef = doc(db, 'settings', 'global');
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    const countersArray = data.counters || []; // Lấy mảng counters ra, nếu không có thì gán mảng rỗng
-                    const map: Record<string, string> = {};
+                    const data = docSnap.data() as SettingsDoc;
+                    setSettings(data);
 
-                    // Duyệt qua từng phần tử trong mảng
+                    const countersArray = (data as any).counters || [];
+                    const map: Record<string, string> = {};
                     countersArray.forEach((counter: any) => {
-                        // Giả sử object counter của bạn lưu tên ở field 'name'
                         map[counter.id] = counter.name;
                     });
-
                     setCounters(map);
-                } else {
-                    console.log("Không tìm thấy cấu hình global trong settings!");
                 }
             } catch (err) {
-                console.error("Lỗi khi tải danh sách quầy:", err);
+                console.error("Lỗi khi tải cấu hình:", err);
             }
         };
 
-        fetchCounters();
+        fetchCountersAndSettings();
 
-        // Query schedules where this employee is assigned
-        const q = query(
+        // 2. Query schedules where this employee is assigned (For current week display)
+        const qWeek = query(
             collection(db, 'schedules'),
             where('employeeIds', 'array-contains', user.uid)
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsubscribeWeek = onSnapshot(qWeek, (snapshot) => {
             const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ScheduleDoc));
             setSchedules(docs);
             setLoading(false);
-        }, (err) => {
-            console.error('Lỗi khi tải lịch làm việc:', err);
-            setLoading(false);
         });
 
-        return () => unsubscribe();
+        // 3. Fetch monthly schedules
+        const fetchMonthly = async () => {
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = d.getMonth();
+            const startOfMonthStr = toLocalDateString(new Date(year, month, 1));
+            const endOfMonthStr = toLocalDateString(new Date(year, month + 1, 0));
+
+            const mQuery = query(
+                collection(db, 'schedules'),
+                where('employeeIds', 'array-contains', user.uid),
+                where('date', '>=', startOfMonthStr),
+                where('date', '<=', endOfMonthStr)
+            );
+
+            const snap = await getDocs(mQuery);
+            setMonthlySchedules(snap.docs.map(d => ({ id: d.id, ...d.data() } as ScheduleDoc)));
+        };
+
+        fetchMonthly();
+
+        return () => unsubscribeWeek();
     }, [user]);
 
     const handlePreviousWeek = () => {
@@ -89,6 +104,70 @@ export default function EmployeeDashboardPage() {
         acc[sched.date].push(sched);
         return acc;
     }, {} as Record<string, ScheduleDoc[]>);
+
+    const renderMonthlySummary = () => {
+        if (!userDoc) return null;
+
+        const todayStr = toLocalDateString(new Date());
+        // Only count completed shifts for this month
+        const completedShifts = monthlySchedules.filter(s => s.date < todayStr).length;
+
+        // Calculate max shifts
+        const d = new Date();
+        const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+
+        let maxShifts = 0;
+        let isDanger = false;
+        let isWarning = false;
+
+        if (userDoc.type === 'FT') {
+            const ftDaysOff = settings?.monthlyQuotas?.ftDaysOff ?? 4;
+            maxShifts = Math.max(0, daysInMonth - ftDaysOff);
+        } else {
+            maxShifts = settings?.monthlyQuotas?.ptMaxShifts ?? 25;
+        }
+
+        isDanger = completedShifts > maxShifts;
+        isWarning = completedShifts === maxShifts || completedShifts === maxShifts - 1;
+        const progress = Math.min((completedShifts / Math.max(1, maxShifts)) * 100, 100);
+
+        return (
+            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100 p-5 rounded-2xl shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                    <h3 className="text-sm font-bold text-indigo-900 uppercase tracking-wider mb-1 flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-indigo-500" />
+                        Tiến độ tháng {d.getMonth() + 1}
+                    </h3>
+                    <p className="text-xs text-indigo-700/80 font-medium">Chỉ tính các ca đã hoàn thành (hết ngày làm việc).</p>
+                </div>
+
+                <div className="flex-1 max-w-md w-full">
+                    <div className="flex items-end justify-between mb-2">
+                        <div className="flex items-baseline gap-1.5">
+                            <span className={cn(
+                                "text-3xl font-black w-8 tracking-tighter",
+                                isDanger ? "text-red-600" : isWarning ? "text-amber-600" : "text-indigo-600"
+                            )}>
+                                {completedShifts}
+                            </span>
+                            <span className="text-sm font-bold text-indigo-400">/</span>
+                            <span className="text-sm font-bold text-indigo-900">{maxShifts} ca</span>
+                        </div>
+                    </div>
+                    {/* Progress Bar */}
+                    <div className="w-full h-2.5 bg-indigo-100 rounded-full overflow-hidden">
+                        <div
+                            className={cn(
+                                "h-full rounded-full transition-all duration-1000",
+                                isDanger ? "bg-red-500" : isWarning ? "bg-amber-400" : "bg-indigo-500"
+                            )}
+                            style={{ width: `${progress}%` }}
+                        />
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     if (loading) {
         return (
@@ -132,6 +211,8 @@ export default function EmployeeDashboardPage() {
                     </button>
                 </div>
             </div>
+
+            {renderMonthlySummary()}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {weekDays.map((dateStr) => {

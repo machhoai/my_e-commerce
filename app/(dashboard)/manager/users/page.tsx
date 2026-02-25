@@ -8,7 +8,7 @@ import { UserDoc, EmployeeType } from '@/types';
 import { Users, Search, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Plus, MailPlus, KeyRound } from 'lucide-react';
 
 export default function ManagerUsersPage() {
-    const { user } = useAuth();
+    const { user, userDoc } = useAuth();
     const [employees, setEmployees] = useState<UserDoc[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -167,6 +167,16 @@ export default function ManagerUsersPage() {
         e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         e.phone.includes(searchTerm)
     );
+
+    if (!user || (userDoc?.role !== 'admin' && userDoc?.canManageHR !== true)) {
+        return (
+            <div className="flex flex-col items-center justify-center h-64 space-y-4">
+                <ShieldAlert className="w-12 h-12 text-red-500" />
+                <h2 className="text-xl font-bold text-slate-800">Không có quyền truy cập</h2>
+                <p className="text-slate-500">Bạn không được cấp quyền Quản lý Nhân sự.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6 max-w-6xl mx-auto">

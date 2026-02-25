@@ -27,6 +27,7 @@ export default function AdminUsersPage() {
     const [newIdCard, setNewIdCard] = useState('');
     const [newBankAccount, setNewBankAccount] = useState('');
     const [newEducation, setNewEducation] = useState('');
+    const [newCanManageHR, setNewCanManageHR] = useState(false);
 
     const [actionLoading, setActionLoading] = useState(false);
     const [actionMessage, setActionMessage] = useState({ type: '', text: '' });
@@ -64,7 +65,8 @@ export default function AdminUsersPage() {
                 email: newEmail,
                 idCard: newIdCard,
                 bankAccount: newBankAccount,
-                education: newEducation
+                education: newEducation,
+                canManageHR: newCanManageHR
             };
 
             if (editUid) {
@@ -101,7 +103,7 @@ export default function AdminUsersPage() {
     const resetForm = () => {
         setNewName(''); setNewPhone(''); setNewRole('employee'); setNewType('PT');
         setNewDob(''); setNewJobTitle(''); setNewEmail('');
-        setNewIdCard(''); setNewBankAccount(''); setNewEducation('');
+        setNewIdCard(''); setNewBankAccount(''); setNewEducation(''); setNewCanManageHR(false);
     };
 
     const openEditModal = (currentUser: UserDoc) => {
@@ -109,12 +111,15 @@ export default function AdminUsersPage() {
         setNewPhone(currentUser.phone);
         setNewRole(currentUser.role || 'employee');
         setNewType(currentUser.type || 'PT');
+        setNewJobTitle(currentUser.jobTitle || '');
+        setNewEmail(currentUser.email || '');
         setNewDob(currentUser.dob || '');
         setNewJobTitle(currentUser.jobTitle || '');
         setNewEmail(currentUser.email || '');
         setNewIdCard(currentUser.idCard || '');
         setNewBankAccount(currentUser.bankAccount || '');
         setNewEducation(currentUser.education || '');
+        setNewCanManageHR(currentUser.canManageHR || false);
         setEditUid(currentUser.uid);
         setIsCreateModalOpen(true);
     };
@@ -326,8 +331,8 @@ export default function AdminUsersPage() {
 
             {/* Create Modal */}
             {isCreateModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 z-50 -top-10 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
                                 <MailPlus className="w-5 h-5" />
@@ -389,14 +394,23 @@ export default function AdminUsersPage() {
                                             </select>
                                         </div>
                                     </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-slate-700">Ngày sinh</label>
-                                        <input
-                                            type="date"
-                                            value={newDob} onChange={e => setNewDob(e.target.value)}
-                                            className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-red-500 focus:border-red-500 block p-2.5"
-                                        />
-                                    </div>
+
+                                    {newRole !== 'admin' && (
+                                        <div className="space-y-1.5 mt-2">
+                                            <label className="flex items-center gap-2 cursor-pointer p-3 border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={newCanManageHR}
+                                                    onChange={(e) => setNewCanManageHR(e.target.checked)}
+                                                    className="w-4 h-4 text-red-600 rounded focus:ring-red-500 cursor-pointer"
+                                                />
+                                                <div>
+                                                    <span className="text-sm font-semibold text-slate-800">Quyền Quản lý Nhân sự & Xếp lịch</span>
+                                                    <p className="text-[10px] text-slate-500 mt-0.5">Cho phép thêm, sửa, tắt hoạt động nhân viên và phân ca.</p>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Extended Details */}
@@ -472,8 +486,9 @@ export default function AdminUsersPage() {
                             </div>
                         </form>
                     </div>
-                </div>
-            )}
-        </div>
+                </div >
+            )
+            }
+        </div >
     );
 }

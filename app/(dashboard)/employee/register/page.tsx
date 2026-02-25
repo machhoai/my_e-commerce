@@ -193,18 +193,8 @@ export default function EmployeeRegisterPage() {
             }
 
             // 1. Enforce shift limits immediately where possible to prevent bad state
-            if (type === 'FT') {
-                // FT: Only 1 shift per day allowed. If selecting new, replace the old one for convenience.
-                newSelections[dayIndex] = [shiftId];
-            } else {
-                // PT: Up to 2 per day
-                if (dayShifts.length >= 2) {
-                    setError(`Nhân viên bán thời gian chỉ được chọn tối đa 2 ca mỗi ngày.`);
-                    return;
-                }
-                dayShifts.push(shiftId);
-                newSelections[dayIndex] = dayShifts;
-            }
+            // NEW RULE: Both FT and PT now only 1 shift per day allowed
+            newSelections[dayIndex] = [shiftId];
         }
 
         setSelectedShifts(newSelections);
@@ -215,59 +205,55 @@ export default function EmployeeRegisterPage() {
         const role = userDoc?.role || 'employee';
         const warnings: string[] = [];
 
-        // FT Rules: Exactly 1 shift/day on working days, at least 1 day completely empty (unless overridden by mandatory days)
-        if (type === 'FT') {
-            let emptyDays = 0;
-            for (let i = 0; i < 7; i++) {
-                const count = selectedShifts[i].length;
-                if (count === 0) {
-                    emptyDays++;
-                } else if (count > 1) {
-                    return { valid: false, message: `Nhân viên toàn thời gian phải chọn đúng 1 ca vào các ngày đi làm.` };
-                }
-            }
+        // NEW RULES:
+        // - PT: Max 1 shift/day (handled in toggleShift), Total > 0
+        // - FT & Manager: Exactly 1 empty day, No Sat/Sun off, Max 1 shift/day
 
-            if (emptyDays === 7) {
-                return { valid: false, message: "Vui lòng chọn lịch làm việc trong tuần." };
+        let emptyDays = 0;
+        let workDaysCount = 0;
+
+        for (let i = 0; i < 7; i++) {
+            const count = selectedShifts[i].length;
+            if (count === 0) {
+                emptyDays++;
+            } else {
+                workDaysCount++;
+                if (count > 1) {
+                    return { valid: false, message: `Mỗi ngày đi làm chỉ được chọn tối đa 1 ca.` };
+                }
             }
         }
 
-        // PT Rules: Max 2/day, no mandatory off days
-        if (type === 'PT') {
-            let totalShifts = 0;
-            for (let i = 0; i < 7; i++) {
-                const count = selectedShifts[i].length;
-                totalShifts += count;
-                if (count > 2) {
-                    return { valid: false, message: `Nhân viên bán thời gian không được chọn quá 2 ca mỗi ngày.` };
-                }
-            }
-            if (totalShifts === 0) {
-                return { valid: false, message: "Vui lòng chọn ít nhất một ca làm việc." };
-            }
+        if (workDaysCount === 0) {
+            return { valid: false, message: "Vui lòng chọn lịch làm việc trong tuần." };
         }
 
-        // --- NEW RULES ---
-
-        // 1. Mandatory Weekend/Holiday Rule for FT and Managers
         if (type === 'FT' || role === 'manager') {
+            // Rule: Exactly 1 day off
+            if (emptyDays !== 1) {
+                return { valid: false, message: `${role === 'manager' ? 'Quản lý' : 'Nhân viên Toàn thời gian'} bắt buộc phải nghỉ đúng 1 ngày trong tuần.` };
+            }
+
+            // Rule: No Sat/Sun off
             for (let i = 0; i < 7; i++) {
                 const dateStr = weekDays[i];
-                if (isRestrictedDay(dateStr) && selectedShifts[i].length === 0) {
-                    const dayName = new Date(dateStr + "T00:00:00").toLocaleDateString('vi-VN', { weekday: 'long' });
-                    return { valid: false, message: `${role === 'manager' ? 'Quản lý' : 'Nhân viên Toàn thời gian'} phải đăng ký ít nhất một ca vào các ngày cuối tuần và ngày lễ đặc biệt (${dayName}, ${formatDate(dateStr)}).` };
+                const d = new Date(dateStr + "T00:00:00");
+                const day = d.getDay();
+                const isWeekend = day === 0 || day === 6;
+
+                if (isWeekend && selectedShifts[i].length === 0) {
+                    const dayName = d.toLocaleDateString('vi-VN', { weekday: 'long' });
+                    return { valid: false, message: `${role === 'manager' ? 'Quản lý' : 'Nhân viên Toàn thời gian'} không được phép nghỉ vào ngày cuối tuần (${dayName}).` };
                 }
             }
         }
 
-        // 2. Manager Single-Off-Day Rule - Changed to Warning
+        // Manager overlap warning
         if (role === 'manager') {
             for (let i = 0; i < 7; i++) {
-                const dateStr = weekDays[i];
-                if (selectedShifts[i].length === 0) { // Manager is taking this day off
-                    // Is another manager already off?
+                if (selectedShifts[i].length === 0) {
+                    const dateStr = weekDays[i];
                     const managersOff = getManagersOff(dateStr);
-                    // Filter out the current user just in case
                     const otherManagersOff = managersOff.filter(name => name !== userDoc?.name);
 
                     if (otherManagersOff.length > 0) {
@@ -417,16 +403,18 @@ export default function EmployeeRegisterPage() {
             <div className="bg-blue-50/50 border border-blue-100 p-4 rounded-xl flex items-start gap-3 text-blue-800 text-sm">
                 <Info className="w-5 h-5 shrink-0 text-blue-500 mt-0.5" />
                 <div>
-                    <strong className="block mb-1 text-blue-900">Quy tắc đăng ký cho nhân viên {isFT ? 'Toàn thời gian' : 'Bán thời gian'}:</strong>
-                    {isFT ? (
+                    <strong className="block mb-1 text-blue-900">Quy tắc đăng ký cho {userDoc?.role === 'manager' ? 'Quản lý' : `nhân viên ${isFT ? 'Toàn thời gian' : 'Bán thời gian'}`}:</strong>
+                    {userDoc?.role === 'manager' || isFT ? (
                         <ul className="list-disc pl-5 space-y-0.5 marker:text-blue-400 text-blue-700">
                             <li>Bạn phải chọn <strong>đúng 1 ca</strong> cho mỗi ngày đi làm.</li>
-                            <li>Bạn phải để trống <strong>ít nhất 1 ngày</strong> làm ngày nghỉ dự kiến.</li>
+                            <li>Bạn bắt buộc phải nghỉ <strong>đúng 1 ngày</strong> mỗi tuần.</li>
+                            <li>Không được chọn ngày nghỉ vào <strong>Thứ 7 hoặc Chủ nhật</strong>.</li>
+                            {userDoc?.role === 'manager' && <li>Hệ thống sẽ cảnh báo nếu bạn nghỉ trùng ngày với quản lý khác.</li>}
                         </ul>
                     ) : (
                         <ul className="list-disc pl-5 space-y-0.5 marker:text-blue-400 text-blue-700">
-                            <li>Bạn có thể chọn <strong>tối đa 2 ca</strong> một ngày.</li>
-                            <li>Không bắt buộc phải có ngày nghỉ.</li>
+                            <li>Bạn chỉ chọn <strong>tối đa 1 ca</strong> mỗi ngày.</li>
+                            <li>Không bắt buộc ngày nghỉ, nhưng có thể nghỉ nhiều ngày nếu muốn.</li>
                         </ul>
                     )}
                 </div>
