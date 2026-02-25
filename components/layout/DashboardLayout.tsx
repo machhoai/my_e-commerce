@@ -5,12 +5,32 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { StoreDoc } from '@/types';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { userDoc, logout, loading } = useAuth();
     const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [storeName, setStoreName] = useState<string>('');
+
+    useEffect(() => {
+        if (userDoc?.storeId && userDoc.role !== 'admin') {
+            const fetchStore = async () => {
+                try {
+                    const snap = await getDoc(doc(db, 'stores', userDoc.storeId!));
+                    if (snap.exists()) {
+                        setStoreName((snap.data() as StoreDoc).name);
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch store:", err);
+                }
+            };
+            fetchStore();
+        }
+    }, [userDoc]);
 
     if (loading) {
         return (
@@ -125,10 +145,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <h1 className="text-lg font-bold text-center bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
                     Quản lí nhân sự
                 </h1>
-                <p className="text-sm mt-2 text-slate-400">
+                <p className="text-sm text-center mt-2 text-slate-400">
                     Xin chào, {userDoc.name || 'Người dùng'}
                 </p>
-                <p className="text-xs text-slate-500 uppercase flex items-center gap-1 mt-1">
+                <p className="text-xs text-slate-500 uppercase flex items-center justify-center gap-1 mt-1">
                     <span className={cn(
                         'px-1.5 py-0.5 rounded text-[10px] font-bold',
                         roleBadgeClass[userDoc.role] ?? 'bg-slate-700 text-slate-300'
@@ -141,6 +161,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </span>
                     )}
                 </p>
+                {storeName && userDoc.role !== 'admin' && (
+                    <div className="mt-3 flex items-center justify-center gap-1.5 text-xs text-indigo-400 bg-indigo-500/10 px-2.5 py-1.5 rounded-lg border border-indigo-500/20 w-fit mx-auto">
+                        <Building2 className="w-3.5 h-3.5 shrink-0" />
+                        <span className="font-semibold text-center leading-tight">{storeName}</span>
+                    </div>
+                )}
             </div>
 
             <nav className="flex-1 px-4 space-y-2 mt-4">

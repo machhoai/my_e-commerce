@@ -56,12 +56,14 @@ export default function GlobalOverviewPage() {
             setLoading(true);
             try {
                 // 1. Load users filtered by storeId
-                let usersQuery = query(collection(db, 'users'), orderBy('name'));
+                let usersQuery = query(collection(db, 'users'));
                 if (effectiveStoreId) {
-                    usersQuery = query(collection(db, 'users'), where('storeId', '==', effectiveStoreId), orderBy('name'));
+                    usersQuery = query(collection(db, 'users'), where('storeId', '==', effectiveStoreId));
                 }
                 const usersSnap = await getDocs(usersQuery);
-                const allUsers = usersSnap.docs.map(d => d.data() as UserDoc).filter(u => u.role !== 'admin' && u.isActive !== false);
+                const allUsers = usersSnap.docs.map(d => d.data() as UserDoc)
+                    .filter(u => u.role !== 'admin' && u.isActive !== false)
+                    .sort((a, b) => a.name.localeCompare(b.name));
                 setUsers(allUsers);
 
                 // 2. Load settings
@@ -97,29 +99,20 @@ export default function GlobalOverviewPage() {
                 const minDate = toLocalDateString(days[0]);
                 const maxDate = toLocalDateString(days[6]);
 
-                let schedsQuery = query(
+                const schedulesQuery = query(
                     collection(db, 'schedules'),
                     where('date', '>=', minDate),
                     where('date', '<=', maxDate)
                 );
-                if (effectiveStoreId) {
-                    schedsQuery = query(
-                        collection(db, 'schedules'),
-                        where('date', '>=', minDate),
-                        where('date', '<=', maxDate),
-                        where('storeId', '==', effectiveStoreId)
-                    );
-                }
-                // Fall back to client-side filter if schedules don't have storeId yet
-                const schedsSnap = await getDocs(collection(db, 'schedules'));
-                const weekScheds = schedsSnap.docs
-                    .map(d => d.data() as ScheduleDoc)
-                    .filter(s => {
-                        const inRange = s.date >= minDate && s.date <= maxDate;
-                        const inStore = !effectiveStoreId || s.storeId === effectiveStoreId || s.storeId === undefined;
-                        return inRange && inStore;
-                    });
+
+                const schedulesSnap = await getDocs(schedulesQuery);
+
+                // We fetch all schedules for the week. Since we already filtered users
+                // and counters by storeId, we don't strictly need to filter schedules.
+                // The UI will only show schedules that match the rendered users/counters.
+                const weekScheds = schedulesSnap.docs.map(d => d.data() as ScheduleDoc);
                 setSchedules(weekScheds);
+
             } catch (err) {
                 console.error("Failed to load overview data:", err);
             } finally {
