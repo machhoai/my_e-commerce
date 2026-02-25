@@ -126,6 +126,7 @@ export default function GlobalOverviewPage() {
         return <div className="p-8 text-center text-red-500 font-bold">Không có quyền truy cập.</div>;
     }
 
+
     const previousWeek = () => {
         const d = new Date(currentWeekStart);
         d.setDate(d.getDate() - 7);

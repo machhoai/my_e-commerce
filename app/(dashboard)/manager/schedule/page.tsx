@@ -338,7 +338,7 @@ export default function ManagerSchedulePage() {
                     <div className="flex items-center justify-between pt-4 border-t border-slate-200 mb-4">
                         <div className="text-sm text-slate-500 font-medium bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200/60 flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                            Thay đổi được lưu tự động. Nhấn Công khai để gửi lịch cho nhân viên.
+                            Nhấn Công khai để lưu và gửi lịch cho nhân viên.
                         </div>
                         <button
                             onClick={handleSaveAndPublish}

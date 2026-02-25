@@ -200,7 +200,7 @@ export default function EmployeeDashboardPage() {
                     >
                         <ChevronLeft className="w-5 h-5" />
                     </button>
-                    <div className="text-sm font-semibold text-slate-700 min-w-[140px] text-center bg-slate-50 py-1.5 px-3 rounded-md">
+                    <div className="text-sm flex-1 font-semibold text-slate-700 min-w-[140px] text-center bg-slate-50 py-1.5 px-3 rounded-md">
                         {formatDate(weekDays[0])} <span className="text-slate-400 font-normal mx-1">đến</span> {formatDate(weekDays[6])}
                     </div>
                     <button
