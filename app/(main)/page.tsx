@@ -134,6 +134,16 @@ export default function BioPage() {
                 </div>
             </div>
 
+            {/* Staff Access Link */}
+            <div className="relative z-10 w-full max-w-md flex justify-center mt-12 mb-4">
+                <a
+                    href="/employee/dashboard"
+                    className="text-white/50 hover:text-yellow-400 text-sm flex items-center gap-2 transition-colors duration-300"
+                >
+                    Bạn là nhân viên B.Duck Cityfuns Vietnam?
+                </a>
+            </div>
+
             <style jsx global>{`
                 .animate-fade-in {
                     animation: fadeIn 0.5s ease-in-out;
