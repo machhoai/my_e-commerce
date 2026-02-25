@@ -303,9 +303,10 @@ export default function EmployeeRegisterPage() {
             const payload: WeeklyRegistration = {
                 id: regId,
                 userId: user.uid,
+                storeId: userDoc?.storeId ?? '',
                 weekStartDate: toLocalDateString(currentWeekStart),
                 shifts: shiftsToSave,
-                submittedAt: new Date().toISOString()
+                submittedAt: new Date().toISOString(),
             };
 
             await setDoc(doc(db, 'weekly_registrations', regId), payload);

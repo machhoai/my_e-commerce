@@ -15,8 +15,18 @@ export async function POST(req: NextRequest) {
 
         const callerRole = callerDoc.data()?.role;
         const canManageHR = callerDoc.data()?.canManageHR;
+        const callerStoreId = callerDoc.data()?.storeId;
 
-        if (callerRole !== 'admin' && (callerRole !== 'manager' || canManageHR !== true)) {
+        // Who can toggle?
+        // admin: anyone
+        // store_manager: manager and employee in their own store
+        // manager (with canManageHR): employee in their own store
+        const isAllowed =
+            callerRole === 'admin' ||
+            callerRole === 'store_manager' ||
+            (callerRole === 'manager' && canManageHR === true);
+
+        if (!isAllowed) {
             return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 403 });
         }
 
@@ -27,13 +37,25 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Thiếu thông tin bắt buộc' }, { status: 400 });
         }
 
-        // Prevent manager from deactivating admins or other managers
-        if (callerRole === 'manager') {
-            const targetDoc = await adminDb.collection('users').doc(targetUid).get();
-            if (!targetDoc.exists) return NextResponse.json({ error: 'Không tìm thấy người dùng' }, { status: 404 });
-            const targetRole = targetDoc.data()?.role;
+        const targetDoc = await adminDb.collection('users').doc(targetUid).get();
+        if (!targetDoc.exists) return NextResponse.json({ error: 'Không tìm thấy người dùng' }, { status: 404 });
+        const targetRole = targetDoc.data()?.role;
+        const targetStoreId = targetDoc.data()?.storeId;
+
+        if (callerRole === 'store_manager') {
+            // store_manager can toggle manager and employee in their store only
+            if (!['manager', 'employee'].includes(targetRole)) {
+                return NextResponse.json({ error: 'Cửa hàng trưởng chỉ có thể thao tác với Quản lý và Nhân viên' }, { status: 403 });
+            }
+            if (targetStoreId !== callerStoreId) {
+                return NextResponse.json({ error: 'Không thể thao tác với người dùng từ cửa hàng khác' }, { status: 403 });
+            }
+        } else if (callerRole === 'manager') {
             if (targetRole !== 'employee') {
                 return NextResponse.json({ error: 'Quản lý chỉ có thể thay đổi trạng thái nhân viên' }, { status: 403 });
+            }
+            if (targetStoreId !== callerStoreId) {
+                return NextResponse.json({ error: 'Không thể thao tác với người dùng từ cửa hàng khác' }, { status: 403 });
             }
         }
 

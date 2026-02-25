@@ -2,8 +2,16 @@
 // Firestore Collection Types
 // ============================================================
 
-export type UserRole = 'admin' | 'manager' | 'employee';
+export type UserRole = 'admin' | 'store_manager' | 'manager' | 'employee';
 export type EmployeeType = 'FT' | 'PT';
+
+export interface StoreDoc {
+    id: string;
+    name: string;
+    address?: string;
+    isActive: boolean;
+    createdAt?: string;
+}
 
 export interface UserDoc {
     uid: string;
@@ -13,6 +21,7 @@ export interface UserDoc {
     type: EmployeeType;
     isActive: boolean;
     createdAt?: string;
+    storeId?: string; // Which store this user belongs to (undefined only for admin)
 
     // Extended Profile Fields
     dob?: string;
@@ -29,12 +38,13 @@ export interface UserDoc {
 export interface CounterDoc {
     id: string;
     name: string;
+    storeId: string; // Each counter now belongs to a specific store
 }
 
 export interface SettingsDoc {
     id: 'global';
     registrationOpen: boolean;
-    shiftTimes: string[]; // e.g. ["08:00-12:00", "12:00-17:00", "17:00-22:00"]
+    shiftTimes: string[]; // e.g. ["Ca 1", "Ca 2"]
     quotas?: {
         defaultWeekday: Record<string, number>; // shiftId -> max quota
         defaultWeekend: Record<string, number>; // shiftId -> max quota
@@ -55,16 +65,18 @@ export interface ShiftEntry {
 export interface WeeklyRegistration {
     id: string;
     userId: string;
+    storeId: string;
     weekStartDate: string; // ISO date string for the Monday of the week
     shifts: ShiftEntry[];
     submittedAt?: string;
 }
 
 export interface ScheduleDoc {
-    id: string;            // "{date}_{shiftId}" e.g. "2024-01-15_08:00-12:00"
+    id: string;            // "{date}_{shiftId}_{counterId}" or "{date}_{shiftId}"
     date: string;
     shiftId: string;
     counterId: string;
+    storeId: string;
     employeeIds: string[]; // array of user UIDs
     publishedAt?: string;
     publishedBy?: string;

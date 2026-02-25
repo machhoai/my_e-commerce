@@ -32,7 +32,7 @@ export default function RootLayout({
                 <Script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></Script>
                 <Script noModule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></Script>
             </head>
-            <body className={`${inter.className} min-h-dvh w-full relative overflow-x-hidden flex flex-col`}>
+            <body className={`${inter.className} min-h-dvh w-full relative overflow-x-hidden flex flex-col`} suppressHydrationWarning>
                 <AuthProvider>
                     {children}
                 </AuthProvider>

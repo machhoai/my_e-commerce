@@ -141,7 +141,7 @@ export default function AdminSettingsPage() {
 
         setCounters([
             ...counters,
-            { id: `counter_${generateId()}`, name: newCounter.trim() }
+            { id: `counter_${generateId()}`, name: newCounter.trim(), storeId: '' }
         ]);
         setNewCounter('');
         setSuccess('Đã thêm quầy. Nhớ bấm Lưu.');

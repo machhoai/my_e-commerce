@@ -3,59 +3,86 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-    const { userDoc, logout } = useAuth();
+    const { userDoc, logout, loading } = useAuth();
     const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = useState(false);
 
-    if (!userDoc) return null;
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-950">
+                <div className="flex flex-col items-center gap-3">
+                    <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-slate-400 text-sm">Đang tải...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!userDoc) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-950">
+                <div className="flex flex-col items-center gap-4 text-center px-4">
+                    <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-slate-300 text-sm">Đang kết nối...</p>
+                    <button
+                        onClick={logout}
+                        className="text-xs text-red-400 hover:text-red-300 underline mt-2"
+                    >
+                        Đăng xuất
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
 
     const routes = [
         {
             label: 'Lịch của tôi',
             href: '/employee/dashboard',
             icon: Calendar,
-            show: true,
+            show: userDoc?.role !== 'admin',
         },
         {
             label: 'Đăng ký ca làm',
             href: '/employee/register',
             icon: Calendar,
-            show: true,
+            show: userDoc?.role !== 'admin',
         },
         {
             label: 'Hồ sơ cá nhân',
             href: '/profile',
             icon: User,
-            show: true,
+            show: userDoc?.role !== 'admin',
         },
         {
             label: 'Xếp lịch (Quản lý)',
             href: '/manager/schedule',
             icon: Users,
-            show: userDoc?.role === 'admin' || userDoc?.canManageHR === true,
+            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || userDoc?.canManageHR === true,
         },
         {
             label: 'Lịch tổng quan',
             href: '/manager/overview',
             icon: Calendar,
-            show: userDoc?.role === 'admin' || userDoc?.canManageHR === true,
+            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || userDoc?.role === 'manager' || userDoc?.canManageHR === true,
         },
         {
             label: 'Lịch sử & Thống kê',
             href: '/manager/history',
             icon: Calendar,
-            show: userDoc?.role === 'admin' || userDoc?.canManageHR === true,
+            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || userDoc?.role === 'manager' || userDoc?.canManageHR === true,
         },
         {
             label: 'Quản lý nhân viên',
             href: '/manager/users',
             icon: Users,
-            show: userDoc?.role === 'admin' || userDoc?.canManageHR === true,
+            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || userDoc?.canManageHR === true,
         },
         {
             label: 'Quản lý người dùng',
@@ -64,24 +91,39 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             show: userDoc?.role === 'admin',
         },
         {
+            label: 'Quản lý Cửa hàng',
+            href: '/admin/stores',
+            icon: Building2,
+            show: userDoc?.role === 'admin',
+        },
+        {
             label: 'Cài đặt hệ thống',
             href: '/admin/settings',
             icon: SettingsIcon,
-            show: userDoc.role === 'admin',
+            show: userDoc?.role === 'admin',
         },
     ];
 
     const roleLabelMap: Record<string, string> = {
-        admin: 'admin',
+        admin: 'quản trị viên',
+        store_manager: 'cửa hàng trưởng',
         manager: 'quản lý',
         employee: 'nhân viên',
+    };
+
+    const roleBadgeClass: Record<string, string> = {
+        admin: 'bg-red-500/20 text-red-400',
+        store_manager: 'bg-purple-500/20 text-purple-400',
+        manager: 'bg-amber-500/20 text-amber-400',
+        employee: 'bg-green-500/20 text-green-400',
     };
 
     const SidebarContent = () => (
         <>
             <div className="p-6">
-                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-                    SchedulePro
+                <img src="/logo.png" alt="logo" className="w-full h-16 object-contain" />
+                <h1 className="text-lg font-bold text-center bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+                    Quản lí nhân sự
                 </h1>
                 <p className="text-sm mt-2 text-slate-400">
                     Xin chào, {userDoc.name || 'Người dùng'}
@@ -89,9 +131,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <p className="text-xs text-slate-500 uppercase flex items-center gap-1 mt-1">
                     <span className={cn(
                         'px-1.5 py-0.5 rounded text-[10px] font-bold',
-                        userDoc.role === 'admin' ? 'bg-red-500/20 text-red-400' :
-                            userDoc.role === 'manager' ? 'bg-amber-500/20 text-amber-400' :
-                                'bg-green-500/20 text-green-400'
+                        roleBadgeClass[userDoc.role] ?? 'bg-slate-700 text-slate-300'
                     )}>
                         {roleLabelMap[userDoc.role] ?? userDoc.role}
                     </span>
