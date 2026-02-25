@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+    metadataBase: new URL("https://bduckcityfunsvietnam.vercel.app"),
     title: "B.Duck Cityfuns Vietnam",
     description: "B.Duck Cityfuns Vietnam",
     icons: {
@@ -18,6 +19,28 @@ export const metadata: Metadata = {
         apple: [
             { url: "/apple-touch-icon.png" },
         ],
+    },
+    openGraph: {
+        title: "B.Duck Cityfuns Vietnam",
+        description: "Be Playful • Be Fun • B.Duck",
+        url: "https://bduckcityfunsvietnam.vercel.app",
+        siteName: "B.Duck Cityfuns Vietnam",
+        images: [
+            {
+                url: "/Artboard.png",
+                width: 1200,
+                height: 630,
+                alt: "B.Duck Cityfuns Vietnam Thumbnail",
+            },
+        ],
+        locale: "vi_VN",
+        type: "website",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "B.Duck Cityfuns Vietnam",
+        description: "Be Playful • Be Fun • B.Duck",
+        images: ["/Artboard.png"],
     },
 };
 
