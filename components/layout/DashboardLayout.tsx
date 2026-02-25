@@ -213,6 +213,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <LogOut className="w-4 h-4" />
                     Đăng xuất
                 </button>
+                <div className="mt-3 pt-3 border-t border-slate-800/60 text-center">
+                    <p className="text-[10px] text-slate-600 leading-tight">
+                        Thiết kế &amp; phát triển bởi
+                    </p>
+                    <p className="text-[11px] font-semibold text-slate-500 tracking-wide mt-0.5">
+                        Mạch Hoài
+                    </p>
+                    <p className="text-[9px] text-slate-700 mt-0.5 leading-tight">
+                        IT &amp; Đào tạo
+                    </p>
+                    <p className="text-[9px] text-slate-700 leading-tight">
+                        Công ty TNHH JoyWorld Entertainment
+                    </p>
+                </div>
             </div>
         </>
     );
