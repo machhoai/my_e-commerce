@@ -3,18 +3,24 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Shield } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Shield, BellRing } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { StoreDoc } from '@/types';
 
+import { usePushNotifications } from '@/hooks/usePushNotifications';
+import NotificationBell from './NotificationBell';
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { userDoc, logout, loading, hasPermission } = useAuth();
     const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [storeName, setStoreName] = useState<string>('');
+
+    // Initialize Push Notifications hook (handles permission request and saving token)
+    usePushNotifications();
 
     useEffect(() => {
         if (userDoc?.storeId && userDoc.role !== 'admin') {
@@ -134,6 +140,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             icon: SettingsIcon,
             show: userDoc?.role === 'admin',
         },
+        {
+            label: 'Gửi thông báo',
+            href: '/admin/broadcast',
+            icon: BellRing,
+            show: userDoc?.role === 'admin',
+        },
     ];
 
     const roleLabelMap: Record<string, string> = {
@@ -244,15 +256,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <SidebarContent />
             </aside>
 
-            {/* Mobile Hamburger Button */}
-            <button
-                className="md:hidden fixed top-4 left-4 z-50 bg-slate-900 text-slate-100 p-2 rounded-lg shadow-lg border border-slate-800"
-                onClick={() => setMobileOpen(true)}
-                aria-label="Mở menu"
-            >
-                <Menu className="w-5 h-5" />
-            </button>
-
             {/* Mobile Drawer Overlay */}
             {mobileOpen && (
                 <div className="md:hidden fixed inset-0 z-40 flex">
@@ -276,8 +279,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
 
             {/* Main Content */}
-            <main className="flex-1 p-4 md:p-8 h-screen overflow-y-auto">
-                <div className="mx-auto pt-14 md:pt-0">
+            <main className="flex-1 h-screen overflow-y-auto flex flex-col">
+                {/* Header Topbar */}
+                <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 h-16 flex items-center justify-between xl:justify-end md:px-8">
+                    {/* Mobile Hamburger Button */}
+                    <button
+                        className="md:hidden text-slate-600 hover:text-slate-900 p-2 -ml-2 rounded-lg"
+                        onClick={() => setMobileOpen(true)}
+                        aria-label="Mở menu"
+                    >
+                        <Menu className="w-6 h-6" />
+                    </button>
+
+                    {/* Right aligned actions (Notification Bell) */}
+                    <div className="flex items-center gap-4">
+                        <NotificationBell />
+
+                        {/* Mobile User Info */}
+                        <div className="md:hidden flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                                {userDoc.name.charAt(0)}
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <div className="mx-auto p-4 md:p-8 w-full max-w-7xl">
                     {children}
                 </div>
             </main>

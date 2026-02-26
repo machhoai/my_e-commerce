@@ -24,6 +24,11 @@ export function getAdminAuth(): Auth {
     return getAuth(getAdminApp());
 }
 
+export function getAdminMessaging() {
+    const { getMessaging } = require('firebase-admin/messaging');
+    return getMessaging(getAdminApp());
+}
+
 export function getAdminDb(): Firestore {
     return getFirestore(getAdminApp());
 }

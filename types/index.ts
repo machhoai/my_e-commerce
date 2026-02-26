@@ -81,6 +81,19 @@ export interface UserDoc {
     // Permissions
     canManageHR?: boolean;
     customRoleId?: string; // Points to a document in 'custom_roles' collection
+    fcmToken?: string; // Firebase Cloud Messaging registration token
+}
+
+export interface NotificationDoc {
+    id: string;
+    userId: string;
+    storeId?: string;
+    title: string;
+    body: string;
+    type: 'SYSTEM' | 'SWAP_REQUEST' | 'APPROVAL' | 'GENERAL';
+    isRead: boolean;
+    actionLink?: string;
+    createdAt: string;
 }
 
 export interface CounterDoc {
