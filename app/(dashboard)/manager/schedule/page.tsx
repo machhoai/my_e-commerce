@@ -12,9 +12,9 @@ import { Calendar, Clock, Save, AlertCircle, CheckCircle2, ChevronDown, ChevronL
 export default function ManagerSchedulePage() {
     const { user, userDoc } = useAuth();
 
-    const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date()));
+    const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000)));
     const weekDays = getWeekDays(currentWeekStart);
-    const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()));
+    const [selectedDate, setSelectedDate] = useState(toLocalDateString(getWeekStart(new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000))));
     const [selectedShiftId, setSelectedShiftId] = useState<string>('');
 
     const [shiftTimes, setShiftTimes] = useState<string[]>([]);
@@ -307,12 +307,12 @@ export default function ManagerSchedulePage() {
                             <p className="text-slate-500 mt-1">Kéo nhân viên đã đăng ký vào các quầy để phân công ca làm.</p>
                         </div>
 
-                        <div className="flex items-center gap-4 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-                            <div className="flex items-center gap-2">
+                        <div className="flex items-stretch flex-col md:flex-row gap-4">
+                            <div className="flex items-center justify-center w-full gap-2 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
                                 <button onClick={handlePreviousWeek} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
                                     <ChevronLeft className="w-5 h-5" />
                                 </button>
-                                <div className="text-sm font-semibold text-slate-700 min-w-[140px] text-center hidden md:block">
+                                <div className="text-sm font-semibold text-slate-700 min-w-[140px] text-center flex-1 truncate">
                                     {formatDate(weekDays[0])} - {formatDate(weekDays[6])}
                                 </div>
                                 <button onClick={handleNextWeek} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
@@ -320,14 +320,14 @@ export default function ManagerSchedulePage() {
                                 </button>
                             </div>
 
-                            <div className="w-px h-8 bg-slate-200" />
+                            <div className="w-px items-stretch bg-slate-200 hidden md:block" />
 
-                            <div className="relative">
-                                <Clock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <div className="relative w-full h-full bg-white p-2 rounded-xl shadow-sm border border-slate-200">
+                                <Clock className="size-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <select
                                     value={selectedShiftId}
                                     onChange={e => setSelectedShiftId(e.target.value)}
-                                    className="pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer min-w-[140px]"
+                                    className="pl-10 pr-8 py-2 w-full h-full text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer min-w-[140px]"
                                 >
                                     {shiftTimes.length === 0 && <option value="">Không có ca làm nào</option>}
                                     {shiftTimes.map(shift => <option key={shift} value={shift}>{shift}</option>)}
@@ -356,7 +356,7 @@ export default function ManagerSchedulePage() {
                                             }`}
                                     >
                                         <span className={`text-xs font-semibold uppercase ${isSelected ? 'text-blue-600' : 'text-slate-400'}`}>{dayName}</span>
-                                        <span className={`text-lg font-bold mt-0.5 ${isSelected ? 'text-blue-800' : 'text-slate-700'}`}>{dateNum}</span>
+                                        <span className={`text-lg font-bold mt-0.5 truncate ${isSelected ? 'text-blue-800' : 'text-slate-700'}`}>{dateNum}</span>
                                         {isToday && !isSelected && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1"></span>}
                                     </button>
                                 );
@@ -401,7 +401,7 @@ export default function ManagerSchedulePage() {
                             className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-2.5 rounded-xl font-semibold transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
-                            Lưu thủ công
+                            Lưu lịch làm việc
                         </button>
                     </div>
                 </>

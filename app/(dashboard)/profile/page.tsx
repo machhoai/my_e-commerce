@@ -202,10 +202,10 @@ export default function ProfilePage() {
                             </div>
 
                             <div className="space-y-1.5 group">
-                                <label className={`text-sm font-semibold flex items-center gap-2 ${isEditing ? 'text-blue-600' : 'text-slate-500'}`}>
-                                    <CreditCard className={`w-4 h-4 ${isEditing ? 'text-blue-500' : 'text-slate-400'}`} /> Tài khoản ngân hàng
+                                <label className={`text-sm font-semibold flex items-center gap-2 ${isEditing && ['admin', 'store_manager', 'manager'].includes(profileData.role) ? 'text-blue-600' : 'text-slate-500'}`}>
+                                    <CreditCard className={`w-4 h-4 ${isEditing && ['admin', 'store_manager', 'manager'].includes(profileData.role) ? 'text-blue-500' : 'text-slate-400'}`} /> Tài khoản ngân hàng
                                 </label>
-                                {isEditing ? (
+                                {isEditing && ['admin', 'store_manager', 'manager'].includes(profileData.role) ? (
                                     <input
                                         type="text"
                                         value={editData.bankAccount || ''}
@@ -214,7 +214,10 @@ export default function ProfilePage() {
                                         placeholder="Tên Ngân hàng - Số tài khoản"
                                     />
                                 ) : (
-                                    <div className="text-slate-900 font-medium px-1">{profileData.bankAccount || <span className="text-slate-400 italic">Chưa cung cấp</span>}</div>
+                                    <>
+                                        <div className="text-slate-900 font-medium px-1">{profileData.bankAccount || <span className="text-slate-400 italic">Chưa cung cấp</span>}</div>
+                                        {isEditing && <p className="text-[10px] text-slate-400 ml-1">Liên hệ quản lý để thay đổi.</p>}
+                                    </>
                                 )}
                             </div>
 

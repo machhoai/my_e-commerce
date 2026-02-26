@@ -68,7 +68,12 @@ export async function POST(request: Request) {
         if (body.jobTitle !== undefined) updateData.jobTitle = body.jobTitle;
         if (body.email !== undefined) updateData.email = body.email;
         if (body.idCard !== undefined) updateData.idCard = body.idCard;
-        if (body.bankAccount !== undefined) updateData.bankAccount = body.bankAccount;
+
+        const canEditBankAccount = (requestUid !== targetUid) || ['admin', 'store_manager', 'manager'].includes(requesterRole);
+        if (body.bankAccount !== undefined && canEditBankAccount) {
+            updateData.bankAccount = body.bankAccount;
+        }
+
         if (body.education !== undefined) updateData.education = body.education;
         if (body.phone !== undefined) updateData.phone = body.phone;
 

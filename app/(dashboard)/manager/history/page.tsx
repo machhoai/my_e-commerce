@@ -230,7 +230,7 @@ export default function ManagerHistoryPage() {
                                 <button onClick={handlePreviousMonth} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
                                     <ChevronLeft className="w-5 h-5" />
                                 </button>
-                                <div className="text-sm font-semibold text-slate-700 min-w-[140px] text-center capitalize">
+                                <div className="text-sm flex-1 font-semibold text-slate-700 min-w-[140px] text-center capitalize">
                                     Tháng {currentMonth.getMonth() + 1}/{currentMonth.getFullYear()}
                                 </div>
                                 <button onClick={handleNextMonth} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
@@ -264,16 +264,16 @@ export default function ManagerHistoryPage() {
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left text-sm text-slate-600">
                                     <thead className="bg-slate-50 text-slate-500 uppercase text-xs border-b border-slate-200">
-                                        <tr>
-                                            <th className="px-6 py-4 font-semibold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => toggleSort('name')}>
-                                                <div className="flex items-center gap-2">Nhân viên <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" /></div>
+                                        <tr className=''>
+                                            <th className="px-6 py-4 font-semibold cursor-pointer text-center hover:bg-slate-100 transition-colors" onClick={() => toggleSort('name')}>
+                                                <div className="flex items-center gap-2 justify-center">Nhân viên <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" /></div>
                                             </th>
-                                            <th className="px-6 py-4 font-semibold">Loại</th>
-                                            {isAdmin && <th className="px-6 py-4 font-semibold">Cửa hàng</th>}
-                                            <th className="px-6 py-4 font-semibold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => toggleSort('totalShifts')}>
-                                                <div className="flex items-center gap-2">Ca đã hoàn thành / Tối đa <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" /></div>
+                                            <th className="px-6 py-4 font-semibold text-center">Loại</th>
+                                            {isAdmin && <th className="px-6 py-4 font-semibold text-center">Cửa hàng</th>}
+                                            <th className="px-6 py-4 font-semibold cursor-pointer text-center hover:bg-slate-100 transition-colors" onClick={() => toggleSort('totalShifts')}>
+                                                <div className="flex items-center gap-2 justify-center">Ca đã hoàn thành / Tối đa <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" /></div>
                                             </th>
-                                            <th className="px-6 py-4 font-semibold text-right">Trạng thái</th>
+                                            <th className="px-6 py-4 font-semibold text-center">Trạng thái</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -299,39 +299,45 @@ export default function ManagerHistoryPage() {
                                                         "hover:bg-slate-50 transition-colors",
                                                         isDanger ? "bg-red-50/30" : isWarning ? "bg-amber-50/30" : ""
                                                     )}>
-                                                        <td className="px-6 py-4 font-medium text-slate-800">
+                                                        <td className="px-6 py-4 gap-1 font-medium text-slate-800 flex flex-col">
                                                             {stat.name}
-                                                            {stat.role === 'manager' && <span className="ml-2 text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold uppercase">Quản lý</span>}
-                                                            {stat.role === 'store_manager' && <span className="ml-2 text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold uppercase">Trưởng cửa hàng</span>}
+                                                            {stat.role === 'manager' && <span className="text-[10px] w-fit bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold uppercase truncate">Quản lý</span>}
+                                                            {stat.role === 'store_manager' && <span className="text-[10px] w-fit bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold uppercase truncate">Trưởng cửa hàng</span>}
                                                         </td>
                                                         <td className="px-6 py-4">
-                                                            <span className={cn(
-                                                                "px-2 py-1 rounded-md text-xs font-bold border",
-                                                                stat.type === 'FT' ? "bg-purple-50 text-purple-700 border-purple-200" : "bg-teal-50 text-teal-700 border-teal-200"
-                                                            )}>
-                                                                {stat.type}
-                                                            </span>
+                                                            <div className="flex items-center justify-center">
+                                                                <span className={cn(
+                                                                    "px-2 py-1 rounded-md text-xs font-bold border",
+                                                                    stat.type === 'FT' ? "bg-purple-50 text-purple-700 border-purple-200" : "bg-teal-50 text-teal-700 border-teal-200"
+                                                                )}>
+                                                                    {stat.type}
+                                                                </span>
+                                                            </div>
                                                         </td>
                                                         {isAdmin && (
                                                             <td className="px-6 py-4">
-                                                                <span className="text-xs font-medium px-2 py-1 rounded bg-slate-100 text-slate-600">
-                                                                    {stat.storeName ?? <span className="italic text-slate-400">—</span>}
-                                                                </span>
+                                                                <div className='flex items-center justify-center'>
+                                                                    <span className="text-xs font-medium px-2 py-1 rounded bg-slate-100 text-slate-600">
+                                                                        {stat.storeName ?? <span className="italic text-slate-400">—</span>}
+                                                                    </span>
+                                                                </div>
                                                             </td>
                                                         )}
                                                         <td className="px-6 py-4">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className={cn("text-lg font-bold", isDanger ? "text-red-600" : isWarning ? "text-amber-600" : "text-slate-800")}>
-                                                                    {stat.totalShifts}
-                                                                </span>
-                                                                <span className="text-slate-400">/</span>
-                                                                <span className="text-slate-500 font-medium">{stat.maxShifts} ca</span>
-                                                            </div>
-                                                            <div className="w-full max-w-[150px] h-1.5 bg-slate-100 rounded-full mt-2 overflow-hidden">
-                                                                <div
-                                                                    className={cn("h-full rounded-full transition-all duration-500", isDanger ? "bg-red-500" : isWarning ? "bg-amber-400" : "bg-emerald-400")}
-                                                                    style={{ width: `${Math.min((stat.totalShifts / stat.maxShifts) * 100, 100)}%` }}
-                                                                />
+                                                            <div className="flex flex-col justify-center items-center gap-2 truncate">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className={cn("text-lg font-bold", isDanger ? "text-red-600" : isWarning ? "text-amber-600" : "text-slate-800")}>
+                                                                        {stat.totalShifts}
+                                                                    </span>
+                                                                    <span className="text-slate-400">/</span>
+                                                                    <span className="text-slate-500 font-medium">{stat.maxShifts} ca</span>
+                                                                </div>
+                                                                <div className="w-full flex justify-center items-center max-w-[150px] h-1.5 bg-slate-100 rounded-full mt-2 overflow-hidden">
+                                                                    <div
+                                                                        className={cn("h-full rounded-full transition-all duration-500", isDanger ? "bg-red-500" : isWarning ? "bg-amber-400" : "bg-emerald-400")}
+                                                                        style={{ width: `${Math.min((stat.totalShifts / stat.maxShifts) * 100, 100)}%` }}
+                                                                    />
+                                                                </div>
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
@@ -344,7 +350,7 @@ export default function ManagerHistoryPage() {
                                                                     <AlertTriangle className="w-3.5 h-3.5" /> Sắp hết Quota
                                                                 </span>
                                                             ) : (
-                                                                <span className="inline-flex items-center gap-1.5 text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg text-xs font-bold border border-emerald-200">
+                                                                <span className="inline-flex items-center truncate gap-1.5 text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg text-xs font-bold border border-emerald-200">
                                                                     <CheckCircle2 className="w-3.5 h-3.5" /> An toàn
                                                                 </span>
                                                             )}

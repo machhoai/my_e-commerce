@@ -404,7 +404,7 @@ export default function EmployeeRegisterPage() {
                     </h1>
                     <p className="text-slate-500 mt-1 flex items-center gap-2">
                         Chọn thời gian bạn có thể làm việc cho tuần tới.
-                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs font-bold border border-slate-200 uppercase">
+                        <span className="bg-slate-100 text-center text-slate-700 px-2 py-0.5 rounded text-xs font-bold border border-slate-200 uppercase">
                             Nhân viên {isFT ? 'Toàn thời gian' : 'Bán thời gian'}
                         </span>
                     </p>
@@ -415,7 +415,7 @@ export default function EmployeeRegisterPage() {
                     <button onClick={handlePreviousWeek} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
                         <ChevronLeft className="w-5 h-5" />
                     </button>
-                    <div className="text-sm font-semibold text-slate-700 min-w-[140px] text-center">
+                    <div className="flex-1 text-sm font-semibold text-slate-700 min-w-[140px] text-center">
                         {formatDate(weekDays[0])} - {formatDate(weekDays[6])}
                     </div>
                     <button onClick={handleNextWeek} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
@@ -556,38 +556,38 @@ export default function EmployeeRegisterPage() {
             </div>
 
             {/* Footer Actions */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+            <div className="flex flex-col gap-2 md:flex-row items-center justify-between pt-2 border-t border-slate-200">
                 <div className="text-sm text-slate-500">
                     {existingRegId ? (
                         <span className="flex items-center gap-1.5 text-emerald-600 font-medium">
-                            <CheckCircle2 className="w-4 h-4" /> Đã nộp đăng ký cho tuần này
+                            <CheckCircle2 className="w-4 h-4" /> Đã lưu đăng ký cho tuần này
                         </span>
                     ) : (
-                        <span>Chưa tìm thấy đăng ký nào cho tuần này.</span>
+                        <span>Bạn chưa đăng ký ca nào cho tuần này.</span>
                     )}
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center w-full gap-3">
                     {existingRegId && (
                         <button
                             onClick={handleDeleteRegistration}
                             disabled={saving || isClosed}
-                            className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:ring-4 focus:ring-red-500/30 border border-red-200"
+                            className="flex items-center justify-center gap-2 flex-1 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:ring-4 focus:ring-red-500/30 border border-red-200"
                         >
-                            <Trash2 className="w-4 h-4" />
-                            <span className="hidden sm:inline">Xóa lịch đăng ký</span>
+                            <Trash2 className="w-5 h-5" />
+                            <span className="inline">Xóa đăng ký</span>
                         </button>
                     )}
                     <button
                         onClick={handleSave}
                         disabled={saving || isClosed}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed focus:ring-4 focus:ring-blue-500/30"
+                        className="flex flex-1 items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed focus:ring-4 focus:ring-blue-500/30"
                     >
                         {saving ? (
                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         ) : isClosed ? (
-                            <Lock className="w-4 h-4" />
+                            <Lock className="w-5 h-5" />
                         ) : (
-                            <Save className="w-4 h-4" />
+                            <Save className="w-5 h-5" />
                         )}
                         {isClosed ? 'Đã đóng đăng ký' : 'Lưu Đăng ký'}
                     </button>

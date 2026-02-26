@@ -355,12 +355,12 @@ export default function ManagerUsersPage() {
                                 <table className="w-full text-sm text-left text-slate-600">
                                     <thead className="text-xs text-slate-500 uppercase bg-slate-50/50 border-b border-slate-200">
                                         <tr>
-                                            <th scope="col" className="px-6 py-4 font-semibold">Tên & Số điện thoại</th>
-                                            <th scope="col" className="px-6 py-4 font-semibold">Loại hợp đồng</th>
-                                            <th scope="col" className="px-6 py-4 font-semibold">Vai trò</th>
-                                            {userDoc?.role === 'admin' && <th scope="col" className="px-6 py-4 font-semibold">Cửa hàng</th>}
-                                            <th scope="col" className="px-6 py-4 font-semibold">Trạng thái</th>
-                                            <th scope="col" className="px-6 py-4 text-right font-semibold">Hành động</th>
+                                            <th scope="col" className="px-6 py-4 text-center font-semibold truncate">Tên & Số điện thoại</th>
+                                            <th scope="col" className="px-6 py-4 text-center font-semibold truncate">Loại hợp đồng</th>
+                                            <th scope="col" className="px-6 py-4 text-center font-semibold truncate">Vai trò</th>
+                                            {userDoc?.role === 'admin' && <th scope="col" className="px-6 py-4 text-center font-semibold">Cửa hàng</th>}
+                                            <th scope="col" className="px-6 py-4 text-center font-semibold truncate">Trạng thái</th>
+                                            <th scope="col" className="px-6 py-4 text-center font-semibold truncate">Hành động</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -388,7 +388,7 @@ export default function ManagerUsersPage() {
                                                             <div className="text-slate-500 text-xs mt-0.5">{e.phone}</div>
                                                         </td>
                                                         <td className="px-6 py-4">
-                                                            <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${e.type === 'FT' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                                                            <span className={`px-2 py-1 text-[10px] font-bold uppercase truncate rounded ${e.type === 'FT' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
                                                                 } ${!isActive ? 'opacity-50' : ''}`}>
                                                                 {e.type === 'FT' ? 'Toàn thời gian' : 'Bán thời gian'}
                                                             </span>
@@ -400,7 +400,7 @@ export default function ManagerUsersPage() {
                                                                     const customRole = customRoles.find(r => r.id === e.customRoleId);
                                                                     if (customRole) {
                                                                         return (
-                                                                            <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded bg-amber-100 text-amber-700 ${!isActive ? 'opacity-50' : ''}`}>
+                                                                            <span className={`px-2 truncate py-1 text-[10px] font-bold uppercase rounded bg-amber-100 text-amber-700 ${!isActive ? 'opacity-50' : ''}`}>
                                                                                 {customRole.name}
                                                                             </span>
                                                                         );
@@ -413,7 +413,7 @@ export default function ManagerUsersPage() {
                                                                 };
                                                                 const r = roleMap[e.role] ?? { label: e.role, className: 'bg-slate-100 text-slate-600' };
                                                                 return (
-                                                                    <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${r.className} ${!isActive ? 'opacity-50' : ''}`}>
+                                                                    <span className={`px-2 py-1 text-[10px] font-bold uppercase truncate rounded ${r.className} ${!isActive ? 'opacity-50' : ''}`}>
                                                                         {r.label}
                                                                     </span>
                                                                 );
@@ -421,13 +421,13 @@ export default function ManagerUsersPage() {
                                                         </td>
                                                         {userDoc?.role === 'admin' && (
                                                             <td className="px-6 py-4">
-                                                                <span className={`text-xs font-medium px-2 py-1 rounded bg-slate-100 text-slate-600 ${!isActive ? 'opacity-50' : ''}`}>
+                                                                <span className={`text-xs font-medium truncate px-2 py-1 rounded bg-slate-100 text-slate-600 ${!isActive ? 'opacity-50' : ''}`}>
                                                                     {e.storeId ? (storeMap.get(e.storeId) ?? e.storeId) : <span className="italic text-slate-400">—</span>}
                                                                 </span>
                                                             </td>
                                                         )}
                                                         <td className="px-6 py-4">
-                                                            <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold ${isActive ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-100 text-slate-500 border border-slate-200'}
+                                                            <span className={`inline-flex truncate items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold ${isActive ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-100 text-slate-500 border border-slate-200'}
                                                                 }`}>
                                                                 <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
                                                                 {isActive ? 'Hoạt động' : 'Vô hiệu'}
@@ -455,15 +455,15 @@ export default function ManagerUsersPage() {
                                                                     {isSubmitting ? (
                                                                         <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
                                                                     ) : isActive ? (
-                                                                        <>
+                                                                        <span className="truncate flex items-center gap-1.5">
                                                                             <UserMinus className="w-3.5 h-3.5" />
                                                                             Vô hiệu hóa
-                                                                        </>
+                                                                        </span>
                                                                     ) : (
-                                                                        <>
+                                                                        <span className="truncate flex items-center gap-1.5">
                                                                             <UserCheck className="w-3.5 h-3.5" />
                                                                             Kích hoạt
-                                                                        </>
+                                                                        </span>
                                                                     )}
                                                                 </button>
                                                             </div>

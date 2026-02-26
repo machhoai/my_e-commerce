@@ -93,7 +93,7 @@ export default function CounterDropZone({
                             </div>
                             <button
                                 onClick={() => onRemove(counter.id, user.uid)}
-                                className="p-1.5 text-slate-400 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
+                                className="p-1.5 text-slate-400 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
                                 title="Xóa khỏi quầy"
                             >
                                 <X className="w-4 h-4" />

@@ -218,11 +218,11 @@ export default function GlobalOverviewPage() {
                         {/* Controls */}
                         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4">
                             {/* View Toggles */}
-                            <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-lg shrink-0">
+                            <div className="flex w-full items-center gap-2 p-1 bg-slate-100 rounded-lg shrink-0">
                                 <button
                                     onClick={() => setViewMode('employee')}
                                     className={cn(
-                                        "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all",
+                                        "flex items-center justify-center flex-1 truncate gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all",
                                         viewMode === 'employee' ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
                                     )}
                                 >
@@ -232,7 +232,7 @@ export default function GlobalOverviewPage() {
                                 <button
                                     onClick={() => setViewMode('shift')}
                                     className={cn(
-                                        "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all",
+                                        "flex items-center justify-center flex-1 truncate gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all",
                                         viewMode === 'shift' ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
                                     )}
                                 >
@@ -241,15 +241,29 @@ export default function GlobalOverviewPage() {
                                 </button>
                             </div>
 
-                            <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                            <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                                <div className="h-6 w-px bg-slate-200 hidden md:block"></div>
+
+                                {/* Week Selector */}
+                                <div className="flex w-full items-center gap-1.5 shrink-0">
+                                    <button onClick={previousWeek} className="p-2.5 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 shadow-sm bg-white" title="Tuần trước">
+                                        <ChevronLeft className="size-5 text-slate-600" />
+                                    </button>
+                                    <div className="font-bold text-slate-800 text-sm min-w-[170px] flex-1 text-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 shadow-inner">
+                                        {weekDays.length > 0 && `${formatDateDisplay(weekDays[0])} - ${formatDateDisplay(weekDays[6])}`}
+                                    </div>
+                                    <button onClick={nextWeek} className="p-2.5 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 shadow-sm bg-white" title="Tuần sau">
+                                        <ChevronRight className="size-5 text-slate-600" />
+                                    </button>
+                                </div>
+
                                 {/* Shift Selector (Only visible in Shift Mode) */}
                                 {viewMode === 'shift' && (
-                                    <div className="shrink-0 flex items-center gap-2 mr-2">
-                                        <span className="text-sm font-medium text-slate-600">Ca làm:</span>
+                                    <div className="shrink-0 w-full flex items-center gap-2 md:mr-2">
                                         <select
                                             value={selectedShift}
                                             onChange={(e) => setSelectedShift(e.target.value)}
-                                            className="bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2 outline-none font-medium h-[42px]"
+                                            className="bg-slate-50 w-full border border-slate-200 text-slate-800 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2 outline-none font-medium h-[42px]"
                                         >
                                             {shifts.map(shift => (
                                                 <option key={shift} value={shift}>{shift}</option>
@@ -257,21 +271,6 @@ export default function GlobalOverviewPage() {
                                         </select>
                                     </div>
                                 )}
-
-                                <div className="h-6 w-px bg-slate-200 hidden md:block"></div>
-
-                                {/* Week Selector */}
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                    <button onClick={previousWeek} className="p-2.5 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 shadow-sm bg-white" title="Tuần trước">
-                                        <ChevronLeft className="w-4 h-4 text-slate-600" />
-                                    </button>
-                                    <div className="font-bold text-slate-800 text-sm min-w-[170px] text-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 shadow-inner">
-                                        {weekDays.length > 0 && `${formatDateDisplay(weekDays[0])} - ${formatDateDisplay(weekDays[6])}`}
-                                    </div>
-                                    <button onClick={nextWeek} className="p-2.5 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 shadow-sm bg-white" title="Tuần sau">
-                                        <ChevronRight className="w-4 h-4 text-slate-600" />
-                                    </button>
-                                </div>
                             </div>
                         </div>
 
@@ -418,11 +417,11 @@ export default function GlobalOverviewPage() {
                                                     <tr key={c.id} className="hover:bg-slate-50/50 transition-colors group">
                                                         {/* Counter Cell - Sticky */}
                                                         <td className={cn(
-                                                            "p-4 border-b border-r border-slate-200 sticky left-0 bg-white group-hover:bg-slate-50/50 z-10 shadow-[1px_0_0_0_#e2e8f0]",
+                                                            "p-4 border-b border-r border-slate-200 sticky left-0 bg-white group-hover:bg-slate-50 z-10 shadow-[1px_0_0_0_#e2e8f0]",
                                                             idx === counters.length - 1 ? 'border-b-0' : ''
                                                         )}>
-                                                            <div className="font-semibold text-slate-800 line-clamp-1 flex items-center gap-2">
-                                                                <Store className="w-4 h-4 text-slate-400" />
+                                                            <div className="font-semibold flex flex-col text-center text-slate-800 line-clamp-1 items-center gap-2">
+                                                                <Store className="size-5 text-slate-400" />
                                                                 {c.name}
                                                             </div>
                                                         </td>
@@ -490,11 +489,11 @@ export default function GlobalOverviewPage() {
                                                 {counters.length > 0 && (
                                                     <tr className="bg-indigo-50/60 border-t-2 border-indigo-200">
                                                         <td className="p-4 border-r border-indigo-200 sticky left-0 bg-indigo-50 z-10 shadow-[1px_0_0_0_#c7d2fe]">
-                                                            <div className="font-bold text-indigo-700 flex items-center gap-2 text-sm">
+                                                            <div className="font-bold text-indigo-700 flex flex-col text-center items-center gap-2 text-sm">
                                                                 <Users className="w-4 h-4" />
-                                                                Tổng theo ca
+                                                                Tổng
                                                             </div>
-                                                            <div className="text-[10px] text-indigo-500 mt-0.5">Ca: {selectedShift}</div>
+                                                            <div className="text-[13px] text-center text-indigo-500 mt-0.5">{selectedShift}</div>
                                                         </td>
                                                         {weekDays.map((date, dayIdx) => {
                                                             const dateStr = toLocalDateString(date);

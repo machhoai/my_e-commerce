@@ -4,10 +4,12 @@ import withSerwistInit from "@serwist/next";
 const withSerwist = withSerwistInit({
     swSrc: "app/sw.ts",
     swDest: "public/sw.js",
+    disable: process.env.NODE_ENV === "development",
 });
 
 const nextConfig: NextConfig = {
     /* config options here */
+    turbopack: {},
     transpilePackages: ['@ionic/react', '@ionic/core', '@stencil/core', 'ionicons'],
     images: {
         remotePatterns: [

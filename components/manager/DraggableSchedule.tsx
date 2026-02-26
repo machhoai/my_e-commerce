@@ -103,7 +103,7 @@ export default function DraggableSchedule({
                             Nhân viên đã đăng ký ({employees.length})
                         </h2>
 
-                        <div className="overflow-hidden max-h-60 lg:max-h-none pr-1 space-y-6">
+                        <div className="lg:max-h-none pr-1 space-y-6">
                             {isLoading ? (
                                 <div className="flex flex-col gap-3">
                                     {[1, 2, 3, 4].map(i => (
