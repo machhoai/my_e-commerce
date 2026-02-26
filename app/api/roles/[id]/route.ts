@@ -21,9 +21,10 @@ function handleError(err: unknown) {
 }
 
 // PUT /api/roles/[id] — update role name, permissions and/or allowStoreManager (admin only)
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { adminDb } = await requireAdmin(req);
+        const { id } = await params;
         const body = await req.json() as { name?: string; permissions?: AppPermission[]; allowStoreManager?: boolean };
         const updateData: Record<string, unknown> = {};
         if (body.name !== undefined) updateData.name = body.name.trim();
@@ -32,19 +33,20 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         if (Object.keys(updateData).length === 0) {
             return NextResponse.json({ error: 'Không có dữ liệu cập nhật' }, { status: 400 });
         }
-        await adminDb.collection('custom_roles').doc(params.id).update(updateData);
+        await adminDb.collection('custom_roles').doc(id).update(updateData);
         return NextResponse.json({ message: 'Đã cập nhật role' });
     } catch (err) { return handleError(err); }
 }
 
 // DELETE /api/roles/[id] — delete role (admin only). Blocked if any user still has this role.
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { adminDb } = await requireAdmin(req);
+        const { id } = await params;
 
         // Check if any users currently hold this custom role
         const usersSnap = await adminDb.collection('users')
-            .where('customRoleId', '==', params.id)
+            .where('customRoleId', '==', id)
             .get();
 
         if (!usersSnap.empty) {
@@ -55,7 +57,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
             }, { status: 409 });
         }
 
-        await adminDb.collection('custom_roles').doc(params.id).delete();
+        await adminDb.collection('custom_roles').doc(id).delete();
         return NextResponse.json({ message: 'Đã xóa role' });
     } catch (err) { return handleError(err); }
 }
