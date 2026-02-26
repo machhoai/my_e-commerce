@@ -39,7 +39,18 @@ export default function ManagerHistoryPage() {
 
     // Admin store selector
     const [stores, setStores] = useState<StoreDoc[]>([]);
-    const [selectedAdminStoreId, setSelectedAdminStoreId] = useState('');
+    const [selectedAdminStoreId, setSelectedAdminStoreId] = useState<string>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('globalSelectedStoreId') || '';
+        }
+        return '';
+    });
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && selectedAdminStoreId) {
+            localStorage.setItem('globalSelectedStoreId', selectedAdminStoreId);
+        }
+    }, [selectedAdminStoreId]);
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
@@ -67,8 +78,14 @@ export default function ManagerHistoryPage() {
             setLoading(true);
             setError('');
             try {
-                const settingsSnap = await getDoc(doc(db, 'settings', 'global'));
-                const settingsData = settingsSnap.exists() ? (settingsSnap.data() as SettingsDoc) : null;
+                let settingsData: SettingsDoc | null = null;
+                if (effectiveStoreId) {
+                    const storeSnap = await getDoc(doc(db, 'stores', effectiveStoreId));
+                    if (storeSnap.exists()) {
+                        const storeData = storeSnap.data() as StoreDoc;
+                        settingsData = (storeData.settings as SettingsDoc) || null;
+                    }
+                }
                 setSettings(settingsData);
 
                 const ftDaysOff = settingsData?.monthlyQuotas?.ftDaysOff ?? 4;

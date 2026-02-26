@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, doc, getDoc, getDocs, setDoc, query, where } from 'firebase/firestore';
 import { UserDoc, CounterDoc, SettingsDoc, WeeklyRegistration, ScheduleDoc, StoreDoc } from '@/types';
@@ -20,43 +20,56 @@ export default function ManagerSchedulePage() {
     const [shiftTimes, setShiftTimes] = useState<string[]>([]);
     const [counters, setCounters] = useState<CounterDoc[]>([]);
     const [registeredEmployees, setRegisteredEmployees] = useState<UserDoc[]>([]);
+    const [inactiveUids, setInactiveUids] = useState<Set<string>>(new Set());
     const [assignments, setAssignments] = useState<Record<string, string[]>>({});
 
     const [loadingConfig, setLoadingConfig] = useState(true);
     const [loadingData, setLoadingData] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [isAutoSaving, setIsAutoSaving] = useState(false);
+    const isInitialLoad = useRef(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
     // Admin-only: store selector
     const [stores, setStores] = useState<StoreDoc[]>([]);
-    const [selectedAdminStoreId, setSelectedAdminStoreId] = useState('');
+    const [selectedAdminStoreId, setSelectedAdminStoreId] = useState<string>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('globalSelectedStoreId') || '';
+        }
+        return '';
+    });
 
-    // 1. Load global settings (shifts) + admin stores list
+    useEffect(() => {
+        if (typeof window !== 'undefined' && selectedAdminStoreId) {
+            localStorage.setItem('globalSelectedStoreId', selectedAdminStoreId);
+        }
+    }, [selectedAdminStoreId]);
+
+    // 1. Load admin stores list + store managers counters
     useEffect(() => {
         if (userDoc === undefined) return;
         async function loadConfig() {
             try {
-                const snap = await getDoc(doc(db, 'settings', 'global'));
-                if (snap.exists()) {
-                    const data = snap.data() as SettingsDoc;
-                    setShiftTimes(data.shiftTimes || []);
-                    if (data.shiftTimes.length > 0) setSelectedShiftId(data.shiftTimes[0]);
-                }
-
                 if (userDoc?.role === 'admin' && user) {
                     const token = await user.getIdToken();
                     const res = await fetch('/api/stores', { headers: { 'Authorization': `Bearer ${token}` } });
                     const storeData = await res.json();
                     setStores(Array.isArray(storeData) ? storeData : []);
                 } else if (userDoc?.storeId) {
-                    const countersSnap = await getDocs(query(collection(db, 'counters'), where('storeId', '==', userDoc.storeId)));
-                    if (countersSnap.docs.length > 0) {
-                        setCounters(countersSnap.docs.map(d => d.data() as CounterDoc));
+                    // Fetch shiftTimes and counters from this store's settings
+                    const storeSnap = await getDoc(doc(db, 'stores', userDoc.storeId));
+                    if (storeSnap.exists()) {
+                        const sData = storeSnap.data() as StoreDoc;
+                        const countersData = (sData.settings as any)?.counters || [];
+                        setCounters(countersData);
+
+                        const shifts = sData.settings?.shiftTimes || [];
+                        setShiftTimes(shifts);
+                        if (shifts.length > 0) setSelectedShiftId(shifts[0]);
                     } else {
-                        const snap2 = await getDoc(doc(db, 'settings', 'global'));
-                        const data2 = snap2.data() as (SettingsDoc & { counters?: CounterDoc[] }) | undefined;
-                        setCounters(data2?.counters || []);
+                        setCounters([]);
+                        setShiftTimes([]);
                     }
                 }
             } catch (err) {
@@ -73,13 +86,25 @@ export default function ManagerSchedulePage() {
     useEffect(() => {
         if (userDoc?.role !== 'admin' || !selectedAdminStoreId) return;
         async function loadAdminCounters() {
-            const countersSnap = await getDocs(query(collection(db, 'counters'), where('storeId', '==', selectedAdminStoreId)));
-            if (countersSnap.docs.length > 0) {
-                setCounters(countersSnap.docs.map(d => d.data() as CounterDoc));
+            // Load shiftTimes and counters from stores document
+            const storeSnap = await getDoc(doc(db, 'stores', selectedAdminStoreId));
+            if (storeSnap.exists()) {
+                const sData = storeSnap.data() as StoreDoc;
+
+                const countersData = (sData.settings as any)?.counters || [];
+                setCounters(countersData);
+
+                const shifts = sData.settings?.shiftTimes || [];
+                setShiftTimes(shifts);
+                if (shifts.length > 0) {
+                    setSelectedShiftId(shifts[0]);
+                } else {
+                    setSelectedShiftId('');
+                }
             } else {
-                const snap = await getDoc(doc(db, 'settings', 'global'));
-                const data = snap.data() as (SettingsDoc & { counters?: CounterDoc[] }) | undefined;
-                setCounters(data?.counters || []);
+                setCounters([]);
+                setShiftTimes([]);
+                setSelectedShiftId('');
             }
         }
         loadAdminCounters();
@@ -91,6 +116,7 @@ export default function ManagerSchedulePage() {
         if (!selectedDate || !selectedShiftId || !effectiveStoreId) return;
 
         async function loadData() {
+            isInitialLoad.current = true;
             setLoadingData(true);
             setError('');
             setSuccess('');
@@ -122,7 +148,16 @@ export default function ManagerSchedulePage() {
                 }
 
                 users.sort((a, b) => a.name.localeCompare(b.name));
-                setRegisteredEmployees(users);
+
+                // Separate active vs inactive users
+                // - Inactive users who are NOT yet assigned: hide from list
+                // - Inactive users who ARE already assigned: keep in list but flag as warning
+                const inactive = new Set(users.filter(u => u.isActive === false).map(u => u.uid));
+                setInactiveUids(inactive);
+
+                // Only show active users in the draggable panel
+                // (inactive assigned ones will be shown as warnings inside CounterDropZone)
+                setRegisteredEmployees(users.filter(u => u.isActive !== false));
 
                 const qScheds = query(
                     collection(db, 'schedules'),
@@ -139,6 +174,8 @@ export default function ManagerSchedulePage() {
                     }
                 });
                 setAssignments(initialAssigns);
+                // Allow a small delay before we consider initial load "done" to avoid firing auto-save on mount
+                setTimeout(() => { isInitialLoad.current = false; }, 300);
             } catch (err) {
                 console.error(err);
                 setError('Không thể tải danh sách nhân viên đã đăng ký');
@@ -149,11 +186,15 @@ export default function ManagerSchedulePage() {
         loadData();
     }, [selectedDate, selectedShiftId, counters, userDoc, selectedAdminStoreId]);
 
-    const handleSaveAndPublish = async () => {
+    const handleSaveAndPublish = async (isAuto = false) => {
         if (!user) return;
-        setSaving(true);
-        setError('');
-        setSuccess('');
+        if (!isAuto) {
+            setSaving(true);
+            setError('');
+            setSuccess('');
+        } else {
+            setIsAutoSaving(true);
+        }
         try {
             const batchPromises = Object.entries(assignments).map(async ([counterId, uids]) => {
                 const docId = `${selectedDate}_${selectedShiftId}_${counterId}`;
@@ -168,14 +209,27 @@ export default function ManagerSchedulePage() {
                 });
             });
             await Promise.all(batchPromises);
-            setSuccess('Đã lưu và công khai lịch làm việc cho nhân viên thành công!');
+            if (!isAuto) setSuccess('Đã lưu và công khai lịch làm việc cho nhân viên thành công!');
         } catch (err) {
             console.error(err);
-            setError('Không thể công khai lịch làm việc');
+            if (!isAuto) setError('Không thể công khai lịch làm việc');
         } finally {
-            setSaving(false);
+            if (!isAuto) setSaving(false);
+            setIsAutoSaving(false);
         }
     };
+
+    // 4. Auto-save effect
+    useEffect(() => {
+        if (isInitialLoad.current) return;
+
+        const autoSaveTimer = setTimeout(() => {
+            handleSaveAndPublish(true);
+        }, 1500); // 1.5s debounce
+
+        return () => clearTimeout(autoSaveTimer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [assignments]);
 
     const handlePreviousWeek = () => {
         const d = new Date(currentWeekStart);
@@ -333,20 +387,21 @@ export default function ManagerSchedulePage() {
                         assignments={assignments}
                         onAssignmentChange={setAssignments}
                         isLoading={loadingData}
+                        inactiveUids={inactiveUids}
                     />
 
-                    <div className="flex items-center justify-between pt-4 border-t border-slate-200 mb-4">
-                        <div className="text-sm text-slate-500 font-medium bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200/60 flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                            Nhấn Công khai để lưu và gửi lịch cho nhân viên.
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-4 border-t border-slate-200 mt-4 gap-4">
+                        <div className="text-sm text-slate-500 font-medium bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200/60 flex items-center gap-2 w-fit">
+                            <span className={`w-2 h-2 rounded-full ${isAutoSaving ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></span>
+                            {isAutoSaving ? 'Đang lưu tự động...' : 'Mọi thay đổi đã được tự động lưu'}
                         </div>
                         <button
-                            onClick={handleSaveAndPublish}
+                            onClick={() => handleSaveAndPublish(false)}
                             disabled={saving || loadingData}
-                            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-2.5 rounded-xl font-semibold transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-2.5 rounded-xl font-semibold transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
-                            Lưu &amp; Công khai Lịch làm việc
+                            Lưu thủ công
                         </button>
                     </div>
                 </>

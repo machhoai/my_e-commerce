@@ -27,7 +27,18 @@ export default function GlobalOverviewPage() {
 
     // Admin store selector
     const [stores, setStores] = useState<StoreDoc[]>([]);
-    const [selectedAdminStoreId, setSelectedAdminStoreId] = useState('');
+    const [selectedAdminStoreId, setSelectedAdminStoreId] = useState<string>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('globalSelectedStoreId') || '';
+        }
+        return '';
+    });
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && selectedAdminStoreId) {
+            localStorage.setItem('globalSelectedStoreId', selectedAdminStoreId);
+        }
+    }, [selectedAdminStoreId]);
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
@@ -66,31 +77,28 @@ export default function GlobalOverviewPage() {
                     .sort((a, b) => a.name.localeCompare(b.name));
                 setUsers(allUsers);
 
-                // 2. Load settings
-                const setSnap = await getDoc(doc(db, 'settings', 'global'));
-
-                // 3. Load counters by storeId
+                // 2. Load store settings (shiftTimes, counters, etc.)
                 if (effectiveStoreId) {
-                    const countersSnap = await getDocs(query(collection(db, 'counters'), where('storeId', '==', effectiveStoreId)));
-                    if (countersSnap.docs.length > 0) {
-                        setCounters(countersSnap.docs.map(d => d.data() as CounterDoc));
-                    } else if (setSnap.exists()) {
-                        const data = setSnap.data() as SettingsDoc & { counters?: CounterDoc[] };
-                        setCounters(data.counters || []);
-                    }
-                } else if (setSnap.exists()) {
-                    const data = setSnap.data() as SettingsDoc & { counters?: CounterDoc[] };
-                    setCounters(data.counters || []);
-                }
+                    const storeSnap = await getDoc(doc(db, 'stores', effectiveStoreId));
+                    if (storeSnap.exists()) {
+                        const storeData = storeSnap.data() as StoreDoc;
+                        const storeSettings = storeData.settings as SettingsDoc;
 
-                if (setSnap.exists()) {
-                    setSettings(setSnap.data() as SettingsDoc);
-                    if (!selectedShift) {
-                        const config = setSnap.data() as SettingsDoc;
-                        if (config.shiftTimes && config.shiftTimes.length > 0) {
-                            setSelectedShift(config.shiftTimes[0]);
+                        // Extract counters from store settings
+                        const countersData = (storeSettings as any)?.counters || [];
+                        setCounters(countersData);
+
+                        if (storeSettings) {
+                            setSettings(storeSettings);
+                            if (!selectedShift && storeSettings.shiftTimes && storeSettings.shiftTimes.length > 0) {
+                                setSelectedShift(storeSettings.shiftTimes[0]);
+                            }
                         }
+                    } else {
+                        setCounters([]);
                     }
+                } else {
+                    setCounters([]);
                 }
 
                 // 4. Load schedules for the week, filtered by storeId
@@ -476,6 +484,67 @@ export default function GlobalOverviewPage() {
                                                         <td colSpan={8} className="p-8 text-center text-slate-500">
                                                             Chưa cấu hình Quầy/Vị trí.
                                                         </td>
+                                                    </tr>
+                                                )}
+                                                {/* Summary row: total employees per day for selectedShift */}
+                                                {counters.length > 0 && (
+                                                    <tr className="bg-indigo-50/60 border-t-2 border-indigo-200">
+                                                        <td className="p-4 border-r border-indigo-200 sticky left-0 bg-indigo-50 z-10 shadow-[1px_0_0_0_#c7d2fe]">
+                                                            <div className="font-bold text-indigo-700 flex items-center gap-2 text-sm">
+                                                                <Users className="w-4 h-4" />
+                                                                Tổng theo ca
+                                                            </div>
+                                                            <div className="text-[10px] text-indigo-500 mt-0.5">Ca: {selectedShift}</div>
+                                                        </td>
+                                                        {weekDays.map((date, dayIdx) => {
+                                                            const dateStr = toLocalDateString(date);
+                                                            const isToday = toLocalDateString(new Date()) === dateStr;
+
+                                                            // Collect unique UIDs across all counters for this shift & day
+                                                            const uniqueUids = new Set<string>();
+                                                            counters.forEach(c => {
+                                                                const cellSchedule = schedules.find(s =>
+                                                                    s.date === dateStr &&
+                                                                    s.shiftId === selectedShift &&
+                                                                    s.counterId === c.id
+                                                                );
+                                                                cellSchedule?.employeeIds?.forEach(uid => uniqueUids.add(uid));
+                                                            });
+
+                                                            // Split by role
+                                                            let managerCount = 0;
+                                                            let employeeCount = 0;
+                                                            uniqueUids.forEach(uid => {
+                                                                const u = users.find(u => u.uid === uid);
+                                                                if (u?.role === 'manager') managerCount++;
+                                                                else employeeCount++;
+                                                            });
+                                                            const total = uniqueUids.size;
+
+                                                            return (
+                                                                <td key={dayIdx} className={cn(
+                                                                    "p-3 border-x border-indigo-100 text-center",
+                                                                    isToday ? 'bg-indigo-100/60' : ''
+                                                                )}>
+                                                                    {total > 0 ? (
+                                                                        <div className="flex flex-col items-center gap-1.5">
+                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-600 text-white text-xs font-bold rounded-full shadow-sm" title="Tổng nhân viên">
+                                                                                <Users className="w-3 h-3" />
+                                                                                {total} NV
+                                                                            </span>
+                                                                            {managerCount > 0 && (
+                                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500 text-white text-xs font-bold rounded-full shadow-sm" title="Quản lý">
+                                                                                    <Users className="w-3 h-3" />
+                                                                                    {managerCount} QL
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-slate-400 text-xs font-medium">—</span>
+                                                                    )}
+                                                                </td>
+                                                            );
+                                                        })}
                                                     </tr>
                                                 )}
                                             </tbody>

@@ -123,6 +123,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             show: userDoc?.role === 'admin',
         },
         {
+            label: 'Cài đặt cửa hàng',
+            href: '/manager/settings',
+            icon: SettingsIcon,
+            show: userDoc?.role === 'store_manager',
+        },
+        {
             label: 'Cài đặt hệ thống',
             href: '/admin/settings',
             icon: SettingsIcon,

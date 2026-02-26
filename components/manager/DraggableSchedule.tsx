@@ -21,6 +21,7 @@ interface Props {
     assignments: Record<string, string[]>; // counterId -> [userUids]
     onAssignmentChange: (newAssignments: Record<string, string[]>) => void;
     isLoading: boolean;
+    inactiveUids?: Set<string>; // UIDs of deactivated accounts already in assignments
 }
 
 export default function DraggableSchedule({
@@ -28,7 +29,8 @@ export default function DraggableSchedule({
     counters,
     assignments,
     onAssignmentChange,
-    isLoading
+    isLoading,
+    inactiveUids = new Set(),
 }: Props) {
     const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -148,16 +150,23 @@ export default function DraggableSchedule({
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                         {counters.map((counter) => {
                             const assignedUserIds = assignments[counter.id] || [];
-                            const assignedUsers = assignedUserIds
+
+                            // Separate active vs inactive assigned users
+                            const activeAssigned = assignedUserIds
+                                .filter(uid => !inactiveUids.has(uid))
                                 .map(uid => employees.find(e => e.uid === uid))
                                 .filter((e): e is UserDoc => e !== undefined);
+
+                            const inactiveAssignedUids = assignedUserIds.filter(uid => inactiveUids.has(uid));
 
                             return (
                                 <CounterDropZone
                                     key={counter.id}
                                     counter={counter}
-                                    assignedUsers={assignedUsers}
+                                    assignedUsers={activeAssigned}
                                     onRemove={handleRemove}
+                                    inactiveAssignedUids={inactiveAssignedUids}
+                                    onRemoveInactive={(uid: string) => handleRemove(counter.id, uid)}
                                 />
                             );
                         })}

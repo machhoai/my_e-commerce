@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, getDocs, doc, getDoc } from 'firebase/firestore';
-import { ScheduleDoc, SettingsDoc } from '@/types';
+import { ScheduleDoc, SettingsDoc, StoreDoc } from '@/types';
 import { getWeekStart, getWeekDays, formatDate, toLocalDateString, cn } from '@/lib/utils';
 import { Calendar as CalendarIcon, Clock, MapPin, ChevronLeft, ChevronRight, Activity, TrendingUp } from 'lucide-react';
 
@@ -26,15 +26,19 @@ export default function EmployeeDashboardPage() {
         setLoading(true);
 
         const fetchCountersAndSettings = async () => {
+            if (!userDoc?.storeId) return;
             try {
-                const docRef = doc(db, 'settings', 'global');
-                const docSnap = await getDoc(docRef);
+                // Fetch settings embedded in store doc
+                const storeRef = doc(db, 'stores', userDoc.storeId);
+                const storeSnap = await getDoc(storeRef);
 
-                if (docSnap.exists()) {
-                    const data = docSnap.data() as SettingsDoc;
-                    setSettings(data);
+                if (storeSnap.exists()) {
+                    const storeData = storeSnap.data() as StoreDoc;
+                    const storeSettings = storeData.settings as SettingsDoc;
+                    if (storeSettings) setSettings(storeSettings);
 
-                    const countersArray = (data as any).counters || [];
+                    // Extract counters from store settings
+                    const countersArray = (storeSettings as any)?.counters || [];
                     const map: Record<string, string> = {};
                     countersArray.forEach((counter: any) => {
                         map[counter.id] = counter.name;

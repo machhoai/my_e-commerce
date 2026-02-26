@@ -27,7 +27,18 @@ export default function AdminUsersPage() {
 
     // Store selector state
     const [stores, setStores] = useState<StoreDoc[]>([]);
-    const [selectedStoreId, setSelectedStoreId] = useState('');
+    const [selectedStoreId, setSelectedStoreId] = useState<string>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('globalSelectedStoreId') || '';
+        }
+        return '';
+    });
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && selectedStoreId) {
+            localStorage.setItem('globalSelectedStoreId', selectedStoreId);
+        }
+    }, [selectedStoreId]);
 
     // User list state
     const [users, setUsers] = useState<UserDoc[]>([]);

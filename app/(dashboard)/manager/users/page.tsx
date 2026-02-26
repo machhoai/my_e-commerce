@@ -38,7 +38,18 @@ export default function ManagerUsersPage() {
 
     // Admin store selector
     const [stores, setStores] = useState<StoreDoc[]>([]);
-    const [selectedAdminStoreId, setSelectedAdminStoreId] = useState('');
+    const [selectedAdminStoreId, setSelectedAdminStoreId] = useState<string>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('globalSelectedStoreId') || '';
+        }
+        return '';
+    });
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && selectedAdminStoreId) {
+            localStorage.setItem('globalSelectedStoreId', selectedAdminStoreId);
+        }
+    }, [selectedAdminStoreId]);
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 

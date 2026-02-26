@@ -34,12 +34,30 @@ export interface CustomRoleDoc {
     createdBy?: string;
 }
 
+// Per-store configurable settings (stored as a field in the store document)
+export interface StoreSettings {
+    registrationOpen: boolean;
+    shiftTimes: string[]; // e.g. ["Ca 1", "Ca 2"]
+    quotas?: {
+        defaultWeekday: Record<string, number>;
+        defaultWeekend: Record<string, number>;
+        specialDates: Record<string, Record<string, number>>;
+    };
+    monthlyQuotas?: {
+        ftDaysOff: number;
+        ptMinShifts: number;
+        ptMaxShifts: number;
+    };
+    registrationSchedule?: RegistrationSchedule;
+}
+
 export interface StoreDoc {
     id: string;
     name: string;
     address?: string;
     isActive: boolean;
     createdAt?: string;
+    settings?: StoreSettings;  // Per-store registration & shift configuration
 }
 
 export interface UserDoc {
@@ -72,7 +90,7 @@ export interface CounterDoc {
 }
 
 export interface SettingsDoc {
-    id: 'global';
+    id: string; // 'global' for the legacy global doc, or storeId for store-specific docs
     registrationOpen: boolean;
     shiftTimes: string[]; // e.g. ["Ca 1", "Ca 2"]
     quotas?: {

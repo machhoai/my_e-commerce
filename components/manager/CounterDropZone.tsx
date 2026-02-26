@@ -1,18 +1,30 @@
+'use client';
+
 import { useDroppable } from '@dnd-kit/core';
 import { UserDoc, CounterDoc } from '@/types';
-import { X } from 'lucide-react';
+import { X, AlertTriangle } from 'lucide-react';
 
 interface Props {
     counter: CounterDoc;
     assignedUsers: UserDoc[];
     onRemove: (counterId: string, userId: string) => void;
+    inactiveAssignedUids?: string[];   // UIDs of deactivated users already in this counter
+    onRemoveInactive?: (uid: string) => void;
 }
 
-export default function CounterDropZone({ counter, assignedUsers, onRemove }: Props) {
+export default function CounterDropZone({
+    counter,
+    assignedUsers,
+    onRemove,
+    inactiveAssignedUids = [],
+    onRemoveInactive,
+}: Props) {
     const { isOver, setNodeRef } = useDroppable({
         id: counter.id,
         data: { counter }
     });
+
+    const totalCount = assignedUsers.length + inactiveAssignedUids.length;
 
     return (
         <div
@@ -25,13 +37,47 @@ export default function CounterDropZone({ counter, assignedUsers, onRemove }: Pr
             {/* Header */}
             <div className="bg-slate-50 border-b border-slate-200 p-3 flex items-center justify-between">
                 <h3 className="font-semibold text-slate-800">{counter.name}</h3>
-                <span className="text-xs font-medium text-slate-500 bg-white px-2 py-1 rounded-full border border-slate-200 shadow-sm">
-                    {assignedUsers.length} nhân viên
-                </span>
+                <div className="flex items-center gap-1.5">
+                    {inactiveAssignedUids.length > 0 && (
+                        <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full border border-red-200 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            {inactiveAssignedUids.length} nghỉ
+                        </span>
+                    )}
+                    <span className="text-xs font-medium text-slate-500 bg-white px-2 py-1 rounded-full border border-slate-200 shadow-sm">
+                        {totalCount} NV
+                    </span>
+                </div>
             </div>
 
             {/* Drop Area / Employee List */}
             <div className="flex-1 p-3 flex flex-col gap-2 min-h-[120px]">
+                {/* ⚠️ Inactive users already assigned — warn HR */}
+                {inactiveAssignedUids.map(uid => (
+                    <div
+                        key={`inactive_${uid}`}
+                        className="group flex items-center justify-between p-2.5 bg-red-50 border border-red-200 rounded-lg"
+                    >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+                            <div className="min-w-0">
+                                <p className="font-medium text-sm text-red-700 truncate">ID: {uid.slice(0, 8)}…</p>
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase bg-red-200 text-red-800">
+                                    Đã nghỉ
+                                </span>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => onRemoveInactive?.(uid)}
+                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-100 rounded-md transition-all"
+                            title="Gỡ khỏi lịch"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                ))}
+
+                {/* Active assigned employees */}
                 {assignedUsers.length > 0 ? (
                     assignedUsers.map(user => (
                         <div
@@ -54,13 +100,13 @@ export default function CounterDropZone({ counter, assignedUsers, onRemove }: Pr
                             </button>
                         </div>
                     ))
-                ) : (
+                ) : inactiveAssignedUids.length === 0 ? (
                     <div className="flex-1 flex items-center justify-center border-2 border-dashed border-slate-200 rounded-lg bg-slate-50/50">
                         <span className="text-sm font-medium text-slate-400">
                             {isOver ? 'Thả vào đây!' : 'Kéo nhân viên vào đây'}
                         </span>
                     </div>
-                )}
+                ) : null}
             </div>
         </div>
     );
