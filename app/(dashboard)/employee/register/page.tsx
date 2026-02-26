@@ -178,7 +178,12 @@ export default function EmployeeRegisterPage() {
         } else {
             const currentCount = getShiftCount(dateStr, shiftId);
             const maxCount = getShiftQuota(dateStr, shiftId);
-            if (currentCount >= maxCount) {
+
+            const type = userDoc?.type || 'PT';
+            const role = userDoc?.role || 'employee';
+            const isManagerOrFT = type === 'FT' || role === 'manager';
+
+            if (currentCount >= maxCount && !isManagerOrFT) {
                 setError(`Ca này đã đầy (${currentCount}/${maxCount}). Vui lòng chọn ca khác.`);
                 return;
             }
@@ -209,8 +214,13 @@ export default function EmployeeRegisterPage() {
             return { valid: false, message: 'Vui lòng chọn lịch làm việc trong tuần.' };
 
         if (type === 'FT' || role === 'manager') {
-            if (emptyDays !== 1)
-                return { valid: false, message: `${role === 'manager' ? 'Quản lý' : 'Nhân viên Toàn thời gian'} bắt buộc phải nghỉ đúng 1 ngày trong tuần.` };
+            if (emptyDays > 1) {
+                return { valid: false, message: `${role === 'manager' ? 'Quản lý' : 'Nhân viên Toàn thời gian'} chỉ được phép nghỉ tối đa 1 ngày trong tuần.` };
+            }
+
+            if (emptyDays === 0) {
+                warnings.push(`Cảnh báo: Bạn đang đăng ký làm việc cả 7 ngày trong tuần.`);
+            }
 
             for (let i = 0; i < 7; i++) {
                 const dateStr = weekDays[i];
@@ -230,6 +240,25 @@ export default function EmployeeRegisterPage() {
                     const managersOff = getManagersOff(dateStr).filter(name => name !== userDoc?.name);
                     if (managersOff.length > 0)
                         warnings.push(`Cảnh báo: Bạn đang nghỉ vào ${formatDate(dateStr)} trùng với quản lý khác (${managersOff.join(', ')}).`);
+                }
+            }
+        }
+
+        if (type === 'FT' || role === 'manager') {
+            for (let i = 0; i < 7; i++) {
+                if (selectedShifts[i].length > 0) {
+                    const shiftId = selectedShifts[i][0];
+                    const dateStr = weekDays[i];
+                    const currentCount = getShiftCount(dateStr, shiftId);
+                    const maxCount = getShiftQuota(dateStr, shiftId);
+                    // if they are currently selecting it, it will add to the currentCount in the actual DB but getShiftCount doesn't count their own selections if they are managers, but does for FT. 
+                    // Let's just do a simple check. If currentCount is already >= maxCount, taking this shift exceeds or meets quota.
+                    // To be precise for warnings: we warn if the shift is over quota.
+                    // For FT: getShiftCount includes their own old shifts if existing, but not their current UI selections (since they aren't saved yet).
+
+                    if (currentCount >= maxCount) {
+                        warnings.push(`Cảnh báo: Ca ${shiftId} ngày ${formatDate(dateStr)} đã đầy (${currentCount}/${maxCount}). Bạn vẫn có thể đăng ký nhưng vui lòng lưu ý.`);
+                    }
                 }
             }
         }
@@ -400,7 +429,7 @@ export default function EmployeeRegisterPage() {
                     {userDoc?.role === 'manager' || isFT ? (
                         <ul className="list-disc pl-5 space-y-0.5 marker:text-blue-400 text-blue-700">
                             <li>Bạn phải chọn <strong>đúng 1 ca</strong> cho mỗi ngày đi làm.</li>
-                            <li>Bạn bắt buộc phải nghỉ <strong>đúng 1 ngày</strong> mỗi tuần.</li>
+                            <li>Bạn được phép nghỉ <strong>tối đa 1 ngày</strong> mỗi tuần (có thể làm cả 7 ngày).</li>
                             <li>Không được chọn ngày nghỉ vào <strong>Thứ 7 hoặc Chủ nhật</strong>.</li>
                             {userDoc?.role === 'manager' && <li>Hệ thống sẽ cảnh báo nếu bạn nghỉ trùng ngày với quản lý khác.</li>}
                         </ul>
@@ -460,7 +489,8 @@ export default function EmployeeRegisterPage() {
                                         const isSelected = selectedShifts[i].includes(shiftId);
                                         const currentCount = getShiftCount(dateStr, shiftId);
                                         const maxCount = getShiftQuota(dateStr, shiftId);
-                                        const isFull = currentCount >= maxCount && !isSelected;
+                                        const isManagerOrFT = userDoc?.type === 'FT' || userDoc?.role === 'manager';
+                                        const isFull = currentCount >= maxCount && !isSelected && !isManagerOrFT;
 
                                         return (
                                             <button
@@ -475,14 +505,15 @@ export default function EmployeeRegisterPage() {
                                                         : 'border-slate-100 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50',
                                                     isClosed && !isSelected && 'opacity-50 cursor-not-allowed hover:border-slate-100 hover:bg-white',
                                                     isClosed && isSelected && 'cursor-not-allowed',
-                                                    isFull && !isClosed && 'opacity-50 cursor-not-allowed hover:bg-slate-50 border-red-100 text-red-400 bg-red-50/30'
+                                                    isFull && !isClosed && 'opacity-50 cursor-not-allowed hover:bg-slate-50 border-red-100 text-red-400 bg-red-50/30',
+                                                    (currentCount >= maxCount && !isSelected && isManagerOrFT && !isClosed) && 'border-amber-200 hover:bg-amber-50 text-amber-600'
                                                 )}
                                             >
                                                 <div className="flex flex-col items-center">
                                                     <span>{shiftId}</span>
                                                     <span className={cn(
                                                         'text-[10px] font-bold mt-0.5',
-                                                        isFull ? 'text-red-500' : isSelected ? 'text-blue-500/80' : 'text-slate-400'
+                                                        currentCount >= maxCount ? 'text-red-500' : isSelected ? 'text-blue-500/80' : 'text-slate-400'
                                                     )}>{currentCount}/{maxCount}</span>
                                                 </div>
                                             </button>
