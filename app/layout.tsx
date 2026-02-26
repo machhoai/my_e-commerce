@@ -1,5 +1,5 @@
 // app/layout.tsx
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Inter } from "next/font/google";
 import "./global.css";
@@ -8,6 +8,14 @@ import InstallPWA from "@/components/InstallPWA";
 
 const inter = Inter({ subsets: ["latin"] });
 
+export const viewport: Viewport = {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    themeColor: '#3b82f6', // Chuyển theme_color từ manifest lên đây để đổi màu thanh trạng thái (status bar)
+};
+
+// 2. Cấu hình Metadata chính
 export const metadata: Metadata = {
     metadataBase: new URL("https://bduckcityfunsvietnam.vercel.app"),
     title: "B.Duck Cityfuns Vietnam",
@@ -18,14 +26,14 @@ export const metadata: Metadata = {
             { url: "/bduck.png", type: "image/png" },
         ],
         apple: [
-            { url: "/apple-touch-icon.png" },
+            { url: "/logo.png" },
         ],
     },
     manifest: "/manifest.webmanifest",
     appleWebApp: {
-        capable: true,
-        statusBarStyle: "default",
-        title: "Lịch Làm Việc",
+        capable: true, // Bắt buộc để chạy standalone trên iOS
+        title: 'B.Duck', // Chỗ này lúc nãy bạn để 'Lịch Làm', mình đổi lại cho hợp với tên dự án nhé
+        statusBarStyle: 'default',
     },
     formatDetection: {
         telephone: false,

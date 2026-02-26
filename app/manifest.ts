@@ -5,6 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
         name: "Lịch Làm Việc",
         short_name: "Lịch Làm",
         description: "Ứng dụng đăng ký và quản lý điểm ca làm việc",
+        scope: '/',
         start_url: '/',
         display: 'standalone',
         orientation: 'portrait',
@@ -17,7 +18,7 @@ export default function manifest(): MetadataRoute.Manifest {
                 type: 'image/png',
             },
             {
-                src: '/icon-512x512.png', // Assuming user will add it or we create one
+                src: '/logo.png', // Assuming user will add it or we create one
                 sizes: '512x512',
                 type: 'image/png',
                 purpose: 'maskable'
