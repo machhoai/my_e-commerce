@@ -2,11 +2,11 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
     return {
-        name: "Lịch Làm Việc",
-        short_name: "Lịch Làm",
+        name: "B.Duck",
+        short_name: "B.Duck",
         description: "Ứng dụng đăng ký và quản lý điểm ca làm việc",
         scope: '/',
-        start_url: '/',
+        start_url: '/login',
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#ffffff',
@@ -18,7 +18,7 @@ export default function manifest(): MetadataRoute.Manifest {
                 type: 'image/png',
             },
             {
-                src: '/logo.png', // Assuming user will add it or we create one
+                src: '/logo-square.png', // Assuming user will add it or we create one
                 sizes: '512x512',
                 type: 'image/png',
                 purpose: 'maskable'

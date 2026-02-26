@@ -19,7 +19,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
     metadataBase: new URL("https://bduckcityfunsvietnam.vercel.app"),
     title: "B.Duck Cityfuns Vietnam",
-    description: "B.Duck Cityfuns Vietnam",
+    description: "Be Playful • Be Fun • B.Duck",
     icons: {
         icon: [
             { url: "/favicon.ico" },
