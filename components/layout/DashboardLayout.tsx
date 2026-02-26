@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2 } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
@@ -11,7 +11,7 @@ import { db } from '@/lib/firebase';
 import { StoreDoc } from '@/types';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-    const { userDoc, logout, loading } = useAuth();
+    const { userDoc, logout, loading, hasPermission } = useAuth();
     const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [storeName, setStoreName] = useState<string>('');
@@ -84,25 +84,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             label: 'Xếp lịch (Quản lý)',
             href: '/manager/schedule',
             icon: Users,
-            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || userDoc?.canManageHR === true,
+            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || hasPermission('edit_schedule') || hasPermission('view_schedule'),
         },
         {
             label: 'Lịch tổng quan',
             href: '/manager/overview',
             icon: Calendar,
-            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || userDoc?.role === 'manager' || userDoc?.canManageHR === true,
+            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || hasPermission('view_overview'),
         },
         {
             label: 'Lịch sử & Thống kê',
             href: '/manager/history',
             icon: Calendar,
-            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || userDoc?.role === 'manager' || userDoc?.canManageHR === true,
+            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || hasPermission('view_history'),
         },
         {
             label: 'Quản lý nhân viên',
             href: '/manager/users',
             icon: Users,
-            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || userDoc?.canManageHR === true,
+            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || hasPermission('manage_hr') || hasPermission('view_users'),
         },
         {
             label: 'Quản lý người dùng',
@@ -114,6 +114,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             label: 'Quản lý Cửa hàng',
             href: '/admin/stores',
             icon: Building2,
+            show: userDoc?.role === 'admin',
+        },
+        {
+            label: 'Phân quyền & Role',
+            href: '/admin/roles',
+            icon: Shield,
             show: userDoc?.role === 'admin',
         },
         {
@@ -207,6 +213,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <LogOut className="w-4 h-4" />
                     Đăng xuất
                 </button>
+                <div className="mt-3 pt-3 border-t border-slate-800/60 text-center">
+                    <p className="text-[10px] text-slate-600 leading-tight">
+                        Thiết kế &amp; phát triển bởi
+                    </p>
+                    <p className="text-[11px] font-semibold text-slate-500 tracking-wide mt-0.5">
+                        Mạch Hoài
+                    </p>
+                    <p className="text-[9px] text-slate-700 mt-0.5 leading-tight">
+                        IT &amp; Đào tạo
+                    </p>
+                    <p className="text-[9px] text-slate-700 leading-tight">
+                        Công ty TNHH JoyWorld Entertainment
+                    </p>
+                </div>
             </div>
         </>
     );

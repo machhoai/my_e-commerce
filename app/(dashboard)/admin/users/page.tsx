@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
-import { UserDoc, UserRole, EmployeeType, StoreDoc } from '@/types';
-import { Users, Plus, ShieldAlert, KeyRound, MailPlus, Search, ShieldCheck, Building2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { UserDoc, UserRole, EmployeeType, StoreDoc, CustomRoleDoc } from '@/types';
+import { Users, Plus, ShieldAlert, KeyRound, MailPlus, Search, ShieldCheck, Building2, AlertCircle, CheckCircle2, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -50,10 +50,12 @@ export default function AdminUsersPage() {
     const [newEducation, setNewEducation] = useState('');
     const [newCanManageHR, setNewCanManageHR] = useState(false);
     const [newStoreId, setNewStoreId] = useState('');
+    const [newCustomRoleId, setNewCustomRoleId] = useState('');
 
     const [actionLoading, setActionLoading] = useState(false);
     const [actionMessage, setActionMessage] = useState({ type: '', text: '' });
     const [searchTerm, setSearchTerm] = useState('');
+    const [customRoles, setCustomRoles] = useState<CustomRoleDoc[]>([]);
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
@@ -69,6 +71,20 @@ export default function AdminUsersPage() {
             } catch { console.error('Failed to load stores'); }
         }
         fetchStores();
+    }, [user, getToken]);
+
+    // Fetch custom roles for dropdown
+    useEffect(() => {
+        if (!user) return;
+        async function fetchRoles() {
+            try {
+                const token = await getToken();
+                const res = await fetch('/api/roles', { headers: { Authorization: `Bearer ${token}` } });
+                const data = await res.json();
+                setCustomRoles(Array.isArray(data) ? data : []);
+            } catch { /* silent */ }
+        }
+        fetchRoles();
     }, [user, getToken]);
 
     // Subscribe to users filtered by selected store (or all if none selected)
@@ -88,7 +104,7 @@ export default function AdminUsersPage() {
     const resetForm = () => {
         setNewName(''); setNewPhone(''); setNewRole('employee'); setNewType('PT');
         setNewDob(''); setNewJobTitle(''); setNewEmail(''); setNewIdCard('');
-        setNewBankAccount(''); setNewEducation(''); setNewCanManageHR(false);
+        setNewBankAccount(''); setNewEducation(''); setNewCanManageHR(false); setNewCustomRoleId('');
         setNewStoreId(selectedStoreId);
         setEditUid(null);
         setIsCreateModalOpen(false);
@@ -106,6 +122,7 @@ export default function AdminUsersPage() {
         setNewDob(u.dob || ''); setNewJobTitle(u.jobTitle || ''); setNewEmail(u.email || '');
         setNewIdCard(u.idCard || ''); setNewBankAccount(u.bankAccount || ''); setNewEducation(u.education || '');
         setNewCanManageHR(u.canManageHR || false); setNewStoreId(u.storeId || '');
+        setNewCustomRoleId(u.customRoleId || '');
         setIsCreateModalOpen(true);
     };
 
@@ -125,6 +142,7 @@ export default function AdminUsersPage() {
                 dob: newDob, jobTitle: newJobTitle, email: newEmail,
                 idCard: newIdCard, bankAccount: newBankAccount, education: newEducation,
                 canManageHR: newCanManageHR, storeId: newStoreId || undefined,
+                customRoleId: newCustomRoleId || null,
                 ...(editUid ? { targetUid: editUid } : {}),
             };
             const res = await fetch(endpoint, {
@@ -390,20 +408,38 @@ export default function AdminUsersPage() {
                                         </select>
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-slate-700">Vai trò hệ thống *</label>
-                                        <select value={newRole} onChange={e => setNewRole(e.target.value as UserRole)}
-                                            className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5">
+                                        <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                                            <Shield className="w-3.5 h-3.5 text-violet-500" />
+                                            Vai trò *
+                                        </label>
+                                        <select
+                                            value={newCustomRoleId ? `custom:${newCustomRoleId}` : newRole}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                if (val.startsWith('custom:')) {
+                                                    setNewRole('employee');
+                                                    setNewCustomRoleId(val.slice(7));
+                                                } else {
+                                                    setNewRole(val as UserRole);
+                                                    setNewCustomRoleId('');
+                                                }
+                                            }}
+                                            className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5"
+                                        >
                                             <option value="employee">Nhân viên</option>
                                             <option value="manager">Quản lý</option>
                                             <option value="store_manager">Cửa hàng trưởng</option>
                                             <option value="admin">Quản trị viên</option>
+                                            {customRoles.map(r => (
+                                                <option key={r.id} value={`custom:${r.id}`}>{r.name}</option>
+                                            ))}
                                         </select>
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-sm font-medium text-slate-700">Cửa hàng</label>
                                         <select value={newStoreId} onChange={e => setNewStoreId(e.target.value)}
                                             className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5">
-                                            <option value="">(Không thuộc cửa hàng — Admin)</option>
+                                            <option value="">(Không thuộc cửa hàng)</option>
                                             {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                         </select>
                                     </div>
@@ -412,12 +448,13 @@ export default function AdminUsersPage() {
                                             <input type="checkbox" checked={newCanManageHR} onChange={e => setNewCanManageHR(e.target.checked)}
                                                 className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer" />
                                             <div>
-                                                <span className="text-sm font-semibold text-slate-800">Quyền Quản lý Nhân sự & Xếp lịch</span>
+                                                <span className="text-sm font-semibold text-slate-800">Quyền Quản lý Nhân sự &amp; Xếp lịch</span>
                                                 <p className="text-[10px] text-slate-500 mt-0.5">Cho phép thêm, sửa, tắt hoạt động nhân viên và phân ca.</p>
                                             </div>
                                         </label>
                                     )}
                                 </div>
+
 
                                 {/* Right col - Extended details */}
                                 <div className="space-y-4">

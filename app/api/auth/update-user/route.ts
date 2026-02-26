@@ -86,14 +86,16 @@ export async function POST(request: Request) {
             if (body.role !== undefined) updateData.role = body.role;
             if (body.canManageHR !== undefined) updateData.canManageHR = Boolean(body.canManageHR);
             if (body.storeId !== undefined) updateData.storeId = body.storeId;
+            if (body.customRoleId !== undefined) updateData.customRoleId = body.customRoleId || null;
         }
 
-        // store_manager can update canManageHR and role (manager/employee) within their store
+        // store_manager can update canManageHR, role, and customRoleId within their store
         if (requesterRole === 'store_manager' && requestUid !== targetUid) {
             if (body.canManageHR !== undefined) updateData.canManageHR = Boolean(body.canManageHR);
             if (body.role !== undefined && ['manager', 'employee'].includes(body.role)) {
                 updateData.role = body.role;
             }
+            if (body.customRoleId !== undefined) updateData.customRoleId = body.customRoleId || null;
         }
 
         updateData.updatedAt = new Date().toISOString();

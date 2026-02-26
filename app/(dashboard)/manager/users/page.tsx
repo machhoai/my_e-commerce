@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { UserDoc, EmployeeType, UserRole, StoreDoc } from '@/types';
-import { Users, Search, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Plus, MailPlus, KeyRound, Building2 } from 'lucide-react';
+import { UserDoc, EmployeeType, UserRole, StoreDoc, CustomRoleDoc } from '@/types';
+import { Users, Search, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Plus, MailPlus, KeyRound, Building2, Shield } from 'lucide-react';
 
 export default function ManagerUsersPage() {
     const { user, userDoc, loading: authLoading } = useAuth();
@@ -22,6 +22,7 @@ export default function ManagerUsersPage() {
     const [newType, setNewType] = useState<EmployeeType>('PT');
     const [newRole, setNewRole] = useState<UserRole>('employee');
     const [newCanManageHR, setNewCanManageHR] = useState(false);
+    const [newCustomRoleId, setNewCustomRoleId] = useState('');
     const [newDob, setNewDob] = useState('');
     const [newJobTitle, setNewJobTitle] = useState('');
     const [newEmail, setNewEmail] = useState('');
@@ -33,6 +34,7 @@ export default function ManagerUsersPage() {
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [actionMessage, setActionMessage] = useState({ type: '', text: '' });
     const [searchTerm, setSearchTerm] = useState('');
+    const [customRoles, setCustomRoles] = useState<CustomRoleDoc[]>([]);
 
     // Admin store selector
     const [stores, setStores] = useState<StoreDoc[]>([]);
@@ -53,6 +55,20 @@ export default function ManagerUsersPage() {
         }
         fetchStores();
     }, [userDoc, user, getToken]);
+
+    // Fetch custom roles for the dropdown
+    useEffect(() => {
+        if (!user) return;
+        async function fetchRoles() {
+            try {
+                const token = await user?.getIdToken();
+                const res = await fetch('/api/roles', { headers: { Authorization: `Bearer ${token}` } });
+                const data = await res.json();
+                setCustomRoles(Array.isArray(data) ? data : []);
+            } catch { /* silent */ }
+        }
+        fetchRoles();
+    }, [user]);
 
     useEffect(() => {
         // Wait until AuthContext has finished loading before acting
@@ -110,14 +126,16 @@ export default function ManagerUsersPage() {
                 }
                 if (userDoc?.role === 'store_manager') {
                     bodyPayload.canManageHR = newCanManageHR;
+                    bodyPayload.customRoleId = newCustomRoleId || null;
                 }
                 if (userDoc?.role === 'admin' && newStoreId) {
                     bodyPayload.storeId = newStoreId;
                 }
             } else {
                 bodyPayload.role = (userDoc?.role === 'store_manager' || userDoc?.role === 'admin') ? newRole : 'employee';
-                if (userDoc?.role === 'store_manager') {
+                if (userDoc?.role === 'store_manager' || userDoc?.role === 'admin') {
                     bodyPayload.canManageHR = newCanManageHR;
+                    bodyPayload.customRoleId = newCustomRoleId || null;
                 }
                 if (userDoc?.role === 'admin' && newStoreId) {
                     bodyPayload.storeId = newStoreId;
@@ -155,7 +173,7 @@ export default function ManagerUsersPage() {
     };
 
     const resetForm = () => {
-        setNewName(''); setNewPhone(''); setNewType('PT'); setNewRole('employee'); setNewCanManageHR(false);
+        setNewName(''); setNewPhone(''); setNewType('PT'); setNewRole('employee'); setNewCanManageHR(false); setNewCustomRoleId('');
         setNewDob(''); setNewJobTitle(''); setNewEmail('');
         setNewIdCard(''); setNewBankAccount(''); setNewEducation('');
         setNewStoreId('');
@@ -167,6 +185,7 @@ export default function ManagerUsersPage() {
         setNewType(employee.type || 'PT');
         setNewRole(employee.role ?? 'employee');
         setNewCanManageHR(employee.canManageHR ?? false);
+        setNewCustomRoleId(employee.customRoleId ?? '');
         setNewDob(employee.dob || '');
         setNewJobTitle(employee.jobTitle || '');
         setNewEmail(employee.email || '');
@@ -484,34 +503,44 @@ export default function ManagerUsersPage() {
                                                         <option value="FT">Toàn thời gian (FT)</option>
                                                     </select>
                                                 </div>
-                                                {(userDoc?.role === 'store_manager' || userDoc?.role === 'admin') && (
-                                                    <>
-                                                        <div className="space-y-1.5">
-                                                            <label className="text-sm font-medium text-slate-700">Vai trò <span className="text-red-500">*</span></label>
-                                                            <select
-                                                                value={newRole}
-                                                                onChange={e => setNewRole(e.target.value as UserRole)}
-                                                                className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 cursor-pointer"
-                                                            >
-                                                                <option value="employee">Nhân viên</option>
-                                                                <option value="manager">Quản lý</option>
-                                                                <option value="store_manager">Cửa hàng trưởng</option>
-                                                            </select>
-                                                        </div>
-                                                        {userDoc?.role === 'admin' && (
+                                                {(userDoc?.role === 'store_manager' || userDoc?.role === 'admin') && (() => {
+                                                    const eligibleRoles = userDoc?.role === 'store_manager'
+                                                        ? customRoles.filter(r => r.allowStoreManager)
+                                                        : customRoles;
+                                                    const selectValue = newCustomRoleId ? `custom:${newCustomRoleId}` : newRole;
+                                                    const handleRoleChange = (val: string) => {
+                                                        if (val.startsWith('custom:')) {
+                                                            setNewRole('employee');
+                                                            setNewCustomRoleId(val.slice(7));
+                                                        } else {
+                                                            setNewRole(val as UserRole);
+                                                            setNewCustomRoleId('');
+                                                        }
+                                                    };
+                                                    return (
+                                                        <>
                                                             <div className="space-y-1.5">
-                                                                <label className="text-sm font-medium text-slate-700">Cửa hàng</label>
+                                                                <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                                                                    <Shield className="w-3.5 h-3.5 text-violet-500" />
+                                                                    Vai trò <span className="text-red-500">*</span>
+                                                                </label>
                                                                 <select
-                                                                    value={newStoreId}
-                                                                    onChange={e => setNewStoreId(e.target.value)}
+                                                                    value={selectValue}
+                                                                    onChange={e => handleRoleChange(e.target.value)}
                                                                     className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 cursor-pointer"
                                                                 >
-                                                                    <option value="">-- Chưa gán cửa hàng --</option>
-                                                                    {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                                                    <option value="employee">Nhân viên</option>
+                                                                    <option value="manager">Quản lý</option>
+                                                                    {eligibleRoles.length > 0 && (
+                                                                        eligibleRoles.map(r => (
+                                                                            <option key={r.id} value={`custom:${r.id}`}>{r.name}</option>
+                                                                        ))
+                                                                    )}
                                                                 </select>
+                                                                {userDoc?.role === 'store_manager' && eligibleRoles.length === 0 && customRoles.length > 0 && (
+                                                                    <p className="text-[10px] text-amber-600">Admin cần bật &quot;Cho phép CH Trưởng&quot; để dùng role tùy chỉnh.</p>
+                                                                )}
                                                             </div>
-                                                        )}
-                                                        {userDoc?.role === 'store_manager' && (
                                                             <label className="flex items-center gap-2.5 cursor-pointer p-3 border border-slate-200 rounded-lg bg-slate-50 hover:bg-blue-50/50 hover:border-blue-200 transition-colors">
                                                                 <input
                                                                     type="checkbox"
@@ -524,9 +553,10 @@ export default function ManagerUsersPage() {
                                                                     <p className="text-[10px] text-slate-500 mt-0.5">Cho phép thêm, sửa, tắt hoạt động nhân viên và phân ca.</p>
                                                                 </div>
                                                             </label>
-                                                        )}
-                                                    </>
-                                                )}
+                                                        </>
+                                                    );
+                                                })()}
+
                                                 <div className="space-y-1.5">
                                                     <label className="text-sm font-medium text-slate-700">Ngày sinh</label>
                                                     <input

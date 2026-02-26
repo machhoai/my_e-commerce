@@ -18,13 +18,16 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { UserDoc } from '@/types';
+import { UserDoc, AppPermission, CustomRoleDoc } from '@/types';
 import { phoneToEmail } from '@/lib/utils';
 
 interface AuthContextValue {
     user: User | null;
     userDoc: UserDoc | null;
     loading: boolean;
+    permissions: Set<AppPermission>;
+    hasPermission: (key: AppPermission) => boolean;
+    getToken: () => Promise<string>;
     login: (phone: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
     changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
@@ -32,17 +35,56 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// Derive built-in permissions from base role (backward compat)
+function getBuiltInPermissions(userDoc: UserDoc): AppPermission[] {
+    const { role, canManageHR } = userDoc;
+    if (role === 'admin' || role === 'store_manager') {
+        return ['view_overview', 'view_history', 'view_schedule', 'edit_schedule', 'view_users', 'manage_hr'];
+    }
+    if (role === 'manager') {
+        const perms: AppPermission[] = ['view_overview', 'view_history'];
+        if (canManageHR) {
+            perms.push('view_schedule', 'edit_schedule', 'view_users', 'manage_hr');
+        }
+        return perms;
+    }
+    if (role === 'employee') {
+        return ['register_shift'];
+    }
+    return [];
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [userDoc, setUserDoc] = useState<UserDoc | null>(null);
     const [loading, setLoading] = useState(true);
+    const [permissions, setPermissions] = useState<Set<AppPermission>>(new Set());
 
     const fetchUserDoc = useCallback(async (uid: string) => {
         try {
             const snap = await getDoc(doc(db, 'users', uid));
             if (snap.exists()) {
-                setUserDoc(snap.data() as UserDoc);
+                const data = snap.data() as UserDoc;
+                setUserDoc(data);
+
+                // Build built-in permissions first
+                const builtIn = getBuiltInPermissions(data);
+                const permSet = new Set<AppPermission>(builtIn);
+
+                // Load custom role permissions if assigned
+                if (data.customRoleId) {
+                    try {
+                        const roleSnap = await getDoc(doc(db, 'custom_roles', data.customRoleId));
+                        if (roleSnap.exists()) {
+                            const roleData = roleSnap.data() as CustomRoleDoc;
+                            roleData.permissions.forEach(p => permSet.add(p));
+                        }
+                    } catch (err) {
+                        console.error('Failed to load custom role:', err);
+                    }
+                }
+
+                setPermissions(permSet);
             }
         } catch (err) {
             console.error('Failed to fetch user doc:', err);
@@ -56,12 +98,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 await fetchUserDoc(firebaseUser.uid);
             } else {
                 setUserDoc(null);
+                setPermissions(new Set());
             }
             setLoading(false);
         });
 
         return () => unsubscribe();
     }, [fetchUserDoc]);
+
+    const getToken = useCallback(async () => {
+        if (!user) throw new Error('Chưa đăng nhập');
+        return user.getIdToken();
+    }, [user]);
 
     const login = useCallback(async (phone: string, password: string) => {
         const email = phoneToEmail(phone);
@@ -71,6 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const logout = useCallback(async () => {
         await signOut(auth);
         setUserDoc(null);
+        setPermissions(new Set());
     }, []);
 
     const changePassword = useCallback(
@@ -83,8 +132,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         [user]
     );
 
+    const hasPermission = useCallback(
+        (key: AppPermission) => permissions.has(key),
+        [permissions]
+    );
+
     return (
-        <AuthContext.Provider value={{ user, userDoc, loading, login, logout, changePassword }}>
+        <AuthContext.Provider value={{ user, userDoc, loading, permissions, hasPermission, getToken, login, logout, changePassword }}>
             {children}
         </AuthContext.Provider>
     );

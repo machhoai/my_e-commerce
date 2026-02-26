@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { SettingsDoc, CounterDoc } from '@/types';
-import { Settings as SettingsIcon, Save, Plus, X, AlertCircle, CheckCircle2, Store, Clock, Users } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Plus, X, AlertCircle, CheckCircle2, Store, Clock, Users, Timer } from 'lucide-react';
+import { SettingsDoc, CounterDoc, RegistrationSchedule } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; // Simple built-in generator or Math.random
 
 export default function AdminSettingsPage() {
@@ -24,6 +24,13 @@ export default function AdminSettingsPage() {
     const [newCounter, setNewCounter] = useState('');
     const [newSpecialDate, setNewSpecialDate] = useState('');
     const [newSpecialDateQuotas, setNewSpecialDateQuotas] = useState<Record<string, number>>({});
+
+    // Auto-schedule state
+    const [schedule, setSchedule] = useState<RegistrationSchedule>({
+        enabled: false,
+        openDay: 1, openHour: 8, openMinute: 0,
+        closeDay: 5, closeHour: 22, closeMinute: 0,
+    });
 
     // Generate simple short string if UUID not installed, but fallback works
     const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -58,6 +65,9 @@ export default function AdminSettingsPage() {
                         ptMaxShifts: data.monthlyQuotas?.ptMaxShifts || 25
                     }
                 });
+                if (data.registrationSchedule) {
+                    setSchedule(data.registrationSchedule);
+                }
                 setCounters(data.counters || []);
 
             } catch (err) {
@@ -83,7 +93,8 @@ export default function AdminSettingsPage() {
         try {
             const payload = {
                 ...settings,
-                counters
+                counters,
+                registrationSchedule: schedule,
             };
 
             const token = await user.getIdToken();
@@ -279,6 +290,109 @@ export default function AdminSettingsPage() {
                             </span>
                         </label>
                     </div>
+
+                    {/* Auto-Schedule Card */}
+                    {(() => {
+                        const DAY_NAMES = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                        const pad = (n: number) => String(n).padStart(2, '0');
+                        const openLabel = `${DAY_NAMES[schedule.openDay]} ${pad(schedule.openHour)}:${pad(schedule.openMinute)}`;
+                        const closeLabel = `${DAY_NAMES[schedule.closeDay]} ${pad(schedule.closeHour)}:${pad(schedule.closeMinute)}`;
+                        return (
+                            <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden p-6 transition-all hover:shadow-md ${schedule.enabled ? 'border-indigo-300 ring-1 ring-indigo-200' : 'border-slate-200'
+                                }`}>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                        <Timer className="w-5 h-5 text-indigo-500" />
+                                        Hẹn giờ tự động
+                                    </h2>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" className="sr-only peer"
+                                            checked={schedule.enabled}
+                                            onChange={e => setSchedule(s => ({ ...s, enabled: e.target.checked }))}
+                                        />
+                                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+                                    </label>
+                                </div>
+
+                                <p className="text-sm text-slate-500 mb-5">
+                                    Tự động mở/đóng đăng ký theo lịch hàng tuần (kiểm tra mỗi 30 phút).
+                                    {!schedule.enabled && <span className="text-amber-600 font-semibold ml-1">Hiện đang tắt.</span>}
+                                </p>
+
+                                {schedule.enabled && (
+                                    <>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+                                            {/* Open Window */}
+                                            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
+                                                <h3 className="text-sm font-bold text-emerald-800 flex items-center gap-1.5">
+                                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                                    Mở Đăng ký
+                                                </h3>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-xs font-semibold text-slate-600">Ngày trong tuần</label>
+                                                    <select
+                                                        value={schedule.openDay}
+                                                        onChange={e => setSchedule(s => ({ ...s, openDay: +e.target.value }))}
+                                                        className="w-full bg-white border border-emerald-200 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 p-2 font-medium"
+                                                    >
+                                                        {DAY_NAMES.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-xs font-semibold text-slate-600">Giờ mở</label>
+                                                    <input type="time"
+                                                        value={`${pad(schedule.openHour)}:${pad(schedule.openMinute)}`}
+                                                        onChange={e => {
+                                                            const [h, m] = e.target.value.split(':').map(Number);
+                                                            setSchedule(s => ({ ...s, openHour: h, openMinute: m }));
+                                                        }}
+                                                        className="w-full bg-white border border-emerald-200 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 p-2 font-medium"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Close Window */}
+                                            <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
+                                                <h3 className="text-sm font-bold text-red-800 flex items-center gap-1.5">
+                                                    <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                                                    Đóng Đăng ký
+                                                </h3>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-xs font-semibold text-slate-600">Ngày trong tuần</label>
+                                                    <select
+                                                        value={schedule.closeDay}
+                                                        onChange={e => setSchedule(s => ({ ...s, closeDay: +e.target.value }))}
+                                                        className="w-full bg-white border border-red-200 text-sm rounded-lg focus:ring-red-500 focus:border-red-500 p-2 font-medium"
+                                                    >
+                                                        {DAY_NAMES.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-xs font-semibold text-slate-600">Giờ đóng</label>
+                                                    <input type="time"
+                                                        value={`${pad(schedule.closeHour)}:${pad(schedule.closeMinute)}`}
+                                                        onChange={e => {
+                                                            const [h, m] = e.target.value.split(':').map(Number);
+                                                            setSchedule(s => ({ ...s, closeHour: h, closeMinute: m }));
+                                                        }}
+                                                        className="w-full bg-white border border-red-200 text-sm rounded-lg focus:ring-red-500 focus:border-red-500 p-2 font-medium"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Preview */}
+                                        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-xs text-indigo-700 flex items-start gap-2">
+                                            <Timer className="w-3.5 h-3.5 mt-0.5 shrink-0 text-indigo-400" />
+                                            <span>
+                                                Hệ thống sẽ tự động <strong className="text-emerald-700">mở</strong> vào <strong>{openLabel}</strong> và <strong className="text-red-600">đóng</strong> vào <strong>{closeLabel}</strong> hàng tuần (giờ Việt Nam). Kiểm tra mỗi 30 phút.
+                                            </span>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        );
+                    })()}
 
                     {/* Shift Times Card */}
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-6 transition-all hover:shadow-md">
