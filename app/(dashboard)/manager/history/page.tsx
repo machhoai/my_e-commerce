@@ -43,9 +43,9 @@ export default function ManagerHistoryPage() {
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
-    // Fetch stores for admin
+    // Fetch stores — needed for all roles to resolve storeId → name
     useEffect(() => {
-        if (userDoc?.role !== 'admin' || !user) return;
+        if (!user) return;
         async function fetchStores() {
             try {
                 const token = await getToken();
@@ -55,7 +55,7 @@ export default function ManagerHistoryPage() {
             } catch { /* silent */ }
         }
         fetchStores();
-    }, [userDoc, user, getToken]);
+    }, [user, getToken]);
 
     useEffect(() => {
         if (!user || !userDoc) return;
@@ -140,7 +140,7 @@ export default function ManagerHistoryPage() {
         }
 
         fetchHistory();
-    }, [user, userDoc, currentMonth, selectedAdminStoreId]);
+    }, [user, userDoc, currentMonth, selectedAdminStoreId, stores]);
 
     const handlePreviousMonth = () => {
         const d = new Date(currentMonth);

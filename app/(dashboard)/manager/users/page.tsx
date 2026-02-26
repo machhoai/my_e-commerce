@@ -123,13 +123,14 @@ export default function ManagerUsersPage() {
                 bodyPayload.targetUid = editUid;
                 if (userDoc?.role === 'store_manager' || userDoc?.role === 'admin') {
                     bodyPayload.role = newRole;
+                    bodyPayload.customRoleId = newCustomRoleId || null;
                 }
                 if (userDoc?.role === 'store_manager') {
                     bodyPayload.canManageHR = newCanManageHR;
-                    bodyPayload.customRoleId = newCustomRoleId || null;
                 }
-                if (userDoc?.role === 'admin' && newStoreId) {
-                    bodyPayload.storeId = newStoreId;
+                if (userDoc?.role === 'admin') {
+                    // Always send storeId so admin can change or clear it
+                    bodyPayload.storeId = newStoreId || null;
                 }
             } else {
                 bodyPayload.role = (userDoc?.role === 'store_manager' || userDoc?.role === 'admin') ? newRole : 'employee';
@@ -229,6 +230,9 @@ export default function ManagerUsersPage() {
             setActionLoading(null);
         }
     };
+
+    // Build storeId → name lookup map for rendering the Store column in the table
+    const storeMap = new Map(stores.map(s => [s.id, s.name]));
 
     const filteredEmployees = employees.filter(e =>
         e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -380,6 +384,17 @@ export default function ManagerUsersPage() {
                                                         </td>
                                                         <td className="px-6 py-4">
                                                             {(() => {
+                                                                // Check custom role first
+                                                                if (e.customRoleId) {
+                                                                    const customRole = customRoles.find(r => r.id === e.customRoleId);
+                                                                    if (customRole) {
+                                                                        return (
+                                                                            <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded bg-amber-100 text-amber-700 ${!isActive ? 'opacity-50' : ''}`}>
+                                                                                {customRole.name}
+                                                                            </span>
+                                                                        );
+                                                                    }
+                                                                }
                                                                 const roleMap: Record<string, { label: string; className: string }> = {
                                                                     store_manager: { label: 'Cửa hàng trưởng', className: 'bg-indigo-100 text-indigo-700' },
                                                                     manager: { label: 'Quản lý', className: 'bg-violet-100 text-violet-700' },
@@ -553,6 +568,22 @@ export default function ManagerUsersPage() {
                                                                     <p className="text-[10px] text-slate-500 mt-0.5">Cho phép thêm, sửa, tắt hoạt động nhân viên và phân ca.</p>
                                                                 </div>
                                                             </label>
+                                                            {userDoc?.role === 'admin' && (
+                                                                <div className="space-y-1.5">
+                                                                    <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                                                                        <Building2 className="w-3.5 h-3.5 text-indigo-500" />
+                                                                        Cửa hàng
+                                                                    </label>
+                                                                    <select
+                                                                        value={newStoreId}
+                                                                        onChange={e => setNewStoreId(e.target.value)}
+                                                                        className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 cursor-pointer"
+                                                                    >
+                                                                        <option value="">-- Chưa gán cửa hàng --</option>
+                                                                        {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                                                    </select>
+                                                                </div>
+                                                            )}
                                                         </>
                                                     );
                                                 })()}

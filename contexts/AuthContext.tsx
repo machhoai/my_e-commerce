@@ -113,7 +113,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const login = useCallback(async (phone: string, password: string) => {
         const email = phoneToEmail(phone);
-        await signInWithEmailAndPassword(auth, email, password);
+        const credential = await signInWithEmailAndPassword(auth, email, password);
+
+        // Check if account is active in Firestore before allowing access
+        const snap = await getDoc(doc(db, 'users', credential.user.uid));
+        if (snap.exists() && snap.data()?.isActive === false) {
+            // Sign out immediately to prevent access
+            await signOut(auth);
+            throw new Error('Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản lý.');
+        }
     }, []);
 
     const logout = useCallback(async () => {
