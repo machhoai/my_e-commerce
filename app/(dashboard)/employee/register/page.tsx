@@ -17,12 +17,23 @@ export default function EmployeeRegisterPage() {
     // ─── Settings (real-time via onSnapshot) ────────────────────────────────
     const [settings, setSettings] = useState<StoreSettings | null>(null);
 
-    // ─── Registration State ──────────────────────────────────────────────────
-    const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date()));
+    // Start by showing NEXT week by default, instead of the current locked week.
+    const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
+        const d = getWeekStart(new Date());
+        d.setDate(d.getDate() + 7);
+        return d;
+    });
     const weekDays = getWeekDays(currentWeekStart);
 
     const [selectedShifts, setSelectedShifts] = useState<string[][]>(Array(7).fill([]));
     const [existingRegId, setExistingRegId] = useState<string | null>(null);
+
+    // Calculate if the currently viewed week is editable.
+    // Editable only if: registrationOpen is true AND the week is EXACTLY next week.
+    const currentWeekStartOfToday = getWeekStart(new Date());
+    const minEditableWeekStart = new Date(currentWeekStartOfToday);
+    minEditableWeekStart.setDate(minEditableWeekStart.getDate() + 7);
+    const isWeekEditable = currentWeekStart.getTime() === minEditableWeekStart.getTime();
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -32,6 +43,8 @@ export default function EmployeeRegisterPage() {
     // ─── Global Registration Data (for quotas & manager off-days) ───────────
     const [allRegistrations, setAllRegistrations] = useState<WeeklyRegistration[]>([]);
     const [managers, setManagers] = useState<{ uid: string; name: string }[]>([]);
+    const [inactiveEmployees, setInactiveEmployees] = useState<string[]>([]);
+    const [activeEmployeeList, setActiveEmployeeList] = useState<Set<string>>(new Set());
 
     // ─── REAL-TIME LISTENER: Store Settings (onSnapshot) ────────────────────
     // This replaces the one-time getDoc and reacts instantly when admin closes registration
@@ -94,15 +107,33 @@ export default function EmployeeRegisterPage() {
                 allRegsSnap.forEach(d => regs.push(d.data() as WeeklyRegistration));
                 setAllRegistrations(regs);
 
-                // 3. Fetch all managers
-                const managersQuery = query(collection(db, 'users'), where('role', '==', 'manager'));
-                const managersSnap = await getDocs(managersQuery);
+                // 3. Fetch all managers & inactive employees
+                const usersQuery = query(collection(db, 'users'), where('storeId', '==', storeId));
+                const usersSnap = await getDocs(usersQuery);
                 const mgrs: { uid: string; name: string }[] = [];
-                managersSnap.forEach(d => {
+                const inactives: string[] = [];
+                const validEmployeeUids = new Set<string>();
+
+                usersSnap.forEach(d => {
                     const data = d.data();
-                    mgrs.push({ uid: data.uid, name: data.name });
+                    if (data.role === 'manager' || data.role === 'store_manager') {
+                        if (data.role === 'manager') {
+                            mgrs.push({ uid: data.uid, name: data.name });
+                        }
+                    } else if (data.active !== false) {
+                        // Keep track of active regular employees to count them properly
+                        // If they are not in this list, they are either managers, store_managers, inactive, or deleted
+                        validEmployeeUids.add(data.uid);
+                    }
+
+                    if (data.active === false) {
+                        inactives.push(data.uid);
+                    }
                 });
+
                 setManagers(mgrs);
+                setInactiveEmployees(inactives);
+                setActiveEmployeeList(validEmployeeUids);
             } catch (err) {
                 console.error('Lỗi khi tải dữ liệu:', err);
                 setError('Không thể tải dữ liệu đăng ký');
@@ -145,8 +176,13 @@ export default function EmployeeRegisterPage() {
     const getShiftCount = (dateStr: string, shiftId: string) => {
         let count = 0;
         allRegistrations.forEach(reg => {
-            const isManager = managers.some(m => m.uid === reg.userId);
-            if (!isManager && reg.shifts.some(s => s.date === dateStr && s.shiftId === shiftId)) count++;
+            // Only count if this user is a known ACTIVE regular employee.
+            // This automatically excludes managers, inactive employees, and deleted users.
+            const isValidEmployee = activeEmployeeList.has(reg.userId);
+
+            if (isValidEmployee && reg.shifts.some(s => s.date === dateStr && s.shiftId === shiftId)) {
+                count++;
+            }
         });
         return count;
     };
@@ -169,6 +205,11 @@ export default function EmployeeRegisterPage() {
             return;
         }
 
+        if (!isWeekEditable) {
+            setError('Chỉ được phép đăng ký và thay đổi lịch cho các tuần tiếp theo.');
+            return;
+        }
+
         const dateStr = weekDays[dayIndex];
         const newSelections = [...selectedShifts];
         const dayShifts = [...newSelections[dayIndex]];
@@ -179,11 +220,7 @@ export default function EmployeeRegisterPage() {
             const currentCount = getShiftCount(dateStr, shiftId);
             const maxCount = getShiftQuota(dateStr, shiftId);
 
-            const type = userDoc?.type || 'PT';
-            const role = userDoc?.role || 'employee';
-            const isManagerOrFT = type === 'FT' || role === 'manager';
-
-            if (currentCount >= maxCount && !isManagerOrFT) {
+            if (currentCount >= maxCount) {
                 setError(`Ca này đã đầy (${currentCount}/${maxCount}). Vui lòng chọn ca khác.`);
                 return;
             }
@@ -240,25 +277,6 @@ export default function EmployeeRegisterPage() {
                     const managersOff = getManagersOff(dateStr).filter(name => name !== userDoc?.name);
                     if (managersOff.length > 0)
                         warnings.push(`Cảnh báo: Bạn đang nghỉ vào ${formatDate(dateStr)} trùng với quản lý khác (${managersOff.join(', ')}).`);
-                }
-            }
-        }
-
-        if (type === 'FT' || role === 'manager') {
-            for (let i = 0; i < 7; i++) {
-                if (selectedShifts[i].length > 0) {
-                    const shiftId = selectedShifts[i][0];
-                    const dateStr = weekDays[i];
-                    const currentCount = getShiftCount(dateStr, shiftId);
-                    const maxCount = getShiftQuota(dateStr, shiftId);
-                    // if they are currently selecting it, it will add to the currentCount in the actual DB but getShiftCount doesn't count their own selections if they are managers, but does for FT. 
-                    // Let's just do a simple check. If currentCount is already >= maxCount, taking this shift exceeds or meets quota.
-                    // To be precise for warnings: we warn if the shift is over quota.
-                    // For FT: getShiftCount includes their own old shifts if existing, but not their current UI selections (since they aren't saved yet).
-
-                    if (currentCount >= maxCount) {
-                        warnings.push(`Cảnh báo: Ca ${shiftId} ngày ${formatDate(dateStr)} đã đầy (${currentCount}/${maxCount}). Bạn vẫn có thể đăng ký nhưng vui lòng lưu ý.`);
-                    }
                 }
             }
         }
@@ -372,7 +390,7 @@ export default function EmployeeRegisterPage() {
         );
     }
 
-    const isClosed = !settings?.registrationOpen;
+    const isClosed = !settings?.registrationOpen || !isWeekEditable;
     const isFT = userDoc?.type === 'FT';
 
     return (
@@ -406,14 +424,16 @@ export default function EmployeeRegisterPage() {
                 </div>
             </div>
 
-            {/* ★ REAL-TIME LOCK BANNER — appears instantly when admin closes registration */}
+            {/* ★ REAL-TIME LOCK BANNER — appears instantly when admin closes registration or viewing old week */}
             {isClosed && (
                 <div className="bg-amber-50 border border-amber-300 text-amber-800 p-4 rounded-xl flex items-start gap-3 shadow-sm animate-in fade-in slide-in-from-top-2">
                     <Lock className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
                     <div>
-                        <h3 className="font-bold text-amber-900">Cổng đăng ký đã đóng</h3>
+                        <h3 className="font-bold text-amber-900">Không thể chỉnh sửa đăng ký</h3>
                         <p className="text-sm mt-1">
-                            Quản trị viên đã đóng cổng đăng ký ca làm. Bạn chỉ có thể xem — không thể thêm, sửa hoặc xóa lịch.
+                            {!isWeekEditable
+                                ? 'Bạn chỉ có thể đăng ký lịch cho Tuần tiếp theo. Các tuần khác đã bị khóa hoặc chưa mở đăng ký.'
+                                : 'Quản trị viên đã đóng cổng đăng ký ca làm. Bạn chỉ có thể xem — không thể thêm, sửa hoặc xóa lịch.'}
                         </p>
                     </div>
                 </div>
@@ -489,8 +509,7 @@ export default function EmployeeRegisterPage() {
                                         const isSelected = selectedShifts[i].includes(shiftId);
                                         const currentCount = getShiftCount(dateStr, shiftId);
                                         const maxCount = getShiftQuota(dateStr, shiftId);
-                                        const isManagerOrFT = userDoc?.type === 'FT' || userDoc?.role === 'manager';
-                                        const isFull = currentCount >= maxCount && !isSelected && !isManagerOrFT;
+                                        const isFull = currentCount >= maxCount && !isSelected;
 
                                         return (
                                             <button
@@ -505,8 +524,7 @@ export default function EmployeeRegisterPage() {
                                                         : 'border-slate-100 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50',
                                                     isClosed && !isSelected && 'opacity-50 cursor-not-allowed hover:border-slate-100 hover:bg-white',
                                                     isClosed && isSelected && 'cursor-not-allowed',
-                                                    isFull && !isClosed && 'opacity-50 cursor-not-allowed hover:bg-slate-50 border-red-100 text-red-400 bg-red-50/30',
-                                                    (currentCount >= maxCount && !isSelected && isManagerOrFT && !isClosed) && 'border-amber-200 hover:bg-amber-50 text-amber-600'
+                                                    isFull && !isClosed && 'opacity-50 cursor-not-allowed hover:bg-slate-50 border-red-100 text-red-400 bg-red-50/30'
                                                 )}
                                             >
                                                 <div className="flex flex-col items-center">
@@ -514,7 +532,7 @@ export default function EmployeeRegisterPage() {
                                                     <span className={cn(
                                                         'text-[10px] font-bold mt-0.5',
                                                         currentCount >= maxCount ? 'text-red-500' : isSelected ? 'text-blue-500/80' : 'text-slate-400'
-                                                    )}>{currentCount}/{maxCount}</span>
+                                                    )}>NV: {currentCount}/{maxCount}</span>
                                                 </div>
                                             </button>
                                         );
