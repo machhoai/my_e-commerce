@@ -4,6 +4,7 @@ import Script from "next/script";
 import { Inter } from "next/font/google";
 import "./global.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import InstallPWA from "@/components/InstallPWA";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,6 +20,15 @@ export const metadata: Metadata = {
         apple: [
             { url: "/apple-touch-icon.png" },
         ],
+    },
+    manifest: "/manifest.webmanifest",
+    appleWebApp: {
+        capable: true,
+        statusBarStyle: "default",
+        title: "Lịch Làm Việc",
+    },
+    formatDetection: {
+        telephone: false,
     },
     openGraph: {
         title: "B.Duck Cityfuns Vietnam",
@@ -58,6 +68,7 @@ export default function RootLayout({
             <body className={`${inter.className} min-h-dvh w-full relative overflow-x-hidden flex flex-col`} suppressHydrationWarning>
                 <AuthProvider>
                     {children}
+                    <InstallPWA />
                 </AuthProvider>
             </body>
         </html>
