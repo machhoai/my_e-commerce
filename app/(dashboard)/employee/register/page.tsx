@@ -501,8 +501,8 @@ export default function EmployeeRegisterPage() {
                                         <div className="w-full text-xs text-slate-400 text-center mt-2 sm:mt-4">Không có ca</div>
                                     )}
 
-                                    {/* Manager Off Display */}
-                                    {getManagersOff(dateStr).length > 0 && (
+                                    {/* Manager Off Display — only visible to managers */}
+                                    {userDoc?.role === 'manager' && getManagersOff(dateStr).length > 0 && (
                                         <div className="w-full text-[10px] text-fuchsia-700 bg-fuchsia-50 p-1.5 rounded-lg text-center mt-auto border border-fuchsia-100/50 shadow-sm font-medium">
                                             Nghỉ: {getManagersOff(dateStr).join(', ')}
                                         </div>

@@ -28,6 +28,7 @@ export default function ManagerUsersPage() {
     const [newIdCard, setNewIdCard] = useState('');
     const [newBankAccount, setNewBankAccount] = useState('');
     const [newEducation, setNewEducation] = useState('');
+    const [newStoreId, setNewStoreId] = useState('');
 
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [actionMessage, setActionMessage] = useState({ type: '', text: '' });
@@ -104,14 +105,22 @@ export default function ManagerUsersPage() {
 
             if (editUid) {
                 bodyPayload.targetUid = editUid;
-                if (userDoc?.role === 'store_manager') {
+                if (userDoc?.role === 'store_manager' || userDoc?.role === 'admin') {
                     bodyPayload.role = newRole;
+                }
+                if (userDoc?.role === 'store_manager') {
                     bodyPayload.canManageHR = newCanManageHR;
                 }
+                if (userDoc?.role === 'admin' && newStoreId) {
+                    bodyPayload.storeId = newStoreId;
+                }
             } else {
-                bodyPayload.role = userDoc?.role === 'store_manager' ? newRole : 'employee';
+                bodyPayload.role = (userDoc?.role === 'store_manager' || userDoc?.role === 'admin') ? newRole : 'employee';
                 if (userDoc?.role === 'store_manager') {
                     bodyPayload.canManageHR = newCanManageHR;
+                }
+                if (userDoc?.role === 'admin' && newStoreId) {
+                    bodyPayload.storeId = newStoreId;
                 }
             }
 
@@ -149,6 +158,7 @@ export default function ManagerUsersPage() {
         setNewName(''); setNewPhone(''); setNewType('PT'); setNewRole('employee'); setNewCanManageHR(false);
         setNewDob(''); setNewJobTitle(''); setNewEmail('');
         setNewIdCard(''); setNewBankAccount(''); setNewEducation('');
+        setNewStoreId('');
     };
 
     const openEditModal = (employee: UserDoc) => {
@@ -163,6 +173,7 @@ export default function ManagerUsersPage() {
         setNewIdCard(employee.idCard || '');
         setNewBankAccount(employee.bankAccount || '');
         setNewEducation(employee.education || '');
+        setNewStoreId(employee.storeId || '');
         setEditUid(employee.uid);
         setIsCreateModalOpen(true);
     };
@@ -473,7 +484,7 @@ export default function ManagerUsersPage() {
                                                         <option value="FT">Toàn thời gian (FT)</option>
                                                     </select>
                                                 </div>
-                                                {userDoc?.role === 'store_manager' && (
+                                                {(userDoc?.role === 'store_manager' || userDoc?.role === 'admin') && (
                                                     <>
                                                         <div className="space-y-1.5">
                                                             <label className="text-sm font-medium text-slate-700">Vai trò <span className="text-red-500">*</span></label>
@@ -484,20 +495,36 @@ export default function ManagerUsersPage() {
                                                             >
                                                                 <option value="employee">Nhân viên</option>
                                                                 <option value="manager">Quản lý</option>
+                                                                <option value="store_manager">Cửa hàng trưởng</option>
                                                             </select>
                                                         </div>
-                                                        <label className="flex items-center gap-2.5 cursor-pointer p-3 border border-slate-200 rounded-lg bg-slate-50 hover:bg-blue-50/50 hover:border-blue-200 transition-colors">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={newCanManageHR}
-                                                                onChange={e => setNewCanManageHR(e.target.checked)}
-                                                                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
-                                                            />
-                                                            <div>
-                                                                <span className="text-sm font-semibold text-slate-800">Quyền Quản lý Nhân sự</span>
-                                                                <p className="text-[10px] text-slate-500 mt-0.5">Cho phép thêm, sửa, tắt hoạt động nhân viên và phân ca.</p>
+                                                        {userDoc?.role === 'admin' && (
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-sm font-medium text-slate-700">Cửa hàng</label>
+                                                                <select
+                                                                    value={newStoreId}
+                                                                    onChange={e => setNewStoreId(e.target.value)}
+                                                                    className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 cursor-pointer"
+                                                                >
+                                                                    <option value="">-- Chưa gán cửa hàng --</option>
+                                                                    {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                                                </select>
                                                             </div>
-                                                        </label>
+                                                        )}
+                                                        {userDoc?.role === 'store_manager' && (
+                                                            <label className="flex items-center gap-2.5 cursor-pointer p-3 border border-slate-200 rounded-lg bg-slate-50 hover:bg-blue-50/50 hover:border-blue-200 transition-colors">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={newCanManageHR}
+                                                                    onChange={e => setNewCanManageHR(e.target.checked)}
+                                                                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                                                                />
+                                                                <div>
+                                                                    <span className="text-sm font-semibold text-slate-800">Quyền Quản lý Nhân sự</span>
+                                                                    <p className="text-[10px] text-slate-500 mt-0.5">Cho phép thêm, sửa, tắt hoạt động nhân viên và phân ca.</p>
+                                                                </div>
+                                                            </label>
+                                                        )}
                                                     </>
                                                 )}
                                                 <div className="space-y-1.5">
