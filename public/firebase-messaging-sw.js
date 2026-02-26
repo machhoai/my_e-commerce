@@ -1,6 +1,14 @@
 importScripts('https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.9.0/firebase-messaging-compat.js');
 
+// Bắt buộc Service Worker mới kích hoạt ngay lập tức để đè lên bản cũ bị lỗi Cache
+self.addEventListener('install', (event) => {
+    self.skipWaiting();
+});
+self.addEventListener('activate', (event) => {
+    event.waitUntil(self.clients.claim());
+});
+
 // Initialize the Firebase app in the service worker by passing in the
 // messagingSenderId.
 // We use the compat library for the service worker due to its simpler initialization
@@ -17,15 +25,19 @@ try {
     firebase.initializeApp(firebaseConfig);
     const messaging = firebase.messaging();
 
-    messaging.onBackgroundMessage((payload) => {
-        console.log('[firebase-messaging-sw.js] Received background message ', payload);
+    // VERSION: 2.0.1 - Fix Data Payload
 
-        const notificationTitle = payload.notification?.title || 'Thông báo mới';
+    messaging.onBackgroundMessage((payload) => {
+        console.log('[firebase-messaging-sw.js] Received payload: ', JSON.stringify(payload));
+
+        const notificationTitle = payload?.data?.title || payload?.notification?.title || 'Thông báo mới (Fallback)';
+        const notificationBody = payload?.data?.body || payload?.notification?.body || 'Không lấy được nội dung từ hệ thống.';
+
         const notificationOptions = {
-            body: payload.notification?.body || 'Bạn có một thông báo từ hệ thống.',
+            body: notificationBody,
             icon: '/Artboard.png',
             badge: '/Artboard.png',
-            data: payload.data
+            data: payload?.data || {}
         };
 
         self.registration.showNotification(notificationTitle, notificationOptions);

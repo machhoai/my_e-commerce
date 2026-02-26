@@ -281,7 +281,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* Main Content */}
             <main className="flex-1 h-screen overflow-y-auto flex flex-col">
                 {/* Header Topbar */}
-                <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 h-16 flex items-center justify-between xl:justify-end md:px-8">
+                <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 h-16 flex items-center justify-between sm:justify-end md:px-8">
                     {/* Mobile Hamburger Button */}
                     <button
                         className="md:hidden text-slate-600 hover:text-slate-900 p-2 -ml-2 rounded-lg"

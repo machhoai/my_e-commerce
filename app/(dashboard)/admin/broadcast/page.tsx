@@ -144,7 +144,10 @@ export default function AdminBroadcastPage() {
                             placeholder="Ví dụ: Lịch làm việc tuần sau đã được công bố"
                             maxLength={100}
                         />
-                        <div className="text-right text-[10px] text-slate-400">{title.length}/100 ký tự</div>
+                        <div className="flex justify-between items-center mt-1">
+                            <div className="text-[11px] text-slate-500">Mẹo: Bạn có thể dùng <code className="bg-slate-200 px-1 rounded text-indigo-600">{"{name}"}</code> để chèn tên người nhận.</div>
+                            <div className="text-[10px] text-slate-400">{title.length}/100 ký tự</div>
+                        </div>
                     </div>
 
                     {/* Message Body */}
@@ -158,7 +161,10 @@ export default function AdminBroadcastPage() {
                             placeholder="Nhập nội dung chi tiết của thông báo..."
                             maxLength={500}
                         />
-                        <div className="text-right text-[10px] text-slate-400">{message.length}/500 ký tự</div>
+                        <div className="flex justify-between items-center mt-1">
+                            <div className="text-[11px] text-slate-500">Mẹo: Bạn có thể dùng <code className="bg-slate-200 px-1 rounded text-indigo-600">{"{name}"}</code> để chèn tên người nhận.</div>
+                            <div className="text-[10px] text-slate-400">{message.length}/500 ký tự</div>
+                        </div>
                     </div>
 
                     {/* Target Audience */}

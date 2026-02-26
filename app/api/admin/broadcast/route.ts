@@ -46,22 +46,27 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Không tìm thấy người dùng nào phù hợp với điều kiện' }, { status: 404 });
         }
 
-        const uids: string[] = [];
-        const fcmTokens: string[] = [];
+        const usersData: { uid: string, name: string, fcmToken?: string }[] = [];
 
         usersSnapshot.forEach(doc => {
             const data = doc.data();
 
             // Filter active users manually here to avoid missing composite index errors on Firestore
             if (data.isActive !== false) {
-                uids.push(doc.id);
-                if (data.fcmToken) {
-                    fcmTokens.push(data.fcmToken);
-                }
+                usersData.push({
+                    uid: doc.id,
+                    name: data.name || 'bạn',
+                    fcmToken: data.fcmToken
+                });
             }
         });
 
         const createdAt = new Date().toISOString();
+
+        // Helper to replace variables
+        const personalizeText = (text: string, userName: string) => {
+            return text.replace(/{name}/g, userName);
+        };
 
         // 2. Action 1: Write to Firestore (Batched)
         // Firestore batch limits to 500 writes
@@ -73,17 +78,20 @@ export async function POST(request: Request) {
             return chunks;
         };
 
-        const uidChunks = chunkArray(uids, 500);
+        const userChunks = chunkArray(usersData, 500);
 
-        for (const chunk of uidChunks) {
+        for (const chunk of userChunks) {
             const batch = adminDb.batch();
-            for (const uid of chunk) {
+            for (const user of chunk) {
+                const personalizedTitle = personalizeText(title, user.name);
+                const personalizedBody = personalizeText(message, user.name);
+
                 const notificationRef = adminDb.collection('notifications').doc();
                 batch.set(notificationRef, {
                     id: notificationRef.id,
-                    userId: uid,
-                    title,
-                    body: message,
+                    userId: user.uid,
+                    title: personalizedTitle,
+                    body: personalizedBody,
                     type: 'SYSTEM',
                     isRead: false,
                     createdAt
@@ -96,23 +104,29 @@ export async function POST(request: Request) {
         let pushSuccessCount = 0;
         let pushFailureCount = 0;
 
-        if (fcmTokens.length > 0) {
-            const tokenChunks = chunkArray(fcmTokens, 500); // sendEachForMulticast accepts max 500 tokens
-            for (const chunk of tokenChunks) {
+        // Deduplicate tokens for push notifications to prevent double-buzzing on the same device
+        const uniquePushMessages: any[] = [];
+        const seenTokens = new Set<string>();
+
+        for (const user of usersData) {
+            if (user.fcmToken && !seenTokens.has(user.fcmToken)) {
+                seenTokens.add(user.fcmToken);
+                uniquePushMessages.push({
+                    token: user.fcmToken,
+                    data: {
+                        title: String(personalizeText(title, user.name) || 'Thông báo'),
+                        body: String(personalizeText(message, user.name) || 'Nội dung'),
+                        actionLink: "/"
+                    }
+                });
+            }
+        }
+
+        if (uniquePushMessages.length > 0) {
+            const messageChunks = chunkArray(uniquePushMessages, 500); // sendEach accepts max 500 messages
+            for (const chunk of messageChunks) {
                 try {
-                    const response = await adminMessaging.sendEachForMulticast({
-                        tokens: chunk,
-                        notification: {
-                            title,
-                            body: message
-                        },
-                        webpush: {
-                            notification: {
-                                icon: '/Artboard.png',
-                                badge: '/Artboard.png'
-                            }
-                        }
-                    });
+                    const response = await adminMessaging.sendEach(chunk);
                     pushSuccessCount += response.successCount;
                     pushFailureCount += response.failureCount;
                 } catch (pushErr) {
@@ -123,9 +137,9 @@ export async function POST(request: Request) {
 
         return NextResponse.json({
             success: true,
-            message: `Đã gửi thông báo thành công tới ${uids.length} người dùng.`,
+            message: `Đã gửi thông báo thành công tới ${usersData.length} người dùng.`,
             stats: {
-                totalTargeted: uids.length,
+                totalTargeted: usersData.length,
                 pushSent: pushSuccessCount,
                 pushFailed: pushFailureCount
             }
