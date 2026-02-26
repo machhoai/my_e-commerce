@@ -1,6 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { SettingsDoc } from '@/types';
+import { SettingsDoc, RegistrationSchedule } from '@/types';
+
+// --- Auto-Schedule Logic (replaces cron job) ---
+// Converts current UTC time to Vietnam time (UTC+7) and checks if now
+// falls within the configured open window. Called on every GET request.
+function isInOpenWindow(schedule: RegistrationSchedule): boolean {
+    const nowUtc = new Date();
+    const vnMs = nowUtc.getTime() + 7 * 60 * 60 * 1000;
+    const vnNow = new Date(vnMs);
+
+    const currentDay = vnNow.getUTCDay(); // 0=Sun .. 6=Sat
+    const currentMinutes = vnNow.getUTCHours() * 60 + vnNow.getUTCMinutes();
+
+    const openTotal = schedule.openDay * 24 * 60 + schedule.openHour * 60 + schedule.openMinute;
+    const closeTotal = schedule.closeDay * 24 * 60 + schedule.closeHour * 60 + schedule.closeMinute;
+    const nowTotal = currentDay * 24 * 60 + currentMinutes;
+
+    if (openTotal <= closeTotal) {
+        return nowTotal >= openTotal && nowTotal < closeTotal;
+    } else {
+        // Wraps around the week (e.g. Fri 22:00 → Mon 08:00)
+        return nowTotal >= openTotal || nowTotal < closeTotal;
+    }
+}
 
 // GET /api/settings
 export async function GET(req: NextRequest) {
@@ -41,12 +64,28 @@ export async function GET(req: NextRequest) {
             return NextResponse.json(defaults);
         }
 
-        return NextResponse.json({ id: snap.id, ...snap.data() });
+        const data = snap.data() as SettingsDoc;
+
+        // On-demand auto-schedule check — replaces cron job
+        const schedule = data.registrationSchedule;
+        if (schedule?.enabled) {
+            const shouldBeOpen = isInOpenWindow(schedule);
+            if (shouldBeOpen !== (data.registrationOpen ?? false)) {
+                // Silent background update — don't await to avoid slowing response
+                adminDb.collection('settings').doc('global').update({
+                    registrationOpen: shouldBeOpen,
+                }).catch(console.error);
+                data.registrationOpen = shouldBeOpen;
+            }
+        }
+
+        return NextResponse.json({ ...data, id: snap.id });
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Internal server error';
         return NextResponse.json({ error: message }, { status: 500 });
     }
 }
+
 
 // PUT /api/settings
 export async function PUT(req: NextRequest) {

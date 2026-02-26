@@ -315,7 +315,7 @@ export default function AdminSettingsPage() {
                                 </div>
 
                                 <p className="text-sm text-slate-500 mb-5">
-                                    Tự động mở/đóng đăng ký theo lịch hàng tuần (kiểm tra mỗi 30 phút).
+                                    Tự động mở/đóng đăng ký theo lịch hàng tuần — áp dụng ngay khi trang được tải.
                                     {!schedule.enabled && <span className="text-amber-600 font-semibold ml-1">Hiện đang tắt.</span>}
                                 </p>
 
@@ -385,7 +385,7 @@ export default function AdminSettingsPage() {
                                         <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-xs text-indigo-700 flex items-start gap-2">
                                             <Timer className="w-3.5 h-3.5 mt-0.5 shrink-0 text-indigo-400" />
                                             <span>
-                                                Hệ thống sẽ tự động <strong className="text-emerald-700">mở</strong> vào <strong>{openLabel}</strong> và <strong className="text-red-600">đóng</strong> vào <strong>{closeLabel}</strong> hàng tuần (giờ Việt Nam). Kiểm tra mỗi 30 phút.
+                                                Hệ thống sẽ tự động <strong className="text-emerald-700">mở</strong> vào <strong>{openLabel}</strong> và <strong className="text-red-600">đóng</strong> vào <strong>{closeLabel}</strong> hàng tuần (giờ Việt Nam).
                                             </span>
                                         </div>
                                     </>
