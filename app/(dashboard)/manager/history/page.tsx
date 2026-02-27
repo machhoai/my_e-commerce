@@ -190,7 +190,7 @@ export default function ManagerHistoryPage() {
     const effectiveStoreId = userDoc?.role === 'admin' ? selectedAdminStoreId : userDoc?.storeId;
 
     return (
-        <div className="space-y-4 max-w-6xl mx-auto">
+        <div className="space-y-4 mx-auto">
             {/* Admin Store Selector Banner */}
             {userDoc?.role === 'admin' && (
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex flex-col sm:flex-row items-start sm:items-center gap-3">

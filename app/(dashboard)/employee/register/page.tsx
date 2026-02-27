@@ -8,7 +8,7 @@ import { doc, onSnapshot, getDoc, collection, query, where, getDocs } from 'fire
 import { getWeekStart, getWeekDays, formatDate, weeklyRegId, toLocalDateString, cn } from '@/lib/utils';
 import {
     Calendar as CalendarIcon, Save, AlertCircle, Info, CheckCircle2,
-    ChevronLeft, ChevronRight, Trash2, Lock
+    ChevronLeft, ChevronRight, Trash2, Lock, Users2
 } from 'lucide-react';
 
 export default function EmployeeRegisterPage() {
@@ -16,6 +16,7 @@ export default function EmployeeRegisterPage() {
 
     // ─── Settings (real-time via onSnapshot) ────────────────────────────────
     const [settings, setSettings] = useState<StoreSettings | null>(null);
+    const strictShiftLimit = settings?.strictShiftLimit ?? true;
 
     // Start by showing NEXT week by default, instead of the current locked week.
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
@@ -221,7 +222,7 @@ export default function EmployeeRegisterPage() {
             const maxCount = getShiftQuota(dateStr, shiftId);
             const isManager = userDoc?.role === 'manager' || userDoc?.role === 'store_manager';
 
-            if (currentCount >= maxCount && !isManager) {
+            if (strictShiftLimit && currentCount >= maxCount && !isManager) {
                 setError(`Ca này đã đầy (${currentCount}/${maxCount}). Vui lòng chọn ca khác.`);
                 return;
             }
@@ -395,7 +396,7 @@ export default function EmployeeRegisterPage() {
     const isFT = userDoc?.type === 'FT';
 
     return (
-        <div className="space-y-6 max-w-5xl mx-auto">
+        <div className="space-y-6 mx-auto">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -496,7 +497,7 @@ export default function EmployeeRegisterPage() {
                                 )}>
                                     <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{dayName}</div>
                                     <div className={cn(
-                                        'text-xl font-bold sm:mt-1 inline-flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full',
+                                        'truncate flex-1 font-bold sm:mt-1 inline-flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full',
                                         isToday ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'text-slate-800'
                                     )}>
                                         {dayNum}
@@ -511,7 +512,8 @@ export default function EmployeeRegisterPage() {
                                         const currentCount = getShiftCount(dateStr, shiftId);
                                         const maxCount = getShiftQuota(dateStr, shiftId);
                                         const isManager = userDoc?.role === 'manager' || userDoc?.role === 'store_manager';
-                                        const isFull = currentCount >= maxCount && !isSelected && !isManager;
+                                        const isFull = strictShiftLimit && currentCount >= maxCount && !isSelected && !isManager;
+                                        const isBackup = !strictShiftLimit && currentCount >= maxCount && !isSelected && !isManager;
 
                                         return (
                                             <button
@@ -520,21 +522,33 @@ export default function EmployeeRegisterPage() {
                                                 disabled={isClosed || isFull}
                                                 onClick={() => toggleShift(i, shiftId)}
                                                 className={cn(
-                                                    'flex-1 sm:flex-none sm:w-full min-w-[70px] px-2 py-3 sm:px-3 sm:py-3 text-xs sm:text-sm font-semibold rounded-xl border-2 text-center transition-all duration-200',
+                                                    'flex-1 sm:flex-none sm:w-full min-w-[70px] px-2 py-3 h-20 sm:px-3 sm:py-3 text-xs sm:text-sm font-semibold rounded-xl border-2 text-center transition-all duration-200',
                                                     isSelected
                                                         ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
                                                         : 'border-slate-100 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50',
                                                     isClosed && !isSelected && 'opacity-50 cursor-not-allowed hover:border-slate-100 hover:bg-white',
                                                     isClosed && isSelected && 'cursor-not-allowed',
-                                                    isFull && !isClosed && 'opacity-50 cursor-not-allowed hover:bg-slate-50 border-red-100 text-red-400 bg-red-50/30'
+                                                    isFull && !isClosed && 'opacity-50 cursor-not-allowed hover:bg-slate-50 border-red-100 text-red-400 bg-red-50/30',
                                                 )}
                                             >
                                                 <div className="flex flex-col items-center">
                                                     <span>{shiftId}</span>
                                                     <span className={cn(
-                                                        'text-[10px] font-bold mt-0.5',
+                                                        'text-[10px] font-bold',
                                                         currentCount >= maxCount ? 'text-red-500' : isSelected ? 'text-blue-500/80' : 'text-slate-400'
                                                     )}>NV: {currentCount}/{maxCount}</span>
+                                                    {isBackup && !isSelected && (
+                                                        <span className="text-[9px] font-semibold text-blue-500/80 flex items-center gap-0.5">
+                                                            <Users2 className="w-3 h-3" />
+                                                            Có thể đăng ký
+                                                        </span>
+                                                    )}
+                                                    {isFull && (
+                                                        <span className="text-[9px] font-semibold text-red-500 flex items-center gap-0.5">
+                                                            <Users2 className="w-3 h-3" />
+                                                            Đã đủ nhân sự
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </button>
                                         );

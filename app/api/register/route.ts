@@ -118,6 +118,7 @@ export async function POST(req: NextRequest) {
             // Check caller's requested shifts against quotas
             if (isCallerValidEmployee) {
                 const quotas = storeData?.settings?.quotas;
+                const strictShiftLimit: boolean = storeData?.settings?.strictShiftLimit ?? true;
 
                 for (const shift of body.shifts) {
                     const key = `${shift.date}_${shift.shiftId}`;
@@ -137,7 +138,8 @@ export async function POST(req: NextRequest) {
                         }
                     }
 
-                    if (currentCount >= maxCount) {
+                    // Only block if strictShiftLimit is enabled (default: true)
+                    if (strictShiftLimit && currentCount >= maxCount) {
                         throw new Error(`Ca ${shift.shiftId} ngày ${shift.date} đã đầy (${currentCount}/${maxCount}). Vui lòng chọn ca hoặc ngày khác để tránh vượt quá số lượng cho phép.`);
                     }
 

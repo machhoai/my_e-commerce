@@ -148,7 +148,7 @@ export default function AdminStoresPage() {
     const totalUsers = stores.reduce((acc, s) => acc + (s.stats?.total ?? 0), 0);
 
     return (
-        <div className="space-y-6 max-w-5xl mx-auto">
+        <div className="space-y-6 mx-auto">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>

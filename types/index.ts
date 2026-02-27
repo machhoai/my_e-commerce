@@ -37,6 +37,7 @@ export interface CustomRoleDoc {
 // Per-store configurable settings (stored as a field in the store document)
 export interface StoreSettings {
     registrationOpen: boolean;
+    strictShiftLimit?: boolean; // true (default) = block when full; false = allow over-registration
     shiftTimes: string[]; // e.g. ["Ca 1", "Ca 2"]
     quotas?: {
         defaultWeekday: Record<string, number>;
@@ -115,6 +116,7 @@ export interface CounterDoc {
 export interface SettingsDoc {
     id: string; // 'global' for the legacy global doc, or storeId for store-specific docs
     registrationOpen: boolean;
+    strictShiftLimit?: boolean; // true (default) = block when full; false = allow over-registration
     shiftTimes: string[]; // e.g. ["Ca 1", "Ca 2"]
     quotas?: {
         defaultWeekday: Record<string, number>; // shiftId -> max quota

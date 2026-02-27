@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Settings as SettingsIcon, Save, Plus, X, AlertCircle, CheckCircle2, Store, Clock, Users, Timer, Building2 } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Plus, X, AlertCircle, CheckCircle2, Store, Clock, Users, Timer, Building2, ShieldAlert } from 'lucide-react';
 import { SettingsDoc, CounterDoc, RegistrationSchedule, StoreDoc } from '@/types';
 
 export default function AdminSettingsPage() {
@@ -87,6 +87,7 @@ export default function AdminSettingsPage() {
                 setSettings({
                     id: selectedStoreId,
                     registrationOpen: data.registrationOpen ?? false,
+                    strictShiftLimit: data.strictShiftLimit ?? true,
                     shiftTimes: data.shiftTimes || [],
                     quotas: {
                         defaultWeekday: data.quotas?.defaultWeekday || {},
@@ -455,6 +456,35 @@ export default function AdminSettingsPage() {
                                     </div>
                                 );
                             })()}
+
+                            {/* Strict Shift Limit Card */}
+                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-6 transition-all hover:shadow-md">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                        <ShieldAlert className="w-5 h-5 text-amber-500" />
+                                        Chặn đăng ký khi ca đã đầy
+                                    </h2>
+                                </div>
+                                <p className="text-sm text-slate-500 mb-6">
+                                    Nếu tắt, nhân viên vẫn có thể đăng ký nguyện vọng dù ca đã đạt số lượng tối đa, giúp quản lý có thêm lựa chọn dự phòng.
+                                </p>
+
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        checked={settings?.strictShiftLimit ?? true}
+                                        onChange={(e) => {
+                                            setSettings(s => s ? { ...s, strictShiftLimit: e.target.checked } : null);
+                                            setError(''); setSuccess('Cài đặt đã cập nhật cục bộ. Nhớ bấm Lưu.');
+                                        }}
+                                    />
+                                    <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-amber-500"></div>
+                                    <span className={`ml-3 text-sm font-bold ${(settings?.strictShiftLimit ?? true) ? 'text-amber-600' : 'text-slate-500'}`}>
+                                        {(settings?.strictShiftLimit ?? true) ? 'BẬT — Chặn đăng ký khi đầy' : 'TẮT — Cho phép đăng ký vượt định mức'}
+                                    </span>
+                                </label>
+                            </div>
 
                             {/* Shift Times Card */}
                             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-6 transition-all hover:shadow-md">

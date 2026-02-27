@@ -170,7 +170,7 @@ export default function AdminRolesPage() {
     }
 
     return (
-        <div className="space-y-8 mx-auto max-w-5xl">
+        <div className="space-y-8 mx-auto">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
