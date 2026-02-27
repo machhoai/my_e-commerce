@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { NotificationTemplate } from '@/types';
-import { Plus, Edit2, Trash2, Send, CalendarClock, Info, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Send, Info, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function NotificationTemplatesPage() {
     const [templates, setTemplates] = useState<NotificationTemplate[]>([]);
@@ -178,13 +178,6 @@ export default function NotificationTemplatesPage() {
                                     >
                                         <Send className="w-3.5 h-3.5" />
                                         Test
-                                    </button>
-                                    <button
-                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-md text-xs font-medium transition-colors cursor-not-allowed"
-                                        title="Lên lịch định kỳ (Đang xây dựng)"
-                                    >
-                                        <CalendarClock className="w-3.5 h-3.5" />
-                                        Hẹn giờ
                                     </button>
                                 </div>
                             </div>

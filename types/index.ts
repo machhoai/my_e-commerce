@@ -104,15 +104,7 @@ export interface NotificationTemplate {
     isSystemEvent: boolean;
 }
 
-export interface ScheduledNotification {
-    id: string;
-    templateId: string;
-    targetType: 'ALL' | 'STORE' | 'ROLE';
-    targetValue: string;
-    cronExpression?: string;
-    scheduledAt?: string;
-    isActive: boolean;
-}
+
 
 export interface CounterDoc {
     id: string;
