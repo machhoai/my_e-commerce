@@ -219,8 +219,9 @@ export default function EmployeeRegisterPage() {
         } else {
             const currentCount = getShiftCount(dateStr, shiftId);
             const maxCount = getShiftQuota(dateStr, shiftId);
+            const isManager = userDoc?.role === 'manager' || userDoc?.role === 'store_manager';
 
-            if (currentCount >= maxCount) {
+            if (currentCount >= maxCount && !isManager) {
                 setError(`Ca này đã đầy (${currentCount}/${maxCount}). Vui lòng chọn ca khác.`);
                 return;
             }
@@ -509,7 +510,8 @@ export default function EmployeeRegisterPage() {
                                         const isSelected = selectedShifts[i].includes(shiftId);
                                         const currentCount = getShiftCount(dateStr, shiftId);
                                         const maxCount = getShiftQuota(dateStr, shiftId);
-                                        const isFull = currentCount >= maxCount && !isSelected;
+                                        const isManager = userDoc?.role === 'manager' || userDoc?.role === 'store_manager';
+                                        const isFull = currentCount >= maxCount && !isSelected && !isManager;
 
                                         return (
                                             <button
