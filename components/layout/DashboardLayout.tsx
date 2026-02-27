@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Shield, BellRing } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Shield, BellRing, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
@@ -138,6 +138,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             label: 'Cài đặt hệ thống',
             href: '/admin/settings',
             icon: SettingsIcon,
+            show: userDoc?.role === 'admin',
+        },
+        {
+            label: 'Cài đặt Sự kiện',
+            href: '/admin/settings/events',
+            icon: Zap,
+            show: userDoc?.role === 'admin',
+        },
+        {
+            label: 'Mẫu thông báo',
+            href: '/admin/notification-templates',
+            icon: BellRing,
             show: userDoc?.role === 'admin',
         },
         {

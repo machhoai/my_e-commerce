@@ -96,6 +96,24 @@ export interface NotificationDoc {
     createdAt: string;
 }
 
+export interface NotificationTemplate {
+    id: string;
+    name: string;
+    titleTemplate: string;
+    bodyTemplate: string;
+    isSystemEvent: boolean;
+}
+
+export interface ScheduledNotification {
+    id: string;
+    templateId: string;
+    targetType: 'ALL' | 'STORE' | 'ROLE';
+    targetValue: string;
+    cronExpression?: string;
+    scheduledAt?: string;
+    isActive: boolean;
+}
+
 export interface CounterDoc {
     id: string;
     name: string;
@@ -117,6 +135,7 @@ export interface SettingsDoc {
         ptMaxShifts: number;
     };
     registrationSchedule?: RegistrationSchedule;
+    eventMappings?: Record<string, string>; // Maps system event keys like 'SHIFT_CHANGED' -> templateId
 }
 
 export interface RegistrationSchedule {
