@@ -6,7 +6,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, getDocs, doc, getDoc } from 'firebase/firestore';
 import { ScheduleDoc, SettingsDoc, StoreDoc } from '@/types';
 import { getWeekStart, getWeekDays, formatDate, toLocalDateString, cn } from '@/lib/utils';
-import { Calendar as CalendarIcon, Clock, MapPin, ChevronLeft, ChevronRight, Activity, TrendingUp } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, MapPin, ChevronLeft, ChevronRight, Activity, TrendingUp, UserCog } from 'lucide-react';
 
 export default function EmployeeDashboardPage() {
     const { user, userDoc } = useAuth();
@@ -251,26 +251,50 @@ export default function EmployeeDashboardPage() {
                             {/* Shifts Body */}
                             <div className="p-4 flex-1 flex flex-col gap-3">
                                 {daySchedules.length > 0 ? (
-                                    daySchedules.map((sched) => (
-                                        <div
-                                            key={sched.id}
-                                            className="group relative bg-white border border-slate-200 rounded-xl p-3 hover:border-emerald-400 hover:shadow-sm transition-all overflow-hidden"
-                                        >
-                                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400 to-teal-500 group-hover:w-1.5 transition-all"></div>
+                                    daySchedules.map((sched) => {
+                                        const isForceAssigned = sched.assignedByManagerUids?.includes(user!.uid) ?? false;
+                                        return (
+                                            <div
+                                                key={sched.id}
+                                                className={`group relative border rounded-xl p-3 hover:shadow-sm transition-all overflow-hidden ${isForceAssigned
+                                                    ? 'bg-amber-50/50 border-amber-200 hover:border-amber-400'
+                                                    : 'bg-white border-slate-200 hover:border-emerald-400'
+                                                    }`}
+                                            >
+                                                <div className={`absolute left-0 top-0 bottom-0 w-1 group-hover:w-1.5 transition-all ${isForceAssigned
+                                                    ? 'bg-gradient-to-b from-amber-400 to-orange-500'
+                                                    : 'bg-gradient-to-b from-emerald-400 to-teal-500'
+                                                    }`}></div>
 
-                                            <div className="flex items-start justify-between mb-2 ml-1">
-                                                <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
-                                                    <Clock className="w-4 h-4 text-emerald-500" />
-                                                    {sched.shiftId}
+                                                <div className="flex items-start justify-between mb-2 ml-1">
+                                                    <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+                                                        <Clock className={`w-4 h-4 ${isForceAssigned ? 'text-amber-500' : 'text-emerald-500'}`} />
+                                                        {sched.shiftId}
+                                                    </div>
+                                                    {isForceAssigned && (
+                                                        <span
+                                                            className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200"
+                                                            title="Quản lý gán ca"
+                                                        >
+                                                            <UserCog className="w-3 h-3" />
+                                                            Quản lý gán ca
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <div className={`flex items-center gap-1.5 text-sm py-1.5 px-2 rounded-lg ml-1 border transition-colors ${isForceAssigned
+                                                    ? 'text-amber-700 bg-amber-50 border-amber-100 group-hover:bg-amber-100/60 group-hover:border-amber-200'
+                                                    : 'text-slate-600 bg-slate-50 border-slate-100 group-hover:bg-emerald-50/50 group-hover:border-emerald-100 group-hover:text-emerald-800'
+                                                    }`}>
+                                                    <MapPin className={`w-4 h-4 transition-colors ${isForceAssigned
+                                                        ? 'text-amber-400 group-hover:text-amber-500'
+                                                        : 'text-slate-400 group-hover:text-emerald-500'
+                                                        }`} />
+                                                    <span className="font-medium">{counters[sched.counterId] || sched.counterId}</span>
                                                 </div>
                                             </div>
-
-                                            <div className="flex items-center gap-1.5 text-sm text-slate-600 bg-slate-50 py-1.5 px-2 rounded-lg ml-1 border border-slate-100 group-hover:bg-emerald-50/50 group-hover:border-emerald-100 group-hover:text-emerald-800 transition-colors">
-                                                <MapPin className="w-4 h-4 text-slate-400 group-hover:text-emerald-500 transition-colors" />
-                                                <span className="font-medium">{counters[sched.counterId] || sched.counterId}</span>
-                                            </div>
-                                        </div>
-                                    ))
+                                        );
+                                    })
                                 ) : (
                                     <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-2 py-6">
                                         <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100">

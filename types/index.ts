@@ -154,6 +154,7 @@ export interface WeeklyRegistration {
     weekStartDate: string; // ISO date string for the Monday of the week
     shifts: ShiftEntry[];
     submittedAt?: string;
+    isAssignedByManager?: boolean; // true if manager force-registered this employee
 }
 
 export interface ScheduleDoc {
@@ -163,6 +164,7 @@ export interface ScheduleDoc {
     counterId: string;
     storeId: string;
     employeeIds: string[]; // array of user UIDs
+    assignedByManagerUids?: string[]; // UIDs force-assigned by manager (subset of employeeIds)
     publishedAt?: string;
     publishedBy?: string;
 }

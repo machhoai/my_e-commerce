@@ -6,7 +6,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, getDocs, doc, getDoc, orderBy, where } from 'firebase/firestore';
 import { UserDoc, ScheduleDoc, CounterDoc, SettingsDoc, StoreDoc } from '@/types';
 import { getWeekStart, toLocalDateString } from '@/lib/utils';
-import { Calendar, ChevronLeft, ChevronRight, Users, Clock, Store, Building2 } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Users, Clock, Store, Building2, UserCog } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type ViewMode = 'employee' | 'shift';
@@ -153,7 +153,11 @@ export default function GlobalOverviewPage() {
         const userSchedule = schedules.find(s => s.date === dateStr && s.shiftId === shiftId && s.employeeIds?.includes(userId));
         if (userSchedule) {
             const counterObj = counters.find(counter => counter.id === userSchedule.counterId);
-            return counterObj ? counterObj.name : 'Đã phân';
+            const isForceAssigned = userSchedule.assignedByManagerUids?.includes(userId) ?? false;
+            return {
+                counterName: counterObj ? counterObj.name : 'Đã phân',
+                isForceAssigned,
+            };
         }
         return null;
     };
@@ -342,14 +346,13 @@ export default function GlobalOverviewPage() {
                                                             const dateStr = toLocalDateString(date);
                                                             const isToday = toLocalDateString(new Date()) === dateStr;
 
-                                                            // Lấy danh sách quầy được phân công trong tất cả các ca của ngày này
                                                             const dayAssignments = shifts.map((shiftName: string) => {
-                                                                const assignedCounter = getScheduleCell(u.uid, dateStr, shiftName);
-                                                                if (assignedCounter) {
-                                                                    return { shiftName, assignedCounter };
+                                                                const result = getScheduleCell(u.uid, dateStr, shiftName);
+                                                                if (result) {
+                                                                    return { shiftName, assignedCounter: result.counterName, isForceAssigned: result.isForceAssigned };
                                                                 }
                                                                 return null;
-                                                            }).filter((item: any) => item !== null) as { shiftName: string, assignedCounter: string }[];
+                                                            }).filter((item: any) => item !== null) as { shiftName: string, assignedCounter: string, isForceAssigned: boolean }[];
 
                                                             return (
                                                                 <td key={dayIdx} className={cn(
@@ -358,11 +361,19 @@ export default function GlobalOverviewPage() {
                                                                 )}>
                                                                     <div className="space-y-1.5 flex flex-col h-full justify-start items-center relative">
                                                                         {dayAssignments.length > 0 ? (
-                                                                            dayAssignments.map(({ shiftName, assignedCounter }) => (
-                                                                                <div key={shiftName} className="text-[11px] w-full p-2 rounded-lg bg-indigo-50 border border-indigo-100 shadow-sm leading-tight flex flex-col transition-all hover:bg-indigo-100">
-                                                                                    <span className="font-semibold text-indigo-700 mb-0.5">{shiftName}</span>
-                                                                                    <span className="text-slate-600 flex items-center gap-1 font-medium bg-white px-1.5 py-0.5 rounded shadow-sm border border-slate-100">
-                                                                                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0"></span>
+                                                                            dayAssignments.map(({ shiftName, assignedCounter, isForceAssigned }) => (
+                                                                                <div key={shiftName} className={`text-[11px] w-full p-2 rounded-lg border shadow-sm leading-tight flex flex-col transition-all ${isForceAssigned
+                                                                                    ? 'bg-amber-50 border-amber-100 hover:bg-amber-100'
+                                                                                    : 'bg-indigo-50 border-indigo-100 hover:bg-indigo-100'
+                                                                                    }`}>
+                                                                                    <div className="flex items-center gap-1 mb-0.5">
+                                                                                        <span className={`font-semibold ${isForceAssigned ? 'text-amber-700' : 'text-indigo-700'}`}>{shiftName}</span>
+                                                                                        {isForceAssigned && (
+                                                                                            <span title="Quản lý gán ca"><UserCog className="w-3 h-3 text-amber-500" /></span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <span className={`flex items-center gap-1 font-medium bg-white px-1.5 py-0.5 rounded shadow-sm border ${isForceAssigned ? 'text-amber-700 border-amber-100' : 'text-slate-600 border-slate-100'}`}>
+                                                                                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isForceAssigned ? 'bg-amber-500' : 'bg-indigo-500'}`}></span>
                                                                                         <span className="truncate">{assignedCounter}</span>
                                                                                     </span>
                                                                                 </div>
@@ -449,24 +460,35 @@ export default function GlobalOverviewPage() {
                                                                 )}>
                                                                     <div className="space-y-1.5 flex flex-col h-full justify-start items-center relative">
                                                                         {assignedUsersForCell.length > 0 ? (
-                                                                            assignedUsersForCell.map(u => (
-                                                                                <div key={u.uid} className="text-[12px] w-full p-2 py-1.5 rounded bg-white border border-slate-200 shadow-sm flex flex-col transition-all hover:bg-slate-50">
-                                                                                    <span className="font-semibold text-slate-800 truncate" title={u.name}>{u.name}</span>
-                                                                                    <div className="flex items-center gap-1 mt-0.5 text-[9px] font-bold">
-                                                                                        <span className={cn(
-                                                                                            'px-1 py-0.5 rounded uppercase leading-none',
-                                                                                            u.type === 'FT' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
-                                                                                        )}>
-                                                                                            {u.type}
-                                                                                        </span>
-                                                                                        {u.role === 'manager' && (
-                                                                                            <span className="px-1 py-0.5 rounded capitalize leading-none bg-amber-50 text-amber-600">
-                                                                                                QL
+                                                                            assignedUsersForCell.map(u => {
+                                                                                const isUserForceAssigned = cellSchedule?.assignedByManagerUids?.includes(u.uid) ?? false;
+                                                                                return (
+                                                                                    <div key={u.uid} className={`text-[12px] w-full p-2 py-1.5 rounded border shadow-sm flex flex-col transition-all ${isUserForceAssigned
+                                                                                        ? 'bg-amber-50 border-amber-200 hover:bg-amber-100'
+                                                                                        : 'bg-white border-slate-200 hover:bg-slate-50'
+                                                                                        }`}>
+                                                                                        <div className="flex items-center gap-1">
+                                                                                            <span className={`font-semibold truncate ${isUserForceAssigned ? 'text-amber-800' : 'text-slate-800'}`} title={u.name}>{u.name}</span>
+                                                                                            {isUserForceAssigned && (
+                                                                                                <span title="Quản lý gán ca"><UserCog className="w-3 h-3 text-amber-500 shrink-0" /></span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                        <div className="flex items-center gap-1 mt-0.5 text-[9px] font-bold">
+                                                                                            <span className={cn(
+                                                                                                'px-1 py-0.5 rounded uppercase leading-none',
+                                                                                                u.type === 'FT' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
+                                                                                            )}>
+                                                                                                {u.type}
                                                                                             </span>
-                                                                                        )}
+                                                                                            {u.role === 'manager' && (
+                                                                                                <span className="px-1 py-0.5 rounded capitalize leading-none bg-amber-50 text-amber-600">
+                                                                                                    QL
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </div>
                                                                                     </div>
-                                                                                </div>
-                                                                            ))
+                                                                                );
+                                                                            })
                                                                         ) : (
                                                                             <div className="text-[11px] p-2 text-slate-400 font-medium italic text-center w-full h-full flex items-center justify-center min-h-[40px] rounded border border-transparent">
                                                                                 - Trống -

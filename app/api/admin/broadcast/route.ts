@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb, getAdminMessaging } from '@/lib/firebase-admin';
+import { parseTemplate } from '@/lib/template-parser';
+import { NotificationTemplate } from '@/types';
 
 export async function POST(request: Request) {
     try {
@@ -23,9 +25,22 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { title, message, targetType, targetValue } = body;
+        const { title, message, targetType, targetValue, templateId } = body;
 
-        if (!title || !message || !targetType) {
+        // Resolve title/message from template if templateId is provided
+        let resolvedTitle = title;
+        let resolvedMessage = message;
+        if (templateId) {
+            const templateSnap = await adminDb.collection('notification_templates').doc(templateId).get();
+            if (!templateSnap.exists) {
+                return NextResponse.json({ error: 'Không tìm thấy mẫu thông báo' }, { status: 404 });
+            }
+            const templateData = templateSnap.data() as NotificationTemplate;
+            resolvedTitle = templateData.titleTemplate;
+            resolvedMessage = templateData.bodyTemplate;
+        }
+
+        if (!resolvedTitle || !resolvedMessage || !targetType) {
             return NextResponse.json({ error: 'Thiếu thông tin bắt buộc' }, { status: 400 });
         }
 
@@ -46,7 +61,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Không tìm thấy người dùng nào phù hợp với điều kiện' }, { status: 404 });
         }
 
-        const usersData: { uid: string, name: string, fcmToken?: string }[] = [];
+        const usersData: { uid: string, name: string, fcmToken?: string, storeId?: string }[] = [];
 
         usersSnapshot.forEach(doc => {
             const data = doc.data();
@@ -56,16 +71,17 @@ export async function POST(request: Request) {
                 usersData.push({
                     uid: doc.id,
                     name: data.name || 'bạn',
-                    fcmToken: data.fcmToken
+                    fcmToken: data.fcmToken,
+                    storeId: data.storeId,
                 });
             }
         });
 
         const createdAt = new Date().toISOString();
 
-        // Helper to replace variables
-        const personalizeText = (text: string, userName: string) => {
-            return text.replace(/{name}/g, userName);
+        // Helper to replace variables using parseTemplate
+        const personalizeText = (text: string, userData: Record<string, string | number | undefined>) => {
+            return parseTemplate(text, userData);
         };
 
         // 2. Action 1: Write to Firestore (Batched)
@@ -83,8 +99,9 @@ export async function POST(request: Request) {
         for (const chunk of userChunks) {
             const batch = adminDb.batch();
             for (const user of chunk) {
-                const personalizedTitle = personalizeText(title, user.name);
-                const personalizedBody = personalizeText(message, user.name);
+                const ctx = { name: user.name, storeName: user.storeId || '' };
+                const personalizedTitle = personalizeText(resolvedTitle, ctx);
+                const personalizedBody = personalizeText(resolvedMessage, ctx);
 
                 const notificationRef = adminDb.collection('notifications').doc();
                 batch.set(notificationRef, {
@@ -111,11 +128,12 @@ export async function POST(request: Request) {
         for (const user of usersData) {
             if (user.fcmToken && !seenTokens.has(user.fcmToken)) {
                 seenTokens.add(user.fcmToken);
+                const ctx = { name: user.name, storeName: user.storeId || '' };
                 uniquePushMessages.push({
                     token: user.fcmToken,
                     data: {
-                        title: String(personalizeText(title, user.name) || 'Thông báo'),
-                        body: String(personalizeText(message, user.name) || 'Nội dung'),
+                        title: String(personalizeText(resolvedTitle, ctx) || 'Thông báo'),
+                        body: String(personalizeText(resolvedMessage, ctx) || 'Nội dung'),
                         actionLink: "/"
                     }
                 });

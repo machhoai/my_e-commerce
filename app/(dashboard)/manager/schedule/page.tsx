@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, doc, getDoc, getDocs, setDoc, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { UserDoc, CounterDoc, SettingsDoc, WeeklyRegistration, ScheduleDoc, StoreDoc } from '@/types';
 import { getWeekStart, getWeekDays, toLocalDateString, formatDate } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import DraggableSchedule from '@/components/manager/DraggableSchedule';
-import { Calendar, Clock, Save, AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Building2 } from 'lucide-react';
+import ForceAssignModal from '@/components/manager/ForceAssignModal';
+import { Calendar, Clock, Save, AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Building2, UserPlus, Undo2, FileWarning } from 'lucide-react';
 
 export default function ManagerSchedulePage() {
     const { user, userDoc } = useAuth();
@@ -20,14 +21,18 @@ export default function ManagerSchedulePage() {
     const [shiftTimes, setShiftTimes] = useState<string[]>([]);
     const [counters, setCounters] = useState<CounterDoc[]>([]);
     const [registeredEmployees, setRegisteredEmployees] = useState<UserDoc[]>([]);
+    const [managerAssignedUids, setManagerAssignedUids] = useState<Set<string>>(new Set());
     const [inactiveUids, setInactiveUids] = useState<Set<string>>(new Set());
     const [assignments, setAssignments] = useState<Record<string, string[]>>({});
+    const [showForceAssignModal, setShowForceAssignModal] = useState(false);
 
     const [loadingConfig, setLoadingConfig] = useState(true);
     const [loadingData, setLoadingData] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [isAutoSaving, setIsAutoSaving] = useState(false);
     const isInitialLoad = useRef(true);
+    const serverAssignments = useRef<Record<string, string[]>>({});
+    const [hasDraftChanges, setHasDraftChanges] = useState(false);
+    const [draftLoaded, setDraftLoaded] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
@@ -121,6 +126,7 @@ export default function ManagerSchedulePage() {
             setError('');
             setSuccess('');
             try {
+                // Fetch registered employees for this shift
                 const requestWeekStart = getWeekStart(new Date(selectedDate + "T00:00:00"));
                 const regQuery = query(
                     collection(db, 'weekly_registrations'),
@@ -130,10 +136,17 @@ export default function ManagerSchedulePage() {
                 const regSnap = await getDocs(regQuery);
 
                 const uidsForShift = new Set<string>();
+                const forceAssignedUids = new Set<string>();
                 regSnap.docs.forEach(d => {
                     const reg = d.data() as WeeklyRegistration;
                     const hasShift = reg.shifts.some(s => s.date === selectedDate && s.shiftId === selectedShiftId);
-                    if (hasShift) uidsForShift.add(reg.userId);
+                    if (hasShift) {
+                        uidsForShift.add(reg.userId);
+                        // Track force-assigned registrations
+                        if (reg.isAssignedByManager) {
+                            forceAssignedUids.add(reg.userId);
+                        }
+                    }
                 });
 
                 const users: UserDoc[] = [];
@@ -150,15 +163,12 @@ export default function ManagerSchedulePage() {
                 users.sort((a, b) => a.name.localeCompare(b.name));
 
                 // Separate active vs inactive users
-                // - Inactive users who are NOT yet assigned: hide from list
-                // - Inactive users who ARE already assigned: keep in list but flag as warning
                 const inactive = new Set(users.filter(u => u.isActive === false).map(u => u.uid));
                 setInactiveUids(inactive);
-
-                // Only show active users in the draggable panel
-                // (inactive assigned ones will be shown as warnings inside CounterDropZone)
                 setRegisteredEmployees(users.filter(u => u.isActive !== false));
+                setManagerAssignedUids(forceAssignedUids);
 
+                // Load existing schedules for counter assignments
                 const qScheds = query(
                     collection(db, 'schedules'),
                     where('date', '==', selectedDate),
@@ -173,8 +183,33 @@ export default function ManagerSchedulePage() {
                         initialAssigns[sData.counterId] = sData.employeeIds || [];
                     }
                 });
-                setAssignments(initialAssigns);
-                // Allow a small delay before we consider initial load "done" to avoid firing auto-save on mount
+
+                // Snapshot the clean server state
+                serverAssignments.current = JSON.parse(JSON.stringify(initialAssigns));
+
+                // Check localStorage for a saved draft (hydration-safe)
+                const draftKey = `draft_schedule_${effectiveStoreId}_${toLocalDateString(requestWeekStart)}_${selectedShiftId}`;
+                const savedDraft = typeof window !== 'undefined' ? localStorage.getItem(draftKey) : null;
+                if (savedDraft) {
+                    try {
+                        const parsed = JSON.parse(savedDraft) as Record<string, string[]>;
+                        setAssignments(parsed);
+                        setDraftLoaded(true);
+                        setHasDraftChanges(true);
+                    } catch {
+                        // Corrupted draft — discard it
+                        localStorage.removeItem(draftKey);
+                        setAssignments(initialAssigns);
+                        setDraftLoaded(false);
+                        setHasDraftChanges(false);
+                    }
+                } else {
+                    setAssignments(initialAssigns);
+                    setDraftLoaded(false);
+                    setHasDraftChanges(false);
+                }
+
+                // Allow a small delay before we consider initial load "done"
                 setTimeout(() => { isInitialLoad.current = false; }, 300);
             } catch (err) {
                 console.error(err);
@@ -186,50 +221,188 @@ export default function ManagerSchedulePage() {
         loadData();
     }, [selectedDate, selectedShiftId, counters, userDoc, selectedAdminStoreId]);
 
-    const handleSaveAndPublish = async (isAuto = false) => {
+    // Reload data after force-assign add/remove
+    const reloadKey = useRef(0);
+    const triggerReload = () => {
+        reloadKey.current += 1;
+        // Re-trigger the effect by changing a dependency
+        setLoadingData(true);
+        const effectiveStoreId = userDoc?.role === 'admin' ? selectedAdminStoreId : userDoc?.storeId;
+        if (!effectiveStoreId || !selectedDate || !selectedShiftId) return;
+
+        (async () => {
+            try {
+                const requestWeekStart = getWeekStart(new Date(selectedDate + "T00:00:00"));
+                const regQuery = query(
+                    collection(db, 'weekly_registrations'),
+                    where('weekStartDate', '==', toLocalDateString(requestWeekStart)),
+                    where('storeId', '==', effectiveStoreId)
+                );
+                const regSnap = await getDocs(regQuery);
+
+                const uidsForShift = new Set<string>();
+                const forceAssignedUids = new Set<string>();
+                regSnap.docs.forEach(d => {
+                    const reg = d.data() as WeeklyRegistration;
+                    const hasShift = reg.shifts.some(s => s.date === selectedDate && s.shiftId === selectedShiftId);
+                    if (hasShift) {
+                        uidsForShift.add(reg.userId);
+                        if (reg.isAssignedByManager) {
+                            forceAssignedUids.add(reg.userId);
+                        }
+                    }
+                });
+
+                const users: UserDoc[] = [];
+                if (uidsForShift.size > 0) {
+                    const uidsArray = Array.from(uidsForShift);
+                    for (let i = 0; i < uidsArray.length; i += 10) {
+                        const chunk = uidsArray.slice(i, i + 10);
+                        const qUsers = query(collection(db, 'users'), where('uid', 'in', chunk));
+                        const uSnap = await getDocs(qUsers);
+                        uSnap.docs.forEach(u => users.push(u.data() as UserDoc));
+                    }
+                }
+                users.sort((a, b) => a.name.localeCompare(b.name));
+
+                const inactive = new Set(users.filter(u => u.isActive === false).map(u => u.uid));
+                setInactiveUids(inactive);
+                setRegisteredEmployees(users.filter(u => u.isActive !== false));
+                setManagerAssignedUids(forceAssignedUids);
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setLoadingData(false);
+            }
+        })();
+    };
+
+    const handleRemoveRegistration = async (uid: string) => {
         if (!user) return;
-        if (!isAuto) {
-            setSaving(true);
-            setError('');
-            setSuccess('');
-        } else {
-            setIsAutoSaving(true);
-        }
         try {
-            const batchPromises = Object.entries(assignments).map(async ([counterId, uids]) => {
-                const docId = `${selectedDate}_${selectedShiftId}_${counterId}`;
-                return setDoc(doc(db, 'schedules', docId), {
-                    id: docId,
+            const token = await user.getIdToken();
+            const weekStartDate = toLocalDateString(getWeekStart(new Date(selectedDate + 'T00:00:00')));
+            const res = await fetch('/api/register/force-assign', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    targetUserId: uid,
+                    weekStartDate,
                     date: selectedDate,
                     shiftId: selectedShiftId,
-                    counterId,
-                    employeeIds: uids,
-                    publishedAt: new Date().toISOString(),
-                    publishedBy: user.uid,
-                });
+                }),
             });
-            await Promise.all(batchPromises);
-            if (!isAuto) setSuccess('Đã lưu và công khai lịch làm việc cho nhân viên thành công!');
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'Không thể hủy gán ca');
+            }
+            // Also remove from assignments if they were assigned to a counter
+            const newAssignments = { ...assignments };
+            for (const counterId of Object.keys(newAssignments)) {
+                newAssignments[counterId] = newAssignments[counterId].filter(id => id !== uid);
+            }
+            setAssignments(newAssignments);
+            triggerReload();
         } catch (err) {
             console.error(err);
-            if (!isAuto) setError('Không thể công khai lịch làm việc');
-        } finally {
-            if (!isAuto) setSaving(false);
-            setIsAutoSaving(false);
+            setError(err instanceof Error ? err.message : 'Không thể hủy gán ca');
         }
     };
 
-    // 4. Auto-save effect
+    // 4. Persist draft to localStorage when assignments change (hydration-safe)
+    const getDraftKey = useCallback(() => {
+        const effectiveStoreId = userDoc?.role === 'admin' ? selectedAdminStoreId : userDoc?.storeId;
+        if (!effectiveStoreId || !selectedDate || !selectedShiftId) return null;
+        const weekStart = getWeekStart(new Date(selectedDate + 'T00:00:00'));
+        return `draft_schedule_${effectiveStoreId}_${toLocalDateString(weekStart)}_${selectedShiftId}`;
+    }, [userDoc, selectedAdminStoreId, selectedDate, selectedShiftId]);
+
     useEffect(() => {
-        if (isInitialLoad.current) return;
+        if (isInitialLoad.current || typeof window === 'undefined') return;
 
-        const autoSaveTimer = setTimeout(() => {
-            handleSaveAndPublish(true);
-        }, 1500); // 1.5s debounce
+        const key = getDraftKey();
+        if (!key) return;
 
-        return () => clearTimeout(autoSaveTimer);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [assignments]);
+        // Check if assignments differ from server state
+        const isDifferent = JSON.stringify(assignments) !== JSON.stringify(serverAssignments.current);
+        setHasDraftChanges(isDifferent);
+
+        if (isDifferent) {
+            localStorage.setItem(key, JSON.stringify(assignments));
+        } else {
+            // Clean state matches server — remove any stale draft
+            localStorage.removeItem(key);
+            setDraftLoaded(false);
+        }
+    }, [assignments, getDraftKey]);
+
+    const handleSaveAndPublish = async () => {
+        if (!user) return;
+        const effectiveStoreId = userDoc?.role === 'admin' ? selectedAdminStoreId : userDoc?.storeId;
+        if (!effectiveStoreId) return;
+
+        setSaving(true);
+        setError('');
+        setSuccess('');
+        try {
+            const token = await user.getIdToken();
+            const payload = {
+                date: selectedDate,
+                shiftId: selectedShiftId,
+                storeId: effectiveStoreId,
+                assignments: Object.fromEntries(
+                    Object.entries(assignments).map(([counterId, uids]) => [
+                        counterId,
+                        {
+                            employeeIds: uids,
+                            assignedByManagerUids: uids.filter(uid => managerAssignedUids.has(uid)),
+                        }
+                    ])
+                ),
+            };
+
+            const res = await fetch('/api/schedules/bulk', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || 'Lỗi hệ thống');
+            }
+
+            // Success: update server snapshot, clear draft
+            serverAssignments.current = JSON.parse(JSON.stringify(assignments));
+            setHasDraftChanges(false);
+            setDraftLoaded(false);
+            const key = getDraftKey();
+            if (key) localStorage.removeItem(key);
+
+            setSuccess('Đã lưu và công khai lịch làm việc cho nhân viên thành công!');
+        } catch (err) {
+            console.error(err);
+            setError(err instanceof Error ? err.message : 'Không thể công khai lịch làm việc');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDiscardDraft = () => {
+        const key = getDraftKey();
+        if (key) localStorage.removeItem(key);
+        setAssignments(JSON.parse(JSON.stringify(serverAssignments.current)));
+        setHasDraftChanges(false);
+        setDraftLoaded(false);
+        setSuccess('');
+        setError('');
+    };
 
     const handlePreviousWeek = () => {
         const d = new Date(currentWeekStart);
@@ -388,22 +561,64 @@ export default function ManagerSchedulePage() {
                         onAssignmentChange={setAssignments}
                         isLoading={loadingData}
                         inactiveUids={inactiveUids}
+                        managerAssignedUids={managerAssignedUids}
+                        onRemoveRegistration={handleRemoveRegistration}
+                        selectedShiftId={selectedShiftId}
+                        setShowForceAssignModal={setShowForceAssignModal}
                     />
 
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-4 border-t border-slate-200 mt-4 gap-4">
-                        <div className="text-sm text-slate-500 font-medium bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200/60 flex items-center gap-2 w-fit">
-                            <span className={`w-2 h-2 rounded-full ${isAutoSaving ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></span>
-                            {isAutoSaving ? 'Đang lưu tự động...' : 'Mọi thay đổi đã được tự động lưu'}
+                    <ForceAssignModal
+                        isOpen={showForceAssignModal}
+                        onClose={() => setShowForceAssignModal(false)}
+                        storeId={effectiveStoreId || ''}
+                        selectedDate={selectedDate}
+                        selectedShiftId={selectedShiftId}
+                        registeredUids={new Set(registeredEmployees.map(e => e.uid))}
+                        onSuccess={triggerReload}
+                    />
+
+                    {/* Draft Action Bar */}
+                    {(hasDraftChanges || draftLoaded) && (
+                        <div className="sticky bottom-4 z-30 mt-4">
+                            <div className="bg-white/95 backdrop-blur-md border-2 border-amber-300 rounded-2xl shadow-xl shadow-amber-500/10 p-4">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
+                                            <FileWarning className="w-5 h-5 text-amber-600" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-800">
+                                                Có thay đổi chưa lưu
+                                            </p>
+                                            <p className="text-xs text-slate-500">
+                                                {draftLoaded
+                                                    ? 'Đang hiển thị bản nháp chưa lưu. Nhấn "Lưu và Công khai" để áp dụng hoặc "Hủy bản nháp" để khôi phục.'
+                                                    : 'Lịch làm việc đã được chỉnh sửa nhưng chưa công khai cho nhân viên.'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                                        <button
+                                            onClick={handleDiscardDraft}
+                                            disabled={saving}
+                                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <Undo2 className="w-4 h-4" />
+                                            Hủy bản nháp
+                                        </button>
+                                        <button
+                                            onClick={handleSaveAndPublish}
+                                            disabled={saving || loadingData}
+                                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+                                            Lưu và Công khai
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <button
-                            onClick={() => handleSaveAndPublish(false)}
-                            disabled={saving || loadingData}
-                            className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-2.5 rounded-xl font-semibold transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
-                            Lưu lịch làm việc
-                        </button>
-                    </div>
+                    )}
                 </>
             )}
         </div>

@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
+import { initializeAuth, getAuth, indexedDBLocalPersistence, browserLocalPersistence, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -12,8 +12,24 @@ const firebaseConfig = {
 };
 
 // Singleton pattern to avoid re-initialization in Next.js hot-reload
-const app: FirebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const auth: Auth = getAuth(app);
+let app: FirebaseApp;
+let auth: Auth;
+
+if (getApps().length) {
+    app = getApp();
+    auth = getAuth(app);
+} else {
+    app = initializeApp(firebaseConfig);
+    // Use initializeAuth with explicit persistence to ensure auth state survives
+    // PWA restarts on mobile (especially iOS). IndexedDB is primary (most reliable),
+    // falling back to localStorage if IndexedDB is unavailable.
+    auth = typeof window !== 'undefined'
+        ? initializeAuth(app, {
+            persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+        })
+        : getAuth(app);
+}
+
 const db: Firestore = getFirestore(app);
 
 export { app, auth, db };

@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { NotificationTemplate } from '@/types';
-import { Plus, Edit2, Trash2, Send, Info, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { NotificationTemplate, StoreDoc } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { Plus, Edit2, Trash2, Send, Info, AlertCircle, CheckCircle2, Users, Building2, Shield } from 'lucide-react';
 
 export default function NotificationTemplatesPage() {
+    const { user } = useAuth();
     const [templates, setTemplates] = useState<NotificationTemplate[]>([]);
     const [loading, setLoading] = useState(true);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -22,6 +24,12 @@ export default function NotificationTemplatesPage() {
     });
 
     const [isSaving, setIsSaving] = useState(false);
+
+    // Broadcast state
+    const [broadcastTemplate, setBroadcastTemplate] = useState<NotificationTemplate | null>(null);
+    const [broadcastAudience, setBroadcastAudience] = useState('all');
+    const [isBroadcasting, setIsBroadcasting] = useState(false);
+    const [stores, setStores] = useState<StoreDoc[]>([]);
 
     const fetchTemplates = async () => {
         setLoading(true);
@@ -42,6 +50,15 @@ export default function NotificationTemplatesPage() {
 
     useEffect(() => {
         fetchTemplates();
+        // Fetch stores for broadcast audience selector
+        (async () => {
+            try {
+                const snap = await getDocs(collection(db, 'stores'));
+                setStores(snap.docs.map(d => ({ id: d.id, ...d.data() } as StoreDoc)));
+            } catch (err) {
+                console.error('Error fetching stores:', err);
+            }
+        })();
     }, []);
 
     const handleOpenForm = (template?: NotificationTemplate) => {
@@ -103,6 +120,38 @@ export default function NotificationTemplatesPage() {
                 console.error("Lỗi xóa mẫu:", error);
                 setFeedback({ type: 'error', text: "Không thể xóa lúc này" });
             }
+        }
+    };
+
+    const handleBroadcast = async () => {
+        if (!broadcastTemplate || !user) return;
+        setIsBroadcasting(true);
+        setFeedback(null);
+        try {
+            const token = await user.getIdToken();
+            const res = await fetch('/api/admin/broadcast', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    templateId: broadcastTemplate.id,
+                    targetType: broadcastAudience === 'all' ? 'ALL'
+                        : broadcastAudience.startsWith('store:') ? 'STORE'
+                            : broadcastAudience.startsWith('role:') ? 'ROLE'
+                                : 'ALL',
+                    targetValue: broadcastAudience.includes(':') ? broadcastAudience.split(':')[1] : undefined,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Lỗi gửi thông báo');
+            setFeedback({ type: 'success', text: data.message || 'Đã gửi thành công!' });
+            setBroadcastTemplate(null);
+        } catch (err) {
+            setFeedback({ type: 'error', text: err instanceof Error ? err.message : 'Lỗi gửi thông báo' });
+        } finally {
+            setIsBroadcasting(false);
         }
     };
 
@@ -173,11 +222,12 @@ export default function NotificationTemplatesPage() {
                                 </div>
                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
-                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md text-xs font-medium transition-colors cursor-not-allowed"
-                                        title="Gửi test ngay (Đang xây dựng)"
+                                        onClick={() => { setBroadcastTemplate(template); setBroadcastAudience('all'); }}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md text-xs font-medium transition-colors"
+                                        title="Gửi ngay cho nhóm người dùng"
                                     >
                                         <Send className="w-3.5 h-3.5" />
-                                        Test
+                                        Gửi ngay
                                     </button>
                                 </div>
                             </div>
@@ -286,6 +336,73 @@ export default function NotificationTemplatesPage() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Broadcast Modal */}
+            {broadcastTemplate && (
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="px-6 py-4 border-b border-slate-100 bg-emerald-50/50">
+                            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                <Send className="w-5 h-5 text-emerald-600" />
+                                Gửi thông báo: {broadcastTemplate.name}
+                            </h2>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                <p className="text-sm font-medium text-slate-900">{broadcastTemplate.titleTemplate}</p>
+                                <p className="text-xs text-slate-500 mt-1">{broadcastTemplate.bodyTemplate}</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                    Đối tượng nhận thông báo
+                                </label>
+                                <select
+                                    value={broadcastAudience}
+                                    onChange={e => setBroadcastAudience(e.target.value)}
+                                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                                >
+                                    <option value="all">🌐 Tất cả nhân viên</option>
+                                    {stores.map(s => (
+                                        <option key={s.id} value={`store:${s.id}`}>🏪 {s.name}</option>
+                                    ))}
+                                    <option value="role:employee">👤 Nhân viên</option>
+                                    <option value="role:manager">👔 Quản lý</option>
+                                    <option value="role:store_manager">🏬 Quản lý cửa hàng</option>
+                                </select>
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
+                                <button
+                                    onClick={() => setBroadcastTemplate(null)}
+                                    disabled={isBroadcasting}
+                                    className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                                >
+                                    Hủy bỏ
+                                </button>
+                                <button
+                                    onClick={handleBroadcast}
+                                    disabled={isBroadcasting}
+                                    className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-sm font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2"
+                                >
+                                    {isBroadcasting ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            Đang gửi...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Send className="w-4 h-4" />
+                                            Gửi thông báo
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

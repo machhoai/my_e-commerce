@@ -14,6 +14,7 @@ import {
 import { UserDoc, CounterDoc } from '@/types';
 import EmployeeCard from './EmployeeCard';
 import CounterDropZone from './CounterDropZone';
+import { UserPlus } from 'lucide-react';
 
 interface Props {
     employees: UserDoc[];
@@ -22,6 +23,10 @@ interface Props {
     onAssignmentChange: (newAssignments: Record<string, string[]>) => void;
     isLoading: boolean;
     inactiveUids?: Set<string>; // UIDs of deactivated accounts already in assignments
+    managerAssignedUids?: Set<string>; // UIDs force-assigned by manager
+    onRemoveRegistration?: (uid: string) => void; // Callback to remove a force-assigned registration
+    setShowForceAssignModal?: (show: boolean) => void;
+    selectedShiftId?: string;
 }
 
 export default function DraggableSchedule({
@@ -31,6 +36,10 @@ export default function DraggableSchedule({
     onAssignmentChange,
     isLoading,
     inactiveUids = new Set(),
+    managerAssignedUids = new Set(),
+    onRemoveRegistration,
+    setShowForceAssignModal,
+    selectedShiftId,
 }: Props) {
     const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -121,7 +130,15 @@ export default function DraggableSchedule({
                                         </h3>
                                         <div className="flex flex-col gap-2">
                                             {unassignedEmployees.map((user) => (
-                                                <EmployeeCard key={`start_${user.uid}`} user={user} isSelected={false} />
+                                                <EmployeeCard
+                                                    key={`start_${user.uid}`}
+                                                    user={user}
+                                                    isSelected={false}
+                                                    isManagerAssigned={managerAssignedUids.has(user.uid)}
+                                                    onRemove={managerAssignedUids.has(user.uid) && onRemoveRegistration
+                                                        ? () => onRemoveRegistration(user.uid)
+                                                        : undefined}
+                                                />
                                             ))}
                                         </div>
                                     </div>
@@ -134,11 +151,27 @@ export default function DraggableSchedule({
                                             </h3>
                                             <div className="flex flex-col gap-2">
                                                 {assignedEmployees.map((user) => (
-                                                    <EmployeeCard key={`assigned_${user.uid}`} user={user} isSelected={true} />
+                                                    <EmployeeCard
+                                                        key={`assigned_${user.uid}`}
+                                                        user={user}
+                                                        isSelected={true}
+                                                        isManagerAssigned={managerAssignedUids.has(user.uid)}
+                                                    />
                                                 ))}
                                             </div>
                                         </div>
                                     )}
+
+                                    <div className="flex w-full items-center gap-3">
+                                        <button
+                                            onClick={() => setShowForceAssignModal?.(true)}
+                                            disabled={isLoading || !selectedShiftId}
+                                            className="flex items-center w-full justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold text-sm transition-all shadow-sm shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <UserPlus className="w-4 h-4" />
+                                            Đăng ký thêm nhân viên
+                                        </button>
+                                    </div>
                                 </>
                             )}
                         </div>
@@ -167,6 +200,7 @@ export default function DraggableSchedule({
                                     onRemove={handleRemove}
                                     inactiveAssignedUids={inactiveAssignedUids}
                                     onRemoveInactive={(uid: string) => handleRemove(counter.id, uid)}
+                                    managerAssignedUids={managerAssignedUids}
                                 />
                             );
                         })}
@@ -184,10 +218,11 @@ export default function DraggableSchedule({
             <DragOverlay>
                 {activeUser ? (
                     <div className="transform rotate-3 shadow-2xl scale-105 transition-transform duration-75">
-                        <EmployeeCard user={activeUser} isSelected={false} />
+                        <EmployeeCard user={activeUser} isSelected={false} isManagerAssigned={managerAssignedUids.has(activeUser.uid)} />
                     </div>
                 ) : null}
             </DragOverlay>
         </DndContext>
     );
 }
+
