@@ -145,6 +145,7 @@ export interface RegistrationSchedule {
 export interface ShiftEntry {
     date: string;   // ISO date string, e.g. "2024-01-15"
     shiftId: string; // one of settings.shiftTimes values
+    isAssignedByManager?: boolean; // true if this specific shift was force-assigned by manager
 }
 
 export interface WeeklyRegistration {
@@ -154,7 +155,6 @@ export interface WeeklyRegistration {
     weekStartDate: string; // ISO date string for the Monday of the week
     shifts: ShiftEntry[];
     submittedAt?: string;
-    isAssignedByManager?: boolean; // true if manager force-registered this employee
 }
 
 export interface ScheduleDoc {

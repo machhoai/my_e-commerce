@@ -139,11 +139,11 @@ export default function ManagerSchedulePage() {
                 const forceAssignedUids = new Set<string>();
                 regSnap.docs.forEach(d => {
                     const reg = d.data() as WeeklyRegistration;
-                    const hasShift = reg.shifts.some(s => s.date === selectedDate && s.shiftId === selectedShiftId);
-                    if (hasShift) {
+                    const matchingShift = reg.shifts.find(s => s.date === selectedDate && s.shiftId === selectedShiftId);
+                    if (matchingShift) {
                         uidsForShift.add(reg.userId);
-                        // Track force-assigned registrations
-                        if (reg.isAssignedByManager) {
+                        // Track force-assigned registrations per shift entry
+                        if (matchingShift.isAssignedByManager) {
                             forceAssignedUids.add(reg.userId);
                         }
                     }
@@ -244,10 +244,10 @@ export default function ManagerSchedulePage() {
                 const forceAssignedUids = new Set<string>();
                 regSnap.docs.forEach(d => {
                     const reg = d.data() as WeeklyRegistration;
-                    const hasShift = reg.shifts.some(s => s.date === selectedDate && s.shiftId === selectedShiftId);
-                    if (hasShift) {
+                    const matchingShift = reg.shifts.find(s => s.date === selectedDate && s.shiftId === selectedShiftId);
+                    if (matchingShift) {
                         uidsForShift.add(reg.userId);
-                        if (reg.isAssignedByManager) {
+                        if (matchingShift.isAssignedByManager) {
                             forceAssignedUids.add(reg.userId);
                         }
                     }

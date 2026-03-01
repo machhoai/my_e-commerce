@@ -3,25 +3,26 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Shield, BellRing, Zap } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Shield, BellRing, Zap, Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { StoreDoc } from '@/types';
 
 import { usePushNotifications } from '@/hooks/usePushNotifications';
-import NotificationBell from './NotificationBell';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-    const { userDoc, logout, loading, hasPermission } = useAuth();
+    const { user, userDoc, logout, loading, hasPermission } = useAuth();
     const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [storeName, setStoreName] = useState<string>('');
+    const [unreadCount, setUnreadCount] = useState(0);
 
     // Initialize Push Notifications hook (handles permission request and saving token)
     usePushNotifications();
 
+    // Fetch store name
     useEffect(() => {
         if (userDoc?.storeId && userDoc.role !== 'admin') {
             const fetchStore = async () => {
@@ -37,6 +38,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             fetchStore();
         }
     }, [userDoc]);
+
+    // Real-time unread notification count for sidebar badge
+    useEffect(() => {
+        if (!user) return;
+
+        const q = query(
+            collection(db, 'notifications'),
+            where('userId', '==', user.uid),
+            where('isRead', '==', false)
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            setUnreadCount(snapshot.size);
+        }, (error) => {
+            console.error("Error listening to unread notifications:", error);
+        });
+
+        return () => unsubscribe();
+    }, [user]);
 
     if (loading) {
         return (
@@ -174,6 +194,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         employee: 'bg-green-500/20 text-green-400',
     };
 
+    const isNotificationsActive = pathname === '/notifications';
+
     const SidebarContent = () => (
         <>
             <div className="p-6">
@@ -225,6 +247,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </Link>
                     );
                 })}
+
+                {/* Notification Nav Item with Badge */}
+                <Link
+                    href="/notifications"
+                    onClick={() => setMobileOpen(false)}
+                    className={cn(
+                        'flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium',
+                        isNotificationsActive
+                            ? 'bg-blue-600 text-white'
+                            : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'
+                    )}
+                >
+                    <div className="relative">
+                        <Bell className="w-4 h-4 shrink-0" />
+                        {unreadCount > 0 && (
+                            <span className="absolute -top-1.5 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white px-1 ring-2 ring-slate-900">
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                        )}
+                    </div>
+                    <span className="ml-0.5">Thông báo</span>
+                </Link>
             </nav>
 
             <div className="p-4 border-t border-slate-800 space-y-2">
@@ -290,36 +334,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
             )}
 
-            {/* Main Content */}
+            {/* Main Content — full height, no header */}
             <main className="flex-1 h-screen overflow-y-auto flex flex-col">
-                {/* Header Topbar */}
-                <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 h-16 flex items-center justify-between sm:justify-end md:px-8">
-                    {/* Mobile Hamburger Button */}
-                    <button
-                        className="md:hidden text-slate-600 hover:text-slate-900 p-2 -ml-2 rounded-lg"
-                        onClick={() => setMobileOpen(true)}
-                        aria-label="Mở menu"
-                    >
-                        <Menu className="w-6 h-6" />
-                    </button>
-
-                    {/* Right aligned actions (Notification Bell) */}
-                    <div className="flex items-center gap-4">
-                        <NotificationBell />
-
-                        {/* Mobile User Info */}
-                        <div className="md:hidden flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
-                                {userDoc.name.charAt(0)}
-                            </div>
-                        </div>
-                    </div>
-                </header>
-
                 <div className="mx-auto p-4 md:p-8 w-full">
                     {children}
                 </div>
             </main>
+
+            {/* Mobile Floating Hamburger Button */}
+            {!mobileOpen && (
+                <button
+                    className="md:hidden fixed bottom-5 right-5 z-30 w-12 h-12 bg-slate-900 text-white rounded-full shadow-lg shadow-slate-900/40 flex items-center justify-center hover:bg-slate-800 active:scale-95 transition-all"
+                    onClick={() => setMobileOpen(true)}
+                    aria-label="Mở menu"
+                >
+                    <Menu className="w-5 h-5" />
+                    {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white px-1 ring-2 ring-slate-50">
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                    )}
+                </button>
+            )}
         </div>
     );
 }

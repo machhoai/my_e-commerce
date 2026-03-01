@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
         const regRef = adminDb.collection('weekly_registrations').doc(regId);
         const existingReg = await regRef.get();
 
-        const newShift: ShiftEntry = { date: body.date, shiftId: body.shiftId };
+        const newShift: ShiftEntry = { date: body.date, shiftId: body.shiftId, isAssignedByManager: true };
 
         if (existingReg.exists) {
             const regData = existingReg.data() as WeeklyRegistration;
@@ -64,21 +64,19 @@ export async function POST(req: NextRequest) {
                 return NextResponse.json({ error: 'Nhân viên đã đăng ký ca này' }, { status: 409 });
             }
 
-            // Append the new shift
+            // Append the new shift (flag is on the shift entry itself)
             await regRef.update({
                 shifts: [...regData.shifts, newShift],
-                isAssignedByManager: true, // Mark the entire registration as manager-assigned
             });
         } else {
-            // Create new registration
-            const newReg: WeeklyRegistration & { isAssignedByManager: boolean } = {
+            // Create new registration (isAssignedByManager is on the shift entry)
+            const newReg: WeeklyRegistration = {
                 id: regId,
                 userId: body.targetUserId,
                 storeId: body.storeId,
                 weekStartDate: body.weekStartDate,
                 shifts: [newShift],
                 submittedAt: new Date().toISOString(),
-                isAssignedByManager: true,
             };
             await regRef.set(newReg);
         }
