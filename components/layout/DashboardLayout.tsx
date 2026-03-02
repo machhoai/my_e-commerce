@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Shield, BellRing, Zap, Bell } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Shield, BellRing, Zap, Bell, ClipboardCheck, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -177,6 +177,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             href: '/admin/broadcast',
             icon: BellRing,
             show: userDoc?.role === 'admin',
+        },
+        {
+            label: 'Mẫu KPI',
+            href: '/admin/kpi-templates',
+            icon: ClipboardCheck,
+            show: userDoc?.role === 'admin' || (userDoc?.role === 'store_manager' && hasPermission('manage_kpi_templates')),
+        },
+        {
+            label: 'Chấm điểm KPI',
+            href: '/manager/kpi-scoring',
+            icon: ClipboardCheck,
+            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || hasPermission('score_employees'),
+        },
+        {
+            label: 'Thống kê KPI',
+            href: '/manager/kpi-stats',
+            icon: BarChart3,
+            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || hasPermission('view_all_kpi'),
+        },
+        {
+            label: 'KPI của tôi',
+            href: '/employee/kpi-stats',
+            icon: BarChart3,
+            show: userDoc?.role !== 'admin',
         },
     ];
 

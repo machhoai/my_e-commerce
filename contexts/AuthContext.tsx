@@ -39,7 +39,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 function getBuiltInPermissions(userDoc: UserDoc): AppPermission[] {
     const { role, canManageHR } = userDoc;
     if (role === 'admin' || role === 'store_manager') {
-        return ['view_overview', 'view_history', 'view_schedule', 'edit_schedule', 'view_users', 'manage_hr'];
+        return ['view_overview', 'view_history', 'view_schedule', 'edit_schedule', 'view_users', 'manage_hr', 'manage_kpi_templates', 'score_employees', 'view_all_kpi', 'export_kpi'];
     }
     if (role === 'manager') {
         const perms: AppPermission[] = ['view_overview', 'view_history'];

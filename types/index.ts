@@ -13,7 +13,11 @@ export type AppPermission =
     | 'edit_schedule'    // Xếp ca / lưu lịch
     | 'view_users'       // Xem danh sách nhân viên
     | 'manage_hr'        // Thêm/sửa/tắt hoạt động nhân viên
-    | 'register_shift';  // Đăng ký ca làm (nhân viên)
+    | 'register_shift'   // Đăng ký ca làm (nhân viên)
+    | 'manage_kpi_templates'  // Tạo/sửa mẫu KPI
+    | 'score_employees'       // Chấm điểm nhân viên
+    | 'view_all_kpi'          // Xem thống kê KPI tất cả NV
+    | 'export_kpi';           // Xuất báo cáo KPI
 
 export const ALL_PERMISSIONS: { key: AppPermission; label: string; description: string }[] = [
     { key: 'view_overview', label: 'Xem Tổng quan', description: 'Xem lịch tổng quan hàng tuần' },
@@ -23,6 +27,10 @@ export const ALL_PERMISSIONS: { key: AppPermission; label: string; description: 
     { key: 'view_users', label: 'Xem Nhân viên', description: 'Xem danh sách nhân viên' },
     { key: 'manage_hr', label: 'Quản lý Nhân sự', description: 'Thêm, sửa, vô hiệu hóa tài khoản' },
     { key: 'register_shift', label: 'Đăng ký Ca làm', description: 'Tự đăng ký lịch làm hàng tuần' },
+    { key: 'manage_kpi_templates', label: 'Quản lý Mẫu KPI', description: 'Tạo, sửa, xóa mẫu chấm điểm KPI' },
+    { key: 'score_employees', label: 'Chấm điểm NV', description: 'Chấm điểm KPI chính thức cho nhân viên' },
+    { key: 'view_all_kpi', label: 'Xem KPI Tất cả NV', description: 'Xem thống kê KPI của tất cả nhân viên' },
+    { key: 'export_kpi', label: 'Xuất Báo cáo KPI', description: 'Xuất báo cáo PDF/Excel KPI nhân viên' },
 ];
 
 export interface CustomRoleDoc {
@@ -187,3 +195,55 @@ export interface CounterAssignment {
 
 export type ScheduleMap = Record<string, CounterAssignment[]>;
 // key = "date_shiftId"
+
+// ============================================================
+// KPI & Performance Scoring
+// ============================================================
+
+export interface KpiCriteria {
+    name: string;
+    maxScore: number;
+}
+
+export interface KpiGroup {
+    name: string;
+    criteria: KpiCriteria[];
+}
+
+export interface KpiTemplateDoc {
+    id: string;
+    storeId: string;
+    name: string;
+    assignedCounterIds: string[];
+    maxTotalScore: 100; // always 100
+    groups: KpiGroup[];
+    createdAt?: string;
+    createdBy?: string;
+}
+
+export type KpiRecordStatus = 'DRAFT' | 'SELF_SCORED' | 'OFFICIAL';
+
+export interface KpiCriteriaScore {
+    criteriaName: string;
+    maxScore: number;
+    selfScore: number;
+    officialScore: number;
+    note?: string;
+}
+
+export interface KpiRecordDoc {
+    id: string;
+    storeId: string;
+    userId: string;
+    shiftId: string;
+    date: string;
+    counterId: string;
+    templateId: string;
+    selfTotal: number;
+    officialTotal: number;
+    scoredByUserId?: string;
+    status: KpiRecordStatus;
+    details: KpiCriteriaScore[];
+    createdAt?: string;
+    updatedAt?: string;
+}

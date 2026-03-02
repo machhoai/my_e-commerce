@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, getDocs, doc, getDoc } from 'firebase/firestore';
-import { ScheduleDoc, SettingsDoc, StoreDoc } from '@/types';
+import { ScheduleDoc, SettingsDoc, StoreDoc, KpiTemplateDoc } from '@/types';
 import { getWeekStart, getWeekDays, formatDate, toLocalDateString, cn } from '@/lib/utils';
-import { Calendar as CalendarIcon, Clock, MapPin, ChevronLeft, ChevronRight, Activity, TrendingUp, UserCog } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, MapPin, ChevronLeft, ChevronRight, Activity, TrendingUp, UserCog, ClipboardCheck } from 'lucide-react';
+import SelfScoringModal from '@/components/kpi/SelfScoringModal';
 
 export default function EmployeeDashboardPage() {
-    const { user, userDoc } = useAuth();
+    const { user, userDoc, getToken } = useAuth();
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date()));
     const weekDays = getWeekDays(currentWeekStart);
 
@@ -18,6 +19,16 @@ export default function EmployeeDashboardPage() {
     const [counters, setCounters] = useState<Record<string, string>>({});
     const [settings, setSettings] = useState<SettingsDoc | null>(null);
     const [loading, setLoading] = useState(true);
+
+    // KPI self-scoring state
+    const [kpiTemplates, setKpiTemplates] = useState<KpiTemplateDoc[]>([]);
+    const [selfScoreModal, setSelfScoreModal] = useState<{
+        isOpen: boolean;
+        template: KpiTemplateDoc | null;
+        shiftId: string;
+        date: string;
+        counterId: string;
+    }>({ isOpen: false, template: null, shiftId: '', date: '', counterId: '' });
 
     // Real-time listener for current user's schedules
     useEffect(() => {
@@ -51,6 +62,18 @@ export default function EmployeeDashboardPage() {
         };
 
         fetchCountersAndSettings();
+
+        // Fetch KPI templates for the store
+        const fetchKpiTemplates = async () => {
+            if (!userDoc?.storeId) return;
+            try {
+                const token = await getToken();
+                const res = await fetch(`/api/kpi-templates?storeId=${userDoc.storeId}`, { headers: { Authorization: `Bearer ${token}` } });
+                const data = await res.json();
+                setKpiTemplates(Array.isArray(data) ? data : []);
+            } catch { /* noop */ }
+        };
+        fetchKpiTemplates();
 
         // 2. Query schedules where this employee is assigned (For current week display)
         const qWeek = query(
@@ -109,10 +132,15 @@ export default function EmployeeDashboardPage() {
         return acc;
     }, {} as Record<string, ScheduleDoc[]>);
 
+    const getTemplateForCounter = (counterId: string): KpiTemplateDoc | undefined => {
+        return kpiTemplates.find(t => t.assignedCounterIds?.includes(counterId));
+    };
+
+    const todayStr = toLocalDateString(new Date());
+
     const renderMonthlySummary = () => {
         if (!userDoc) return null;
 
-        const todayStr = toLocalDateString(new Date());
         // Only count completed shifts for this month
         const completedShifts = monthlySchedules.filter(s => s.date < todayStr).length;
 
@@ -253,6 +281,7 @@ export default function EmployeeDashboardPage() {
                                 {daySchedules.length > 0 ? (
                                     daySchedules.map((sched) => {
                                         const isForceAssigned = sched.assignedByManagerUids?.includes(user!.uid) ?? false;
+                                        const template = getTemplateForCounter(sched.counterId);
                                         return (
                                             <div
                                                 key={sched.id}
@@ -292,6 +321,23 @@ export default function EmployeeDashboardPage() {
                                                         }`} />
                                                     <span className="font-medium">{counters[sched.counterId] || sched.counterId}</span>
                                                 </div>
+
+                                                {/* KPI Self-Score Button for today */}
+                                                {isToday && template && (
+                                                    <button
+                                                        onClick={() => setSelfScoreModal({
+                                                            isOpen: true,
+                                                            template,
+                                                            shiftId: sched.shiftId,
+                                                            date: dateStr,
+                                                            counterId: sched.counterId,
+                                                        })}
+                                                        className="mt-2 w-full py-1.5 rounded-lg bg-teal-50 border border-teal-200 text-teal-700 text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-teal-100 transition-colors"
+                                                    >
+                                                        <ClipboardCheck className="w-3.5 h-3.5" />
+                                                        Tự đánh giá KPI
+                                                    </button>
+                                                )}
                                             </div>
                                         );
                                     })
@@ -308,6 +354,20 @@ export default function EmployeeDashboardPage() {
                     );
                 })}
             </div>
+
+            {/* Self Scoring Modal */}
+            {selfScoreModal.template && (
+                <SelfScoringModal
+                    isOpen={selfScoreModal.isOpen}
+                    onClose={() => setSelfScoreModal(prev => ({ ...prev, isOpen: false }))}
+                    template={selfScoreModal.template}
+                    shiftId={selfScoreModal.shiftId}
+                    date={selfScoreModal.date}
+                    counterId={selfScoreModal.counterId}
+                    storeId={userDoc?.storeId ?? ''}
+                    onSuccess={() => { }}
+                />
+            )}
         </div>
     );
 }

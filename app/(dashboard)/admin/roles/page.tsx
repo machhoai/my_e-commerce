@@ -20,13 +20,13 @@ const BUILT_IN_ROLES: BuiltInRole[] = [
     {
         role: 'admin',
         name: 'Quản trị viên',
-        permissions: ['view_overview', 'view_history', 'view_schedule', 'edit_schedule', 'view_users', 'manage_hr'],
+        permissions: ['view_overview', 'view_history', 'view_schedule', 'edit_schedule', 'view_users', 'manage_hr', 'manage_kpi_templates', 'score_employees', 'view_all_kpi', 'export_kpi'],
         color: 'red',
     },
     {
         role: 'store_manager',
         name: 'Cửa hàng trưởng',
-        permissions: ['view_overview', 'view_history', 'view_schedule', 'edit_schedule', 'view_users', 'manage_hr'],
+        permissions: ['view_overview', 'view_history', 'view_schedule', 'edit_schedule', 'view_users', 'manage_hr', 'manage_kpi_templates', 'score_employees', 'view_all_kpi', 'export_kpi'],
         color: 'purple',
     },
     {
