@@ -1,6 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import { UserDoc } from '@/types';
-import { GripVertical, UserCog, X } from 'lucide-react';
+import { GripVertical, UserCog, X, MousePointerClick } from 'lucide-react';
 
 interface Props {
     user: UserDoc;
@@ -8,12 +8,23 @@ interface Props {
     disabled?: boolean;
     isManagerAssigned?: boolean;
     onRemove?: () => void; // Callback to remove force-assigned registration
+    // Click-to-assign
+    isClickSelected?: boolean;   // This card is the currently "picked" employee
+    onClickSelect?: () => void;  // Called when the card is clicked to select/deselect
 }
 
 const typeLabel = (type: string) =>
     type === 'FT' ? 'FT' : 'PT';
 
-export default function EmployeeCard({ user, isSelected, disabled = false, isManagerAssigned = false, onRemove }: Props) {
+export default function EmployeeCard({
+    user,
+    isSelected,
+    disabled = false,
+    isManagerAssigned = false,
+    onRemove,
+    isClickSelected = false,
+    onClickSelect,
+}: Props) {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: user.uid,
         data: { user },
@@ -28,41 +39,63 @@ export default function EmployeeCard({ user, isSelected, disabled = false, isMan
         <div
             ref={setNodeRef}
             style={style}
-            {...listeners}
-            {...attributes}
             className={`
-        flex items-center p-2 rounded-lg border text-sm select-none transition-colors touch-none
-        ${isDragging ? 'opacity-50 z-50 shadow-xl border-blue-500 bg-blue-50 cursor-grabbing' : 'cursor-grab bg-white hover:border-slate-300'}
-        ${isSelected && !isDragging && !isManagerAssigned ? 'border-emerald-500 bg-emerald-50' : ''}
-        ${isSelected && !isDragging && isManagerAssigned ? 'border-amber-500 bg-amber-50' : ''}
-        ${!isSelected && !isDragging && isManagerAssigned ? 'border-amber-300 bg-amber-50/50' : ''}
-        ${!isSelected && !isDragging && !isManagerAssigned ? 'border-slate-200' : ''}
+        flex items-center p-2 rounded-lg border text-sm select-none transition-all touch-none
+        ${isDragging ? 'opacity-50 z-50 shadow-xl border-blue-500 bg-blue-50 cursor-grabbing' : ''}
+        ${isClickSelected && !isDragging ? 'border-blue-500 bg-blue-50 shadow-md shadow-blue-500/20 ring-2 ring-blue-400 ring-offset-1 cursor-pointer' : ''}
+        ${!isClickSelected && isSelected && !isDragging && !isManagerAssigned ? 'border-emerald-500 bg-emerald-50' : ''}
+        ${!isClickSelected && isSelected && !isDragging && isManagerAssigned ? 'border-amber-500 bg-amber-50' : ''}
+        ${!isClickSelected && !isSelected && !isDragging && isManagerAssigned ? 'border-amber-300 bg-amber-50/50' : ''}
+        ${!isClickSelected && !isSelected && !isDragging && !isManagerAssigned ? 'border-slate-200 bg-white hover:border-slate-300' : ''}
         ${disabled ? 'opacity-50 cursor-not-allowed bg-slate-50' : ''}
+        ${onClickSelect && !isDragging && !isSelected ? 'cursor-pointer' : !isDragging ? 'cursor-grab' : ''}
       `}
         >
-            <GripVertical className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
-            <div className="flex-1 min-w-0">
-                <p className={`font-medium truncate ${isManagerAssigned ? 'text-amber-900' : isSelected ? 'text-emerald-900' : 'text-slate-700'}`}>
-                    {user.name}
-                </p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${user.type === 'FT' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-                        }`}>
-                        {typeLabel(user.type)}
-                    </span>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase inline-block ${user.role === 'store_manager' ? 'bg-red-100 text-red-700' : user.role === 'employee' ? 'bg-purple-100 text-purple-700' : 'bg-amber-100 text-amber-700'
-                        }`}>
-                        {user.role === 'store_manager' ? 'CTH' : user.role === 'employee' ? 'NV' : 'QL'}
-                    </span>
-                    {isManagerAssigned && (
-                        <span className="text-[10px] text-amber-600 font-bold flex items-center gap-0.5" title="Quản lý gán ca">
-                            <UserCog className="w-3 h-3" />
-                            Gán ca
+            {/* Drag handle — also triggers onClickSelect if provided */}
+            <div
+                {...listeners}
+                {...attributes}
+                onPointerDown={(e) => {
+                    // Let the drag sensor handle pointer events; click logic fires on onClick
+                    (listeners as any)?.onPointerDown?.(e);
+                }}
+                onClick={() => {
+                    if (onClickSelect && !isSelected) onClickSelect();
+                }}
+                className="flex items-center gap-2 flex-1 min-w-0"
+            >
+                {isClickSelected
+                    ? <MousePointerClick className="w-4 h-4 text-blue-500 mr-2 shrink-0" />
+                    : <GripVertical className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
+                }
+                <div className="flex-1 min-w-0">
+                    <p className={`font-medium truncate ${isClickSelected ? 'text-blue-700' : isManagerAssigned ? 'text-amber-900' : isSelected ? 'text-emerald-900' : 'text-slate-700'}`}>
+                        {user.name}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${user.type === 'FT' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                            }`}>
+                            {typeLabel(user.type)}
                         </span>
-                    )}
-                    {isSelected && !isManagerAssigned && (
-                        <span className="text-[10px] text-emerald-600 font-medium">Đã phân công</span>
-                    )}
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase inline-block ${user.role === 'store_manager' ? 'bg-red-100 text-red-700' : user.role === 'employee' ? 'bg-purple-100 text-purple-700' : 'bg-amber-100 text-amber-700'
+                            }`}>
+                            {user.role === 'store_manager' ? 'CTH' : user.role === 'employee' ? 'NV' : 'QL'}
+                        </span>
+                        {isClickSelected && (
+                            <span className="text-[10px] text-blue-600 font-bold flex items-center gap-0.5 animate-pulse">
+                                Đang chọn...
+                            </span>
+                        )}
+                        {!isClickSelected && isManagerAssigned && (
+                            <span className="text-[10px] text-amber-600 font-bold flex items-center gap-0.5" title="Quản lý gán ca">
+                                <UserCog className="w-3 h-3" />
+                                Gán ca
+                            </span>
+                        )}
+                        {!isClickSelected && isSelected && !isManagerAssigned && (
+                            <span className="text-[10px] text-emerald-600 font-medium">Đã phân công</span>
+                        )}
+                    </div>
                 </div>
             </div>
             {/* Hủy gán button — only for manager-assigned employees */}
@@ -83,4 +116,3 @@ export default function EmployeeCard({ user, isSelected, disabled = false, isMan
         </div>
     );
 }
-

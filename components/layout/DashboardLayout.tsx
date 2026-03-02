@@ -197,7 +197,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const isNotificationsActive = pathname === '/notifications';
 
     const SidebarContent = () => (
-        <>
+        <div className="flex flex-col h-full">
             <div className="p-6">
                 <img src="/logo.png" alt="logo" className="w-full h-16 object-contain" />
                 <h1 className="text-lg font-bold text-center bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
@@ -227,7 +227,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
             </div>
 
-            <nav className="flex-1 px-4 space-y-2 mt-4">
+            <nav className="flex-1 px-4 space-y-2 mt-2 overflow-y-auto">
                 {routes.filter(r => r.show).map((route) => {
                     const isActive = pathname.startsWith(route.href);
                     return (
@@ -302,11 +302,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </p>
                 </div>
             </div>
-        </>
+        </div>
     );
 
     return (
-        <div className="flex bg-slate-50 min-h-screen">
+        <div className="flex bg-slate-50 max-h-screen">
             {/* Desktop Sidebar */}
             <aside className="hidden md:flex w-64 bg-slate-900 border-r border-slate-800 text-slate-100 flex-col shrink-0">
                 <SidebarContent />

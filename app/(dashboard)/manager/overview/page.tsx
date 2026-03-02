@@ -534,7 +534,7 @@ export default function GlobalOverviewPage() {
                                                             let employeeCount = 0;
                                                             uniqueUids.forEach(uid => {
                                                                 const u = users.find(u => u.uid === uid);
-                                                                if (u?.role === 'manager') managerCount++;
+                                                                if (u?.role === 'manager' || u?.role === 'store_manager') managerCount++;
                                                                 else employeeCount++;
                                                             });
                                                             const total = uniqueUids.size;
@@ -548,7 +548,7 @@ export default function GlobalOverviewPage() {
                                                                         <div className="flex flex-col items-center gap-1.5">
                                                                             <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-600 text-white text-xs font-bold rounded-full shadow-sm" title="Tổng nhân viên">
                                                                                 <Users className="w-3 h-3" />
-                                                                                {total} NV
+                                                                                {employeeCount} NV
                                                                             </span>
                                                                             {managerCount > 0 && (
                                                                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500 text-white text-xs font-bold rounded-full shadow-sm" title="Quản lý">

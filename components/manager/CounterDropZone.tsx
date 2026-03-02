@@ -2,7 +2,7 @@
 
 import { useDroppable } from '@dnd-kit/core';
 import { UserDoc, CounterDoc } from '@/types';
-import { X, AlertTriangle, UserCog } from 'lucide-react';
+import { X, AlertTriangle, UserCog, MousePointerClick } from 'lucide-react';
 
 interface Props {
     counter: CounterDoc;
@@ -11,6 +11,9 @@ interface Props {
     inactiveAssignedUids?: string[];   // UIDs of deactivated users already in this counter
     onRemoveInactive?: (uid: string) => void;
     managerAssignedUids?: Set<string>; // UIDs force-assigned by manager
+    // Click-to-assign
+    isClickAssignMode?: boolean;       // True when an employee has been "selected" in the pool
+    onClickAssign?: () => void;        // Called when counter zone is clicked in assign mode
 }
 
 export default function CounterDropZone({
@@ -20,6 +23,8 @@ export default function CounterDropZone({
     inactiveAssignedUids = [],
     onRemoveInactive,
     managerAssignedUids = new Set(),
+    isClickAssignMode = false,
+    onClickAssign,
 }: Props) {
     const { isOver, setNodeRef } = useDroppable({
         id: counter.id,
@@ -27,17 +32,23 @@ export default function CounterDropZone({
     });
 
     const totalCount = assignedUsers.length + inactiveAssignedUids.length;
+    const isHighlighted = isOver || isClickAssignMode;
 
     return (
         <div
             ref={setNodeRef}
+            onClick={() => {
+                if (isClickAssignMode && onClickAssign) onClickAssign();
+            }}
             className={`
-        flex flex-col h-full rounded-xl border-2 transition-colors overflow-hidden
-        ${isOver ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white'}
+        flex flex-col h-full rounded-xl border-2 transition-all overflow-hidden
+        ${isOver ? 'border-blue-400 bg-blue-50 shadow-lg shadow-blue-500/10' : ''}
+        ${isClickAssignMode && !isOver ? 'border-blue-300 bg-blue-50/40 cursor-pointer hover:border-blue-500 hover:bg-blue-50 hover:shadow-md hover:shadow-blue-500/10' : ''}
+        ${!isClickAssignMode && !isOver ? 'border-slate-200 bg-white' : ''}
       `}
         >
             {/* Header */}
-            <div className="bg-slate-50 border-b border-slate-200 p-3 flex items-center justify-between">
+            <div className={`border-b p-3 flex items-center justify-between transition-colors ${isHighlighted ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200'}`}>
                 <h3 className="font-semibold text-slate-800">{counter.name}</h3>
                 <div className="flex items-center gap-1.5">
                     {inactiveAssignedUids.length > 0 && (
@@ -46,7 +57,12 @@ export default function CounterDropZone({
                             {inactiveAssignedUids.length} nghỉ
                         </span>
                     )}
-                    <span className="text-xs font-medium text-slate-500 bg-white px-2 py-1 rounded-full border border-slate-200 shadow-sm">
+                    {isClickAssignMode && (
+                        <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded-full border border-blue-200 flex items-center gap-1">
+                            <MousePointerClick className="w-3 h-3" />
+                        </span>
+                    )}
+                    <span className="text-xs font-medium truncate text-slate-500 bg-white px-2 py-1 rounded-full border border-slate-200 shadow-sm">
                         {totalCount} NV
                     </span>
                 </div>
@@ -70,7 +86,7 @@ export default function CounterDropZone({
                             </div>
                         </div>
                         <button
-                            onClick={() => onRemoveInactive?.(uid)}
+                            onClick={(e) => { e.stopPropagation(); onRemoveInactive?.(uid); }}
                             className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-100 rounded-md transition-all"
                             title="Gỡ khỏi lịch"
                         >
@@ -116,7 +132,7 @@ export default function CounterDropZone({
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => onRemove(counter.id, user.uid)}
+                                    onClick={(e) => { e.stopPropagation(); onRemove(counter.id, user.uid); }}
                                     className="p-1.5 text-slate-400 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
                                     title="Xóa khỏi quầy"
                                 >
@@ -126,9 +142,14 @@ export default function CounterDropZone({
                         );
                     })
                 ) : inactiveAssignedUids.length === 0 ? (
-                    <div className="flex-1 flex items-center justify-center border-2 border-dashed border-slate-200 rounded-lg bg-slate-50/50">
-                        <span className="text-sm font-medium text-slate-400">
-                            {isOver ? 'Thả vào đây!' : 'Kéo nhân viên vào đây'}
+                    <div className={`flex-1 flex items-center justify-center border-2 border-dashed rounded-lg transition-colors ${isClickAssignMode
+                        ? 'border-blue-300 bg-blue-50/50'
+                        : isOver
+                            ? 'border-blue-400 bg-blue-50'
+                            : 'border-slate-200 bg-slate-50/50'
+                        }`}>
+                        <span className={`text-sm font-medium ${isClickAssignMode ? 'text-blue-500' : 'text-slate-400'}`}>
+                            {isOver ? 'Thả vào đây!' : isClickAssignMode ? 'Nhấn để gán nhân viên' : 'Kéo nhân viên vào đây'}
                         </span>
                     </div>
                 ) : null}

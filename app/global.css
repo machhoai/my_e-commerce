@@ -224,3 +224,34 @@
         /* Đậm lại như lúc đầu */
     }
 }
+
+.custom-scrollbar {
+    /* Dành cho Firefox (Firefox không nhận pixel chính xác, chỉ nhận thin/none) */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.4) transparent;
+}
+
+/* Dành cho Chrome, Safari, Edge (WebKit) */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 2px;
+    /* Độ rộng của cuộn dọc */
+    height: 2px;
+    /* Độ cao của cuộn ngang */
+}
+
+/* Phần rãnh trượt (Track) - Để trong suốt để không bị lộ */
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* Phần thanh trượt (Thumb) - Màu xám nhạt, bo góc */
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.4);
+    /* Màu Tailwind gray-400 với độ mờ 40% */
+    border-radius: 10px;
+}
+
+/* (Tùy chọn) Khi di chuột vào thanh cuộn thì cho nó đậm lên một chút xíu để dễ nhìn hơn */
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(156, 163, 175, 0.7);
+}

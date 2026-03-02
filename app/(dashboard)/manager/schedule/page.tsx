@@ -8,7 +8,53 @@ import { getWeekStart, getWeekDays, toLocalDateString, formatDate } from '@/lib/
 import { useAuth } from '@/contexts/AuthContext';
 import DraggableSchedule from '@/components/manager/DraggableSchedule';
 import ForceAssignModal from '@/components/manager/ForceAssignModal';
-import { Calendar, Clock, Save, AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Building2, UserPlus, Undo2, FileWarning } from 'lucide-react';
+import {
+    Calendar, Clock, Save, AlertCircle, CheckCircle2,
+    ChevronDown, ChevronLeft, ChevronRight, Building2,
+    UserPlus, Undo2, FileWarning, Trash2, Layers,
+} from 'lucide-react';
+
+// ─── Draft Types ────────────────────────────────────────────────────────────
+
+/** Inner value for each draft slot: counterId → employeeIds */
+type SlotDraft = Record<string, string[]>;
+
+/**
+ * Global weekly draft stored in localStorage.
+ * Key: `${date}_${shiftId}` — one entry per unique day/shift combination.
+ */
+type WeeklyDraft = Record<string, SlotDraft>;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function getWeeklyDraftKey(storeId: string, weekStart: Date): string {
+    return `weekly_draft_${storeId}_${toLocalDateString(weekStart)}`;
+}
+
+function getDayShiftKey(date: string, shiftId: string): string {
+    return `${date}_${shiftId}`;
+}
+
+function readWeeklyDraft(storeId: string, weekStart: Date): WeeklyDraft {
+    if (typeof window === 'undefined') return {};
+    try {
+        const raw = localStorage.getItem(getWeeklyDraftKey(storeId, weekStart));
+        return raw ? (JSON.parse(raw) as WeeklyDraft) : {};
+    } catch {
+        return {};
+    }
+}
+
+function saveWeeklyDraft(storeId: string, weekStart: Date, draft: WeeklyDraft): void {
+    if (typeof window === 'undefined') return;
+    if (Object.keys(draft).length === 0) {
+        localStorage.removeItem(getWeeklyDraftKey(storeId, weekStart));
+    } else {
+        localStorage.setItem(getWeeklyDraftKey(storeId, weekStart), JSON.stringify(draft));
+    }
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export default function ManagerSchedulePage() {
     const { user, userDoc } = useAuth();
@@ -30,7 +76,20 @@ export default function ManagerSchedulePage() {
     const [loadingData, setLoadingData] = useState(false);
     const [saving, setSaving] = useState(false);
     const isInitialLoad = useRef(true);
+
+    /**
+     * serverAssignments: snapshot of what Firestore has for the CURRENT view (date+shift).
+     * Used to diff against current `assignments` to determine if there are local changes.
+     */
     const serverAssignments = useRef<Record<string, string[]>>({});
+
+    /**
+     * weeklyDraftRef: in-memory mirror of the full weekly draft (all days/shifts).
+     * Updated whenever assignments change, and persisted to localStorage.
+     */
+    const weeklyDraftRef = useRef<WeeklyDraft>({});
+
+    const [totalDraftSlots, setTotalDraftSlots] = useState(0); // # of day/shift slots with draft changes
     const [hasDraftChanges, setHasDraftChanges] = useState(false);
     const [draftLoaded, setDraftLoaded] = useState(false);
     const [error, setError] = useState('');
@@ -45,13 +104,15 @@ export default function ManagerSchedulePage() {
         return '';
     });
 
+    const effectiveStoreId = userDoc?.role === 'admin' ? selectedAdminStoreId : userDoc?.storeId ?? '';
+
     useEffect(() => {
         if (typeof window !== 'undefined' && selectedAdminStoreId) {
             localStorage.setItem('globalSelectedStoreId', selectedAdminStoreId);
         }
     }, [selectedAdminStoreId]);
 
-    // 1. Load admin stores list + store managers counters
+    // ── 1. Load admin stores list / manager counters ──────────────────────────
     useEffect(() => {
         if (userDoc === undefined) return;
         async function loadConfig() {
@@ -62,13 +123,11 @@ export default function ManagerSchedulePage() {
                     const storeData = await res.json();
                     setStores(Array.isArray(storeData) ? storeData : []);
                 } else if (userDoc?.storeId) {
-                    // Fetch shiftTimes and counters from this store's settings
                     const storeSnap = await getDoc(doc(db, 'stores', userDoc.storeId));
                     if (storeSnap.exists()) {
                         const sData = storeSnap.data() as StoreDoc;
                         const countersData = (sData.settings as any)?.counters || [];
                         setCounters(countersData);
-
                         const shifts = sData.settings?.shiftTimes || [];
                         setShiftTimes(shifts);
                         if (shifts.length > 0) setSelectedShiftId(shifts[0]);
@@ -87,25 +146,18 @@ export default function ManagerSchedulePage() {
         loadConfig();
     }, [userDoc, user]);
 
-    // 2. When admin picks a store, load its counters
+    // ── 2. When admin picks a store, load its counters ────────────────────────
     useEffect(() => {
         if (userDoc?.role !== 'admin' || !selectedAdminStoreId) return;
         async function loadAdminCounters() {
-            // Load shiftTimes and counters from stores document
             const storeSnap = await getDoc(doc(db, 'stores', selectedAdminStoreId));
             if (storeSnap.exists()) {
                 const sData = storeSnap.data() as StoreDoc;
-
                 const countersData = (sData.settings as any)?.counters || [];
                 setCounters(countersData);
-
                 const shifts = sData.settings?.shiftTimes || [];
                 setShiftTimes(shifts);
-                if (shifts.length > 0) {
-                    setSelectedShiftId(shifts[0]);
-                } else {
-                    setSelectedShiftId('');
-                }
+                setSelectedShiftId(shifts.length > 0 ? shifts[0] : '');
             } else {
                 setCounters([]);
                 setShiftTimes([]);
@@ -115,9 +167,8 @@ export default function ManagerSchedulePage() {
         loadAdminCounters();
     }, [selectedAdminStoreId, userDoc]);
 
-    // 3. Load employees + existing schedule when date/shift changes
+    // ── 3. Load employees + server schedule when date/shift changes ───────────
     useEffect(() => {
-        const effectiveStoreId = userDoc?.role === 'admin' ? selectedAdminStoreId : userDoc?.storeId;
         if (!selectedDate || !selectedShiftId || !effectiveStoreId) return;
 
         async function loadData() {
@@ -126,8 +177,9 @@ export default function ManagerSchedulePage() {
             setError('');
             setSuccess('');
             try {
-                // Fetch registered employees for this shift
-                const requestWeekStart = getWeekStart(new Date(selectedDate + "T00:00:00"));
+                const requestWeekStart = getWeekStart(new Date(selectedDate + 'T00:00:00'));
+
+                // --- Registrations ---
                 const regQuery = query(
                     collection(db, 'weekly_registrations'),
                     where('weekStartDate', '==', toLocalDateString(requestWeekStart)),
@@ -142,10 +194,7 @@ export default function ManagerSchedulePage() {
                     const matchingShift = reg.shifts.find(s => s.date === selectedDate && s.shiftId === selectedShiftId);
                     if (matchingShift) {
                         uidsForShift.add(reg.userId);
-                        // Track force-assigned registrations per shift entry
-                        if (matchingShift.isAssignedByManager) {
-                            forceAssignedUids.add(reg.userId);
-                        }
+                        if (matchingShift.isAssignedByManager) forceAssignedUids.add(reg.userId);
                     }
                 });
 
@@ -159,57 +208,52 @@ export default function ManagerSchedulePage() {
                         uSnap.docs.forEach(u => users.push(u.data() as UserDoc));
                     }
                 }
-
                 users.sort((a, b) => a.name.localeCompare(b.name));
 
-                // Separate active vs inactive users
                 const inactive = new Set(users.filter(u => u.isActive === false).map(u => u.uid));
                 setInactiveUids(inactive);
                 setRegisteredEmployees(users.filter(u => u.isActive !== false));
                 setManagerAssignedUids(forceAssignedUids);
 
-                // Load existing schedules for counter assignments
+                // --- Server schedule for this day/shift ---
                 const qScheds = query(
                     collection(db, 'schedules'),
                     where('date', '==', selectedDate),
                     where('shiftId', '==', selectedShiftId)
                 );
                 const schedsMulti = await getDocs(qScheds);
-                const initialAssigns: Record<string, string[]> = {};
-                counters.forEach(c => initialAssigns[c.id] = []);
+                const serverSlot: Record<string, string[]> = {};
+                counters.forEach(c => (serverSlot[c.id] = []));
                 schedsMulti.docs.forEach(docSnap => {
                     const sData = docSnap.data() as ScheduleDoc;
-                    if (initialAssigns[sData.counterId] !== undefined) {
-                        initialAssigns[sData.counterId] = sData.employeeIds || [];
+                    if (serverSlot[sData.counterId] !== undefined) {
+                        serverSlot[sData.counterId] = sData.employeeIds || [];
                     }
                 });
 
-                // Snapshot the clean server state
-                serverAssignments.current = JSON.parse(JSON.stringify(initialAssigns));
+                // Snapshot clean server state for this slot
+                serverAssignments.current = JSON.parse(JSON.stringify(serverSlot));
 
-                // Check localStorage for a saved draft (hydration-safe)
-                const draftKey = `draft_schedule_${effectiveStoreId}_${toLocalDateString(requestWeekStart)}_${selectedShiftId}`;
-                const savedDraft = typeof window !== 'undefined' ? localStorage.getItem(draftKey) : null;
-                if (savedDraft) {
-                    try {
-                        const parsed = JSON.parse(savedDraft) as Record<string, string[]>;
-                        setAssignments(parsed);
-                        setDraftLoaded(true);
-                        setHasDraftChanges(true);
-                    } catch {
-                        // Corrupted draft — discard it
-                        localStorage.removeItem(draftKey);
-                        setAssignments(initialAssigns);
-                        setDraftLoaded(false);
-                        setHasDraftChanges(false);
-                    }
+                // --- Hydrate weekly draft from localStorage ---
+                const weeklyDraft = readWeeklyDraft(effectiveStoreId, requestWeekStart);
+                weeklyDraftRef.current = weeklyDraft;
+
+                const dayShiftKey = getDayShiftKey(selectedDate, selectedShiftId);
+                const draftSlot = weeklyDraft[dayShiftKey];
+
+                if (draftSlot) {
+                    setAssignments(draftSlot);
+                    setDraftLoaded(true);
+                    setHasDraftChanges(true);
                 } else {
-                    setAssignments(initialAssigns);
+                    setAssignments(serverSlot);
                     setDraftLoaded(false);
                     setHasDraftChanges(false);
                 }
 
-                // Allow a small delay before we consider initial load "done"
+                // Recount how many slots have draft changes
+                setTotalDraftSlots(Object.keys(weeklyDraft).length);
+
                 setTimeout(() => { isInitialLoad.current = false; }, 300);
             } catch (err) {
                 console.error(err);
@@ -219,20 +263,40 @@ export default function ManagerSchedulePage() {
             }
         }
         loadData();
-    }, [selectedDate, selectedShiftId, counters, userDoc, selectedAdminStoreId]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedDate, selectedShiftId, counters, effectiveStoreId]);
 
-    // Reload data after force-assign add/remove
-    const reloadKey = useRef(0);
-    const triggerReload = () => {
-        reloadKey.current += 1;
-        // Re-trigger the effect by changing a dependency
-        setLoadingData(true);
-        const effectiveStoreId = userDoc?.role === 'admin' ? selectedAdminStoreId : userDoc?.storeId;
+    // ── 4. Persist draft slice when assignments change ────────────────────────
+    useEffect(() => {
+        if (isInitialLoad.current || typeof window === 'undefined') return;
+        if (!selectedDate || !selectedShiftId || !effectiveStoreId) return;
+
+        const requestWeekStart = getWeekStart(new Date(selectedDate + 'T00:00:00'));
+        const dayShiftKey = getDayShiftKey(selectedDate, selectedShiftId);
+        const isDifferent = JSON.stringify(assignments) !== JSON.stringify(serverAssignments.current);
+
+        setHasDraftChanges(isDifferent);
+
+        // Update the in-memory weekly draft
+        const weeklyDraft = { ...weeklyDraftRef.current };
+        if (isDifferent) {
+            weeklyDraft[dayShiftKey] = assignments;
+        } else {
+            delete weeklyDraft[dayShiftKey];
+        }
+        weeklyDraftRef.current = weeklyDraft;
+        saveWeeklyDraft(effectiveStoreId, requestWeekStart, weeklyDraft);
+        setTotalDraftSlots(Object.keys(weeklyDraft).length);
+    }, [assignments, selectedDate, selectedShiftId, effectiveStoreId]);
+
+    // ── Reload data after force-assign add/remove ─────────────────────────────
+    const triggerReload = useCallback(() => {
         if (!effectiveStoreId || !selectedDate || !selectedShiftId) return;
 
+        setLoadingData(true);
         (async () => {
             try {
-                const requestWeekStart = getWeekStart(new Date(selectedDate + "T00:00:00"));
+                const requestWeekStart = getWeekStart(new Date(selectedDate + 'T00:00:00'));
                 const regQuery = query(
                     collection(db, 'weekly_registrations'),
                     where('weekStartDate', '==', toLocalDateString(requestWeekStart)),
@@ -247,9 +311,7 @@ export default function ManagerSchedulePage() {
                     const matchingShift = reg.shifts.find(s => s.date === selectedDate && s.shiftId === selectedShiftId);
                     if (matchingShift) {
                         uidsForShift.add(reg.userId);
-                        if (matchingShift.isAssignedByManager) {
-                            forceAssignedUids.add(reg.userId);
-                        }
+                        if (matchingShift.isAssignedByManager) forceAssignedUids.add(reg.userId);
                     }
                 });
 
@@ -275,7 +337,7 @@ export default function ManagerSchedulePage() {
                 setLoadingData(false);
             }
         })();
-    };
+    }, [effectiveStoreId, selectedDate, selectedShiftId]);
 
     const handleRemoveRegistration = async (uid: string) => {
         if (!user) return;
@@ -284,22 +346,13 @@ export default function ManagerSchedulePage() {
             const weekStartDate = toLocalDateString(getWeekStart(new Date(selectedDate + 'T00:00:00')));
             const res = await fetch('/api/register/force-assign', {
                 method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    targetUserId: uid,
-                    weekStartDate,
-                    date: selectedDate,
-                    shiftId: selectedShiftId,
-                }),
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ targetUserId: uid, weekStartDate, date: selectedDate, shiftId: selectedShiftId }),
             });
             if (!res.ok) {
                 const errData = await res.json();
                 throw new Error(errData.error || 'Không thể hủy gán ca');
             }
-            // Also remove from assignments if they were assigned to a counter
             const newAssignments = { ...assignments };
             for (const counterId of Object.keys(newAssignments)) {
                 newAssignments[counterId] = newAssignments[counterId].filter(id => id !== uid);
@@ -312,64 +365,89 @@ export default function ManagerSchedulePage() {
         }
     };
 
-    // 4. Persist draft to localStorage when assignments change (hydration-safe)
-    const getDraftKey = useCallback(() => {
-        const effectiveStoreId = userDoc?.role === 'admin' ? selectedAdminStoreId : userDoc?.storeId;
-        if (!effectiveStoreId || !selectedDate || !selectedShiftId) return null;
-        const weekStart = getWeekStart(new Date(selectedDate + 'T00:00:00'));
-        return `draft_schedule_${effectiveStoreId}_${toLocalDateString(weekStart)}_${selectedShiftId}`;
-    }, [userDoc, selectedAdminStoreId, selectedDate, selectedShiftId]);
+    // ── Discard current day/shift draft only ──────────────────────────────────
+    const handleDiscardDraft = () => {
+        if (!effectiveStoreId || !selectedDate || !selectedShiftId) return;
+        const requestWeekStart = getWeekStart(new Date(selectedDate + 'T00:00:00'));
+        const dayShiftKey = getDayShiftKey(selectedDate, selectedShiftId);
 
-    useEffect(() => {
-        if (isInitialLoad.current || typeof window === 'undefined') return;
+        const weeklyDraft = { ...weeklyDraftRef.current };
+        delete weeklyDraft[dayShiftKey];
+        weeklyDraftRef.current = weeklyDraft;
+        saveWeeklyDraft(effectiveStoreId, requestWeekStart, weeklyDraft);
 
-        const key = getDraftKey();
-        if (!key) return;
+        setAssignments(JSON.parse(JSON.stringify(serverAssignments.current)));
+        setHasDraftChanges(false);
+        setDraftLoaded(false);
+        setTotalDraftSlots(Object.keys(weeklyDraft).length);
+        setSuccess('');
+        setError('');
+    };
 
-        // Check if assignments differ from server state
-        const isDifferent = JSON.stringify(assignments) !== JSON.stringify(serverAssignments.current);
-        setHasDraftChanges(isDifferent);
-
-        if (isDifferent) {
-            localStorage.setItem(key, JSON.stringify(assignments));
-        } else {
-            // Clean state matches server — remove any stale draft
-            localStorage.removeItem(key);
-            setDraftLoaded(false);
-        }
-    }, [assignments, getDraftKey]);
-
-    const handleSaveAndPublish = async () => {
-        if (!user) return;
-        const effectiveStoreId = userDoc?.role === 'admin' ? selectedAdminStoreId : userDoc?.storeId;
+    // ── Discard ENTIRE weekly draft ───────────────────────────────────────────
+    const handleDiscardAllDrafts = () => {
         if (!effectiveStoreId) return;
+        const requestWeekStart = getWeekStart(new Date(selectedDate + 'T00:00:00'));
+        weeklyDraftRef.current = {};
+        saveWeeklyDraft(effectiveStoreId, requestWeekStart, {});
+
+        setAssignments(JSON.parse(JSON.stringify(serverAssignments.current)));
+        setHasDraftChanges(false);
+        setDraftLoaded(false);
+        setTotalDraftSlots(0);
+        setSuccess('');
+        setError('');
+    };
+
+    // ── Save & Publish ALL drafts ─────────────────────────────────────────────
+    const handleSaveAndPublish = async () => {
+        if (!user || !effectiveStoreId) return;
 
         setSaving(true);
         setError('');
         setSuccess('');
         try {
             const token = await user.getIdToken();
-            const payload = {
-                date: selectedDate,
-                shiftId: selectedShiftId,
-                storeId: effectiveStoreId,
-                assignments: Object.fromEntries(
-                    Object.entries(assignments).map(([counterId, uids]) => [
-                        counterId,
-                        {
-                            employeeIds: uids,
-                            assignedByManagerUids: uids.filter(uid => managerAssignedUids.has(uid)),
-                        }
-                    ])
-                ),
-            };
+
+            // Build multi-day payload from the full weekly draft
+            // Always include the CURRENT view even if no draft key yet (may be fresh assignments)
+            const allDrafts = { ...weeklyDraftRef.current };
+            const currentKey = getDayShiftKey(selectedDate, selectedShiftId);
+
+            // Ensure the currently-visible assignments are included
+            if (JSON.stringify(assignments) !== JSON.stringify(serverAssignments.current)) {
+                allDrafts[currentKey] = assignments;
+            }
+
+            if (Object.keys(allDrafts).length === 0) {
+                // Nothing to save
+                setSaving(false);
+                return;
+            }
+
+            const days = Object.entries(allDrafts).map(([key, slotDraft]) => {
+                const [date, ...shiftParts] = key.split('_');
+                const shiftId = shiftParts.join('_'); // handles shift IDs with underscores
+                return {
+                    date,
+                    shiftId,
+                    assignments: Object.fromEntries(
+                        Object.entries(slotDraft).map(([counterId, uids]) => [
+                            counterId,
+                            {
+                                employeeIds: uids,
+                                assignedByManagerUids: uids.filter(uid => managerAssignedUids.has(uid)),
+                            },
+                        ])
+                    ),
+                };
+            });
+
+            const payload = { storeId: effectiveStoreId, days };
 
             const res = await fetch('/api/schedules/bulk', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(payload),
             });
 
@@ -378,30 +456,25 @@ export default function ManagerSchedulePage() {
                 throw new Error(errorData.error || 'Lỗi hệ thống');
             }
 
-            // Success: update server snapshot, clear draft
+            const result = await res.json();
+
+            // Clear all drafts after successful save
+            const requestWeekStart = getWeekStart(new Date(selectedDate + 'T00:00:00'));
+            weeklyDraftRef.current = {};
+            saveWeeklyDraft(effectiveStoreId, requestWeekStart, {});
+
             serverAssignments.current = JSON.parse(JSON.stringify(assignments));
             setHasDraftChanges(false);
             setDraftLoaded(false);
-            const key = getDraftKey();
-            if (key) localStorage.removeItem(key);
+            setTotalDraftSlots(0);
 
-            setSuccess('Đã lưu và công khai lịch làm việc cho nhân viên thành công!');
+            setSuccess(`Đã lưu và công khai ${result.savedDays ?? days.length} ca làm việc thành công!`);
         } catch (err) {
             console.error(err);
             setError(err instanceof Error ? err.message : 'Không thể công khai lịch làm việc');
         } finally {
             setSaving(false);
         }
-    };
-
-    const handleDiscardDraft = () => {
-        const key = getDraftKey();
-        if (key) localStorage.removeItem(key);
-        setAssignments(JSON.parse(JSON.stringify(serverAssignments.current)));
-        setHasDraftChanges(false);
-        setDraftLoaded(false);
-        setSuccess('');
-        setError('');
     };
 
     const handlePreviousWeek = () => {
@@ -415,6 +488,8 @@ export default function ManagerSchedulePage() {
         d.setDate(d.getDate() + 7);
         setCurrentWeekStart(d);
     };
+
+    // ── Guards ────────────────────────────────────────────────────────────────
 
     if (loadingConfig) {
         return (
@@ -434,7 +509,7 @@ export default function ManagerSchedulePage() {
         );
     }
 
-    const effectiveStoreId = userDoc?.role === 'admin' ? selectedAdminStoreId : userDoc?.storeId;
+    const showDraftBar = hasDraftChanges || draftLoaded || totalDraftSlots > 0;
 
     return (
         <div className="h-full flex flex-col gap-4">
@@ -477,7 +552,7 @@ export default function ManagerSchedulePage() {
                                 <Calendar className="w-7 h-7 text-blue-600" />
                                 Quản lý Lịch làm việc
                             </h1>
-                            <p className="text-slate-500 mt-1">Kéo nhân viên đã đăng ký vào các quầy để phân công ca làm.</p>
+                            <p className="text-slate-500 mt-1">Kéo hoặc nhấn chọn nhân viên rồi nhấn vào quầy để phân công ca làm.</p>
                         </div>
 
                         <div className="flex items-stretch flex-col md:flex-row gap-4">
@@ -514,16 +589,18 @@ export default function ManagerSchedulePage() {
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-2 overflow-x-auto">
                         <div className="flex gap-2 min-w-max">
                             {weekDays.map(dateStr => {
-                                const d = new Date(dateStr + "T00:00:00");
+                                const d = new Date(dateStr + 'T00:00:00');
                                 const isSelected = dateStr === selectedDate;
                                 const isToday = dateStr === toLocalDateString(new Date());
+                                // Check if this day has any draft changes
+                                const hasDraftForDay = Object.keys(weeklyDraftRef.current).some(k => k.startsWith(dateStr));
                                 const dayName = d.toLocaleDateString('vi-VN', { weekday: 'short' });
                                 const dateNum = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
                                 return (
                                     <button
                                         key={dateStr}
                                         onClick={() => setSelectedDate(dateStr)}
-                                        className={`flex flex-col items-center justify-center flex-1 p-2 rounded-lg border-2 transition-all ${isSelected
+                                        className={`relative flex flex-col items-center justify-center flex-1 p-2 rounded-lg border-2 transition-all ${isSelected
                                             ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
                                             : 'border-transparent hover:border-slate-200 hover:bg-slate-50 text-slate-500'
                                             }`}
@@ -531,6 +608,13 @@ export default function ManagerSchedulePage() {
                                         <span className={`text-xs font-semibold uppercase ${isSelected ? 'text-blue-600' : 'text-slate-400'}`}>{dayName}</span>
                                         <span className={`text-lg font-bold mt-0.5 truncate ${isSelected ? 'text-blue-800' : 'text-slate-700'}`}>{dateNum}</span>
                                         {isToday && !isSelected && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1"></span>}
+                                        {/* Draft indicator dot */}
+                                        {hasDraftForDay && !isSelected && (
+                                            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 border border-white" title="Có thay đổi chưa lưu" />
+                                        )}
+                                        {hasDraftForDay && isSelected && (
+                                            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 border border-blue-200" title="Có thay đổi chưa lưu" />
+                                        )}
                                     </button>
                                 );
                             })}
@@ -578,8 +662,8 @@ export default function ManagerSchedulePage() {
                     />
 
                     {/* Draft Action Bar */}
-                    {(hasDraftChanges || draftLoaded) && (
-                        <div className="sticky bottom-4 z-30 mt-4">
+                    {showDraftBar && (
+                        <div className="sticky bottom-2 z-30 mt-4">
                             <div className="bg-white/95 backdrop-blur-md border-2 border-amber-300 rounded-2xl shadow-xl shadow-amber-500/10 p-4">
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                                     <div className="flex items-center gap-3">
@@ -587,32 +671,55 @@ export default function ManagerSchedulePage() {
                                             <FileWarning className="w-5 h-5 text-amber-600" />
                                         </div>
                                         <div>
-                                            <p className="text-sm font-bold text-slate-800">
+                                            <p className="text-sm font-bold text-slate-800 flex items-center gap-2">
                                                 Có thay đổi chưa lưu
+                                                {totalDraftSlots > 1 && (
+                                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full border border-amber-200">
+                                                        <Layers className="w-3 h-3" />
+                                                        {totalDraftSlots} ca
+                                                    </span>
+                                                )}
                                             </p>
                                             <p className="text-xs text-slate-500">
-                                                {draftLoaded
-                                                    ? 'Đang hiển thị bản nháp chưa lưu. Nhấn "Lưu và Công khai" để áp dụng hoặc "Hủy bản nháp" để khôi phục.'
-                                                    : 'Lịch làm việc đã được chỉnh sửa nhưng chưa công khai cho nhân viên.'}
+                                                {totalDraftSlots > 1
+                                                    ? `${totalDraftSlots} ca làm trên nhiều ngày chưa được lưu. Nhấn "Lưu và Công khai" để lưu tất cả.`
+                                                    : draftLoaded
+                                                        ? 'Đang hiển thị bản nháp chưa lưu. Nhấn "Lưu và Công khai" để áp dụng.'
+                                                        : 'Lịch làm việc đã được chỉnh sửa nhưng chưa công khai cho nhân viên.'}
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                                    <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                                        {/* Discard current slot */}
                                         <button
                                             onClick={handleDiscardDraft}
-                                            disabled={saving}
-                                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                            disabled={saving || !hasDraftChanges}
+                                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                            title="Hủy bản nháp ca hiện tại"
                                         >
                                             <Undo2 className="w-4 h-4" />
-                                            Hủy bản nháp
+                                            Hủy ca này
                                         </button>
+                                        {/* Discard all drafts */}
+                                        {totalDraftSlots > 0 && (
+                                            <button
+                                                onClick={handleDiscardAllDrafts}
+                                                disabled={saving}
+                                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                title="Hủy tất cả bản nháp cả tuần"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                                Hủy toàn bộ
+                                            </button>
+                                        )}
+                                        {/* Save & Publish */}
                                         <button
                                             onClick={handleSaveAndPublish}
                                             disabled={saving || loadingData}
                                             className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
-                                            Lưu và Công khai
+                                            {totalDraftSlots > 1 ? `Lưu ${totalDraftSlots} ca` : 'Lưu và Công khai'}
                                         </button>
                                     </div>
                                 </div>

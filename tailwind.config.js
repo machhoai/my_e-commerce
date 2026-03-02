@@ -46,7 +46,25 @@ module.exports = {
                     '4': 'hsl(var(--chart-4))',
                     '5': 'hsl(var(--chart-5))'
                 }
-            }
+            },
+            keyframes: {
+                // Ghi đè lên tên 'pulse' mặc định của Tailwind
+                pulse: {
+                    '0%, 100%': {
+                        opacity: '1',
+                        // XÓA BỎ DÒNG NÀY: transform: scale(1)
+                    },
+                    '50%': {
+                        opacity: '0.4', // Giảm độ mờ xuống 0.4 (bạn có thể chỉnh con số này tùy thích, VD: 0.5)
+                        // XÓA BỎ DÒNG NÀY: transform: scale(1.05) hoặc bất kỳ scale nào
+                    },
+                },
+            },
+            animation: {
+                // Tên class vẫn là animate-pulse để không phải sửa code ở các file khác
+                pulse: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                // Bạn có thể chỉnh 2s thành nhanh hơn (VD: 1.5s) hoặc cubic-bezier khác để mượt hơn
+            },
         }
     },
     plugins: [require("tailwindcss-animate")],

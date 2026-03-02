@@ -42,6 +42,8 @@ export default function DraggableSchedule({
     selectedShiftId,
 }: Props) {
     const [activeId, setActiveId] = useState<string | null>(null);
+    // Click-to-Assign: tracks which employee card has been "clicked to select"
+    const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -60,6 +62,8 @@ export default function DraggableSchedule({
 
     const handleDragStart = (event: DragStartEvent) => {
         setActiveId(event.active.id as string);
+        // Starting a drag cancels the click-to-assign selection
+        setSelectedEmployeeId(null);
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
@@ -78,6 +82,19 @@ export default function DraggableSchedule({
                 [counterId]: [...currentCounterAssigns, userId],
             });
         }
+    };
+
+    /** Click-to-Assign: triggered when a counter zone is clicked while an employee is selected */
+    const handleClickAssign = (counterId: string) => {
+        if (!selectedEmployeeId) return;
+        const currentCounterAssigns = assignments[counterId] || [];
+        if (!currentCounterAssigns.includes(selectedEmployeeId)) {
+            onAssignmentChange({
+                ...assignments,
+                [counterId]: [...currentCounterAssigns, selectedEmployeeId],
+            });
+        }
+        setSelectedEmployeeId(null);
     };
 
     const handleRemove = (counterId: string, userId: string) => {
@@ -103,7 +120,7 @@ export default function DraggableSchedule({
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
-            <div className="flex flex-col lg:grid lg:grid-cols-4 gap-6 bg-slate-50 border border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm">
+            <div className="flex flex-col lg:grid lg:grid-cols-4 gap-6">
 
                 {/* Top (mobile) / Left (desktop): Registered Employees */}
                 <div className="lg:col-span-1 flex flex-col gap-4">
@@ -111,6 +128,14 @@ export default function DraggableSchedule({
                         <h2 className="font-bold text-slate-800 text-lg border-b border-slate-100 pb-3 mb-4">
                             Nhân viên đã đăng ký ({employees.length})
                         </h2>
+
+                        {/* Click-to-assign instruction banner */}
+                        {selectedEmployeeId && (
+                            <div className="mb-3 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-xs font-medium text-blue-700 flex items-center gap-2">
+                                <span>👆</span>
+                                <span>Nhấn vào một quầy để gán nhân viên, hoặc nhấn lại thẻ để hủy chọn</span>
+                            </div>
+                        )}
 
                         <div className="lg:max-h-none pr-1 space-y-6">
                             {isLoading ? (
@@ -134,6 +159,13 @@ export default function DraggableSchedule({
                                                     key={`start_${user.uid}`}
                                                     user={user}
                                                     isSelected={false}
+                                                    isClickSelected={selectedEmployeeId === user.uid}
+                                                    onClickSelect={() => {
+                                                        // Toggle: clicking already-selected card deselects
+                                                        setSelectedEmployeeId(prev =>
+                                                            prev === user.uid ? null : user.uid
+                                                        );
+                                                    }}
                                                     isManagerAssigned={managerAssignedUids.has(user.uid)}
                                                     onRemove={managerAssignedUids.has(user.uid) && onRemoveRegistration
                                                         ? () => onRemoveRegistration(user.uid)
@@ -201,6 +233,8 @@ export default function DraggableSchedule({
                                     inactiveAssignedUids={inactiveAssignedUids}
                                     onRemoveInactive={(uid: string) => handleRemove(counter.id, uid)}
                                     managerAssignedUids={managerAssignedUids}
+                                    isClickAssignMode={selectedEmployeeId !== null}
+                                    onClickAssign={() => handleClickAssign(counter.id)}
                                 />
                             );
                         })}
@@ -225,4 +259,3 @@ export default function DraggableSchedule({
         </DndContext>
     );
 }
-
