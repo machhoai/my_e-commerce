@@ -6,8 +6,11 @@ import { db } from '@/lib/firebase';
 import { collection, query, getDocs, doc, getDoc, orderBy, where } from 'firebase/firestore';
 import { UserDoc, ScheduleDoc, CounterDoc, SettingsDoc, StoreDoc } from '@/types';
 import { getWeekStart, toLocalDateString } from '@/lib/utils';
-import { Calendar, ChevronLeft, ChevronRight, Users, Clock, Store, Building2, UserCog } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Users, Clock, Store, Building2, UserCog, Image, FileText, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 type ViewMode = 'employee' | 'shift';
 
@@ -16,6 +19,7 @@ export default function GlobalOverviewPage() {
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date()));
     const [weekDays, setWeekDays] = useState<Date[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isExporting, setIsExporting] = useState(false);
 
     const [viewMode, setViewMode] = useState<ViewMode>('shift');
     const [selectedShift, setSelectedShift] = useState<string>('');
@@ -180,6 +184,197 @@ export default function GlobalOverviewPage() {
         return days;
     }
 
+    // Week ID for export filenames
+    const weekId = weekDays.length > 0
+        ? `${formatDateDisplay(weekDays[0])}-${formatDateDisplay(weekDays[6])}`
+        : 'unknown';
+
+    // ============ DATA-DRIVEN EXPORT ============
+
+    /** Build a 2D matrix from current schedule data */
+    const buildExportMatrix = (): { header: string[]; body: string[][] } => {
+        const dayNames = ['CN', 'TH 2', 'TH 3', 'TH 4', 'TH 5', 'TH 6', 'TH 7'];
+
+        // Header row
+        const header = [
+            viewMode === 'shift' ? `Quầy \\ Ngày (Ca: ${selectedShift})` : 'Nhân sự \\ Ngày',
+            ...weekDays.map(date => {
+                const dayLabel = dayNames[date.getDay()];
+                return `${dayLabel} (${formatDateDisplay(date)})`;
+            })
+        ];
+
+        const body: string[][] = [];
+
+        if (viewMode === 'shift') {
+            // Shift view: rows = counters, cells = employees assigned to that counter+shift+day
+            counters.forEach(c => {
+                const row: string[] = [c.name];
+                weekDays.forEach(date => {
+                    const dateStr = toLocalDateString(date);
+                    const cellSchedule = schedules.find(
+                        s => s.date === dateStr && s.shiftId === selectedShift && s.counterId === c.id
+                    );
+                    if (cellSchedule?.employeeIds?.length) {
+                        const names = cellSchedule.employeeIds
+                            .map(uid => {
+                                const u = users.find(usr => usr.uid === uid);
+                                if (!u) return null;
+                                const role = u.role === 'manager' ? 'QL' : u.type;
+                                return `${u.name} (${role})`;
+                            })
+                            .filter(Boolean)
+                            .join('\n');
+                        row.push(names || '- Trống -');
+                    } else {
+                        row.push('- Trống -');
+                    }
+                });
+                body.push(row);
+            });
+        } else {
+            // Employee view: rows = users, cells = shift+counter assignments for that day
+            users.forEach(u => {
+                const roleLabel = u.role === 'manager' ? 'QL' : u.type;
+                const row: string[] = [`${u.name} (${roleLabel})`];
+                weekDays.forEach(date => {
+                    const dateStr = toLocalDateString(date);
+                    const dayAssignments = shifts
+                        .map(shiftName => {
+                            const result = getScheduleCell(u.uid, dateStr, shiftName);
+                            if (result) return `${shiftName}: ${result.counterName}`;
+                            return null;
+                        })
+                        .filter(Boolean)
+                        .join('\n');
+                    row.push(dayAssignments || '- Nghỉ -');
+                });
+                body.push(row);
+            });
+        }
+
+        return { header, body };
+    };
+
+    /** Export as PDF using jspdf-autotable */
+    const exportAsPDF = async () => {
+        setIsExporting(true);
+        try {
+            const { header, body } = buildExportMatrix();
+            const doc = new jsPDF('landscape', 'mm', 'a4');
+
+            // Title
+            doc.setFontSize(14);
+            doc.text(`Lich Tong Quan Tuan: ${weekId} Ca: ${selectedShift}`, 14, 15);
+
+            autoTable(doc, {
+                head: [header],
+                body: body,
+                startY: 22,
+                theme: 'grid',
+                styles: {
+                    fontSize: 7,
+                    halign: 'center',
+                    valign: 'middle',
+                    cellPadding: 2,
+                    lineWidth: 0.2,
+                    lineColor: [200, 200, 200],
+                },
+                headStyles: {
+                    fillColor: [99, 102, 241],
+                    textColor: 255,
+                    fontStyle: 'bold',
+                    fontSize: 8,
+                },
+                alternateRowStyles: {
+                    fillColor: [245, 247, 255],
+                },
+                columnStyles: {
+                    0: { halign: 'left', fontStyle: 'bold', cellWidth: 35 },
+                },
+            });
+
+            doc.save(`Lich-Tong-Quan-Tuan-${weekId}-${selectedShift}.pdf`);
+        } catch (err) {
+            console.error('Export PDF failed:', err);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    /** Export as PNG using a hidden clean HTML table + html2canvas */
+    const exportAsImage = async () => {
+        setIsExporting(true);
+        try {
+            const { header, body } = buildExportMatrix();
+
+            // Create a clean, hidden HTML table with inline styles (no Tailwind)
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = 'position:fixed;top:-99999px;left:0;z-index:-1;background:#fff;padding:24px;';
+
+            // Title
+            const title = document.createElement('h2');
+            title.textContent = `Lịch Tổng Quan Tuần: ${weekId} Ca: ${selectedShift}`;
+            title.style.cssText = 'font-family:Arial,sans-serif;font-size:18px;font-weight:bold;margin:0 0 12px 0;color:#1e293b;';
+            wrapper.appendChild(title);
+
+            const table = document.createElement('table');
+            table.style.cssText = 'border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;width:auto;';
+
+            // Header
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            header.forEach(h => {
+                const th = document.createElement('th');
+                th.textContent = h;
+                th.style.cssText = 'border:1px solid #c7d2fe;padding:8px 12px;background:#6366f1;color:#fff;font-weight:bold;text-align:center;white-space:nowrap;';
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            // Body
+            const tbody = document.createElement('tbody');
+            body.forEach((row, rowIdx) => {
+                const tr = document.createElement('tr');
+                tr.style.cssText = rowIdx % 2 === 0 ? 'background:#fff;' : 'background:#f5f7ff;';
+                row.forEach((cell, colIdx) => {
+                    const td = document.createElement('td');
+                    td.style.cssText = `border:1px solid #e2e8f0;padding:6px 10px;text-align:center;vertical-align:middle;white-space:pre-line;line-height:1.5;${colIdx === 0 ? 'text-align:left;font-weight:600;background:#f8fafc;white-space:nowrap;' : ''
+                        }`;
+                    td.textContent = cell;
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            wrapper.appendChild(table);
+
+            document.body.appendChild(wrapper);
+
+            // Wait for reflow then capture
+            await new Promise(r => setTimeout(r, 50));
+
+            const canvas = await html2canvas(wrapper, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#ffffff',
+            });
+
+            // Cleanup
+            document.body.removeChild(wrapper);
+
+            const link = document.createElement('a');
+            link.download = `Lich-Tong-Quan-Tuan-${weekId}-${selectedShift}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        } catch (err) {
+            console.error('Export image failed:', err);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     return (
         <div className="space-y-4 mx-auto">
             {/* Admin Store Selector Banner */}
@@ -274,6 +469,38 @@ export default function GlobalOverviewPage() {
                                     </select>
                                 </div>
                             )}
+
+                            {/* Export Buttons */}
+                            <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                    onClick={exportAsImage}
+                                    disabled={isExporting || loading}
+                                    className={cn(
+                                        "flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border transition-all shadow-sm",
+                                        isExporting || loading
+                                            ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                                            : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 active:scale-95"
+                                    )}
+                                    title="Xuất ảnh PNG"
+                                >
+                                    {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />}
+                                    <span className="hidden sm:inline">Xuất Ảnh</span>
+                                </button>
+                                <button
+                                    onClick={exportAsPDF}
+                                    disabled={isExporting || loading}
+                                    className={cn(
+                                        "flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border transition-all shadow-sm",
+                                        isExporting || loading
+                                            ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                                            : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:border-blue-300 active:scale-95"
+                                    )}
+                                    title="Xuất file PDF"
+                                >
+                                    {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                                    <span className="hidden sm:inline">Xuất PDF</span>
+                                </button>
+                            </div>
                         </div>
 
                         {/* Table */}
@@ -318,7 +545,7 @@ export default function GlobalOverviewPage() {
                                                             "p-4 border-b border-r border-slate-200 sticky left-0 bg-white group-hover:bg-slate-50/50 z-10 shadow-[1px_0_0_0_#e2e8f0]",
                                                             userIdx === users.length - 1 ? 'border-b-0' : ''
                                                         )}>
-                                                            <div className="font-semibold text-slate-800 line-clamp-1" title={u.name}>{u.name}</div>
+                                                            <div className="font-semibold text-slate-800 truncate" title={u.name}>{u.name}</div>
                                                             <div className="flex items-center gap-1.5 mt-1 text-[10px] font-bold flex-wrap">
                                                                 <span className={cn(
                                                                     'px-1.5 py-0.5 rounded uppercase',
@@ -360,7 +587,7 @@ export default function GlobalOverviewPage() {
                                                                     <div className="space-y-1.5 flex flex-col h-full justify-start items-center relative">
                                                                         {dayAssignments.length > 0 ? (
                                                                             dayAssignments.map(({ shiftName, assignedCounter, isForceAssigned }) => (
-                                                                                <div key={shiftName} className={`text-[11px] w-full p-2 rounded-lg border shadow-sm leading-tight flex flex-col transition-all ${isForceAssigned
+                                                                                <div key={shiftName} className={`text-[11px] w-full p-2 rounded-lg border shadow-sm leading-normal flex flex-col transition-all ${isForceAssigned
                                                                                     ? 'bg-amber-50 border-amber-100 hover:bg-amber-100'
                                                                                     : 'bg-indigo-50 border-indigo-100 hover:bg-indigo-100'
                                                                                     }`}>
@@ -429,7 +656,7 @@ export default function GlobalOverviewPage() {
                                                             "p-2 border-b border-r border-slate-200 sticky left-0 bg-white group-hover:bg-slate-50 z-10 shadow-[1px_0_0_0_#e2e8f0]",
                                                             idx === counters.length - 1 ? 'border-b-0' : ''
                                                         )}>
-                                                            <div className="font-semibold flex flex-col text-center text-slate-800 line-clamp-1 items-center gap-2">
+                                                            <div className="font-semibold flex flex-col text-center text-slate-800 truncate items-center gap-2">
                                                                 {c.name}
                                                             </div>
                                                         </td>
@@ -472,13 +699,13 @@ export default function GlobalOverviewPage() {
                                                                                         </div>
                                                                                         <div className="flex items-center gap-1 mt-0.5 text-[9px] font-bold">
                                                                                             <span className={cn(
-                                                                                                'px-1 py-0.5 rounded uppercase leading-none',
+                                                                                                'px-1 py-0.5 pb-1 rounded uppercase leading-relaxed',
                                                                                                 u.type === 'FT' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
                                                                                             )}>
                                                                                                 {u.type}
                                                                                             </span>
                                                                                             {u.role === 'manager' && (
-                                                                                                <span className="px-1 py-0.5 rounded capitalize leading-none bg-amber-50 text-amber-600">
+                                                                                                <span className="px-1 py-0.5 pb-1 rounded capitalize leading-relaxed bg-amber-50 text-amber-600">
                                                                                                     QL
                                                                                                 </span>
                                                                                             )}
