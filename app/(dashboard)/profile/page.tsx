@@ -97,9 +97,9 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
+        <div className=" mx-auto space-y-6 animate-in fade-in duration-500 ">
             {/* Header */}
-            <div>
+            <div className='mt-4'>
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900 border-l-4 border-blue-600 pl-3">Hồ sơ của tôi</h1>
                 <p className="text-slate-500 mt-2 text-sm">Xem và quản lý thông tin cá nhân của bạn.</p>
             </div>

@@ -179,13 +179,15 @@ export default function ManagerKpiScoringPage() {
                             date: selectedDate,
                             counterId,
                             templateId: template.id,
+                            userId: emp.uid,
                             details: details.map(d => ({ criteriaName: d.criteriaName, maxScore: d.maxScore, selfScore: 0 })),
                         }),
                     });
-                    // If 409 (already exists), try fetching again
+                    // If 409 (already exists — employee self-scored in the meantime), reload and re-open
                     if (res.status === 409) {
                         await loadData();
-                        setError('Nhân viên đã tự chấm, hãy thử lại.');
+                        // After reload, the record should exist — user can click again
+                        setSuccess('Nhân viên đã tự chấm. Dữ liệu đã được cập nhật, vui lòng bấm lại.');
                         return;
                     }
                     const created = await res.json();

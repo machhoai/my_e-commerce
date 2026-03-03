@@ -398,7 +398,7 @@ export default function EmployeeRegisterPage() {
     return (
         <div className="space-y-6 mx-auto">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-4">
                 <div>
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
                         <CalendarIcon className="w-7 h-7 text-blue-600" />

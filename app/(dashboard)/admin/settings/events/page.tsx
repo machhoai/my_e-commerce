@@ -8,8 +8,8 @@ import { Save, AlertCircle, CheckCircle2, Zap } from 'lucide-react';
 
 // Common System Events that trigger notifications
 const SYSTEM_EVENTS = [
-    { key: 'SHIFT_CHANGED', label: 'Thay đổi lịch làm việc đột xuất', description: 'Gửi cho nhân viên khi lịch làm việc của họ bị quản lý thay đổi.' },
-    { key: 'NEW_SCHEDULE_PUBLISHED', label: 'Công bố lịch làm việc mới', description: 'Gửi chung khi một tuần làm việc mới được áp dụng.' },
+    { key: 'SCHEDULE_PUBLISHED', label: 'Công bố / Cập nhật lịch làm việc', description: 'Gửi cho nhân viên khi lịch làm việc của họ được công bố hoặc thay đổi.' },
+    { key: 'SHIFT_CHANGED', label: 'Thay đổi ca làm đột xuất', description: 'Gửi cho nhân viên khi ca làm của họ bị quản lý thay đổi ngoài kế hoạch.' },
     { key: 'SWAP_REQUEST_RECEIVED', label: 'Có người xin đổi ca', description: 'Gửi cho nhân viên khi có đồng nghiệp xin đổi ca làm với họ.' },
     { key: 'SWAP_REQUEST_APPROVED', label: 'Xin đổi ca thành công', description: 'Gửi thông báo kết quả đổi ca cho hai nhân sự liên quan.' },
 ];

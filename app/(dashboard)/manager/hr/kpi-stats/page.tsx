@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
@@ -11,9 +11,14 @@ import {
     BarChart3, Calendar, Building2, FileSpreadsheet, FileText,
     TrendingUp, TrendingDown, Users, Award, Download, ChevronDown,
 } from 'lucide-react';
+import { useTableParams } from '@/hooks/useTableParams';
+import { processTableData } from '@/lib/processTableData';
+import DataTableToolbar, { SortableHeader } from '@/components/DataTableToolbar';
+import DataTablePagination from '@/components/DataTablePagination';
 
-export default function ManagerKpiStatsPage() {
+function ManagerKpiStatsPageContent() {
     const { user, userDoc, getToken, hasPermission } = useAuth();
+    const { params, setParam, setParams, clearAll, toggleSort, activeFilterCount, setPage, setPageSize } = useTableParams();
     const [selectedMonth, setSelectedMonth] = useState(() => {
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -108,6 +113,22 @@ export default function ManagerKpiStatsPage() {
         } finally { setExporting(''); }
     };
 
+    const tableSortOptions = [
+        { value: 'name', label: 'Nhân viên' },
+    ];
+
+    // Process employees through toolbar search/sort
+    const filteredEmployees = processTableData(employees, {
+        searchQuery: params.q,
+        searchFields: ['name'] as (keyof UserDoc)[],
+        sortField: (params.sort as keyof UserDoc) || undefined,
+        sortOrder: params.order as 'asc' | 'desc',
+    });
+
+    const currentPage = Number(params.page) || 1;
+    const currentPageSize = Number(params.pageSize) || 10;
+    const paginatedEmployees = filteredEmployees.slice((currentPage - 1) * currentPageSize, currentPage * currentPageSize);
+
     if (!userDoc || (userDoc.role !== 'admin' && userDoc.role !== 'store_manager' && !hasPermission('view_all_kpi'))) {
         return <div className="p-8 text-center text-red-500 font-bold">Không có quyền truy cập.</div>;
     }
@@ -188,56 +209,102 @@ export default function ManagerKpiStatsPage() {
                     <p className="font-semibold">Không có dữ liệu</p>
                 </div>
             ) : (
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead className="bg-slate-50 border-b border-slate-200">
-                                <tr>
-                                    <th className="text-left p-3 font-semibold text-slate-600">#</th>
-                                    <th className="text-left p-3 font-semibold text-slate-600">Nhân viên</th>
-                                    <th className="text-center p-3 font-semibold text-slate-600">Số ca</th>
-                                    <th className="text-center p-3 font-semibold text-slate-600">TB Tự chấm</th>
-                                    <th className="text-center p-3 font-semibold text-slate-600">TB Chính thức</th>
-                                    <th className="text-center p-3 font-semibold text-slate-600">Chênh lệch</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {employees.map((emp, i) => {
-                                    const stats = getEmpStats(emp.uid);
-                                    const diff = stats.avgOfficial - stats.avgSelf;
-                                    return (
-                                        <tr key={emp.uid} className="hover:bg-slate-50/50">
-                                            <td className="p-3 text-slate-400 font-bold">{i + 1}</td>
-                                            <td className="p-3 font-medium text-slate-800">{emp.name}</td>
-                                            <td className="p-3 text-center font-bold text-slate-600">{stats.count}</td>
-                                            <td className="p-3 text-center">
-                                                <span className={cn('font-bold', stats.avgSelf >= 80 ? 'text-emerald-600' : stats.avgSelf >= 50 ? 'text-amber-600' : 'text-red-600')}>
-                                                    {stats.avgSelf}
-                                                </span>
-                                            </td>
-                                            <td className="p-3 text-center">
-                                                <span className={cn('font-bold', stats.avgOfficial >= 80 ? 'text-emerald-600' : stats.avgOfficial >= 50 ? 'text-amber-600' : 'text-red-600')}>
-                                                    {stats.avgOfficial || '—'}
-                                                </span>
-                                            </td>
-                                            <td className="p-3 text-center">
-                                                {stats.officialCount > 0 ? (
-                                                    <span className={cn('text-xs font-bold flex items-center justify-center gap-0.5',
-                                                        diff > 0 ? 'text-emerald-500' : diff < 0 ? 'text-red-500' : 'text-slate-400'
-                                                    )}>
-                                                        {diff > 0 ? <TrendingUp className="w-3 h-3" /> : diff < 0 ? <TrendingDown className="w-3 h-3" /> : null}
-                                                        {diff > 0 ? '+' : ''}{diff}
-                                                    </span>
-                                                ) : <span className="text-slate-300">—</span>}
+                <>
+                    <DataTableToolbar
+                        searchValue={params.q}
+                        onSearchChange={(v) => setParam('q', v)}
+                        searchPlaceholder="Tìm nhân viên..."
+                        filters={[]}
+                        filterValues={{}}
+                        onFilterChange={() => { }}
+                        sortOptions={tableSortOptions}
+                        currentSort={params.sort}
+                        currentOrder={params.order}
+                        onSortChange={toggleSort}
+                        activeFilterCount={activeFilterCount}
+                        onClearAll={clearAll}
+                        onMobileApply={(values) => setParams(values)}
+                    />
+
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-slate-50 border-b border-slate-200">
+                                    <tr>
+                                        <th className="text-left p-3 font-semibold text-slate-600">#</th>
+                                        <SortableHeader label="Nhân viên" field="name" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="text-left" />
+                                        <th className="text-center p-3 font-semibold text-slate-600">Số ca</th>
+                                        <th className="text-center p-3 font-semibold text-slate-600">TB Tự chấm</th>
+                                        <th className="text-center p-3 font-semibold text-slate-600">TB Chính thức</th>
+                                        <th className="text-center p-3 font-semibold text-slate-600">Chênh lệch</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {filteredEmployees.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="p-8 text-center text-slate-400">
+                                                Không tìm thấy nhân viên
                                             </td>
                                         </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                                    ) : (
+                                        paginatedEmployees.map((emp, i) => {
+                                            const stats = getEmpStats(emp.uid);
+                                            const diff = stats.avgOfficial - stats.avgSelf;
+                                            return (
+                                                <tr key={emp.uid} className="hover:bg-slate-50/50">
+                                                    <td className="p-3 text-slate-400 font-bold">{(currentPage - 1) * currentPageSize + i + 1}</td>
+                                                    <td className="p-3 font-medium text-slate-800">{emp.name}</td>
+                                                    <td className="p-3 text-center font-bold text-slate-600">{stats.count}</td>
+                                                    <td className="p-3 text-center">
+                                                        <span className={cn('font-bold', stats.avgSelf >= 80 ? 'text-emerald-600' : stats.avgSelf >= 50 ? 'text-amber-600' : 'text-red-600')}>
+                                                            {stats.avgSelf}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-3 text-center">
+                                                        <span className={cn('font-bold', stats.avgOfficial >= 80 ? 'text-emerald-600' : stats.avgOfficial >= 50 ? 'text-amber-600' : 'text-red-600')}>
+                                                            {stats.avgOfficial || '—'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-3 text-center">
+                                                        {stats.officialCount > 0 ? (
+                                                            <span className={cn('text-xs font-bold flex items-center justify-center gap-0.5',
+                                                                diff > 0 ? 'text-emerald-500' : diff < 0 ? 'text-red-500' : 'text-slate-400'
+                                                            )}>
+                                                                {diff > 0 ? <TrendingUp className="w-3 h-3" /> : diff < 0 ? <TrendingDown className="w-3 h-3" /> : null}
+                                                                {diff > 0 ? '+' : ''}{diff}
+                                                            </span>
+                                                        ) : <span className="text-slate-300">—</span>}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
+                    <DataTablePagination
+                        totalItems={filteredEmployees.length}
+                        page={currentPage}
+                        pageSize={currentPageSize}
+                        onPageChange={setPage}
+                        onPageSizeChange={setPageSize}
+                    />
+                </>
             )}
         </div>
     );
 }
+
+export default function ManagerKpiStatsPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex justify-center py-12">
+                <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+        }>
+            <ManagerKpiStatsPageContent />
+        </Suspense>
+    );
+}
+

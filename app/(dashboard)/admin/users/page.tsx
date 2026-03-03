@@ -1,12 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { UserDoc, UserRole, EmployeeType, StoreDoc, CustomRoleDoc } from '@/types';
 import { Users, Plus, ShieldAlert, KeyRound, MailPlus, Search, ShieldCheck, Building2, AlertCircle, CheckCircle2, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTableParams } from '@/hooks/useTableParams';
+import { processTableData } from '@/lib/processTableData';
+import DataTableToolbar, { SortableHeader } from '@/components/DataTableToolbar';
+import DataTablePagination from '@/components/DataTablePagination';
 
 const ROLE_LABELS: Record<string, string> = {
     admin: 'Quản trị viên',
@@ -22,8 +26,9 @@ const ROLE_BADGE_CLASS: Record<string, string> = {
     employee: 'bg-blue-50 text-blue-700 border-blue-100',
 };
 
-export default function AdminUsersPage() {
+function AdminUsersPageContent() {
     const { user } = useAuth();
+    const { params, setParam, setParams, clearAll, toggleSort, activeFilterCount, setPage, setPageSize } = useTableParams();
 
     // Store selector state
     const [stores, setStores] = useState<StoreDoc[]>([]);
@@ -65,8 +70,44 @@ export default function AdminUsersPage() {
 
     const [actionLoading, setActionLoading] = useState(false);
     const [actionMessage, setActionMessage] = useState({ type: '', text: '' });
-    const [searchTerm, setSearchTerm] = useState('');
     const [customRoles, setCustomRoles] = useState<CustomRoleDoc[]>([]);
+
+    // Table toolbar configuration
+    const tableFilters = [
+        {
+            key: 'role',
+            label: 'Vai trò',
+            options: [
+                { value: 'admin', label: 'Quản trị viên' },
+                { value: 'store_manager', label: 'CH Trưởng' },
+                { value: 'manager', label: 'Quản lý' },
+                { value: 'employee', label: 'Nhân viên' },
+            ],
+        },
+        {
+            key: 'type',
+            label: 'Loại HĐ',
+            options: [
+                { value: 'FT', label: 'Toàn thời gian' },
+                { value: 'PT', label: 'Bán thời gian' },
+            ],
+        },
+        {
+            key: 'status',
+            label: 'Trạng thái',
+            options: [
+                { value: 'true', label: 'Đang làm' },
+                { value: 'false', label: 'Đã nghỉ' },
+            ],
+        },
+    ];
+
+    const tableSortOptions = [
+        { value: 'name', label: 'Họ tên' },
+        { value: 'phone', label: 'Số điện thoại' },
+        { value: 'role', label: 'Vai trò' },
+        { value: 'type', label: 'Loại HĐ' },
+    ];
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
@@ -212,15 +253,26 @@ export default function AdminUsersPage() {
     };
 
     const selectedStoreName = stores.find(s => s.id === selectedStoreId)?.name;
-    const filtered = users.filter(u =>
-        u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        u.phone.includes(searchTerm)
-    );
+    const filtered = processTableData(users, {
+        searchQuery: params.q,
+        searchFields: ['name', 'phone'] as (keyof UserDoc)[],
+        filters: [
+            { field: 'role' as keyof UserDoc, value: params.role || '' },
+            { field: 'type' as keyof UserDoc, value: params.type || '' },
+            { field: 'isActive' as keyof UserDoc, value: params.status || '' },
+        ],
+        sortField: (params.sort as keyof UserDoc) || undefined,
+        sortOrder: params.order as 'asc' | 'desc',
+    });
+
+    const currentPage = Number(params.page) || 1;
+    const currentPageSize = Number(params.pageSize) || 10;
+    const paginatedUsers = filtered.slice((currentPage - 1) * currentPageSize, currentPage * currentPageSize);
 
     return (
-        <div className="space-y-6 max-w-6xl mx-auto">
+        <div className="space-y-6 mx-auto">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
                         <Users className="w-7 h-7 text-slate-700" />
@@ -237,21 +289,22 @@ export default function AdminUsersPage() {
             </div>
 
             {/* Store Selector */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <div className="flex items-center gap-2 shrink-0">
-                    <Building2 className="w-5 h-5 text-indigo-500" />
-                    <span className="text-sm font-semibold text-slate-700">Chọn Cửa hàng:</span>
+            <div className="bg-white items-center rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-4">
+                <div className='flex gap-2 items-center justify-start w-full'>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <Building2 className="w-5 h-5 text-indigo-500" />
+                    </div>
+                    <select
+                        value={selectedStoreId}
+                        onChange={e => { setSelectedStoreId(e.target.value); clearAll(); }}
+                        className="flex-1 border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 bg-white font-medium min-w-[200px]"
+                    >
+                        <option value="">-- Tất cả cửa hàng --</option>
+                        {stores.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}{!s.isActive ? ' (Đã tắt)' : ''}</option>
+                        ))}
+                    </select>
                 </div>
-                <select
-                    value={selectedStoreId}
-                    onChange={e => { setSelectedStoreId(e.target.value); setSearchTerm(''); }}
-                    className="flex-1 border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 bg-slate-50 font-medium min-w-[200px]"
-                >
-                    <option value="">-- Tất cả cửa hàng --</option>
-                    {stores.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}{!s.isActive ? ' (Đã tắt)' : ''}</option>
-                    ))}
-                </select>
                 <span className="text-sm text-slate-500 shrink-0">
                     {selectedStoreId
                         ? <><strong className="text-indigo-700">{stores.find(s => s.id === selectedStoreId)?.name}</strong> &middot; {users.length} người</>
@@ -275,106 +328,120 @@ export default function AdminUsersPage() {
             {(() => {
                 const storeMap = new Map(stores.map(s => [s.id, s.name]));
                 return (
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                        {/* Search bar */}
-                        <div className="p-4 border-b border-slate-100 flex items-center gap-3">
-                            <Search className="w-4 h-4 text-slate-400 shrink-0" />
-                            <input
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                                placeholder="Tìm theo tên hoặc số điện thoại..."
-                                className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder-slate-400"
-                            />
-                            {searchTerm && (
-                                <button onClick={() => setSearchTerm('')} className="text-xs text-slate-400 hover:text-slate-600">Xóa</button>
+                    <>
+                        <DataTableToolbar
+                            searchValue={params.q}
+                            onSearchChange={(v) => setParam('q', v)}
+                            searchPlaceholder="Tìm theo tên hoặc số điện thoại..."
+                            filters={tableFilters}
+                            filterValues={{ role: params.role || '', type: params.type || '', status: params.status || '' }}
+                            onFilterChange={(key, value) => setParam(key, value)}
+                            sortOptions={tableSortOptions}
+                            currentSort={params.sort}
+                            currentOrder={params.order}
+                            onSortChange={toggleSort}
+                            activeFilterCount={activeFilterCount}
+                            onClearAll={clearAll}
+                            onMobileApply={(values) => setParams(values)}
+                        />
+
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+
+                            {loading ? (
+                                <div className="p-12 text-center text-slate-400">
+                                    <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                                    Đang tải nhân sự...
+                                </div>
+                            ) : filtered.length === 0 ? (
+                                <div className="p-12 text-center text-slate-400">
+                                    <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                                    <p className="font-medium">{params.q || activeFilterCount > 0 ? 'Không tìm thấy kết quả' : 'Không có nhân sự nào'}</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="text-xs text-slate-500 bg-slate-50/80 border-b border-slate-100">
+                                            <tr>
+                                                <SortableHeader label="Họ tên" field="name" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-5" />
+                                                <SortableHeader label="SĐT" field="phone" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} />
+                                                <SortableHeader label="Vai trò" field="role" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="text-center" />
+                                                <SortableHeader label="Loại" field="type" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="text-center" />
+                                                <th className="px-4 py-3.5 font-semibold">Cửa hàng</th>
+                                                <th className="px-4 py-3.5 font-semibold text-center">Trạng thái</th>
+                                                <th className="px-4 py-3.5 font-semibold text-right">Thao tác</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {paginatedUsers.map(u => (
+                                                <tr key={u.uid} className={cn('hover:bg-slate-50/60 transition-colors group', !u.isActive && 'opacity-50')}>
+                                                    <td className="px-5 py-3.5 font-medium text-slate-800">
+                                                        {u.name}
+                                                        {u.canManageHR && <span title="Có quyền quản lý HR"><ShieldCheck className="w-3.5 h-3.5 inline ml-1.5 text-indigo-500" /></span>}
+                                                    </td>
+                                                    <td className="px-4 py-3.5 text-slate-500 font-mono text-xs">{u.phone}</td>
+                                                    <td className="px-4 py-3.5 text-center">
+                                                        <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border', ROLE_BADGE_CLASS[u.role] ?? 'bg-slate-100 text-slate-600')}>
+                                                            {ROLE_LABELS[u.role] ?? u.role}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3.5 text-center">
+                                                        <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border',
+                                                            u.type === 'FT' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-purple-50 text-purple-700 border-purple-100'
+                                                        )}>
+                                                            {u.type === 'FT' ? 'Toàn thời gian' : 'Bán thời gian'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3.5">
+                                                        <span className="text-xs font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                                                            {u.storeId ? (storeMap.get(u.storeId) ?? u.storeId) : <span className="italic text-slate-400">— Admin —</span>}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3.5 text-center">
+                                                        <button
+                                                            onClick={() => handleToggleActive(u)}
+                                                            disabled={actionLoading}
+                                                            className={cn(
+                                                                'text-[11px] font-bold px-2 py-0.5 rounded border cursor-pointer transition-opacity hover:opacity-70 disabled:cursor-not-allowed',
+                                                                u.isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'
+                                                            )}
+                                                        >
+                                                            {u.isActive ? 'Đang làm' : 'Đã nghỉ'}
+                                                        </button>
+                                                    </td>
+                                                    <td className="px-4 py-3.5 text-right">
+                                                        <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button
+                                                                onClick={() => openEditModal(u)}
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 transition-colors"
+                                                            >
+                                                                Sửa
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleResetPassword(u.uid, u.name)}
+                                                                disabled={actionLoading}
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200 transition-colors disabled:opacity-50"
+                                                            >
+                                                                <KeyRound className="w-3.5 h-3.5" /> Đặt lại
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                            {!loading && filtered.length > 0 && (
+                                <DataTablePagination
+                                    totalItems={filtered.length}
+                                    page={currentPage}
+                                    pageSize={currentPageSize}
+                                    onPageChange={setPage}
+                                    onPageSizeChange={setPageSize}
+                                />
                             )}
                         </div>
-
-                        {loading ? (
-                            <div className="p-12 text-center text-slate-400">
-                                <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                                Đang tải nhân sự...
-                            </div>
-                        ) : filtered.length === 0 ? (
-                            <div className="p-12 text-center text-slate-400">
-                                <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                                <p className="font-medium">{searchTerm ? 'Không tìm thấy kết quả' : 'Không có nhân sự nào'}</p>
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="text-xs text-slate-500 bg-slate-50/80 border-b border-slate-100">
-                                        <tr>
-                                            <th className="px-5 py-3.5 font-semibold">Họ tên</th>
-                                            <th className="px-4 py-3.5 font-semibold">SĐT</th>
-                                            <th className="px-4 py-3.5 font-semibold text-center">Vai trò</th>
-                                            <th className="px-4 py-3.5 font-semibold text-center">Loại</th>
-                                            <th className="px-4 py-3.5 font-semibold">Cửa hàng</th>
-                                            <th className="px-4 py-3.5 font-semibold text-center">Trạng thái</th>
-                                            <th className="px-4 py-3.5 font-semibold text-right">Thao tác</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {filtered.map(u => (
-                                            <tr key={u.uid} className={cn('hover:bg-slate-50/60 transition-colors group', !u.isActive && 'opacity-50')}>
-                                                <td className="px-5 py-3.5 font-medium text-slate-800">
-                                                    {u.name}
-                                                    {u.canManageHR && <span title="Có quyền quản lý HR"><ShieldCheck className="w-3.5 h-3.5 inline ml-1.5 text-indigo-500" /></span>}
-                                                </td>
-                                                <td className="px-4 py-3.5 text-slate-500 font-mono text-xs">{u.phone}</td>
-                                                <td className="px-4 py-3.5 text-center">
-                                                    <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border', ROLE_BADGE_CLASS[u.role] ?? 'bg-slate-100 text-slate-600')}>
-                                                        {ROLE_LABELS[u.role] ?? u.role}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3.5 text-center">
-                                                    <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border',
-                                                        u.type === 'FT' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-purple-50 text-purple-700 border-purple-100'
-                                                    )}>
-                                                        {u.type === 'FT' ? 'Toàn thời gian' : 'Bán thời gian'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3.5">
-                                                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600">
-                                                        {u.storeId ? (storeMap.get(u.storeId) ?? u.storeId) : <span className="italic text-slate-400">— Admin —</span>}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3.5 text-center">
-                                                    <button
-                                                        onClick={() => handleToggleActive(u)}
-                                                        disabled={actionLoading}
-                                                        className={cn(
-                                                            'text-[11px] font-bold px-2 py-0.5 rounded border cursor-pointer transition-opacity hover:opacity-70 disabled:cursor-not-allowed',
-                                                            u.isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'
-                                                        )}
-                                                    >
-                                                        {u.isActive ? 'Đang làm' : 'Đã nghỉ'}
-                                                    </button>
-                                                </td>
-                                                <td className="px-4 py-3.5 text-right">
-                                                    <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button
-                                                            onClick={() => openEditModal(u)}
-                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 transition-colors"
-                                                        >
-                                                            Sửa
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleResetPassword(u.uid, u.name)}
-                                                            disabled={actionLoading}
-                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200 transition-colors disabled:opacity-50"
-                                                        >
-                                                            <KeyRound className="w-3.5 h-3.5" /> Đặt lại
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
+                    </>
                 );
             })()}
 
@@ -508,6 +575,18 @@ export default function AdminUsersPage() {
                     </div>
                 </div>
             )}
-        </div>
+        </div >
+    );
+}
+
+export default function AdminUsersPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex justify-center py-12">
+                <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+        }>
+            <AdminUsersPageContent />
+        </Suspense>
     );
 }

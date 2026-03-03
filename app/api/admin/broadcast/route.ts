@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getAdminAuth, getAdminDb, getAdminMessaging } from '@/lib/firebase-admin';
-import { parseTemplate } from '@/lib/template-parser';
-import { NotificationTemplate } from '@/types';
+import { getAdminAuth } from '@/lib/firebase-admin';
+import { broadcastTemplate } from '@/lib/notification-engine';
 
 export async function POST(request: Request) {
     try {
@@ -15,10 +14,9 @@ export async function POST(request: Request) {
         const decodedToken = await adminAuth.verifyIdToken(token);
         const requestUid = decodedToken.uid;
 
+        // Verify admin role using the engine's DB access
+        const { getAdminDb } = await import('@/lib/firebase-admin');
         const adminDb = getAdminDb();
-        const adminMessaging = getAdminMessaging();
-
-        // Verify admin role
         const requesterDoc = await adminDb.collection('users').doc(requestUid).get();
         if (!requesterDoc.exists || requesterDoc.data()?.role !== 'admin') {
             return NextResponse.json({ error: 'Chỉ Quản trị viên mới có quyền gửi thông báo hàng loạt' }, { status: 403 });
@@ -27,26 +25,41 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { title, message, targetType, targetValue, templateId } = body;
 
-        // Resolve title/message from template if templateId is provided
-        let resolvedTitle = title;
-        let resolvedMessage = message;
+        // If templateId is provided, use the engine's broadcastTemplate
         if (templateId) {
-            const templateSnap = await adminDb.collection('notification_templates').doc(templateId).get();
-            if (!templateSnap.exists) {
-                return NextResponse.json({ error: 'Không tìm thấy mẫu thông báo' }, { status: 404 });
+            const result = await broadcastTemplate({
+                templateId,
+                targetType: targetType || 'ALL',
+                targetValue,
+            });
+
+            if (!result.success) {
+                return NextResponse.json({ error: result.error || 'Không thể gửi thông báo' }, { status: 400 });
             }
-            const templateData = templateSnap.data() as NotificationTemplate;
-            resolvedTitle = templateData.titleTemplate;
-            resolvedMessage = templateData.bodyTemplate;
+
+            return NextResponse.json({
+                success: true,
+                message: `Đã gửi thông báo thành công tới ${result.totalTargeted} người dùng.`,
+                stats: {
+                    totalTargeted: result.totalTargeted,
+                    pushSent: result.pushSent,
+                    pushFailed: result.pushFailed,
+                },
+            });
         }
 
-        if (!resolvedTitle || !resolvedMessage || !targetType) {
+        // Fallback: free-form title/message broadcast (from the standalone broadcast page)
+        if (!title || !message || !targetType) {
             return NextResponse.json({ error: 'Thiếu thông tin bắt buộc' }, { status: 400 });
         }
 
-        // 1. Build Query
-        // Only target active users
-        let usersQuery: FirebaseFirestore.Query = adminDb.collection('users').where('isActive', '==', true);
+        // For free-form broadcasts, we use the sendNotification directly
+        const { getAdminMessaging } = await import('@/lib/firebase-admin');
+        const { parseTemplate } = await import('@/lib/template-parser');
+        const adminMessaging = getAdminMessaging();
+
+        // Build user query
+        let usersQuery: FirebaseFirestore.Query = adminDb.collection('users');
 
         if (targetType === 'STORE') {
             if (!targetValue) return NextResponse.json({ error: 'Vui lòng chọn cửa hàng' }, { status: 400 });
@@ -65,8 +78,6 @@ export async function POST(request: Request) {
 
         usersSnapshot.forEach(doc => {
             const data = doc.data();
-
-            // Filter active users manually here to avoid missing composite index errors on Firestore
             if (data.isActive !== false) {
                 usersData.push({
                     uid: doc.id,
@@ -79,13 +90,7 @@ export async function POST(request: Request) {
 
         const createdAt = new Date().toISOString();
 
-        // Helper to replace variables using parseTemplate
-        const personalizeText = (text: string, userData: Record<string, string | number | undefined>) => {
-            return parseTemplate(text, userData);
-        };
-
-        // 2. Action 1: Write to Firestore (Batched)
-        // Firestore batch limits to 500 writes
+        // Chunk helper
         const chunkArray = <T>(arr: T[], size: number): T[][] => {
             const chunks = [];
             for (let i = 0; i < arr.length; i += size) {
@@ -94,14 +99,14 @@ export async function POST(request: Request) {
             return chunks;
         };
 
+        // Write to Firestore (Batched)
         const userChunks = chunkArray(usersData, 500);
-
         for (const chunk of userChunks) {
             const batch = adminDb.batch();
             for (const user of chunk) {
                 const ctx = { name: user.name, storeName: user.storeId || '' };
-                const personalizedTitle = personalizeText(resolvedTitle, ctx);
-                const personalizedBody = personalizeText(resolvedMessage, ctx);
+                const personalizedTitle = parseTemplate(title, ctx);
+                const personalizedBody = parseTemplate(message, ctx);
 
                 const notificationRef = adminDb.collection('notifications').doc();
                 batch.set(notificationRef, {
@@ -117,11 +122,10 @@ export async function POST(request: Request) {
             await batch.commit();
         }
 
-        // 3. Action 2: Send Push Notifications via FCM
+        // Send FCM Push Notifications
         let pushSuccessCount = 0;
         let pushFailureCount = 0;
 
-        // Deduplicate tokens for push notifications to prevent double-buzzing on the same device
         const uniquePushMessages: any[] = [];
         const seenTokens = new Set<string>();
 
@@ -132,8 +136,8 @@ export async function POST(request: Request) {
                 uniquePushMessages.push({
                     token: user.fcmToken,
                     data: {
-                        title: String(personalizeText(resolvedTitle, ctx) || 'Thông báo'),
-                        body: String(personalizeText(resolvedMessage, ctx) || 'Nội dung'),
+                        title: String(parseTemplate(title, ctx) || 'Thông báo'),
+                        body: String(parseTemplate(message, ctx) || 'Nội dung'),
                         actionLink: "/"
                     }
                 });
@@ -141,7 +145,7 @@ export async function POST(request: Request) {
         }
 
         if (uniquePushMessages.length > 0) {
-            const messageChunks = chunkArray(uniquePushMessages, 500); // sendEach accepts max 500 messages
+            const messageChunks = chunkArray(uniquePushMessages, 500);
             for (const chunk of messageChunks) {
                 try {
                     const response = await adminMessaging.sendEach(chunk);

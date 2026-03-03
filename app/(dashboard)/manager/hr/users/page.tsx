@@ -1,14 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { UserDoc, EmployeeType, UserRole, StoreDoc, CustomRoleDoc } from '@/types';
 import { Users, Search, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Plus, MailPlus, KeyRound, Building2, Shield } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useTableParams } from '@/hooks/useTableParams';
+import { processTableData } from '@/lib/processTableData';
+import DataTableToolbar, { SortableHeader } from '@/components/DataTableToolbar';
+import DataTablePagination from '@/components/DataTablePagination';
 
-export default function ManagerUsersPage() {
+function ManagerUsersPageContent() {
     const { user, userDoc, loading: authLoading } = useAuth();
+    const { params, setParam, setParams, clearAll, toggleSort, activeFilterCount, setPage, setPageSize } = useTableParams();
     const [employees, setEmployees] = useState<UserDoc[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -33,8 +39,42 @@ export default function ManagerUsersPage() {
 
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [actionMessage, setActionMessage] = useState({ type: '', text: '' });
-    const [searchTerm, setSearchTerm] = useState('');
     const [customRoles, setCustomRoles] = useState<CustomRoleDoc[]>([]);
+
+    // Table toolbar configuration
+    const tableFilters = [
+        {
+            key: 'type',
+            label: 'Loại HĐ',
+            options: [
+                { value: 'FT', label: 'Toàn thời gian' },
+                { value: 'PT', label: 'Bán thời gian' },
+            ],
+        },
+        {
+            key: 'role',
+            label: 'Vai trò',
+            options: [
+                { value: 'store_manager', label: 'CH Trưởng' },
+                { value: 'manager', label: 'Quản lý' },
+                { value: 'employee', label: 'Nhân viên' },
+            ],
+        },
+        {
+            key: 'status',
+            label: 'Trạng thái',
+            options: [
+                { value: 'true', label: 'Hoạt động' },
+                { value: 'false', label: 'Vô hiệu' },
+            ],
+        },
+    ];
+
+    const tableSortOptions = [
+        { value: 'name', label: 'Họ tên' },
+        { value: 'type', label: 'Loại HĐ' },
+        { value: 'role', label: 'Vai trò' },
+    ];
 
     // Admin store selector
     const [stores, setStores] = useState<StoreDoc[]>([]);
@@ -245,10 +285,21 @@ export default function ManagerUsersPage() {
     // Build storeId → name lookup map for rendering the Store column in the table
     const storeMap = new Map(stores.map(s => [s.id, s.name]));
 
-    const filteredEmployees = employees.filter(e =>
-        e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        e.phone.includes(searchTerm)
-    );
+    const filteredEmployees = processTableData(employees, {
+        searchQuery: params.q,
+        searchFields: ['name', 'phone'] as (keyof UserDoc)[],
+        filters: [
+            { field: 'type' as keyof UserDoc, value: params.type || '' },
+            { field: 'role' as keyof UserDoc, value: params.role || '' },
+            { field: 'isActive' as keyof UserDoc, value: params.status || '' },
+        ],
+        sortField: (params.sort as keyof UserDoc) || undefined,
+        sortOrder: params.order as 'asc' | 'desc',
+    });
+
+    const currentPage = Number(params.page) || 1;
+    const currentPageSize = Number(params.pageSize) || 10;
+    const paginatedEmployees = filteredEmployees.slice((currentPage - 1) * currentPageSize, currentPage * currentPageSize);
 
     if (!user || (userDoc?.role !== 'admin' && userDoc?.canManageHR !== true)) {
         return (
@@ -261,25 +312,7 @@ export default function ManagerUsersPage() {
     }
 
     return (
-        <div className="space-y-4 max-w-6xl mx-auto">
-            {/* Admin Store Selector Banner */}
-            {userDoc?.role === 'admin' && (
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                    <div className="flex items-center gap-2 shrink-0">
-                        <Building2 className="w-4 h-4 text-indigo-500" />
-                        <span className="text-sm font-semibold text-slate-700">Cửa hàng:</span>
-                    </div>
-                    <select
-                        value={selectedAdminStoreId}
-                        onChange={e => setSelectedAdminStoreId(e.target.value)}
-                        className="flex-1 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-slate-50 font-medium"
-                    >
-                        <option value="">-- Tất cả cửa hàng --</option>
-                        {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                </div>
-            )}
-
+        <div className="space-y-4 mx-auto">
             {/* Main content */}
             {(() => {
                 const storeMap = new Map(stores.map(s => [s.id, s.name]));
@@ -296,19 +329,24 @@ export default function ManagerUsersPage() {
                                     Xem và quản lý trạng thái hoạt động của tất cả nhân viên bán thời gian và toàn thời gian.
                                 </p>
                             </div>
-
-                            <button
-                                onClick={() => {
-                                    resetForm();
-                                    setEditUid(null);
-                                    setIsCreateModalOpen(true);
-                                }}
-                                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-md shadow-blue-500/20 transition-all"
-                            >
-                                <Plus className="w-4 h-4" />
-                                Thêm Nhân viên
-                            </button>
                         </div>
+
+                        {/* Admin Store Selector Banner */}
+                        {userDoc?.role === 'admin' && (
+                            <div className="bg-white rounded-xl items-center border border-slate-200 shadow-sm p-3 flex sm:flex-row sm:items-center gap-3">
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <Building2 className="w-5 h-5 text-indigo-500" />
+                                </div>
+                                <select
+                                    value={selectedAdminStoreId}
+                                    onChange={e => setSelectedAdminStoreId(e.target.value)}
+                                    className="flex-1 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white font-medium"
+                                >
+                                    <option value="">-- Tất cả cửa hàng --</option>
+                                    {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                </select>
+                            </div>
+                        )}
 
                         {actionMessage.text && (
                             <div className={`p-4 rounded-xl flex items-center justify-between gap-3 border shadow-sm animate-in fade-in slide-in-from-top-2 ${actionMessage.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -321,43 +359,63 @@ export default function ManagerUsersPage() {
                             </div>
                         )}
 
-                        {/* Table Container */}
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-                            {/* Search Bar */}
-                            <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-4 flex-wrap">
-                                <div className="relative flex-1 min-w-[200px] max-w-sm">
-                                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="Tìm kiếm theo tên hoặc số điện thoại..."
-                                        value={searchTerm}
-                                        onChange={e => setSearchTerm(e.target.value)}
-                                        className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-shadow"
-                                    />
+                        {/* Toolbar */}
+                        <DataTableToolbar
+                            searchValue={params.q}
+                            onSearchChange={(v) => setParam('q', v)}
+                            searchPlaceholder="Tìm theo tên hoặc số điện thoại..."
+                            filters={tableFilters}
+                            filterValues={{ type: params.type || '', role: params.role || '', status: params.status || '' }}
+                            onFilterChange={(key, value) => setParam(key, value)}
+                            sortOptions={tableSortOptions}
+                            currentSort={params.sort}
+                            currentOrder={params.order}
+                            onSortChange={toggleSort}
+                            activeFilterCount={activeFilterCount}
+                            onClearAll={clearAll}
+                            onMobileApply={(values) => setParams(values)}
+                        />
+
+                        {/* Stats summary */}
+                        <div className="flex items-center justify-between gap-4 text-sm font-medium p-2 bg-slate-50/50 border border-slate-200 rounded-xl">
+                            <div className='flex gap-3'>
+                                <div className="flex items-center gap-2 text-slate-500">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                    Hoạt động: {employees.filter(e => e.isActive !== false).length}
                                 </div>
-                                <div className="flex items-center gap-4 text-sm font-medium">
-                                    <div className="flex items-center gap-2 text-slate-500">
-                                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                        Hoạt động: {employees.filter(e => e.isActive !== false).length}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-slate-500">
-                                        <span className="w-2 h-2 rounded-full bg-slate-300"></span>
-                                        Vô hiệu: {employees.filter(e => e.isActive === false).length}
-                                    </div>
-                                    <div className="h-4 w-px bg-slate-300"></div>
-                                    <div className="text-slate-700 font-bold">
-                                        Tổng số: {employees.length}
-                                    </div>
+                                <div className="flex items-center gap-2 text-slate-500">
+                                    <span className="w-2 h-2 rounded-full bg-slate-300"></span>
+                                    Vô hiệu: {employees.filter(e => e.isActive === false).length}
+                                </div>
+                                <div className="h-4 w-px bg-slate-300"></div>
+                                <div className="text-slate-700 font-bold">
+                                    Tổng số: {employees.length}
                                 </div>
                             </div>
+
+                            <button
+                                onClick={() => {
+                                    resetForm();
+                                    setEditUid(null);
+                                    setIsCreateModalOpen(true);
+                                }}
+                                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-5 py-2 rounded-lg font-medium shadow-md shadow-blue-500/20 transition-all"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Thêm Nhân viên
+                            </button>
+                        </div>
+
+                        {/* Table Container */}
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
 
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm text-left text-slate-600">
                                     <thead className="text-xs text-slate-500 uppercase bg-slate-50/50 border-b border-slate-200">
                                         <tr>
-                                            <th scope="col" className="px-6 py-4 text-center font-semibold truncate">Tên & Số điện thoại</th>
-                                            <th scope="col" className="px-6 py-4 text-center font-semibold truncate">Loại hợp đồng</th>
-                                            <th scope="col" className="px-6 py-4 text-center font-semibold truncate">Vai trò</th>
+                                            <SortableHeader label="Tên & SĐT" field="name" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-6 text-center" />
+                                            <SortableHeader label="Loại HĐ" field="type" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-6 text-center" />
+                                            <SortableHeader label="Vai trò" field="role" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-6 text-center" />
                                             {userDoc?.role === 'admin' && <th scope="col" className="px-6 py-4 text-center font-semibold">Cửa hàng</th>}
                                             <th scope="col" className="px-6 py-4 text-center font-semibold truncate">Trạng thái</th>
                                             <th scope="col" className="px-6 py-4 text-center font-semibold truncate">Hành động</th>
@@ -375,7 +433,7 @@ export default function ManagerUsersPage() {
                                                 <td colSpan={userDoc?.role === 'admin' ? 6 : 5} className="py-12 text-center text-slate-400">Không tìm thấy nhân viên nào</td>
                                             </tr>
                                         ) : (
-                                            filteredEmployees.map((e) => {
+                                            paginatedEmployees.map((e) => {
                                                 const isActive = e.isActive !== false; // Default true if undefined
                                                 const isSubmitting = actionLoading === e.uid;
 
@@ -475,6 +533,13 @@ export default function ManagerUsersPage() {
                                     </tbody>
                                 </table>
                             </div>
+                            <DataTablePagination
+                                totalItems={filteredEmployees.length}
+                                page={currentPage}
+                                pageSize={currentPageSize}
+                                onPageChange={setPage}
+                                onPageSizeChange={setPageSize}
+                            />
                         </div>
 
                         {/* Create Modal */}
@@ -688,5 +753,17 @@ export default function ManagerUsersPage() {
                 );
             })()}
         </div>
+    );
+}
+
+export default function ManagerUsersPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex justify-center py-12">
+                <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+        }>
+            <ManagerUsersPageContent />
+        </Suspense>
     );
 }

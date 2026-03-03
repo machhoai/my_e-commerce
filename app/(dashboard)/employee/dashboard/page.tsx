@@ -141,8 +141,14 @@ export default function EmployeeDashboardPage() {
     const renderMonthlySummary = () => {
         if (!userDoc) return null;
 
-        // Only count completed shifts for this month
-        const completedShifts = monthlySchedules.filter(s => s.date < todayStr).length;
+        // Only count completed shifts for this month — deduplicate by date+shiftId
+        // so that multiple counters in the same shift are only counted once
+        const uniqueShiftKeys = new Set(
+            monthlySchedules
+                .filter(s => s.date < todayStr)
+                .map(s => `${s.date}_${s.shiftId}`)
+        );
+        const completedShifts = uniqueShiftKeys.size;
 
         // Calculate max shifts
         const d = new Date();
@@ -214,7 +220,7 @@ export default function EmployeeDashboardPage() {
 
     return (
         <div className="space-y-6 w-full h-full min-h-0 mx-auto">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-4">
                 <div>
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-500 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
                         <Activity className="w-7 h-7 text-emerald-500" />

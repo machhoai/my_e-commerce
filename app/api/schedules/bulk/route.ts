@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { sendNotification } from '@/lib/notifications';
-import { triggerEventNotification } from '@/lib/event-notifications';
+import { sendTemplatedNotification } from '@/lib/notification-engine';
 
 interface DayPayload {
     date: string;
@@ -104,14 +104,12 @@ export async function POST(req: NextRequest) {
                 notifiedUsers.add(uid);
                 try {
                     const ctx = notificationContexts.find(c => c.uid === uid);
-                    const userSnap = await adminDb.collection('users').doc(uid).get();
-                    const userName = userSnap.exists ? (userSnap.data()?.name || '') : '';
 
-                    const result = await triggerEventNotification({
-                        eventName: 'SCHEDULE_PUBLISHED',
+                    // Use the new engine — it auto-fetches user name and merges into context
+                    const result = await sendTemplatedNotification({
                         userId: uid,
+                        eventName: 'SCHEDULE_PUBLISHED',
                         dataContext: {
-                            name: userName,
                             storeName,
                             shiftId: ctx?.shiftId ?? body.days[0]?.shiftId ?? '',
                             date: ctx?.date ?? body.days[0]?.date ?? '',
@@ -120,6 +118,7 @@ export async function POST(req: NextRequest) {
                         storeId: body.storeId,
                     });
 
+                    // Fallback: if no template is mapped, send a hardcoded notification
                     if (!result.success && result.reason === 'unmapped') {
                         await sendNotification({
                             userId: uid,

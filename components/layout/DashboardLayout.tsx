@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Shield, BellRing, Zap, Bell, ClipboardCheck, BarChart3 } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -88,6 +88,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
 
     const routes = [
+        // ── Employee personal links ──
         {
             label: 'Lịch của tôi',
             href: '/employee/dashboard',
@@ -101,106 +102,55 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             show: userDoc?.role !== 'admin',
         },
         {
+            label: 'KPI của tôi',
+            href: '/employee/kpi-stats',
+            icon: BarChart3,
+            show: userDoc?.role !== 'admin',
+        },
+        {
             label: 'Hồ sơ cá nhân',
             href: '/profile',
             icon: User,
             show: userDoc?.role !== 'admin',
         },
+
+        // ── Manager / Store Manager macro-categories ──
         {
-            label: 'Xếp lịch (Quản lý)',
-            href: '/manager/schedule',
-            icon: Users,
-            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || hasPermission('edit_schedule') || hasPermission('view_schedule'),
-        },
-        {
-            label: 'Lịch tổng quan',
-            href: '/manager/overview',
+            label: 'Lịch làm việc',
+            href: '/manager/scheduling/overview',
             icon: Calendar,
-            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || hasPermission('view_overview'),
+            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || hasPermission('view_overview') || hasPermission('view_schedule') || hasPermission('edit_schedule') || hasPermission('view_history'),
+            matchPrefix: '/manager/scheduling',
         },
         {
-            label: 'Lịch sử & Thống kê',
-            href: '/manager/history',
-            icon: Calendar,
-            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || hasPermission('view_history'),
-        },
-        {
-            label: 'Quản lý nhân viên',
-            href: '/manager/users',
+            label: 'Nhân sự & KPI',
+            href: '/manager/hr/users',
             icon: Users,
-            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || hasPermission('manage_hr') || hasPermission('view_users'),
+            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || hasPermission('manage_hr') || hasPermission('view_users') || hasPermission('score_employees') || hasPermission('view_all_kpi'),
+            matchPrefix: '/manager/hr',
         },
+
+        // ── Admin-specific ──
         {
-            label: 'Quản lý người dùng',
+            label: 'Quản lý Người dùng',
             href: '/admin/users',
             icon: Users,
             show: userDoc?.role === 'admin',
         },
         {
-            label: 'Quản lý Cửa hàng',
-            href: '/admin/stores',
-            icon: Building2,
+            label: 'Cài đặt hệ thống',
+            href: '/admin/settings/general',
+            icon: SettingsIcon,
             show: userDoc?.role === 'admin',
+            matchPrefix: '/admin/settings',
         },
-        {
-            label: 'Phân quyền & Role',
-            href: '/admin/roles',
-            icon: Shield,
-            show: userDoc?.role === 'admin',
-        },
+
+        // ── Store Manager settings ──
         {
             label: 'Cài đặt cửa hàng',
             href: '/manager/settings',
             icon: SettingsIcon,
             show: userDoc?.role === 'store_manager',
-        },
-        {
-            label: 'Cài đặt hệ thống',
-            href: '/admin/settings',
-            icon: SettingsIcon,
-            show: userDoc?.role === 'admin',
-        },
-        {
-            label: 'Cài đặt Sự kiện',
-            href: '/admin/settings/events',
-            icon: Zap,
-            show: userDoc?.role === 'admin',
-        },
-        {
-            label: 'Mẫu thông báo',
-            href: '/admin/notification-templates',
-            icon: BellRing,
-            show: userDoc?.role === 'admin',
-        },
-        {
-            label: 'Gửi thông báo',
-            href: '/admin/broadcast',
-            icon: BellRing,
-            show: userDoc?.role === 'admin',
-        },
-        {
-            label: 'Mẫu KPI',
-            href: '/admin/kpi-templates',
-            icon: ClipboardCheck,
-            show: userDoc?.role === 'admin' || (userDoc?.role === 'store_manager' && hasPermission('manage_kpi_templates')),
-        },
-        {
-            label: 'Chấm điểm KPI',
-            href: '/manager/kpi-scoring',
-            icon: ClipboardCheck,
-            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || hasPermission('score_employees'),
-        },
-        {
-            label: 'Thống kê KPI',
-            href: '/manager/kpi-stats',
-            icon: BarChart3,
-            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || hasPermission('view_all_kpi'),
-        },
-        {
-            label: 'KPI của tôi',
-            href: '/employee/kpi-stats',
-            icon: BarChart3,
-            show: userDoc?.role !== 'admin',
         },
     ];
 
@@ -253,7 +203,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             <nav className="flex-1 px-4 space-y-2 mt-2 overflow-y-auto">
                 {routes.filter(r => r.show).map((route) => {
-                    const isActive = pathname.startsWith(route.href);
+                    const isActive = route.matchPrefix
+                        ? pathname.startsWith(route.matchPrefix)
+                        : pathname.startsWith(route.href);
                     return (
                         <Link
                             key={route.href}
@@ -360,7 +312,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {/* Main Content — full height, no header */}
             <main className="flex-1 h-screen overflow-y-auto flex flex-col">
-                <div className="mx-auto p-4 md:p-8 w-full">
+                <div className="mx-auto px-4 md:px-8 pb-4 md:pb-8 w-full">
                     {children}
                 </div>
             </main>

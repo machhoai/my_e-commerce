@@ -441,9 +441,9 @@ export default function GlobalOverviewPage() {
                             </div>
                         </div>
 
-                        <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                        <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-full overflow-x-hidden pb-1 md:pb-0">
                             {/* Week Selector */}
-                            <div className="flex flex-1 items-center gap-1.5 shrink-0">
+                            <div className="flex flex-1 items-center gap-1.5 shrink-0 w-full">
                                 <button onClick={previousWeek} className="p-2.5 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 shadow-sm bg-white" title="Tuần trước">
                                     <ChevronLeft className="size-5 text-slate-600" />
                                 </button>
@@ -455,51 +455,53 @@ export default function GlobalOverviewPage() {
                                 </button>
                             </div>
 
-                            {/* Shift Selector (Only visible in Shift Mode) */}
-                            {viewMode === 'shift' && (
-                                <div className="w-fit flex flex-1 items-center gap-2 md:mr-2">
-                                    <select
-                                        value={selectedShift}
-                                        onChange={(e) => setSelectedShift(e.target.value)}
-                                        className="bg-slate-50 w-full border border-slate-200 text-slate-800 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2 outline-none font-medium h-[42px]"
-                                    >
-                                        {shifts.map(shift => (
-                                            <option key={shift} value={shift}>{shift}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
+                            <div className="flex flex-col flex-1 sm:flex-none md:flex-row items-center justify-between w-full sm:w-fit gap-2">
+                                {/* Shift Selector (Only visible in Shift Mode) */}
+                                {viewMode === 'shift' && (
+                                    <div className="w-full sm:w-fit flex flex-1 items-center gap-2 md:mr-2 bg-white">
+                                        <select
+                                            value={selectedShift}
+                                            onChange={(e) => setSelectedShift(e.target.value)}
+                                            className="bg-white w-full sm:w-fit border border-slate-200 text-slate-800 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2 outline-none font-medium h-[42px]"
+                                        >
+                                            {shifts.map(shift => (
+                                                <option key={shift} value={shift}>{shift}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
 
-                            {/* Export Buttons */}
-                            <div className="flex items-center gap-2 shrink-0">
-                                <button
-                                    onClick={exportAsImage}
-                                    disabled={isExporting || loading}
-                                    className={cn(
-                                        "flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border transition-all shadow-sm",
-                                        isExporting || loading
-                                            ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
-                                            : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 active:scale-95"
-                                    )}
-                                    title="Xuất ảnh PNG"
-                                >
-                                    {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />}
-                                    <span className="hidden sm:inline">Xuất Ảnh</span>
-                                </button>
-                                <button
-                                    onClick={exportAsPDF}
-                                    disabled={isExporting || loading}
-                                    className={cn(
-                                        "flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border transition-all shadow-sm",
-                                        isExporting || loading
-                                            ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
-                                            : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:border-blue-300 active:scale-95"
-                                    )}
-                                    title="Xuất file PDF"
-                                >
-                                    {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                                    <span className="hidden sm:inline">Xuất PDF</span>
-                                </button>
+                                {/* Export Buttons */}
+                                <div className="flex items-center gap-2 shrink-0 w-full">
+                                    <button
+                                        onClick={exportAsImage}
+                                        disabled={isExporting || loading}
+                                        className={cn(
+                                            "flex items-center flex-1 sm:flex-none gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border transition-all shadow-sm",
+                                            isExporting || loading
+                                                ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                                                : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 active:scale-95"
+                                        )}
+                                        title="Xuất ảnh PNG"
+                                    >
+                                        {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />}
+                                        <span className="inline">Xuất Ảnh</span>
+                                    </button>
+                                    <button
+                                        onClick={exportAsPDF}
+                                        disabled={isExporting || loading}
+                                        className={cn(
+                                            "flex items-center flex-1 sm:flex-none gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border transition-all shadow-sm",
+                                            isExporting || loading
+                                                ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                                                : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:border-blue-300 active:scale-95"
+                                        )}
+                                        title="Xuất file PDF"
+                                    >
+                                        {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                                        <span className="inline">Xuất PDF</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 

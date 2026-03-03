@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     }
 }
 
-// POST /api/kpi-records — Employee self-score
+// POST /api/kpi-records — Employee self-score or manager scoring on behalf
 export async function POST(req: NextRequest) {
     try {
         const token = req.headers.get('Authorization')?.split('Bearer ')[1];
@@ -45,7 +45,20 @@ export async function POST(req: NextRequest) {
         const adminDb = getAdminDb();
 
         const body = await req.json();
-        const { storeId, shiftId, date, counterId, templateId, details } = body;
+        const { storeId, shiftId, date, counterId, templateId, details, userId: targetUserId } = body;
+
+        // If manager/admin is creating on behalf of an employee, use the provided userId
+        // Otherwise, use the caller's own uid (self-scoring)
+        let effectiveUserId = decoded.uid;
+        if (targetUserId && targetUserId !== decoded.uid) {
+            // Check that caller has permission to create records for others
+            const callerDoc = await adminDb.collection('users').doc(decoded.uid).get();
+            const callerRole = callerDoc.data()?.role;
+            if (!['admin', 'store_manager', 'manager'].includes(callerRole)) {
+                return NextResponse.json({ error: 'Không có quyền chấm điểm cho nhân viên khác' }, { status: 403 });
+            }
+            effectiveUserId = targetUserId;
+        }
 
         if (!storeId || !shiftId || !date || !counterId || !templateId || !Array.isArray(details)) {
             return NextResponse.json({ error: 'Dữ liệu không hợp lệ' }, { status: 400 });
@@ -62,7 +75,7 @@ export async function POST(req: NextRequest) {
 
         // Check for existing record
         const existingSnap = await adminDb.collection('kpi_records')
-            .where('userId', '==', decoded.uid)
+            .where('userId', '==', effectiveUserId)
             .where('date', '==', date)
             .where('shiftId', '==', shiftId)
             .where('counterId', '==', counterId)
@@ -76,7 +89,7 @@ export async function POST(req: NextRequest) {
         const record = {
             id: docRef.id,
             storeId,
-            userId: decoded.uid,
+            userId: effectiveUserId,
             shiftId,
             date,
             counterId,
