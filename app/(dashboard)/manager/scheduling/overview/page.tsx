@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { registerVietnameseFont } from '@/lib/pdf-font';
 
 type ViewMode = 'employee' | 'shift';
 
@@ -329,8 +330,9 @@ export default function GlobalOverviewPage() {
         setIsExporting(true);
         try {
             const doc = new jsPDF('landscape', 'mm', 'a4');
+            await registerVietnameseFont(doc);
             doc.setFontSize(14);
-            doc.text(`Lich Tong Quan Tuan: ${weekId}`, 14, 15);
+            doc.text(`Lịch Tổng Quan Tuần: ${weekId}`, 14, 15);
 
             /** Strip [TAG] markers from text for PDF display */
             const stripTags = (text: string) => text.replace(/\[(FT|PT|QL|CTH)\]/g, '');
@@ -362,6 +364,7 @@ export default function GlobalOverviewPage() {
                     startY: 22,
                     theme: 'grid',
                     styles: {
+                        font: 'Roboto',
                         fontSize: 6,
                         halign: 'center',
                         valign: 'middle',
@@ -411,6 +414,7 @@ export default function GlobalOverviewPage() {
                     startY: 22,
                     theme: 'grid',
                     styles: {
+                        font: 'Roboto',
                         fontSize: 7,
                         halign: 'center',
                         valign: 'middle',
