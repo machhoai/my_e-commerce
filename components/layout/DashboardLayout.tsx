@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -106,6 +106,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             href: '/employee/kpi-stats',
             icon: BarChart3,
             show: userDoc?.role !== 'admin',
+        },
+        {
+            label: 'Kho quầy',
+            href: '/employee/inventory/usage',
+            icon: ScanBarcode,
+            show: userDoc?.role !== 'admin',
+            matchPrefix: '/employee/inventory',
         },
         {
             label: 'Hồ sơ cá nhân',

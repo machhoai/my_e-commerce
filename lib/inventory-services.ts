@@ -14,6 +14,48 @@ import type {
     TransactionStatus,
 } from '@/types/inventory';
 
+// ── Verify Counter Access (Shift-based Authorization) ───────────
+// Checks if a user is actively assigned (by manager) to a specific
+// counter for today. Queries the `schedules` collection.
+export async function verifyCounterAccess(
+    userId: string,
+    counterId: string
+): Promise<{ isAuthorized: boolean; shiftId?: string; error?: string }> {
+    const db = getAdminDb();
+
+    // Get today's date in Vietnam timezone (YYYY-MM-DD)
+    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+
+    // Query schedules for today at the requested counter
+    const schedulesSnap = await db
+        .collection('schedules')
+        .where('date', '==', today)
+        .where('counterId', '==', counterId)
+        .get();
+
+    if (schedulesSnap.empty) {
+        return {
+            isAuthorized: false,
+            error: `Không có ca trực nào tại quầy này hôm nay (${today}).`,
+        };
+    }
+
+    // Check if the user is in assignedByManagerUids for any of today's shifts
+    for (const doc of schedulesSnap.docs) {
+        const schedule = doc.data();
+        const assignedByManager: string[] = schedule.assignedByManagerUids || [];
+
+        if (assignedByManager.includes(userId)) {
+            return { isAuthorized: true, shiftId: schedule.shiftId };
+        }
+    }
+
+    return {
+        isAuthorized: false,
+        error: 'Bạn không có ca trực tại quầy này hôm nay để thực hiện thao tác kho.',
+    };
+}
+
 // ── Record a new inventory transaction ──────────────────────────
 // Writes an immutable ledger entry to `inventory_transactions`.
 export async function recordTransaction(data: {
