@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
             id: counterRef.id,
             name: body.name.trim(),
             storeId: effectiveStoreId,
+            isActive: true,
         };
         await counterRef.set(counterDoc);
 
