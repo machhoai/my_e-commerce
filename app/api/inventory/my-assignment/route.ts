@@ -35,13 +35,13 @@ export async function GET(req: NextRequest) {
 
             if (assignedByManager.includes(decoded.uid)) {
                 // Fetch counter name for display
-                let counterName = schedule.counterId;
+                let counterName = 'Quầy (không xác định)';
                 try {
                     const counterSnap = await db.collection('counters').doc(schedule.counterId).get();
-                    if (counterSnap.exists) {
-                        counterName = counterSnap.data()?.name || schedule.counterId;
+                    if (counterSnap.exists && counterSnap.data()?.name) {
+                        counterName = counterSnap.data()!.name;
                     }
-                } catch { /* use counterId as fallback */ }
+                } catch { /* use friendly fallback */ }
 
                 return NextResponse.json({
                     isAuthorized: true,

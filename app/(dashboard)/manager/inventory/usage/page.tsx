@@ -3,8 +3,11 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCounterAssignment } from '@/hooks/useCounterAssignment';
-import { ScanBarcode, Lock, CheckCircle2, AlertCircle, Package, Send, Minus, Plus } from 'lucide-react';
+import { ScanBarcode, Lock, CheckCircle2, AlertCircle, Package, Send, Minus, Plus, Camera } from 'lucide-react';
 import type { ProductDoc } from '@/types/inventory';
+import dynamic from 'next/dynamic';
+
+const BarcodeScanner = dynamic(() => import('@/components/inventory/BarcodeScanner'), { ssr: false });
 
 export default function UsagePage() {
     const { user } = useAuth();
@@ -17,6 +20,7 @@ export default function UsagePage() {
     const [loading, setLoading] = useState(false);
     const [lookupLoading, setLookupLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
+    const [showScanner, setShowScanner] = useState(false);
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
@@ -52,6 +56,12 @@ export default function UsagePage() {
             e.preventDefault();
             lookupBarcode(barcode);
         }
+    };
+
+    const handleCameraScan = (decodedText: string) => {
+        setShowScanner(false);
+        setBarcode(decodedText);
+        lookupBarcode(decodedText);
     };
 
     const handleSubmit = async () => {
@@ -160,6 +170,13 @@ export default function UsagePage() {
                         />
                     </div>
                     <button
+                        onClick={() => setShowScanner(true)}
+                        className="p-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-colors"
+                        title="Quét bằng camera"
+                    >
+                        <Camera className="w-5 h-5" />
+                    </button>
+                    <button
                         onClick={() => lookupBarcode(barcode)}
                         disabled={lookupLoading || !barcode.trim()}
                         className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-xl font-bold text-sm transition-colors"
@@ -231,6 +248,14 @@ export default function UsagePage() {
                     {message.type === 'error' ? <AlertCircle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
                     {message.text}
                 </div>
+            )}
+
+            {/* Camera Scanner Modal */}
+            {showScanner && (
+                <BarcodeScanner
+                    onScanSuccess={handleCameraScan}
+                    onClose={() => setShowScanner(false)}
+                />
             )}
         </div>
     );
