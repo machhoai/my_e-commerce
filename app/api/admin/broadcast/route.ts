@@ -18,8 +18,9 @@ export async function POST(request: Request) {
         const { getAdminDb } = await import('@/lib/firebase-admin');
         const adminDb = getAdminDb();
         const requesterDoc = await adminDb.collection('users').doc(requestUid).get();
-        if (!requesterDoc.exists || requesterDoc.data()?.role !== 'admin') {
-            return NextResponse.json({ error: 'Chỉ Quản trị viên mới có quyền gửi thông báo hàng loạt' }, { status: 403 });
+        const requesterRole = requesterDoc.data()?.role;
+        if (!requesterDoc.exists || (requesterRole !== 'admin' && requesterRole !== 'store_manager')) {
+            return NextResponse.json({ error: 'Chỉ Quản trị viên hoặc Cửa hàng trưởng mới có quyền gửi thông báo hàng loạt' }, { status: 403 });
         }
 
         const body = await request.json();

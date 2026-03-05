@@ -27,7 +27,7 @@ const ROLE_BADGE_CLASS: Record<string, string> = {
 };
 
 function AdminUsersPageContent() {
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const { params, setParam, setParams, clearAll, toggleSort, activeFilterCount, setPage, setPageSize } = useTableParams();
 
     // Store selector state
@@ -47,7 +47,7 @@ function AdminUsersPageContent() {
 
     // User list state
     const [users, setUsers] = useState<UserDoc[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     // Modal states
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -72,17 +72,20 @@ function AdminUsersPageContent() {
     const [actionMessage, setActionMessage] = useState({ type: '', text: '' });
     const [customRoles, setCustomRoles] = useState<CustomRoleDoc[]>([]);
 
-    // Table toolbar configuration
+    // Table toolbar configuration — role options built dynamically from customRoles
+    const roleFilterOptions = customRoles.length > 0
+        ? customRoles.map(r => ({ value: r.isSystem ? r.id : `custom:${r.id}`, label: r.name }))
+        : [
+            { value: 'admin', label: 'Quản trị viên' },
+            { value: 'store_manager', label: 'CH Trưởng' },
+            { value: 'manager', label: 'Quản lý' },
+            { value: 'employee', label: 'Nhân viên' },
+        ];
     const tableFilters = [
         {
             key: 'role',
             label: 'Vai trò',
-            options: [
-                { value: 'admin', label: 'Quản trị viên' },
-                { value: 'store_manager', label: 'CH Trưởng' },
-                { value: 'manager', label: 'Quản lý' },
-                { value: 'employee', label: 'Nhân viên' },
-            ],
+            options: roleFilterOptions,
         },
         {
             key: 'type',
@@ -141,7 +144,7 @@ function AdminUsersPageContent() {
 
     // Subscribe to users filtered by selected store (or all if none selected)
     useEffect(() => {
-        if (!user) return;
+        if (authLoading || !user) return;
         setLoading(true);
         const q = selectedStoreId
             ? query(collection(db, 'users'), where('storeId', '==', selectedStoreId), orderBy('name'))
@@ -149,9 +152,12 @@ function AdminUsersPageContent() {
         const unsubscribe = onSnapshot(q, (snap) => {
             setUsers(snap.docs.map(d => d.data() as UserDoc));
             setLoading(false);
-        }, () => setLoading(false));
+        }, (err) => {
+            console.error('Error fetching users:', err);
+            setLoading(false);
+        });
         return () => unsubscribe();
-    }, [user, selectedStoreId]);
+    }, [authLoading, user, selectedStoreId]);
 
     const resetForm = () => {
         setNewName(''); setNewPhone(''); setNewRole('employee'); setNewType('PT');
@@ -253,17 +259,24 @@ function AdminUsersPageContent() {
     };
 
     const selectedStoreName = stores.find(s => s.id === selectedStoreId)?.name;
-    const filtered = processTableData(users, {
-        searchQuery: params.q,
-        searchFields: ['name', 'phone'] as (keyof UserDoc)[],
-        filters: [
-            { field: 'role' as keyof UserDoc, value: params.role || '' },
-            { field: 'type' as keyof UserDoc, value: params.type || '' },
-            { field: 'isActive' as keyof UserDoc, value: params.status || '' },
-        ],
-        sortField: (params.sort as keyof UserDoc) || undefined,
-        sortOrder: params.order as 'asc' | 'desc',
-    });
+    const roleFilterValue = params.role || '';
+    const isCustomRoleFilter = roleFilterValue.startsWith('custom:');
+    const filtered = processTableData(
+        isCustomRoleFilter
+            ? users.filter(u => u.customRoleId === roleFilterValue.slice(7))
+            : users,
+        {
+            searchQuery: params.q,
+            searchFields: ['name', 'phone'] as (keyof UserDoc)[],
+            filters: [
+                ...(!isCustomRoleFilter && roleFilterValue ? [{ field: 'role' as keyof UserDoc, value: roleFilterValue }] : []),
+                { field: 'type' as keyof UserDoc, value: params.type || '' },
+                { field: 'isActive' as keyof UserDoc, value: params.status || '' },
+            ],
+            sortField: (params.sort as keyof UserDoc) || undefined,
+            sortOrder: params.order as 'asc' | 'desc',
+        }
+    );
 
     const currentPage = Number(params.page) || 1;
     const currentPageSize = Number(params.pageSize) || 10;
@@ -380,9 +393,36 @@ function AdminUsersPageContent() {
                                                     </td>
                                                     <td className="px-4 py-3.5 text-slate-500 font-mono text-xs">{u.phone}</td>
                                                     <td className="px-4 py-3.5 text-center">
-                                                        <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border', ROLE_BADGE_CLASS[u.role] ?? 'bg-slate-100 text-slate-600')}>
-                                                            {ROLE_LABELS[u.role] ?? u.role}
-                                                        </span>
+                                                        {(() => {
+                                                            const colorMap: Record<string, string> = {
+                                                                red: 'bg-red-50 text-red-700 border-red-100',
+                                                                purple: 'bg-purple-50 text-purple-700 border-purple-100',
+                                                                amber: 'bg-amber-50 text-amber-700 border-amber-100',
+                                                                blue: 'bg-blue-50 text-blue-700 border-blue-100',
+                                                                emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                                                                indigo: 'bg-indigo-50 text-indigo-700 border-indigo-100',
+                                                                pink: 'bg-pink-50 text-pink-700 border-pink-100',
+                                                                slate: 'bg-slate-100 text-slate-600 border-slate-200',
+                                                            };
+                                                            // Check custom role first
+                                                            if (u.customRoleId) {
+                                                                const cr = customRoles.find(r => r.id === u.customRoleId);
+                                                                if (cr) {
+                                                                    return (
+                                                                        <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border', colorMap[cr.color || 'slate'])}>
+                                                                            {cr.name}
+                                                                        </span>
+                                                                    );
+                                                                }
+                                                            }
+                                                            // Fallback: find system role
+                                                            const sysRole = customRoles.find(r => r.isSystem && r.id === u.role);
+                                                            return (
+                                                                <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border', sysRole ? colorMap[sysRole.color || 'slate'] : (ROLE_BADGE_CLASS[u.role] ?? 'bg-slate-100 text-slate-600'))}>
+                                                                    {sysRole?.name ?? ROLE_LABELS[u.role] ?? u.role}
+                                                                </span>
+                                                            );
+                                                        })()}
                                                     </td>
                                                     <td className="px-4 py-3.5 text-center">
                                                         <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border',
@@ -504,12 +544,10 @@ function AdminUsersPageContent() {
                                             }}
                                             className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5"
                                         >
-                                            <option value="employee">Nhân viên</option>
-                                            <option value="manager">Quản lý</option>
-                                            <option value="store_manager">Cửa hàng trưởng</option>
-                                            <option value="admin">Quản trị viên</option>
                                             {customRoles.map(r => (
-                                                <option key={r.id} value={`custom:${r.id}`}>{r.name}</option>
+                                                <option key={r.id} value={r.isSystem ? r.id : `custom:${r.id}`}>
+                                                    {r.name}{r.isSystem ? '' : ' ✦'}
+                                                </option>
                                             ))}
                                         </select>
                                     </div>

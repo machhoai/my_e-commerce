@@ -58,3 +58,61 @@ export function exportKpiToExcel(rows: KpiRow[], month: string) {
 
     XLSX.writeFile(wb, `KPI_${month}.xlsx`);
 }
+
+export interface KpiDetailedRecord {
+    employeeName: string;
+    date: string;
+    shiftId: string;
+    criteriaScores: { name: string; officialScore: number; maxScore: number }[];
+    officialTotal: number;
+    scorerName: string;
+}
+
+/**
+ * Export detailed KPI records to Excel with individual criteria columns.
+ * Only OFFICIAL records are included.
+ */
+export function exportKpiDetailedExcel(
+    records: KpiDetailedRecord[],
+    label: string, // e.g. "2026-03" or "01/03 - 15/03/2026"
+) {
+    if (records.length === 0) return;
+
+    // Collect all unique criteria names (in order of first appearance)
+    const criteriaNames: string[] = [];
+    records.forEach(r => {
+        r.criteriaScores.forEach(c => {
+            if (!criteriaNames.includes(c.name)) criteriaNames.push(c.name);
+        });
+    });
+
+    // Build rows
+    const data = records.map((r, i) => {
+        const row: Record<string, string | number> = {
+            '#': i + 1,
+            'Nhân viên': r.employeeName,
+            'Ngày': r.date,
+            'Ca': r.shiftId,
+        };
+        criteriaNames.forEach(name => {
+            const cs = r.criteriaScores.find(c => c.name === name);
+            row[name] = cs ? cs.officialScore : '';
+        });
+        row['Tổng điểm'] = r.officialTotal;
+        row['Người chấm'] = r.scorerName;
+        return row;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'KPI Chi Tiết');
+
+    // Auto-width columns
+    const keys = Object.keys(data[0] || {});
+    ws['!cols'] = keys.map(key => ({
+        wch: Math.max(key.length, ...data.map(r => String(r[key] ?? '').length)) + 2,
+    }));
+
+    const safeLabel = label.replace(/[/\\?*[\]]/g, '-');
+    XLSX.writeFile(wb, `KPI_ChiTiet_${safeLabel}.xlsx`);
+}

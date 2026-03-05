@@ -2,7 +2,61 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { CustomRoleDoc, AppPermission } from '@/types';
 
-// GET /api/roles — list all custom roles (any authenticated user, to populate dropdowns)
+// System roles to auto-seed if collection is empty
+const SYSTEM_ROLES: Omit<CustomRoleDoc, 'createdAt' | 'createdBy'>[] = [
+    {
+        id: 'admin',
+        name: 'Quản trị viên',
+        permissions: ['view_overview', 'view_history', 'view_schedule', 'edit_schedule', 'view_users', 'manage_hr', 'manage_kpi_templates', 'score_employees', 'view_all_kpi', 'export_kpi'],
+        isSystem: true,
+        isLocked: true,
+        creatorRoles: ['admin'],
+        color: 'red',
+    },
+    {
+        id: 'store_manager',
+        name: 'Cửa hàng trưởng',
+        permissions: ['view_overview', 'view_history', 'view_schedule', 'edit_schedule', 'view_users', 'manage_hr', 'manage_kpi_templates', 'score_employees', 'view_all_kpi', 'export_kpi'],
+        isSystem: true,
+        isLocked: false,
+        creatorRoles: ['admin'],
+        color: 'purple',
+    },
+    {
+        id: 'manager',
+        name: 'Quản lý',
+        permissions: ['view_overview', 'view_history'],
+        isSystem: true,
+        isLocked: false,
+        creatorRoles: ['admin', 'store_manager'],
+        color: 'amber',
+    },
+    {
+        id: 'employee',
+        name: 'Nhân viên',
+        permissions: ['register_shift'],
+        isSystem: true,
+        isLocked: false,
+        creatorRoles: ['admin', 'store_manager'],
+        color: 'blue',
+    },
+];
+
+async function ensureSystemRoles(adminDb: FirebaseFirestore.Firestore) {
+    const col = adminDb.collection('custom_roles');
+    // Check if system roles already exist
+    const adminSnap = await col.doc('admin').get();
+    if (adminSnap.exists) return; // Already seeded
+
+    const batch = adminDb.batch();
+    for (const role of SYSTEM_ROLES) {
+        const { id, ...data } = role;
+        batch.set(col.doc(id), { ...data, createdAt: new Date().toISOString(), createdBy: 'system' });
+    }
+    await batch.commit();
+}
+
+// GET /api/roles — list all roles (system + custom)
 export async function GET(req: NextRequest) {
     try {
         const token = req.headers.get('Authorization')?.split('Bearer ')[1];
@@ -12,6 +66,8 @@ export async function GET(req: NextRequest) {
         await adminAuth.verifyIdToken(token);
 
         const adminDb = getAdminDb();
+        await ensureSystemRoles(adminDb);
+
         const snap = await adminDb.collection('custom_roles').orderBy('name').get();
         const roles = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
@@ -22,7 +78,7 @@ export async function GET(req: NextRequest) {
     }
 }
 
-// POST /api/roles — create a new custom role (admin only)
+// POST /api/roles — create a new role (admin only)
 export async function POST(req: NextRequest) {
     try {
         const token = req.headers.get('Authorization')?.split('Bearer ')[1];
@@ -37,7 +93,13 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Chỉ admin mới có quyền tạo role' }, { status: 403 });
         }
 
-        const body = await req.json() as { name: string; permissions: AppPermission[]; allowStoreManager?: boolean };
+        const body = await req.json() as {
+            name: string;
+            permissions: AppPermission[];
+            creatorRoles?: string[];
+            color?: string;
+        };
+
         if (!body.name?.trim()) {
             return NextResponse.json({ error: 'Tên role không được để trống' }, { status: 400 });
         }
@@ -45,7 +107,10 @@ export async function POST(req: NextRequest) {
         const newRole: Omit<CustomRoleDoc, 'id'> = {
             name: body.name.trim(),
             permissions: body.permissions || [],
-            allowStoreManager: Boolean(body.allowStoreManager),
+            creatorRoles: body.creatorRoles || ['admin'],
+            color: body.color || undefined,
+            isSystem: false,
+            isLocked: false,
             createdAt: new Date().toISOString(),
             createdBy: decoded.uid,
         };

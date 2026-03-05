@@ -37,7 +37,10 @@ export interface CustomRoleDoc {
     id: string;
     name: string;
     permissions: AppPermission[];
-    allowStoreManager?: boolean; // Whether store_manager can use this role when creating accounts
+    isSystem?: boolean;         // Built-in role (admin, store_manager, manager, employee) — cannot be deleted
+    isLocked?: boolean;         // Fully locked (admin role) — cannot be edited or deleted
+    creatorRoles: string[];     // Which role IDs are allowed to create/assign this role
+    color?: string;             // Display color for the role badge
     createdAt?: string;
     createdBy?: string;
 }
@@ -119,6 +122,7 @@ export interface CounterDoc {
     id: string;
     name: string;
     storeId: string; // Each counter now belongs to a specific store
+    isActive: boolean; // Whether this counter is active for inventory tracking
 }
 
 export interface SettingsDoc {

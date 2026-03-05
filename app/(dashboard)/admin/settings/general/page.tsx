@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Settings as SettingsIcon, Save, Plus, X, AlertCircle, CheckCircle2, Store, Clock, Users, Timer, Building2, ShieldAlert } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Plus, X, AlertCircle, CheckCircle2, Store, Clock, Users, Timer, Building2, ShieldAlert, Package, Pencil } from 'lucide-react';
 import { SettingsDoc, CounterDoc, RegistrationSchedule, StoreDoc } from '@/types';
 
 export default function AdminSettingsPage() {
@@ -178,7 +178,7 @@ export default function AdminSettingsPage() {
 
         setCounters([
             ...counters,
-            { id: `counter_${generateId()}`, name: newCounter.trim(), storeId: '' }
+            { id: `counter_${generateId()}`, name: newCounter.trim(), storeId: '', isActive: true }
         ]);
         setNewCounter('');
         setSuccess('Đã thêm quầy. Nhớ bấm Lưu.');
@@ -187,6 +187,16 @@ export default function AdminSettingsPage() {
     const handleRemoveCounter = (idToRemove: string) => {
         setCounters(counters.filter(c => c.id !== idToRemove));
         setSuccess('Đã xóa quầy. Nhớ bấm Lưu.');
+    };
+
+    const handleToggleCounter = (id: string) => {
+        setCounters(counters.map(c => c.id === id ? { ...c, isActive: !(c.isActive !== false) } : c));
+        setSuccess('Đã thay đổi trạng thái. Nhớ bấm Lưu.');
+    };
+
+    const handleRenameCounter = (id: string, newName: string) => {
+        if (!newName.trim()) return;
+        setCounters(counters.map(c => c.id === id ? { ...c, name: newName.trim() } : c));
     };
 
     const handleAddSpecialDate = () => {
@@ -775,13 +785,40 @@ export default function AdminSettingsPage() {
                                     <p className="text-sm text-slate-400 text-center py-4 bg-slate-50 rounded-lg border border-dashed">Chưa có quầy nào</p>
                                 ) : (
                                     counters.map(counter => (
-                                        <div key={counter.id} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl group hover:border-amber-200 transition-colors">
-                                            <span className="text-sm font-semibold text-slate-700 group-hover:text-amber-700">
-                                                {counter.name}
-                                            </span>
+                                        <div key={counter.id} className={`flex items-center justify-between p-3 border rounded-xl group transition-colors ${counter.isActive !== false
+                                            ? 'bg-slate-50 border-slate-100 hover:border-amber-200'
+                                            : 'bg-slate-100/50 border-slate-200 opacity-60'
+                                            }`}>
+                                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                {/* Active toggle */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleToggleCounter(counter.id)}
+                                                    className={`relative w-9 h-5 flex rounded-full transition-colors shrink-0 ${counter.isActive !== false ? 'bg-emerald-500' : 'bg-slate-300'
+                                                        }`}
+                                                    title={counter.isActive !== false ? 'Bật' : 'Tắt'}
+                                                >
+                                                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${counter.isActive !== false ? 'translate-x-full' : 'translate-x-0.5'
+                                                        }`} />
+                                                </button>
+                                                {/* Counter name — editable */}
+                                                <input
+                                                    type="text"
+                                                    value={counter.name}
+                                                    onChange={e => handleRenameCounter(counter.id, e.target.value)}
+                                                    className="text-sm font-semibold text-slate-700 bg-transparent border-none outline-none focus:bg-white focus:ring-1 focus:ring-amber-300 rounded px-1.5 py-0.5 w-full min-w-0"
+                                                />
+                                                {/* Inventory badge */}
+                                                {counter.isActive !== false && (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded shrink-0">
+                                                        <Package className="w-3 h-3" />
+                                                        Kho
+                                                    </span>
+                                                )}
+                                            </div>
                                             <button
                                                 onClick={() => handleRemoveCounter(counter.id)}
-                                                className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors"
+                                                className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors ml-2 shrink-0"
                                             >
                                                 <X className="w-4 h-4" />
                                             </button>

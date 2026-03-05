@@ -22,7 +22,7 @@ export default function TabbedLayout({ tabs, children }: TabbedLayoutProps) {
     return (
         <div className="space-y-0">
             {/* Tab Navigation Bar */}
-            <div className="bg-white border-b border-slate-200 -mx-4 md:-mx-8 px-2 overflow-x-auto md:px-8 sticky top-0 z-10">
+            <div className="bg-white border-b border-slate-200 -mx-4 md:-mx-8 px-2 overflow-x-auto md:px-8 sticky top-0 z-50">
                 <nav
                     className="flex gap-1 overflow-x-auto no-scrollbar py-1"
                     role="tablist"

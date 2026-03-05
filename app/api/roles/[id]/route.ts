@@ -20,31 +20,59 @@ function handleError(err: unknown) {
     return NextResponse.json({ error: message }, { status: 500 });
 }
 
-// PUT /api/roles/[id] — update role name, permissions and/or allowStoreManager (admin only)
+// PUT /api/roles/[id] — update role (admin only). Blocked if isLocked.
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { adminDb } = await requireAdmin(req);
         const { id } = await params;
-        const body = await req.json() as { name?: string; permissions?: AppPermission[]; allowStoreManager?: boolean };
+
+        // Check if locked
+        const roleDoc = await adminDb.collection('custom_roles').doc(id).get();
+        if (!roleDoc.exists) {
+            return NextResponse.json({ error: 'Không tìm thấy role' }, { status: 404 });
+        }
+        if (roleDoc.data()?.isLocked) {
+            return NextResponse.json({ error: 'Role này không thể chỉnh sửa (đã bị khóa)' }, { status: 403 });
+        }
+
+        const body = await req.json() as {
+            name?: string;
+            permissions?: AppPermission[];
+            creatorRoles?: string[];
+            color?: string;
+        };
+
         const updateData: Record<string, unknown> = {};
         if (body.name !== undefined) updateData.name = body.name.trim();
         if (body.permissions !== undefined) updateData.permissions = body.permissions;
-        if (body.allowStoreManager !== undefined) updateData.allowStoreManager = Boolean(body.allowStoreManager);
+        if (body.creatorRoles !== undefined) updateData.creatorRoles = body.creatorRoles;
+        if (body.color !== undefined) updateData.color = body.color;
+
         if (Object.keys(updateData).length === 0) {
             return NextResponse.json({ error: 'Không có dữ liệu cập nhật' }, { status: 400 });
         }
+
         await adminDb.collection('custom_roles').doc(id).update(updateData);
         return NextResponse.json({ message: 'Đã cập nhật role' });
     } catch (err) { return handleError(err); }
 }
 
-// DELETE /api/roles/[id] — delete role (admin only). Blocked if any user still has this role.
+// DELETE /api/roles/[id] — delete role (admin only). Blocked if isSystem or users still use it.
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { adminDb } = await requireAdmin(req);
         const { id } = await params;
 
-        // Check if any users currently hold this custom role
+        // Check if system role
+        const roleDoc = await adminDb.collection('custom_roles').doc(id).get();
+        if (!roleDoc.exists) {
+            return NextResponse.json({ error: 'Không tìm thấy role' }, { status: 404 });
+        }
+        if (roleDoc.data()?.isSystem) {
+            return NextResponse.json({ error: 'Không thể xóa role hệ thống' }, { status: 403 });
+        }
+
+        // Check if any users currently hold this role
         const usersSnap = await adminDb.collection('users')
             .where('customRoleId', '==', id)
             .get();

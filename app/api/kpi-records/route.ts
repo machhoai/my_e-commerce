@@ -15,13 +15,17 @@ export async function GET(req: NextRequest) {
         const userId = req.nextUrl.searchParams.get('userId');
         const date = req.nextUrl.searchParams.get('date');
         const month = req.nextUrl.searchParams.get('month'); // e.g. "2026-03"
+        const dateFrom = req.nextUrl.searchParams.get('dateFrom'); // e.g. "2026-03-01"
+        const dateTo = req.nextUrl.searchParams.get('dateTo');     // e.g. "2026-03-15"
 
         if (!storeId) return NextResponse.json({ error: 'Thiếu storeId' }, { status: 400 });
 
         let q: FirebaseFirestore.Query = adminDb.collection('kpi_records').where('storeId', '==', storeId);
         if (userId) q = q.where('userId', '==', userId);
         if (date) q = q.where('date', '==', date);
-        if (month) {
+        if (dateFrom && dateTo) {
+            q = q.where('date', '>=', dateFrom).where('date', '<=', dateTo);
+        } else if (month) {
             q = q.where('date', '>=', `${month}-01`).where('date', '<=', `${month}-31`);
         }
 

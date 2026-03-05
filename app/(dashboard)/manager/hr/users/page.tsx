@@ -55,11 +55,13 @@ function ManagerUsersPageContent() {
         {
             key: 'role',
             label: 'Vai trò',
-            options: [
-                { value: 'store_manager', label: 'CH Trưởng' },
-                { value: 'manager', label: 'Quản lý' },
-                { value: 'employee', label: 'Nhân viên' },
-            ],
+            options: customRoles.length > 0
+                ? customRoles.filter(r => !r.isLocked).map(r => ({ value: r.isSystem ? r.id : `custom:${r.id}`, label: r.name }))
+                : [
+                    { value: 'store_manager', label: 'CH Trưởng' },
+                    { value: 'manager', label: 'Quản lý' },
+                    { value: 'employee', label: 'Nhân viên' },
+                ],
         },
         {
             key: 'status',
@@ -303,17 +305,24 @@ function ManagerUsersPageContent() {
     const storeMap = new Map(stores.map(s => [s.id, s.name]));
 
     const isKpiSort = params.sort === 'kpi';
-    let filteredEmployees = processTableData(employees, {
-        searchQuery: params.q,
-        searchFields: ['name', 'phone'] as (keyof UserDoc)[],
-        filters: [
-            { field: 'type' as keyof UserDoc, value: params.type || '' },
-            { field: 'role' as keyof UserDoc, value: params.role || '' },
-            { field: 'isActive' as keyof UserDoc, value: params.status || '' },
-        ],
-        sortField: isKpiSort ? undefined : (params.sort as keyof UserDoc) || undefined,
-        sortOrder: params.order as 'asc' | 'desc',
-    });
+    const roleFilterValue = params.role || '';
+    const isCustomRoleFilter = roleFilterValue.startsWith('custom:');
+    let filteredEmployees = processTableData(
+        isCustomRoleFilter
+            ? employees.filter(u => u.customRoleId === roleFilterValue.slice(7))
+            : employees,
+        {
+            searchQuery: params.q,
+            searchFields: ['name', 'phone'] as (keyof UserDoc)[],
+            filters: [
+                { field: 'type' as keyof UserDoc, value: params.type || '' },
+                ...(!isCustomRoleFilter && roleFilterValue ? [{ field: 'role' as keyof UserDoc, value: roleFilterValue }] : []),
+                { field: 'isActive' as keyof UserDoc, value: params.status || '' },
+            ],
+            sortField: isKpiSort ? undefined : (params.sort as keyof UserDoc) || undefined,
+            sortOrder: params.order as 'asc' | 'desc',
+        }
+    );
 
     // Custom sort by KPI average
     if (isKpiSort) {
@@ -482,26 +491,34 @@ function ManagerUsersPageContent() {
                                                         </td>
                                                         <td className="px-6 py-4">
                                                             {(() => {
+                                                                const colorMap: Record<string, string> = {
+                                                                    red: 'bg-red-100 text-red-700',
+                                                                    purple: 'bg-purple-100 text-purple-700',
+                                                                    amber: 'bg-amber-100 text-amber-700',
+                                                                    blue: 'bg-blue-100 text-blue-700',
+                                                                    emerald: 'bg-emerald-100 text-emerald-700',
+                                                                    indigo: 'bg-indigo-100 text-indigo-700',
+                                                                    pink: 'bg-pink-100 text-pink-700',
+                                                                    slate: 'bg-slate-100 text-slate-600',
+                                                                };
                                                                 // Check custom role first
                                                                 if (e.customRoleId) {
-                                                                    const customRole = customRoles.find(r => r.id === e.customRoleId);
-                                                                    if (customRole) {
+                                                                    const cr = customRoles.find(r => r.id === e.customRoleId);
+                                                                    if (cr) {
                                                                         return (
-                                                                            <span className={`px-2 truncate py-1 text-[10px] font-bold uppercase rounded bg-amber-100 text-amber-700 ${!isActive ? 'opacity-50' : ''}`}>
-                                                                                {customRole.name}
+                                                                            <span className={`px-2 truncate py-1 text-[10px] font-bold uppercase rounded ${colorMap[cr.color || 'slate'] || 'bg-slate-100 text-slate-600'} ${!isActive ? 'opacity-50' : ''}`}>
+                                                                                {cr.name}
                                                                             </span>
                                                                         );
                                                                     }
                                                                 }
-                                                                const roleMap: Record<string, { label: string; className: string }> = {
-                                                                    store_manager: { label: 'Cửa hàng trưởng', className: 'bg-indigo-100 text-indigo-700' },
-                                                                    manager: { label: 'Quản lý', className: 'bg-violet-100 text-violet-700' },
-                                                                    employee: { label: 'Nhân viên', className: 'bg-slate-100 text-slate-600' },
-                                                                };
-                                                                const r = roleMap[e.role] ?? { label: e.role, className: 'bg-slate-100 text-slate-600' };
+                                                                // Fallback: find system role by user's role field
+                                                                const sysRole = customRoles.find(r => r.isSystem && r.id === e.role);
+                                                                const roleName = sysRole?.name ?? (e.role === 'store_manager' ? 'CH Trưởng' : e.role === 'manager' ? 'Quản lý' : e.role === 'admin' ? 'Admin' : 'Nhân viên');
+                                                                const roleColor = sysRole ? colorMap[sysRole.color || 'slate'] : 'bg-slate-100 text-slate-600';
                                                                 return (
-                                                                    <span className={`px-2 py-1 text-[10px] font-bold uppercase truncate rounded ${r.className} ${!isActive ? 'opacity-50' : ''}`}>
-                                                                        {r.label}
+                                                                    <span className={`px-2 py-1 text-[10px] font-bold uppercase truncate rounded ${roleColor} ${!isActive ? 'opacity-50' : ''}`}>
+                                                                        {roleName}
                                                                     </span>
                                                                 );
                                                             })()}
@@ -638,15 +655,19 @@ function ManagerUsersPageContent() {
                                                     </select>
                                                 </div>
                                                 {(userDoc?.role === 'store_manager' || userDoc?.role === 'admin') && (() => {
-                                                    const eligibleRoles = userDoc?.role === 'store_manager'
-                                                        ? customRoles.filter(r => r.allowStoreManager)
-                                                        : customRoles;
+                                                    // Filter roles this user can assign (based on creatorRoles), exclude admin and locked roles
+                                                    const eligibleRoles = customRoles.filter(r =>
+                                                        !r.isLocked && r.creatorRoles?.includes(userDoc?.role ?? '')
+                                                    );
+                                                    // Determine current value: if customRoleId is set, use custom: prefix, otherwise use the system role
                                                     const selectValue = newCustomRoleId ? `custom:${newCustomRoleId}` : newRole;
                                                     const handleRoleChange = (val: string) => {
                                                         if (val.startsWith('custom:')) {
+                                                            // Non-system custom role
                                                             setNewRole('employee');
                                                             setNewCustomRoleId(val.slice(7));
                                                         } else {
+                                                            // System role (employee, manager, store_manager)
                                                             setNewRole(val as UserRole);
                                                             setNewCustomRoleId('');
                                                         }
@@ -663,16 +684,14 @@ function ManagerUsersPageContent() {
                                                                     onChange={e => handleRoleChange(e.target.value)}
                                                                     className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 cursor-pointer"
                                                                 >
-                                                                    <option value="employee">Nhân viên</option>
-                                                                    <option value="manager">Quản lý</option>
-                                                                    {eligibleRoles.length > 0 && (
-                                                                        eligibleRoles.map(r => (
-                                                                            <option key={r.id} value={`custom:${r.id}`}>{r.name}</option>
-                                                                        ))
-                                                                    )}
+                                                                    {eligibleRoles.map(r => (
+                                                                        <option key={r.id} value={r.isSystem ? r.id : `custom:${r.id}`}>
+                                                                            {r.name}{r.isSystem ? '' : ' ✦'}
+                                                                        </option>
+                                                                    ))}
                                                                 </select>
-                                                                {userDoc?.role === 'store_manager' && eligibleRoles.length === 0 && customRoles.length > 0 && (
-                                                                    <p className="text-[10px] text-amber-600">Admin cần bật &quot;Cho phép CH Trưởng&quot; để dùng role tùy chỉnh.</p>
+                                                                {eligibleRoles.length === 0 && (
+                                                                    <p className="text-[10px] text-amber-600">Không có vai trò nào khả dụng cho bạn.</p>
                                                                 )}
                                                             </div>
                                                             <label className="flex items-center gap-2.5 cursor-pointer p-3 border border-slate-200 rounded-lg bg-slate-50 hover:bg-blue-50/50 hover:border-blue-200 transition-colors">

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3 } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -114,13 +114,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             show: userDoc?.role !== 'admin',
         },
 
-        // ── Manager / Store Manager macro-categories ──
+        // ── Nhân sự group ──
         {
             label: 'Lịch làm việc',
             href: '/manager/scheduling/overview',
             icon: Calendar,
             show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || hasPermission('view_overview') || hasPermission('view_schedule') || hasPermission('edit_schedule') || hasPermission('view_history'),
             matchPrefix: '/manager/scheduling',
+            group: 'Nhân sự',
         },
         {
             label: 'Nhân sự & KPI',
@@ -128,14 +129,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             icon: Users,
             show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || hasPermission('manage_hr') || hasPermission('view_users') || hasPermission('score_employees') || hasPermission('view_all_kpi'),
             matchPrefix: '/manager/hr',
+            group: 'Nhân sự',
         },
 
-        // ── Admin-specific ──
+        // ── Kho hàng group ──
+        {
+            label: 'Quản lý Kho',
+            href: '/manager/inventory/order',
+            icon: Package,
+            show: userDoc?.role === 'admin' || userDoc?.role === 'store_manager',
+            matchPrefix: '/manager/inventory',
+            group: 'Kho hàng',
+        },
+        {
+            label: 'Kho tổng',
+            href: '/admin/inventory/stock',
+            icon: Package,
+            show: userDoc?.role === 'admin',
+            matchPrefix: '/admin/inventory',
+            group: 'Kho hàng',
+        },
+
+        // ── Admin-specific (Hệ thống group) ──
         {
             label: 'Quản lý Người dùng',
             href: '/admin/users',
             icon: Users,
             show: userDoc?.role === 'admin',
+            group: 'Hệ thống',
         },
         {
             label: 'Cài đặt hệ thống',
@@ -143,6 +164,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             icon: SettingsIcon,
             show: userDoc?.role === 'admin',
             matchPrefix: '/admin/settings',
+            group: 'Hệ thống',
         },
 
         // ── Store Manager settings ──
@@ -169,6 +191,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     };
 
     const isNotificationsActive = pathname === '/notifications';
+
+    // Build grouped visible routes
+    const visibleRoutes = routes.filter(r => r.show);
 
     const SidebarContent = () => (
         <div className="flex flex-col h-full">
@@ -201,28 +226,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
             </div>
 
-            <nav className="flex-1 px-4 space-y-2 mt-2 overflow-y-auto">
-                {routes.filter(r => r.show).map((route) => {
-                    const isActive = route.matchPrefix
-                        ? pathname.startsWith(route.matchPrefix)
-                        : pathname.startsWith(route.href);
-                    return (
-                        <Link
-                            key={route.href}
-                            href={route.href}
-                            onClick={() => setMobileOpen(false)}
-                            className={cn(
-                                'flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium',
-                                isActive
-                                    ? 'bg-blue-600 text-white'
-                                    : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'
-                            )}
-                        >
-                            <route.icon className="w-4 h-4 shrink-0" />
-                            {route.label}
-                        </Link>
-                    );
-                })}
+            <nav className="flex-1 px-4 space-y-1 mt-2 overflow-y-auto">
+                {(() => {
+                    let lastGroup = '';
+                    return visibleRoutes.map((route) => {
+                        const isActive = route.matchPrefix
+                            ? pathname.startsWith(route.matchPrefix)
+                            : pathname.startsWith(route.href);
+
+                        // Render group header if new group
+                        const showGroupHeader = route.group && route.group !== lastGroup;
+                        if (route.group) lastGroup = route.group;
+
+                        return (
+                            <div key={route.href}>
+                                {showGroupHeader && (
+                                    <div className="pt-4 mt-2 pb-1 px-3 first:pt-0">
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{route.group}</p>
+                                    </div>
+                                )}
+                                <Link
+                                    href={route.href}
+                                    onClick={() => setMobileOpen(false)}
+                                    className={cn(
+                                        'flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium',
+                                        isActive
+                                            ? 'bg-blue-600 text-white'
+                                            : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'
+                                    )}
+                                >
+                                    <route.icon className="w-4 h-4 shrink-0" />
+                                    {route.label}
+                                </Link>
+                            </div>
+                        );
+                    });
+                })()}
 
                 {/* Notification Nav Item with Badge */}
                 <Link
