@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { UserDoc, EmployeeType, UserRole, StoreDoc, CustomRoleDoc } from '@/types';
-import { Users, Search, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Plus, MailPlus, KeyRound, Building2, Shield } from 'lucide-react';
+import { Users, Search, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Plus, MailPlus, KeyRound, Building2, Shield, Award } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTableParams } from '@/hooks/useTableParams';
 import { processTableData } from '@/lib/processTableData';
@@ -40,6 +40,7 @@ function ManagerUsersPageContent() {
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [actionMessage, setActionMessage] = useState({ type: '', text: '' });
     const [customRoles, setCustomRoles] = useState<CustomRoleDoc[]>([]);
+    const [kpiAverages, setKpiAverages] = useState<Record<string, { avgOfficial: number; count: number }>>({});
 
     // Table toolbar configuration
     const tableFilters = [
@@ -74,6 +75,7 @@ function ManagerUsersPageContent() {
         { value: 'name', label: 'Họ tên' },
         { value: 'type', label: 'Loại HĐ' },
         { value: 'role', label: 'Vai trò' },
+        { value: 'kpi', label: 'KPI TB' },
     ];
 
     // Admin store selector
@@ -106,6 +108,21 @@ function ManagerUsersPageContent() {
         }
         fetchStores();
     }, [userDoc, user, getToken]);
+
+    // Fetch KPI averages
+    useEffect(() => {
+        const effectiveStoreId = userDoc?.role === 'admin' ? selectedAdminStoreId : userDoc?.storeId;
+        if (!effectiveStoreId || !user) { setKpiAverages({}); return; }
+        (async () => {
+            try {
+                const token = await getToken();
+                const res = await fetch(`/api/kpi-records/averages?storeId=${effectiveStoreId}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (res.ok) setKpiAverages(await res.json());
+            } catch { /* silent */ }
+        })();
+    }, [user, userDoc, selectedAdminStoreId, getToken]);
 
     // Fetch custom roles for the dropdown
     useEffect(() => {
@@ -285,7 +302,8 @@ function ManagerUsersPageContent() {
     // Build storeId → name lookup map for rendering the Store column in the table
     const storeMap = new Map(stores.map(s => [s.id, s.name]));
 
-    const filteredEmployees = processTableData(employees, {
+    const isKpiSort = params.sort === 'kpi';
+    let filteredEmployees = processTableData(employees, {
         searchQuery: params.q,
         searchFields: ['name', 'phone'] as (keyof UserDoc)[],
         filters: [
@@ -293,9 +311,19 @@ function ManagerUsersPageContent() {
             { field: 'role' as keyof UserDoc, value: params.role || '' },
             { field: 'isActive' as keyof UserDoc, value: params.status || '' },
         ],
-        sortField: (params.sort as keyof UserDoc) || undefined,
+        sortField: isKpiSort ? undefined : (params.sort as keyof UserDoc) || undefined,
         sortOrder: params.order as 'asc' | 'desc',
     });
+
+    // Custom sort by KPI average
+    if (isKpiSort) {
+        const dir = params.order === 'desc' ? -1 : 1;
+        filteredEmployees = [...filteredEmployees].sort((a, b) => {
+            const aScore = kpiAverages[a.uid]?.avgOfficial ?? -1;
+            const bScore = kpiAverages[b.uid]?.avgOfficial ?? -1;
+            return (aScore - bScore) * dir;
+        });
+    }
 
     const currentPage = Number(params.page) || 1;
     const currentPageSize = Number(params.pageSize) || 10;
@@ -417,6 +445,7 @@ function ManagerUsersPageContent() {
                                             <SortableHeader label="Loại HĐ" field="type" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-6 text-center" />
                                             <SortableHeader label="Vai trò" field="role" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-6 text-center" />
                                             {userDoc?.role === 'admin' && <th scope="col" className="px-6 py-4 text-center font-semibold">Cửa hàng</th>}
+                                            <SortableHeader label="KPI TB" field="kpi" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-6 text-center" />
                                             <th scope="col" className="px-6 py-4 text-center font-semibold truncate">Trạng thái</th>
                                             <th scope="col" className="px-6 py-4 text-center font-semibold truncate">Hành động</th>
                                         </tr>
@@ -424,13 +453,13 @@ function ManagerUsersPageContent() {
                                     <tbody className="divide-y divide-slate-100">
                                         {loading ? (
                                             <tr>
-                                                <td colSpan={userDoc?.role === 'admin' ? 6 : 5} className="py-12 text-center">
+                                                <td colSpan={userDoc?.role === 'admin' ? 7 : 6} className="py-12 text-center">
                                                     <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
                                                 </td>
                                             </tr>
                                         ) : filteredEmployees.length === 0 ? (
                                             <tr>
-                                                <td colSpan={userDoc?.role === 'admin' ? 6 : 5} className="py-12 text-center text-slate-400">Không tìm thấy nhân viên nào</td>
+                                                <td colSpan={userDoc?.role === 'admin' ? 7 : 6} className="py-12 text-center text-slate-400">Không tìm thấy nhân viên nào</td>
                                             </tr>
                                         ) : (
                                             paginatedEmployees.map((e) => {
@@ -484,6 +513,20 @@ function ManagerUsersPageContent() {
                                                                 </span>
                                                             </td>
                                                         )}
+                                                        <td className="px-6 py-4 text-center">
+                                                            {(() => {
+                                                                const kpi = kpiAverages[e.uid];
+                                                                if (!kpi || kpi.count === 0) return <span className="text-slate-300">—</span>;
+                                                                const score = kpi.avgOfficial;
+                                                                const colorClass = score >= 80 ? 'bg-emerald-100 text-emerald-700' : score >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700';
+                                                                return (
+                                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold ${colorClass} ${!isActive ? 'opacity-50' : ''}`} title={`${kpi.count} lượt chấm`}>
+                                                                        <Award className="w-3 h-3" />
+                                                                        {score}
+                                                                    </span>
+                                                                );
+                                                            })()}
+                                                        </td>
                                                         <td className="px-6 py-4">
                                                             <span className={`inline-flex truncate items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold ${isActive ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-100 text-slate-500 border border-slate-200'}
                                                                 }`}>

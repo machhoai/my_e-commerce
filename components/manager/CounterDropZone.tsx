@@ -3,6 +3,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import { UserDoc, CounterDoc } from '@/types';
 import { X, AlertTriangle, UserCog, MousePointerClick } from 'lucide-react';
+import { shortName } from '@/lib/utils';
 
 interface Props {
     counter: CounterDoc;
@@ -109,7 +110,7 @@ export default function CounterDropZone({
                             >
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-1.5">
-                                        <p className={`font-medium text-sm truncate ${isForcedAssign ? 'text-amber-800' : 'text-slate-700'}`}>{user.name}</p>
+                                        <p className={`font-medium text-sm truncate ${user.role === 'store_manager' ? 'text-red-600' : user.role === 'manager' ? 'text-amber-600' : user.type === 'FT' ? 'text-blue-600' : 'text-emerald-600'}`}>{shortName(user.name)}</p>
                                         {isForcedAssign && (
                                             <span
                                                 className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-200 text-amber-800 shrink-0"
@@ -119,16 +120,6 @@ export default function CounterDropZone({
                                                 Gán ca
                                             </span>
                                         )}
-                                    </div>
-                                    <div className="flex gap-1">
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase mt-0.5 inline-block ${user.type === 'FT' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-                                            }`}>
-                                            {user.type === 'FT' ? 'FT' : 'PT'}
-                                        </span>
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase mt-0.5 inline-block ${user.role === 'store_manager' ? 'bg-red-100 text-red-700' : user.role === 'employee' ? 'bg-purple-100 text-purple-700' : 'bg-amber-100 text-amber-700'
-                                            }`}>
-                                            {user.role === 'store_manager' ? 'CTH' : user.role === 'employee' ? 'NV' : 'QL'}
-                                        </span>
                                     </div>
                                 </div>
                                 <button

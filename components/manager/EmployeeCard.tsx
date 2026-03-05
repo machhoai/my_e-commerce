@@ -1,6 +1,7 @@
 import { useDraggable } from '@dnd-kit/core';
 import { UserDoc } from '@/types';
 import { GripVertical, UserCog, X, MousePointerClick } from 'lucide-react';
+import { shortName } from '@/lib/utils';
 
 interface Props {
     user: UserDoc;
@@ -69,18 +70,10 @@ export default function EmployeeCard({
                     : <GripVertical className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
                 }
                 <div className="flex-1 min-w-0">
-                    <p className={`font-medium truncate ${isClickSelected ? 'text-blue-700' : isManagerAssigned ? 'text-amber-900' : isSelected ? 'text-emerald-900' : 'text-slate-700'}`}>
-                        {user.name}
+                    <p className={`font-medium truncate ${isClickSelected ? 'text-blue-700' : user.role === 'store_manager' ? 'text-red-600' : user.role === 'manager' ? 'text-amber-600' : user.type === 'FT' ? 'text-blue-600' : 'text-emerald-600'}`}>
+                        {shortName(user.name)}
                     </p>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${user.type === 'FT' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-                            }`}>
-                            {typeLabel(user.type)}
-                        </span>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase inline-block ${user.role === 'store_manager' ? 'bg-red-100 text-red-700' : user.role === 'employee' ? 'bg-purple-100 text-purple-700' : 'bg-amber-100 text-amber-700'
-                            }`}>
-                            {user.role === 'store_manager' ? 'CTH' : user.role === 'employee' ? 'NV' : 'QL'}
-                        </span>
                         {isClickSelected && (
                             <span className="text-[10px] text-blue-600 font-bold flex items-center gap-0.5 animate-pulse">
                                 Đang chọn...

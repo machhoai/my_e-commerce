@@ -28,9 +28,14 @@ export async function GET(req: NextRequest) {
         const snap = await q.get();
         const records = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         return NextResponse.json(records);
-    } catch (err) {
-        console.error('[KpiRecords GET]', err);
-        return NextResponse.json({ error: 'Lỗi hệ thống' }, { status: 500 });
+    } catch (err: any) {
+        console.error('[KpiRecords GET]', err?.message || err);
+        const message = err?.message || 'Lỗi hệ thống';
+        // If it's a missing index error, include the link in the response
+        if (message.includes('index')) {
+            console.error('[KpiRecords GET] Missing Firestore index. Check the error above for a creation link.');
+        }
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
 

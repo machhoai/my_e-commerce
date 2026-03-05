@@ -69,3 +69,13 @@ export function defaultPassword(phone: string): string {
     const cleaned = phone.replace(/\D/g, '');
     return cleaned.slice(-6);
 }
+
+/**
+ * Keep only the last 2 words of a Vietnamese full name (1 middle name + first name).
+ * Names with ≤2 words are kept as-is.
+ * E.g. "Mạch Lâm Quốc Hoài" → "Quốc Hoài", "Trương Linh" → "Trương Linh"
+ */
+export function shortName(fullName: string): string {
+    const parts = fullName.trim().split(/\s+/);
+    return parts.length > 2 ? parts.slice(-2).join(' ') : fullName;
+}
