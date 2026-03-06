@@ -1,12 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     Package, Plus, Pencil, X, Save, Search, CheckCircle2, AlertCircle,
-    ToggleLeft, ToggleRight, Tag, Barcode, DollarSign, MapPin, Layers
+    ToggleLeft, ToggleRight, Tag, Barcode, DollarSign, MapPin, Layers, ImagePlus, Upload
 } from 'lucide-react';
 import type { ProductDoc } from '@/types/inventory';
+import Portal from '@/components/Portal';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import imageCompression from 'browser-image-compression';
+import ExcelImportModal from '@/components/inventory/ExcelImportModal';
 
 interface Category { id: string; name: string; }
 
@@ -30,6 +35,15 @@ export default function ProductManagementPage() {
     const [form, setForm] = useState<Partial<ProductDoc>>(EMPTY_FORM);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
+
+    // Image state — deferred upload pattern:
+    // compress on select → upload only inside handleSave
+    const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string>('');
+    const [imageCompressing, setImageCompressing] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadStatus, setUploadStatus] = useState<'compressing' | 'uploading' | ''>('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
@@ -64,27 +78,132 @@ export default function ProductManagementPage() {
         })();
     }, [user, getToken]);
 
-    const openAdd = () => { setEditingId(null); setForm(EMPTY_FORM); setModalOpen(true); setMessage({ type: '', text: '' }); };
-    const openEdit = (p: ProductDoc) => { setEditingId(p.id); setForm({ ...p }); setModalOpen(true); setMessage({ type: '', text: '' }); };
+    const openAdd = () => {
+        setEditingId(null);
+        setForm(EMPTY_FORM);
+        setModalOpen(true);
+        setMessage({ type: '', text: '' });
+        setPendingImageFile(null);
+        setImagePreview('');
+        setUploadProgress(0);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+    const openEdit = (p: ProductDoc) => {
+        setEditingId(p.id);
+        setForm({ ...p });
+        setModalOpen(true);
+        setMessage({ type: '', text: '' });
+        setPendingImageFile(null);          // no pending file yet
+        setImagePreview(p.image || '');    // show existing image
+        setUploadProgress(0);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
 
+    // ── Step 1: File selected → compress only, NO Firebase call ───
+    const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+            setMessage({ type: 'error', text: 'Chỉ chấp nhận JPG, PNG hoặc WebP.' });
+            return;
+        }
+        if (file.size > 20 * 1024 * 1024) {
+            setMessage({ type: 'error', text: 'File quá lớn (tối đa 20 MB).' });
+            return;
+        }
+
+        setImageCompressing(true);
+        setUploadStatus('compressing');
+        setMessage({ type: '', text: '' });
+
+        // Revoke any previous blob URL to prevent memory leaks
+        if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
+
+        try {
+            const compressed = await imageCompression(file, {
+                maxSizeMB: 0.2,
+                maxWidthOrHeight: 800,
+                useWebWorker: true,
+                fileType: 'image/webp',
+            });
+
+            console.log(
+                `[ImageCompress] ${(file.size / 1024).toFixed(0)} KB → ${(compressed.size / 1024).toFixed(0)} KB`,
+                `(saved ${(((file.size - compressed.size) / file.size) * 100).toFixed(0)}%)`
+            );
+
+            setPendingImageFile(compressed);
+            setImagePreview(URL.createObjectURL(compressed)); // local blob preview
+            setMessage({ type: '', text: `Ảnh đã sẵn sàng (${(compressed.size / 1024).toFixed(0)} KB). Nhấn Lưu để hoàn tất.` });
+        } catch {
+            setMessage({ type: 'error', text: 'Nén ảnh thất bại. Vui lòng chọn lại.' });
+        } finally {
+            setImageCompressing(false);
+            setUploadStatus('');
+        }
+    };
+
+    // Helper: upload a pending compressed file to Firebase Storage
+    const uploadPendingImage = async (existingImageUrl: string): Promise<string> => {
+        if (!pendingImageFile) return existingImageUrl;
+
+        // Delete old Storage image to save quota
+        if (existingImageUrl.includes('firebasestorage')) {
+            try { await deleteObject(ref(storage, existingImageUrl)); } catch { /* already gone */ }
+        }
+
+        setUploadStatus('uploading');
+        setUploadProgress(0);
+        const storageRef = ref(storage, `products/${Date.now()}_${pendingImageFile.name.replace(/\.webp$/, '')}.webp`);
+        const uploadTask = uploadBytesResumable(storageRef, pendingImageFile);
+
+        return new Promise<string>((resolve, reject) => {
+            uploadTask.on(
+                'state_changed',
+                snap => setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
+                reject,
+                async () => resolve(await getDownloadURL(uploadTask.snapshot.ref)),
+            );
+        });
+    };
+
+    // ── Step 2: Save → upload pending image first, then save doc ─
     const handleSave = async () => {
         if (!form.name?.trim()) { setMessage({ type: 'error', text: 'Tên sản phẩm không được để trống' }); return; }
         setSaving(true);
         setMessage({ type: '', text: '' });
         try {
+            // Upload image to Storage only now (no orphan files if user cancelled)
+            let finalImageUrl = form.image || '';
+            if (pendingImageFile) {
+                setUploadStatus('uploading');
+                finalImageUrl = await uploadPendingImage(finalImageUrl);
+                setUploadStatus('');
+                // Revoke blob URL after successful upload
+                if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
+            }
+
             const token = await getToken();
             const method = editingId ? 'PUT' : 'POST';
-            const body = editingId ? { id: editingId, ...form } : form;
+            const body = editingId
+                ? { id: editingId, ...form, image: finalImageUrl }
+                : { ...form, image: finalImageUrl };
             const res = await fetch('/api/inventory/products', {
                 method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify(body),
             });
             if (!res.ok) throw new Error((await res.json()).error);
+            setPendingImageFile(null);
             setModalOpen(false);
             fetchProducts();
-        } catch (err: any) {
-            setMessage({ type: 'error', text: err.message || 'Có lỗi xảy ra' });
-        } finally { setSaving(false); }
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Có lỗi xảy ra';
+            setMessage({ type: 'error', text: msg });
+        } finally {
+            setSaving(false);
+            setUploadStatus('');
+        }
     };
 
     const toggleActive = async (p: ProductDoc) => {
@@ -122,10 +241,13 @@ export default function ProductManagementPage() {
                     </h1>
                     <p className="text-slate-500 mt-1">Danh mục sản phẩm trong hệ thống kho ({products.length} sản phẩm)</p>
                 </div>
-                <button onClick={openAdd}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-md transition-colors">
-                    <Plus className="w-4 h-4" /> Thêm sản phẩm
-                </button>
+                <div className="flex items-center gap-2">
+                    <ExcelImportModal getToken={async () => getToken()} onSuccess={fetchProducts} />
+                    <button onClick={openAdd}
+                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-md transition-colors">
+                        <Plus className="w-4 h-4" /> Thêm sản phẩm
+                    </button>
+                </div>
             </div>
 
             {/* Filters */}
@@ -218,90 +340,175 @@ export default function ProductManagementPage() {
 
             {/* Add/Edit Modal */}
             {modalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
-                        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                            <h2 className="text-lg font-bold text-slate-800">{editingId ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới'}</h2>
-                            <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-700 p-1"><X className="w-5 h-5" /></button>
-                        </div>
-
-                        {message.text && (
-                            <div className={`mx-6 mt-4 p-3 rounded-lg flex items-center gap-2 text-sm ${message.type === 'error' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
-                                {message.type === 'error' ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
-                                {message.text}
+                <Portal>
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
+                            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                                <h2 className="text-lg font-bold text-slate-800">{editingId ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới'}</h2>
+                                <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-700 p-1"><X className="w-5 h-5" /></button>
                             </div>
-                        )}
 
-                        <div className="p-6 space-y-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="sm:col-span-2">
-                                    <label className="text-xs font-bold text-slate-600 flex items-center gap-1 mb-1"><Tag className="w-3 h-3" /> Tên hàng hóa *</label>
-                                    <input value={form.name || ''} onChange={e => updateForm('name', e.target.value)}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" placeholder="VD: Nước suối Aquafina 500ml" />
+                            {message.text && (
+                                <div className={`mx-6 mt-4 p-3 rounded-lg flex items-center gap-2 text-sm ${message.type === 'error' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                                    {message.type === 'error' ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                                    {message.text}
                                 </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-600 flex items-center gap-1 mb-1"><Barcode className="w-3 h-3" /> Mã nội bộ</label>
-                                    <input value={form.companyCode || ''} onChange={e => updateForm('companyCode', e.target.value)}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-600 flex items-center gap-1 mb-1"><Barcode className="w-3 h-3" /> Mã vạch</label>
-                                    <input value={form.barcode || ''} onChange={e => updateForm('barcode', e.target.value)}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-600 flex items-center gap-1 mb-1"><Layers className="w-3 h-3" /> Danh mục</label>
-                                    <select value={form.category || ''} onChange={e => updateForm('category', e.target.value)}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300">
-                                        <option value="">-- Chọn --</option>
-                                        {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-600 mb-1 block">Đơn vị tính</label>
-                                    <input value={form.unit || ''} onChange={e => updateForm('unit', e.target.value)}
-                                        placeholder="VD: Thùng, Hộp, Cái"
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-600 flex items-center gap-1 mb-1"><DollarSign className="w-3 h-3" /> Giá hóa đơn (nhập)</label>
-                                    <input type="number" min={0} value={form.invoicePrice || ''} onChange={e => updateForm('invoicePrice', e.target.value)}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-600 flex items-center gap-1 mb-1"><DollarSign className="w-3 h-3" /> Giá thực tế (bán)</label>
-                                    <input type="number" min={0} value={form.actualPrice || ''} onChange={e => updateForm('actualPrice', e.target.value)}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-600 flex items-center gap-1 mb-1"><MapPin className="w-3 h-3" /> Xuất xứ</label>
-                                    <input value={form.origin || ''} onChange={e => updateForm('origin', e.target.value)}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-600 mb-1 block">Tồn kho tối thiểu</label>
-                                    <input type="number" min={0} value={form.minStock || ''} onChange={e => updateForm('minStock', e.target.value)}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" />
-                                </div>
-                                <div className="sm:col-span-2">
-                                    <label className="text-xs font-bold text-slate-600 mb-1 block">URL Hình ảnh</label>
-                                    <input value={form.image || ''} onChange={e => updateForm('image', e.target.value)}
-                                        placeholder="https://..."
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" />
+                            )}
+
+                            <div className="p-6 space-y-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="sm:col-span-2">
+                                        <label className="text-xs font-bold text-slate-600 flex items-center gap-1 mb-1"><Tag className="w-3 h-3" /> Tên hàng hóa *</label>
+                                        <input value={form.name || ''} onChange={e => updateForm('name', e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" placeholder="VD: Nước suối Aquafina 500ml" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-600 flex items-center gap-1 mb-1"><Barcode className="w-3 h-3" /> Mã nội bộ</label>
+                                        <input value={form.companyCode || ''} onChange={e => updateForm('companyCode', e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-600 flex items-center gap-1 mb-1"><Barcode className="w-3 h-3" /> Mã vạch</label>
+                                        <input value={form.barcode || ''} onChange={e => updateForm('barcode', e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-600 flex items-center gap-1 mb-1"><Layers className="w-3 h-3" /> Danh mục</label>
+                                        <select value={form.category || ''} onChange={e => updateForm('category', e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300">
+                                            <option value="">-- Chọn --</option>
+                                            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-600 mb-1 block">Đơn vị tính</label>
+                                        <input value={form.unit || ''} onChange={e => updateForm('unit', e.target.value)}
+                                            placeholder="VD: Thùng, Hộp, Cái"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-600 flex items-center gap-1 mb-1"><DollarSign className="w-3 h-3" /> Giá hóa đơn (nhập)</label>
+                                        <input type="number" min={0} value={form.invoicePrice || ''} onChange={e => updateForm('invoicePrice', e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-600 flex items-center gap-1 mb-1"><DollarSign className="w-3 h-3" /> Giá thực tế (bán)</label>
+                                        <input type="number" min={0} value={form.actualPrice || ''} onChange={e => updateForm('actualPrice', e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-600 flex items-center gap-1 mb-1"><MapPin className="w-3 h-3" /> Xuất xứ</label>
+                                        <input value={form.origin || ''} onChange={e => updateForm('origin', e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-600 mb-1 block">Tồn kho tối thiểu</label>
+                                        <input type="number" min={0} value={form.minStock || ''} onChange={e => updateForm('minStock', e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" />
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                        <label className="text-xs font-bold text-slate-600 mb-2 flex items-center gap-1">
+                                            <ImagePlus className="w-3 h-3" /> Hình ảnh sản phẩm
+                                        </label>
+
+                                        {/* Preview area */}
+                                        <div
+                                            onClick={() => !imageCompressing && fileInputRef.current?.click()}
+                                            className={`relative w-full h-36 rounded-xl border-2 border-dashed overflow-hidden flex items-center justify-center cursor-pointer transition-colors ${imageCompressing ? 'border-violet-300 bg-violet-50' : 'border-slate-200 bg-slate-50 hover:border-blue-400 hover:bg-blue-50/50'
+                                                }`}
+                                        >
+                                            {imagePreview ? (
+                                                <img src={imagePreview} alt="preview" className="w-full h-full object-contain" />
+                                            ) : (
+                                                <div className="flex flex-col items-center gap-2 text-slate-400">
+                                                    <Upload className="w-8 h-8" />
+                                                    <p className="text-xs font-medium">Nhấn để chọn ảnh</p>
+                                                    <p className="text-[10px]">JPG, PNG, WebP — tối đa 5 MB</p>
+                                                </div>
+                                            )}
+
+                                            {/* Compression-in-progress overlay */}
+                                            {imageCompressing && (
+                                                <div className="absolute inset-0 bg-white/85 flex flex-col items-center justify-center gap-2">
+                                                    <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                                                    <p className="text-xs font-bold text-violet-700">Đang nén ảnh...</p>
+                                                </div>
+                                            )}
+                                            {/* Upload-in-progress overlay (shown during Save) */}
+                                            {!imageCompressing && uploadStatus === 'uploading' && (
+                                                <div className="absolute inset-0 bg-white/85 flex flex-col items-center justify-center gap-2">
+                                                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                                    <p className="text-xs font-bold text-blue-700">Đang tải lên... {uploadProgress}%</p>
+                                                    <div className="w-3/4 bg-slate-200 rounded-full h-1.5">
+                                                        <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Hidden file input */}
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            className="hidden"
+                                            onChange={handleImageSelect}
+                                        />
+
+                                        {/* Action row */}
+                                        <div className="flex items-center justify-between mt-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                disabled={imageCompressing || saving}
+                                                className="text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1 disabled:opacity-40"
+                                            >
+                                                <ImagePlus className="w-3.5 h-3.5" />
+                                                {imagePreview ? 'Đổi ảnh' : 'Chọn ảnh'}
+                                            </button>
+                                            {imagePreview && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
+                                                        setImagePreview('');
+                                                        setPendingImageFile(null);
+                                                        updateForm('image', '');
+                                                    }}
+                                                    className="text-xs text-red-400 hover:text-red-600"
+                                                >Xóa ảnh</button>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="p-6 border-t border-slate-100 flex gap-3">
-                            <button onClick={() => setModalOpen(false)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl font-medium text-sm transition-colors">Hủy</button>
-                            <button onClick={handleSave} disabled={saving}
-                                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-md">
-                                {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
-                                {editingId ? 'Cập nhật' : 'Tạo mới'}
-                            </button>
+                            <div className="p-6 border-t border-slate-100 flex gap-3">
+                                <button
+                                    onClick={() => {
+                                        // Revoke pending blob to prevent memory leak on cancel
+                                        if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
+                                        setModalOpen(false);
+                                    }}
+                                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl font-medium text-sm transition-colors"
+                                >
+                                    Hủy
+                                </button>
+                                <button onClick={handleSave} disabled={saving || imageCompressing}
+                                    className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-md">
+                                    {(saving || uploadStatus === 'uploading') ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                            {uploadStatus === 'uploading' ? 'Đang tải ảnh...' : 'Lưu dữ liệu...'}
+                                        </>
+                                    ) : (
+                                        <><Save className="w-4 h-4" />{editingId ? 'Cập nhật' : 'Tạo mới'}</>
+                                    )}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </Portal>
             )}
         </div>
     );

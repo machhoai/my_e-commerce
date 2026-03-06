@@ -2,14 +2,16 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { BookOpen, Search, Package } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 import type { ProductDoc, InventoryTransactionDoc } from '@/types/inventory';
+import type { StoreDoc } from '@/types';
 
 export default function CentralLedgerPage() {
-    const { user, userDoc } = useAuth();
+    const { user, userDoc, hasPermission } = useAuth();
     const [products, setProducts] = useState<ProductDoc[]>([]);
+    const [stores, setStores] = useState<StoreDoc[]>([]);
     const [transactions, setTransactions] = useState<InventoryTransactionDoc[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [filterProductId, setFilterProductId] = useState('');
     const [filterType, setFilterType] = useState('');
     const [dateFrom, setDateFrom] = useState('');
@@ -17,9 +19,7 @@ export default function CentralLedgerPage() {
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
-    if (userDoc && userDoc.role !== 'admin') {
-        return <div className="flex items-center justify-center h-64 text-red-500 font-bold">Chỉ quản trị viên.</div>;
-    }
+    const canAccess = userDoc?.role === 'admin' || hasPermission('manage_central_warehouse');
 
     // Fetch products
     useEffect(() => {
@@ -34,6 +34,19 @@ export default function CentralLedgerPage() {
         })();
     }, [user, getToken]);
 
+    // Fetch stores for name resolution
+    useEffect(() => {
+        if (!user) return;
+        (async () => {
+            try {
+                const token = await getToken();
+                const res = await fetch('/api/stores', { headers: { Authorization: `Bearer ${token}` } });
+                const data = await res.json();
+                setStores(Array.isArray(data) ? data : []);
+            } catch { /* silent */ }
+        })();
+    }, [user, getToken]);
+
     // Fetch transactions — only CENTRAL warehouse related
     const fetchTransactions = useCallback(async () => {
         if (!user) return;
@@ -41,7 +54,7 @@ export default function CentralLedgerPage() {
         try {
             const token = await getToken();
             const params = new URLSearchParams();
-            params.set('locationId', 'CENTRAL');
+            params.set('locationType', 'CENTRAL');
             if (filterProductId) params.set('productId', filterProductId);
             if (filterType) params.set('type', filterType);
             if (dateFrom) params.set('dateFrom', dateFrom);
@@ -57,7 +70,22 @@ export default function CentralLedgerPage() {
 
     useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 
+    // Permission guard — placed AFTER all hooks to avoid Rules of Hooks violation
+    if (userDoc && !canAccess) {
+        return <div className="flex items-center justify-center h-64 text-red-500 font-bold">Bạn không có quyền truy cập.</div>;
+    }
+
     const getProductName = (id: string) => products.find(p => p.id === id)?.name || id;
+
+    const getLocationLabel = (locationType: string, locationId: string) => {
+        if (locationType === 'CENTRAL') return 'Kho trung tâm';
+        if (locationType === 'STORE') {
+            const store = stores.find(s => s.id === locationId);
+            return store ? store.name : `CH: ${locationId}`;
+        }
+        if (locationType === 'COUNTER') return `Quầy: ${locationId}`;
+        return locationId || 'Ngoài';
+    };
 
     const TYPE_LABELS: Record<string, string> = {
         IMPORT_CENTRAL: 'Nhập kho tổng',
@@ -143,7 +171,7 @@ export default function CentralLedgerPage() {
                                             </span>
                                         </td>
                                         <td className="px-4 py-3 text-xs text-slate-500">
-                                            {tx.fromLocationType ? `${tx.fromLocationType}` : 'Ngoài'} → {tx.toLocationType || '—'}
+                                            {getLocationLabel(tx.fromLocationType, tx.fromLocationId)} → {getLocationLabel(tx.toLocationType, tx.toLocationId)}
                                         </td>
                                         <td className="px-4 py-3 text-right font-bold text-slate-800">{tx.quantity}</td>
                                         <td className="px-4 py-3 text-xs text-slate-400 max-w-[200px] truncate">{tx.note || '—'}</td>

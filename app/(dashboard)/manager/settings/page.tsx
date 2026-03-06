@@ -640,7 +640,7 @@ export default function ManagerSettingsPage() {
                                         <button
                                             type="button"
                                             onClick={() => handleToggleCounter(counter.id)}
-                                            className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${counter.isActive !== false ? 'bg-emerald-500' : 'bg-slate-300'
+                                            className={`relative w-9 h-5 flex rounded-full transition-colors shrink-0 ${counter.isActive !== false ? 'bg-emerald-500' : 'bg-slate-300'
                                                 }`}
                                             title={counter.isActive !== false ? 'Bật' : 'Tắt'}
                                         >

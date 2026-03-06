@@ -11,6 +11,7 @@ import { useTableParams } from '@/hooks/useTableParams';
 import { processTableData } from '@/lib/processTableData';
 import DataTableToolbar, { SortableHeader } from '@/components/DataTableToolbar';
 import DataTablePagination from '@/components/DataTablePagination';
+import Portal from '@/components/Portal';
 
 const ROLE_LABELS: Record<string, string> = {
     admin: 'Quản trị viên',
@@ -487,131 +488,133 @@ function AdminUsersPageContent() {
 
             {/* Create / Edit Modal */}
             {isCreateModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-                        <div className="p-6 border-b border-slate-100 flex items-center gap-3 sticky top-0 bg-white z-10">
-                            <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center">
-                                <MailPlus className="w-5 h-5" />
+                <Portal>
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+                            <div className="p-6 border-b border-slate-100 flex items-center gap-3 sticky top-0 bg-white z-10">
+                                <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center">
+                                    <MailPlus className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-900">{editUid ? 'Cập nhật Người dùng' : 'Tạo Người dùng mới'}</h3>
+                                    <p className="text-xs text-slate-500">Tài khoản Firebase Auth sẽ được tạo tự động khi thêm mới.</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-slate-900">{editUid ? 'Cập nhật Người dùng' : 'Tạo Người dùng mới'}</h3>
-                                <p className="text-xs text-slate-500">Tài khoản Firebase Auth sẽ được tạo tự động khi thêm mới.</p>
-                            </div>
-                        </div>
 
-                        <form onSubmit={handleCreateOrUpdateUser} className="p-6 space-y-5">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                {/* Left col - Basic info */}
-                                <div className="space-y-4">
-                                    <h4 className="font-semibold text-slate-800 text-sm border-b pb-2">Thông tin cơ bản</h4>
-                                    {[
-                                        { label: 'Họ và Tên *', value: newName, setter: setNewName, placeholder: 'Nguyễn Văn A', required: true },
-                                        { label: 'Số điện thoại *', value: newPhone, setter: setNewPhone, placeholder: '0901234567', required: true, disabled: !!editUid },
-                                    ].map(f => (
-                                        <div key={f.label} className="space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-700">{f.label}</label>
-                                            <input
-                                                required={f.required} disabled={f.disabled} placeholder={f.placeholder}
-                                                value={f.value} onChange={e => f.setter(e.target.value)}
-                                                className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5 disabled:bg-slate-100 disabled:text-slate-400"
-                                            />
-                                        </div>
-                                    ))}
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-slate-700">Loại hợp đồng *</label>
-                                        <select value={newType} onChange={e => setNewType(e.target.value as EmployeeType)}
-                                            className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5">
-                                            <option value="PT">Bán thời gian (PT)</option>
-                                            <option value="FT">Toàn thời gian (FT)</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-                                            <Shield className="w-3.5 h-3.5 text-violet-500" />
-                                            Vai trò *
-                                        </label>
-                                        <select
-                                            value={newCustomRoleId ? `custom:${newCustomRoleId}` : newRole}
-                                            onChange={e => {
-                                                const val = e.target.value;
-                                                if (val.startsWith('custom:')) {
-                                                    setNewRole('employee');
-                                                    setNewCustomRoleId(val.slice(7));
-                                                } else {
-                                                    setNewRole(val as UserRole);
-                                                    setNewCustomRoleId('');
-                                                }
-                                            }}
-                                            className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5"
-                                        >
-                                            {customRoles.map(r => (
-                                                <option key={r.id} value={r.isSystem ? r.id : `custom:${r.id}`}>
-                                                    {r.name}{r.isSystem ? '' : ' ✦'}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-slate-700">Cửa hàng</label>
-                                        <select value={newStoreId} onChange={e => setNewStoreId(e.target.value)}
-                                            className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5">
-                                            <option value="">(Không thuộc cửa hàng)</option>
-                                            {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                        </select>
-                                    </div>
-                                    {newRole !== 'admin' && (
-                                        <label className="flex items-center gap-2 cursor-pointer p-3 border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
-                                            <input type="checkbox" checked={newCanManageHR} onChange={e => setNewCanManageHR(e.target.checked)}
-                                                className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer" />
-                                            <div>
-                                                <span className="text-sm font-semibold text-slate-800">Quyền Quản lý Nhân sự &amp; Xếp lịch</span>
-                                                <p className="text-[10px] text-slate-500 mt-0.5">Cho phép thêm, sửa, tắt hoạt động nhân viên và phân ca.</p>
+                            <form onSubmit={handleCreateOrUpdateUser} className="p-6 space-y-5">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    {/* Left col - Basic info */}
+                                    <div className="space-y-4">
+                                        <h4 className="font-semibold text-slate-800 text-sm border-b pb-2">Thông tin cơ bản</h4>
+                                        {[
+                                            { label: 'Họ và Tên *', value: newName, setter: setNewName, placeholder: 'Nguyễn Văn A', required: true },
+                                            { label: 'Số điện thoại *', value: newPhone, setter: setNewPhone, placeholder: '0901234567', required: true, disabled: !!editUid },
+                                        ].map(f => (
+                                            <div key={f.label} className="space-y-1.5">
+                                                <label className="text-sm font-medium text-slate-700">{f.label}</label>
+                                                <input
+                                                    required={f.required} disabled={f.disabled} placeholder={f.placeholder}
+                                                    value={f.value} onChange={e => f.setter(e.target.value)}
+                                                    className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5 disabled:bg-slate-100 disabled:text-slate-400"
+                                                />
                                             </div>
-                                        </label>
-                                    )}
-                                </div>
-
-
-                                {/* Right col - Extended details */}
-                                <div className="space-y-4">
-                                    <h4 className="font-semibold text-slate-800 text-sm border-b pb-2">Thông tin bổ sung</h4>
-                                    {[
-                                        { label: 'Ngày sinh', value: newDob, setter: setNewDob, type: 'date' },
-                                        { label: 'Chức danh', value: newJobTitle, setter: setNewJobTitle, placeholder: 'VD: Nhân viên phục vụ' },
-                                        { label: 'Email thực', value: newEmail, setter: setNewEmail, placeholder: 'email@example.com', type: 'email' },
-                                        { label: 'CCCD/CMND', value: newIdCard, setter: setNewIdCard, placeholder: '0123456789' },
-                                        { label: 'Tài khoản ngân hàng', value: newBankAccount, setter: setNewBankAccount, placeholder: '123456789' },
-                                        { label: 'Học vấn', value: newEducation, setter: setNewEducation, placeholder: 'Đại học, Cao đẳng...' },
-                                    ].map(f => (
-                                        <div key={f.label} className="space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-700">{f.label}</label>
-                                            <input
-                                                type={f.type || 'text'} placeholder={f.placeholder}
-                                                value={f.value} onChange={e => f.setter(e.target.value)}
-                                                className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5"
-                                            />
+                                        ))}
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-slate-700">Loại hợp đồng *</label>
+                                            <select value={newType} onChange={e => setNewType(e.target.value as EmployeeType)}
+                                                className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5">
+                                                <option value="PT">Bán thời gian (PT)</option>
+                                                <option value="FT">Toàn thời gian (FT)</option>
+                                            </select>
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                                                <Shield className="w-3.5 h-3.5 text-violet-500" />
+                                                Vai trò *
+                                            </label>
+                                            <select
+                                                value={newCustomRoleId ? `custom:${newCustomRoleId}` : newRole}
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    if (val.startsWith('custom:')) {
+                                                        setNewRole('employee');
+                                                        setNewCustomRoleId(val.slice(7));
+                                                    } else {
+                                                        setNewRole(val as UserRole);
+                                                        setNewCustomRoleId('');
+                                                    }
+                                                }}
+                                                className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5"
+                                            >
+                                                {customRoles.map(r => (
+                                                    <option key={r.id} value={r.isSystem ? r.id : `custom:${r.id}`}>
+                                                        {r.name}{r.isSystem ? '' : ' ✦'}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-slate-700">Cửa hàng</label>
+                                            <select value={newStoreId} onChange={e => setNewStoreId(e.target.value)}
+                                                className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5">
+                                                <option value="">(Không thuộc cửa hàng)</option>
+                                                {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                            </select>
+                                        </div>
+                                        {newRole !== 'admin' && (
+                                            <label className="flex items-center gap-2 cursor-pointer p-3 border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
+                                                <input type="checkbox" checked={newCanManageHR} onChange={e => setNewCanManageHR(e.target.checked)}
+                                                    className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer" />
+                                                <div>
+                                                    <span className="text-sm font-semibold text-slate-800">Quyền Quản lý Nhân sự &amp; Xếp lịch</span>
+                                                    <p className="text-[10px] text-slate-500 mt-0.5">Cho phép thêm, sửa, tắt hoạt động nhân viên và phân ca.</p>
+                                                </div>
+                                            </label>
+                                        )}
+                                    </div>
 
-                            {actionMessage.text && isCreateModalOpen && (
-                                <div className={cn('p-3 rounded-lg text-sm', actionMessage.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700')}>
-                                    {actionMessage.text}
-                                </div>
-                            )}
 
-                            <div className="flex gap-3 pt-2">
-                                <button type="button" onClick={resetForm}
-                                    className="flex-1 border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl font-medium text-sm">Hủy</button>
-                                <button type="submit" disabled={actionLoading}
-                                    className="flex-1 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-xl font-medium text-sm disabled:opacity-50">
-                                    {actionLoading ? 'Đang lưu...' : (editUid ? 'Cập nhật' : 'Tạo mới')}
-                                </button>
-                            </div>
-                        </form>
+                                    {/* Right col - Extended details */}
+                                    <div className="space-y-4">
+                                        <h4 className="font-semibold text-slate-800 text-sm border-b pb-2">Thông tin bổ sung</h4>
+                                        {[
+                                            { label: 'Ngày sinh', value: newDob, setter: setNewDob, type: 'date' },
+                                            { label: 'Chức danh', value: newJobTitle, setter: setNewJobTitle, placeholder: 'VD: Nhân viên phục vụ' },
+                                            { label: 'Email thực', value: newEmail, setter: setNewEmail, placeholder: 'email@example.com', type: 'email' },
+                                            { label: 'CCCD/CMND', value: newIdCard, setter: setNewIdCard, placeholder: '0123456789' },
+                                            { label: 'Tài khoản ngân hàng', value: newBankAccount, setter: setNewBankAccount, placeholder: '123456789' },
+                                            { label: 'Học vấn', value: newEducation, setter: setNewEducation, placeholder: 'Đại học, Cao đẳng...' },
+                                        ].map(f => (
+                                            <div key={f.label} className="space-y-1.5">
+                                                <label className="text-sm font-medium text-slate-700">{f.label}</label>
+                                                <input
+                                                    type={f.type || 'text'} placeholder={f.placeholder}
+                                                    value={f.value} onChange={e => f.setter(e.target.value)}
+                                                    className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {actionMessage.text && isCreateModalOpen && (
+                                    <div className={cn('p-3 rounded-lg text-sm', actionMessage.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700')}>
+                                        {actionMessage.text}
+                                    </div>
+                                )}
+
+                                <div className="flex gap-3 pt-2">
+                                    <button type="button" onClick={resetForm}
+                                        className="flex-1 border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl font-medium text-sm">Hủy</button>
+                                    <button type="submit" disabled={actionLoading}
+                                        className="flex-1 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-xl font-medium text-sm disabled:opacity-50">
+                                        {actionLoading ? 'Đang lưu...' : (editUid ? 'Cập nhật' : 'Tạo mới')}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
+                </Portal>
             )}
         </div >
     );

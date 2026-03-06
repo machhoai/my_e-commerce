@@ -24,6 +24,19 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const status = searchParams.get('status');
         const storeId = searchParams.get('storeId');
+        const orderId = searchParams.get('id');
+
+        // Single order fetch by ID
+        if (orderId) {
+            const orderSnap = await db.collection('purchase_orders').doc(orderId).get();
+            if (!orderSnap.exists) return NextResponse.json([], { status: 200 });
+            const orderData = { id: orderSnap.id, ...orderSnap.data() };
+            // Check access
+            if (caller.role !== 'admin' && (orderData as any).storeId !== caller.storeId) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            }
+            return NextResponse.json([orderData]);
+        }
 
         let q: FirebaseFirestore.Query = db.collection('purchase_orders');
 

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, X, SwitchCamera } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
+import Portal from '@/components/Portal';
 
 interface BarcodeScannerProps {
     onScanSuccess: (decodedText: string) => void;
@@ -80,60 +81,62 @@ export default function BarcodeScanner({ onScanSuccess, onClose }: BarcodeScanne
     };
 
     return (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-                {/* Header */}
-                <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
-                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                        <Camera className="w-5 h-5 text-indigo-600" />
-                        Quét mã vạch
-                    </h3>
-                    <div className="flex items-center gap-1">
-                        <button
-                            onClick={handleSwitchCamera}
-                            className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
-                            title="Đổi camera"
-                        >
-                            <SwitchCamera className="w-5 h-5" />
-                        </button>
-                        <button
-                            onClick={handleClose}
-                            className="p-2 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-600 transition-colors"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Scanner viewport */}
-                <div className="relative bg-black">
-                    <div id={containerId} className="w-full" />
-                    {!error && (
-                        <p className="text-center text-white/70 text-xs py-2 bg-black/50">
-                            Hướng camera vào mã vạch sản phẩm
-                        </p>
-                    )}
-                </div>
-
-                {/* Error */}
-                {error && (
-                    <div className="px-5 py-4">
-                        <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
-                            {error}
+        <Portal>
+            <div className="fixed inset-0 z-[110] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                            <Camera className="w-5 h-5 text-indigo-600" />
+                            Quét mã vạch
+                        </h3>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={handleSwitchCamera}
+                                className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+                                title="Đổi camera"
+                            >
+                                <SwitchCamera className="w-5 h-5" />
+                            </button>
+                            <button
+                                onClick={handleClose}
+                                className="p-2 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-600 transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
                         </div>
                     </div>
-                )}
 
-                {/* Footer */}
-                <div className="px-5 py-3 border-t border-slate-200">
-                    <button
-                        onClick={handleClose}
-                        className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm transition-colors"
-                    >
-                        Đóng
-                    </button>
+                    {/* Scanner viewport */}
+                    <div className="relative bg-black">
+                        <div id={containerId} className="w-full" />
+                        {!error && (
+                            <p className="text-center text-white/70 text-xs py-2 bg-black/50">
+                                Hướng camera vào mã vạch sản phẩm
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Error */}
+                    {error && (
+                        <div className="px-5 py-4">
+                            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
+                                {error}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Footer */}
+                    <div className="px-5 py-3 border-t border-slate-200">
+                        <button
+                            onClick={handleClose}
+                            className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm transition-colors"
+                        >
+                            Đóng
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
+        </Portal>
     );
 }
