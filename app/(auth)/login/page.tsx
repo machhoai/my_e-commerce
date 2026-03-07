@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Phone, Lock, LogIn, AlertCircle } from 'lucide-react';
@@ -9,14 +9,32 @@ export default function LoginPage() {
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
-    const { login } = useAuth();
+    const [localLoading, setLocalLoading] = useState(false);
+    const { user, userDoc, loading: authLoading, login } = useAuth();
     const router = useRouter();
+
+    // Auto-redirect if user is already authenticated.
+    // This is critical for iOS PWA: when the OS restores the standalone
+    // WebView, the user may land on /login even though they're still
+    // authenticated (via IndexedDB or session cookie recovery).
+    useEffect(() => {
+        if (authLoading) return; // Wait for onAuthStateChanged to resolve
+        if (user && userDoc) {
+            // Redirect based on role
+            const roleRoutes: Record<string, string> = {
+                admin: '/admin/users',
+                store_manager: '/admin/users',
+                manager: '/manager/scheduling/overview',
+                employee: '/employee/dashboard',
+            };
+            router.replace(roleRoutes[userDoc.role] || '/employee/dashboard');
+        }
+    }, [user, userDoc, authLoading, router]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        setLoading(true);
+        setLocalLoading(true);
 
         try {
             await login(phone, password);
@@ -32,9 +50,22 @@ export default function LoginPage() {
                 setError('Đã xảy ra lỗi không xác định');
             }
         } finally {
-            setLoading(false);
+            setLocalLoading(false);
         }
     };
+
+    // Show loading spinner while auth state is being determined.
+    // This prevents flashing the login form before the redirect kicks in.
+    if (authLoading || (user && userDoc)) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-950">
+                <div className="flex flex-col items-center gap-3">
+                    <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-slate-400 text-sm">Đang kiểm tra phiên đăng nhập...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
@@ -99,10 +130,10 @@ export default function LoginPage() {
 
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={localLoading}
                             className="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-800 font-medium rounded-lg text-sm px-5 py-3 text-center transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4 shadow-lg shadow-blue-900/20"
                         >
-                            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+                            {localLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
                         </button>
                     </form>
                 </div>
