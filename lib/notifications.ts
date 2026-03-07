@@ -51,7 +51,7 @@ export async function sendNotification({
                             body
                         },
                         data: {
-                            actionLink: actionLink || '/'
+                            actionLink: actionLink || '/employee/dashboard'
                         },
                         // Optionally add APNS / Webpush specific configuration
                         webpush: {

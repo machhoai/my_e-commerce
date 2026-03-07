@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
         short_name: "B.Duck",
         description: "Ứng dụng đăng ký và quản lý điểm ca làm việc",
         scope: '/',
-        start_url: '/login',
+        start_url: '/employee/dashboard',
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#ffffff',
