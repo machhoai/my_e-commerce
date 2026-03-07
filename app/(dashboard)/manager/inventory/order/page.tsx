@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
     ShoppingCart, Search, AlertTriangle, Package, X, Plus, Minus,
     Trash2, Send, CheckCircle2, AlertCircle, SlidersHorizontal,
-    ChevronDown, Pencil, Check, LayoutGrid, List, ClipboardList,
+    ChevronDown, Pencil, Check, LayoutGrid, List, ClipboardList, XCircle,
 } from 'lucide-react';
 import type { ProductDoc, InventoryBalanceDoc, PurchaseOrderDoc } from '@/types/inventory';
 import type { StoreDoc } from '@/types';
@@ -23,6 +23,7 @@ interface MergedProduct extends ProductDoc {
 
 interface CartItem {
     productId: string;
+    productCode?: string;
     productName: string;
     unit: string;
     image: string;
@@ -169,8 +170,8 @@ function ProductCard({
             {/* Body */}
             <div className="p-3 flex flex-col gap-2 flex-1">
                 <div>
-                    <p className="font-bold text-slate-800 text-sm leading-tight line-clamp-2">{product.name}</p>
-                    <p className="text-[14px] text-slate-400 font-mono mt-0.5">{product.companyCode || product.barcode || '—'}</p>
+                    <p className="text-xs font-bold text-slate-800">{product.companyCode || product.barcode || '—'}</p>
+                    <p className="font-semibold text-slate-800 text-sm leading-tight line-clamp-2 mt-0.5">{product.name}</p>
                 </div>
 
                 {/* Stock display */}
@@ -301,6 +302,9 @@ function CartDrawer({
                                     )}
                                 </div>
                                 <div className="flex-1 min-w-0">
+                                    {item.productCode && (
+                                        <p className="text-xs font-bold text-slate-800">{item.productCode}</p>
+                                    )}
                                     <p className="font-semibold text-slate-800 text-sm truncate">{item.productName}</p>
                                     <p className="text-xs text-slate-400">{item.unit}</p>
                                 </div>
@@ -380,6 +384,7 @@ const STATUS_BADGE: Record<string, string> = {
     COMPLETED: 'bg-emerald-100 text-emerald-700 border-emerald-200',
     DISPATCHED: 'bg-emerald-100 text-emerald-700 border-emerald-200',
     REJECTED: 'bg-red-100 text-red-700 border-red-200',
+    CANCELED: 'bg-slate-100 text-slate-500 border-slate-200',
 };
 const STATUS_LABEL: Record<string, string> = {
     PENDING: 'Chờ duyệt',
@@ -387,6 +392,7 @@ const STATUS_LABEL: Record<string, string> = {
     COMPLETED: 'Đã nhận hàng',
     DISPATCHED: 'Đã xuất kho',
     REJECTED: 'Từ chối',
+    CANCELED: 'Đã hủy',
 };
 
 // ── Main Page ─────────────────────────────────────────────────────
@@ -409,6 +415,11 @@ export default function StoreInventoryDashboard() {
     const [submitting, setSubmitting] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
     const [selectedStoreId, setSelectedStoreId] = useState('');
+
+    // Cancel order state
+    const [cancelingId, setCancelingId] = useState<string | null>(null);
+    const [cancelReason, setCancelReason] = useState('');
+    const [isCanceling, setIsCanceling] = useState(false);
 
     // Filters
     const [search, setSearch] = useState('');
@@ -488,7 +499,11 @@ export default function StoreInventoryDashboard() {
         let list = [...mergedProducts];
         if (search) {
             const q = search.toLowerCase();
-            list = list.filter(p => p.name.toLowerCase().includes(q) || p.barcode?.toLowerCase().includes(q));
+            list = list.filter(p =>
+                p.name.toLowerCase().includes(q) ||
+                p.barcode?.toLowerCase().includes(q) ||
+                p.companyCode?.toLowerCase().includes(q)
+            );
         }
         if (filterCategory) list = list.filter(p => p.category === filterCategory);
         if (filterStatus !== 'all') list = list.filter(p => p.stockStatus === filterStatus);
@@ -502,7 +517,14 @@ export default function StoreInventoryDashboard() {
     const addToCart = (product: MergedProduct) => {
         setCart(prev => {
             if (prev.find(i => i.productId === product.id)) return prev;
-            return [...prev, { productId: product.id, productName: product.name, unit: product.unit, image: product.image, requestedQty: 1 }];
+            return [...prev, {
+                productId: product.id,
+                productCode: product.companyCode || product.barcode || '',
+                productName: product.name,
+                unit: product.unit,
+                image: product.image,
+                requestedQty: 1,
+            }];
         });
     };
 
@@ -544,7 +566,13 @@ export default function StoreInventoryDashboard() {
                 body: JSON.stringify({
                     storeId: effectiveStoreId,
                     storeName,
-                    items: cart.map(i => ({ productId: i.productId, productName: i.productName, unit: i.unit, requestedQty: i.requestedQty })),
+                    items: cart.map(i => ({
+                        productId: i.productId,
+                        productCode: i.productCode || '',
+                        productName: i.productName,
+                        unit: i.unit,
+                        requestedQty: i.requestedQty,
+                    })),
                     note,
                 }),
             });
@@ -561,6 +589,27 @@ export default function StoreInventoryDashboard() {
     const inCartIds = new Set(cart.map(i => i.productId));
     const outCount = mergedProducts.filter(p => p.stockStatus === 'out').length;
     const lowCount = mergedProducts.filter(p => p.stockStatus === 'low').length;
+
+    const handleCancel = async () => {
+        if (!cancelingId) return;
+        setIsCanceling(true);
+        try {
+            const token = await getToken();
+            const res = await fetch('/api/inventory/orders', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ orderId: cancelingId, action: 'cancel', reason: cancelReason }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            setCancelingId(null);
+            fetchAll();
+        } catch (err: any) {
+            console.error(err.message);
+        } finally {
+            setIsCanceling(false);
+        }
+    };
 
     return (
         <div className="space-y-5 mx-auto pb-24">
@@ -631,7 +680,7 @@ export default function StoreInventoryDashboard() {
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                     <input
                                         type="text"
-                                        placeholder="Tìm sản phẩm (tên, mã vạch)..."
+                                        placeholder="Tìm theo Mã hoặc Tên sản phẩm..."
                                         value={search}
                                         onChange={e => setSearch(e.target.value)}
                                         className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300"
@@ -742,8 +791,8 @@ export default function StoreInventoryDashboard() {
                                                                 {p.image ? <img src={p.image} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Package className="w-4 h-4 text-slate-300" /></div>}
                                                             </div>
                                                             <div>
+                                                                <p className="text-xs font-bold text-slate-800">{p.companyCode || p.barcode || '—'}</p>
                                                                 <p className="font-medium text-slate-700">{p.name}</p>
-                                                                {p.barcode && <p className="text-xs text-slate-400">{p.barcode}</p>}
                                                             </div>
                                                         </div>
                                                     </td>
@@ -791,6 +840,7 @@ export default function StoreInventoryDashboard() {
                                         <th className="px-6 py-3">Người tạo</th>
                                         <th className="px-6 py-3">Sản phẩm</th>
                                         <th className="px-6 py-3">Trạng thái</th>
+                                        <th className="px-6 py-3 text-right">Hành động</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -801,20 +851,41 @@ export default function StoreInventoryDashboard() {
                                             <td className="px-6 py-3 text-slate-600">
                                                 <div className="space-y-0.5">
                                                     {order.items.map((item, i) => (
-                                                        <div key={i} className="text-xs">
+                                                        <div key={i} className="text-xs flex items-baseline gap-1">
+                                                            {item.productCode && (
+                                                                <span className="font-bold text-slate-800">{item.productCode}</span>
+                                                            )}
                                                             <span className="text-slate-700">{item.productName}</span>
-                                                            <span className="text-slate-400 ml-1">×{item.requestedQty} {item.unit}</span>
+                                                            <span className="text-slate-400">x{item.requestedQty} {item.unit}</span>
                                                             {item.dispatchedQty !== undefined && item.dispatchedQty !== item.requestedQty && (
-                                                                <span className="text-emerald-600 ml-1">(xuất: {item.dispatchedQty})</span>
+                                                                <span className="text-emerald-600">(xuat: {item.dispatchedQty})</span>
                                                             )}
                                                         </div>
                                                     ))}
                                                 </div>
+                                                {(order as any).rejectReason && (
+                                                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                                                        <XCircle className="w-3 h-3 shrink-0" /> Ly do tu choi: {(order as any).rejectReason}
+                                                    </p>
+                                                )}
+                                                {(order as any).cancelReason && (
+                                                    <p className="text-xs text-slate-400 mt-1">Ly do huy: {(order as any).cancelReason}</p>
+                                                )}
                                             </td>
                                             <td className="px-6 py-3">
                                                 <span className={`text-xs font-bold px-2 py-1 rounded border ${STATUS_BADGE[order.status] || ''}`}>
                                                     {STATUS_LABEL[order.status] || order.status}
                                                 </span>
+                                            </td>
+                                            <td className="px-6 py-3 text-right">
+                                                {order.status === 'PENDING' && (
+                                                    <button
+                                                        onClick={() => { setCancelingId(order.id); setCancelReason(''); }}
+                                                        className="flex items-center gap-1 text-xs font-bold text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap"
+                                                    >
+                                                        <XCircle className="w-3 h-3" /> Huy don
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -852,6 +923,52 @@ export default function StoreInventoryDashboard() {
                 submitting={submitting}
                 message={message}
             />
+
+            {/* ── Cancel Order Modal ── */}
+            {cancelingId && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+                        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <XCircle className="w-5 h-5 text-red-500" />
+                                <h2 className="text-lg font-bold text-slate-800">Hủy đơn hàng</h2>
+                            </div>
+                            <button onClick={() => setCancelingId(null)} className="text-slate-400 hover:text-slate-700 p-1">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <p className="text-sm text-slate-600">Bạn có chắc muốn hủy đơn này? Đơn sẽ được lưu trong lịch sử với trạng thái <strong>Đã hủy</strong>.</p>
+                            <div>
+                                <label className="text-xs font-bold text-slate-600 block mb-1">Lý do hủy (tùy chọn)</label>
+                                <textarea
+                                    value={cancelReason}
+                                    onChange={e => setCancelReason(e.target.value)}
+                                    rows={2}
+                                    placeholder="VD: Đặt nhầm, không cần nữa..."
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-red-300 resize-none"
+                                />
+                            </div>
+                        </div>
+                        <div className="p-6 border-t border-slate-100 flex gap-3">
+                            <button
+                                onClick={() => setCancelingId(null)}
+                                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl font-medium text-sm transition-colors">
+                                Quay lại
+                            </button>
+                            <button
+                                onClick={handleCancel}
+                                disabled={isCanceling}
+                                className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all">
+                                {isCanceling
+                                    ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Đang hủy...</>
+                                    : <><XCircle className="w-4 h-4" /> Xác nhận hủy</>}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
     );
 }

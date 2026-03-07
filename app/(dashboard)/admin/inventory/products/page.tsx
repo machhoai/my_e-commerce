@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     Package, Plus, Pencil, X, Save, Search, CheckCircle2, AlertCircle,
-    ToggleLeft, ToggleRight, Tag, Barcode, DollarSign, MapPin, Layers, ImagePlus, Upload
+    ToggleLeft, ToggleRight, Tag, Barcode, DollarSign, MapPin, Layers, ImagePlus, Upload,
+    ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import type { ProductDoc } from '@/types/inventory';
 import Portal from '@/components/Portal';
@@ -28,6 +29,8 @@ export default function ProductManagementPage() {
     const [filterCategory, setFilterCategory] = useState('');
     const [showInactive, setShowInactive] = useState(false);
     const [categories, setCategories] = useState<Category[]>([]);
+    const [sortKey, setSortKey] = useState<keyof ProductDoc | ''>('');
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
     // Modal state
     const [modalOpen, setModalOpen] = useState(false);
@@ -218,16 +221,45 @@ export default function ProductManagementPage() {
         } catch { /* silent */ }
     };
 
-    // Filtered products
-    const filtered = products.filter(p => {
-        if (!showInactive && !p.isActive) return false;
-        if (filterCategory && p.category !== filterCategory) return false;
-        if (search) {
-            const s = search.toLowerCase();
-            return p.name.toLowerCase().includes(s) || p.barcode.toLowerCase().includes(s) || p.companyCode.toLowerCase().includes(s);
+    // Filtered + sorted products
+    const handleSort = (key: keyof ProductDoc) => {
+        if (sortKey === key) {
+            setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortKey(key);
+            setSortDir('asc');
         }
-        return true;
-    });
+    };
+
+    const SortIcon = ({ col }: { col: keyof ProductDoc }) => {
+        if (sortKey !== col) return <ArrowUpDown className="w-3.5 h-3.5 opacity-30" />;
+        return sortDir === 'asc'
+            ? <ArrowUp className="w-3.5 h-3.5 text-blue-600" />
+            : <ArrowDown className="w-3.5 h-3.5 text-blue-600" />;
+    };
+
+    const filtered = products
+        .filter(p => {
+            if (!showInactive && !p.isActive) return false;
+            if (filterCategory && p.category !== filterCategory) return false;
+            if (search) {
+                const s = search.toLowerCase();
+                return p.name.toLowerCase().includes(s) || p.barcode.toLowerCase().includes(s) || p.companyCode.toLowerCase().includes(s);
+            }
+            return true;
+        })
+        .sort((a, b) => {
+            if (!sortKey) return 0;
+            const aVal = a[sortKey] ?? '';
+            const bVal = b[sortKey] ?? '';
+            let cmp = 0;
+            if (typeof aVal === 'number' && typeof bVal === 'number') {
+                cmp = aVal - bVal;
+            } else {
+                cmp = String(aVal).localeCompare(String(bVal), 'vi');
+            }
+            return sortDir === 'asc' ? cmp : -cmp;
+        });
 
     const updateForm = (key: string, value: any) => setForm(f => ({ ...f, [key]: value }));
 
@@ -285,13 +317,41 @@ export default function ProductManagementPage() {
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="text-left text-xs text-slate-500 uppercase bg-slate-50 border-b">
-                                    <th className="px-4 py-3">Tên sản phẩm</th>
-                                    <th className="px-4 py-3">Mã</th>
-                                    <th className="px-4 py-3">Danh mục</th>
-                                    <th className="px-4 py-3">ĐVT</th>
-                                    <th className="px-4 py-3 text-right">Giá nhập</th>
-                                    <th className="px-4 py-3 text-right">Giá bán</th>
-                                    <th className="px-4 py-3 text-center">Min</th>
+                                    <th className="px-4 py-3">
+                                        <button onClick={() => handleSort('name')} className="flex items-center gap-1 hover:text-slate-800 transition-colors">
+                                            Tên sản phẩm <SortIcon col="name" />
+                                        </button>
+                                    </th>
+                                    <th className="px-4 py-3">
+                                        <button onClick={() => handleSort('companyCode')} className="flex items-center gap-1 hover:text-slate-800 transition-colors">
+                                            Mã <SortIcon col="companyCode" />
+                                        </button>
+                                    </th>
+                                    <th className="px-4 py-3">
+                                        <button onClick={() => handleSort('category')} className="flex items-center gap-1 hover:text-slate-800 transition-colors">
+                                            Danh mục <SortIcon col="category" />
+                                        </button>
+                                    </th>
+                                    <th className="px-4 py-3">
+                                        <button onClick={() => handleSort('unit')} className="flex items-center gap-1 hover:text-slate-800 transition-colors">
+                                            ĐVT <SortIcon col="unit" />
+                                        </button>
+                                    </th>
+                                    <th className="px-4 py-3 text-right">
+                                        <button onClick={() => handleSort('invoicePrice')} className="flex items-center gap-1 hover:text-slate-800 transition-colors ml-auto">
+                                            Giá nhập <SortIcon col="invoicePrice" />
+                                        </button>
+                                    </th>
+                                    <th className="px-4 py-3 text-right">
+                                        <button onClick={() => handleSort('actualPrice')} className="flex items-center gap-1 hover:text-slate-800 transition-colors ml-auto">
+                                            Giá bán <SortIcon col="actualPrice" />
+                                        </button>
+                                    </th>
+                                    <th className="px-4 py-3 text-center">
+                                        <button onClick={() => handleSort('minStock')} className="flex items-center gap-1 hover:text-slate-800 transition-colors mx-auto">
+                                            Min <SortIcon col="minStock" />
+                                        </button>
+                                    </th>
                                     <th className="px-4 py-3 text-center">Trạng thái</th>
                                     <th className="px-4 py-3 text-right">Hành động</th>
                                 </tr>

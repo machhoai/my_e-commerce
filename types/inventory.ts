@@ -106,11 +106,12 @@ export interface ShiftHandoverDoc {
 }
 
 // ── Purchase Order Status ─────────────────────────────────────
-export type PurchaseOrderStatus = 'PENDING' | 'IN_TRANSIT' | 'COMPLETED' | 'DISPATCHED' | 'REJECTED';
+export type PurchaseOrderStatus = 'PENDING' | 'IN_TRANSIT' | 'COMPLETED' | 'DISPATCHED' | 'REJECTED' | 'CANCELED';
 
 // ── Purchase Order Item (embedded) ────────────────────────────
 export interface PurchaseOrderItem {
     productId: string;
+    productCode?: string;        // companyCode || barcode — for display priority
     productName: string;
     unit: string;
     requestedQty: number;
@@ -135,5 +136,9 @@ export interface PurchaseOrderDoc {
     timestamp: string;           // ISO timestamp
     dispatchedAt?: string;       // ISO timestamp when dispatched
     completedAt?: string;        // ISO timestamp when store confirmed receipt
+    canceledAt?: string;         // ISO timestamp when canceled by store
+    rejectedAt?: string;         // ISO timestamp when rejected by admin
+    cancelReason?: string;       // Reason for cancellation
+    rejectReason?: string;       // Reason for rejection
     note?: string;
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Truck, CheckCircle2, AlertCircle, ChevronDown, X, Package, Printer, QrCode } from 'lucide-react';
+import { Truck, CheckCircle2, AlertCircle, ChevronDown, X, Package, Printer, QrCode, XCircle } from 'lucide-react';
 import Portal from '@/components/Portal';
 import type { PurchaseOrderDoc, PurchaseOrderItem } from '@/types/inventory';
 import type { StoreDoc } from '@/types';
@@ -26,6 +26,11 @@ export default function AdminDispatchPage() {
     const [message, setMessage] = useState({ type: '', text: '' });
     const [dispatchResult, setDispatchResult] = useState<DispatchResult | null>(null);
     const printRef = useRef<HTMLDivElement>(null);
+
+    // Reject state
+    const [rejectingId, setRejectingId] = useState<string | null>(null);
+    const [rejectReason, setRejectReason] = useState('');
+    const [isRejecting, setIsRejecting] = useState(false);
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
@@ -78,7 +83,6 @@ export default function AdminDispatchPage() {
         try {
             const token = await getToken();
             const currentOrder = orders.find(o => o.id === dispatchingId)!;
-            // Resolve store name from the pre-loaded stores list
             const resolvedStoreName = stores.find(s => s.id === currentOrder.storeId)?.name || currentOrder.storeId;
 
             const res = await fetch('/api/inventory/dispatch', {
@@ -103,6 +107,33 @@ export default function AdminDispatchPage() {
         }
     };
 
+    const openRejectModal = (orderId: string) => {
+        setRejectingId(orderId);
+        setRejectReason('');
+    };
+
+    const handleReject = async () => {
+        if (!rejectingId || !rejectReason.trim()) return;
+        setIsRejecting(true);
+        try {
+            const token = await getToken();
+            const res = await fetch('/api/inventory/orders', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ orderId: rejectingId, action: 'reject', reason: rejectReason }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            setMessage({ type: 'success', text: 'Đã từ chối đơn hàng.' });
+            setRejectingId(null);
+            fetchOrders();
+        } catch (err: any) {
+            setMessage({ type: 'error', text: err.message || 'Có lỗi xảy ra' });
+        } finally {
+            setIsRejecting(false);
+        }
+    };
+
     const handlePrint = () => {
         if (!printRef.current) return;
         const printContent = printRef.current.innerHTML;
@@ -120,6 +151,7 @@ export default function AdminDispatchPage() {
                 .qr-section { margin-top: 20px; text-align: center; }
                 .qr-section p { font-size: 12px; color: #64748b; margin-top: 8px; }
                 .footer { margin-top: 32px; font-size: 11px; color: #94a3b8; text-align: center; }
+                .code { font-weight: bold; color: #2563eb; }
             </style>
         </head><body>${printContent}</body></html>`);
         win.document.close();
@@ -199,7 +231,12 @@ export default function AdminDispatchPage() {
                             <tbody>
                                 {dispatchResult.items.map(item => (
                                     <tr key={item.productId}>
-                                        <td style={{ border: '1px solid #cbd5e1', padding: '8px 12px', fontSize: '13px' }}>{item.productName}</td>
+                                        <td style={{ border: '1px solid #cbd5e1', padding: '8px 12px', fontSize: '13px' }}>
+                                            {item.productCode && (
+                                                <span className="code" style={{ fontWeight: 'bold', color: '#2563eb' }}>[{item.productCode}] </span>
+                                            )}
+                                            {item.productName}
+                                        </td>
                                         <td style={{ border: '1px solid #cbd5e1', padding: '8px 12px', fontSize: '13px' }}>{item.unit}</td>
                                         <td style={{ border: '1px solid #cbd5e1', padding: '8px 12px', fontSize: '13px', textAlign: 'right' }}>{item.requestedQty}</td>
                                         <td style={{ border: '1px solid #cbd5e1', padding: '8px 12px', fontSize: '13px', textAlign: 'right', fontWeight: 'bold' }}>{item.approvedQty}</td>
@@ -248,19 +285,28 @@ export default function AdminDispatchPage() {
                                         <td className="px-6 py-3 text-slate-600">
                                             <div className="space-y-0.5">
                                                 {order.items.map((item, i) => (
-                                                    <div key={i} className="text-xs">
+                                                    <div key={i} className="text-xs flex items-baseline gap-1">
+                                                        {item.productCode
+                                                            ? <span className="font-bold text-blue-600 shrink-0">[{item.productCode}]</span>
+                                                            : null}
                                                         <span className="text-slate-700">{item.productName}</span>
-                                                        <span className="text-slate-400 ml-1">×{item.requestedQty} {item.unit}</span>
+                                                        <span className="text-slate-400">×{item.requestedQty} {item.unit}</span>
                                                     </div>
                                                 ))}
                                             </div>
                                         </td>
                                         <td className="px-6 py-3 text-slate-500 whitespace-nowrap">{new Date(order.timestamp).toLocaleString('vi-VN')}</td>
                                         <td className="px-6 py-3 text-right">
-                                            <button onClick={() => openDispatchModal(order)}
-                                                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors">
-                                                Duyệt xuất kho
-                                            </button>
+                                            <div className="flex items-center gap-2 justify-end">
+                                                <button onClick={() => openRejectModal(order.id)}
+                                                    className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
+                                                    <XCircle className="w-3.5 h-3.5" /> Từ chối
+                                                </button>
+                                                <button onClick={() => openDispatchModal(order)}
+                                                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                                                    Duyệt xuất kho
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -269,6 +315,55 @@ export default function AdminDispatchPage() {
                     </div>
                 )}
             </div>
+
+            {/* Reject Modal */}
+            {rejectingId && (
+                <Portal>
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+                            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <XCircle className="w-5 h-5 text-red-500" />
+                                    <h2 className="text-lg font-bold text-slate-800">Từ chối đơn hàng</h2>
+                                </div>
+                                <button onClick={() => setRejectingId(null)} className="text-slate-400 hover:text-slate-700 p-1">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <p className="text-sm text-slate-600">Vui lòng nhập lý do từ chối để cửa hàng biết và đặt lại đơn phù hợp.</p>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-600 block mb-1">
+                                        Lý do từ chối <span className="text-red-500">*</span>
+                                    </label>
+                                    <textarea
+                                        value={rejectReason}
+                                        onChange={e => setRejectReason(e.target.value)}
+                                        rows={3}
+                                        placeholder="VD: Hết hàng, đặt sai số lượng, mã sản phẩm không tồn tại..."
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-red-300 resize-none"
+                                    />
+                                </div>
+                            </div>
+                            <div className="p-6 border-t border-slate-100 flex gap-3">
+                                <button
+                                    onClick={() => setRejectingId(null)}
+                                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl font-medium text-sm transition-colors">
+                                    Huỷ
+                                </button>
+                                <button
+                                    onClick={handleReject}
+                                    disabled={isRejecting || !rejectReason.trim()}
+                                    className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all">
+                                    {isRejecting
+                                        ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Đang xử lý...</>
+                                        : <><XCircle className="w-4 h-4" /> Từ chối đơn</>}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </Portal>
+            )}
 
             {/* Dispatch Modal */}
             {dispatchingId && (
@@ -285,7 +380,12 @@ export default function AdminDispatchPage() {
                                 {modalItems.map((item, idx) => (
                                     <div key={item.productId} className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
                                         <div className="flex-1 min-w-0">
-                                            <p className="font-semibold text-slate-700 text-sm truncate">{item.productName}</p>
+                                            <div className="flex items-baseline gap-1 flex-wrap">
+                                                {item.productCode && (
+                                                    <span className="font-bold text-blue-600 text-xs">[{item.productCode}]</span>
+                                                )}
+                                                <p className="font-semibold text-slate-700 text-sm truncate">{item.productName}</p>
+                                            </div>
                                             <p className="text-xs text-slate-400">Yêu cầu: {item.requestedQty} {item.unit}</p>
                                         </div>
                                         <div className="flex flex-col items-center">
