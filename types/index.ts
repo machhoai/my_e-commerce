@@ -17,7 +17,8 @@ export type AppPermission =
     | 'manage_kpi_templates'  // Tạo/sửa mẫu KPI
     | 'score_employees'       // Chấm điểm nhân viên
     | 'view_all_kpi'          // Xem thống kê KPI tất cả NV
-    | 'export_kpi';           // Xuất báo cáo KPI
+    | 'export_kpi'            // Xuất báo cáo KPI
+    | 'manage_central_warehouse'; // Quản lý kho tổng
 
 export const ALL_PERMISSIONS: { key: AppPermission; label: string; description: string }[] = [
     { key: 'view_overview', label: 'Xem Tổng quan', description: 'Xem lịch tổng quan hàng tuần' },
@@ -31,6 +32,7 @@ export const ALL_PERMISSIONS: { key: AppPermission; label: string; description: 
     { key: 'score_employees', label: 'Chấm điểm NV', description: 'Chấm điểm KPI chính thức cho nhân viên' },
     { key: 'view_all_kpi', label: 'Xem KPI Tất cả NV', description: 'Xem thống kê KPI của tất cả nhân viên' },
     { key: 'export_kpi', label: 'Xuất Báo cáo KPI', description: 'Xuất báo cáo PDF/Excel KPI nhân viên' },
+    { key: 'manage_central_warehouse', label: 'Quản lý Kho tổng', description: 'Truy cập và quản lý kho trung tâm (nhập kho, xuất kho, thẻ kho tổng)' },
 ];
 
 export interface CustomRoleDoc {

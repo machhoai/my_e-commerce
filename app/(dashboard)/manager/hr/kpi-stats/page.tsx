@@ -16,6 +16,7 @@ import { useTableParams } from '@/hooks/useTableParams';
 import { processTableData } from '@/lib/processTableData';
 import DataTableToolbar, { SortableHeader } from '@/components/DataTableToolbar';
 import DataTablePagination from '@/components/DataTablePagination';
+import Portal from '@/components/Portal';
 
 function ManagerKpiStatsPageContent() {
     const { user, userDoc, getToken, hasPermission } = useAuth();
@@ -573,112 +574,114 @@ function ManagerKpiStatsPageContent() {
 
             {/* Export Dialog Modal */}
             {showExportDialog && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowExportDialog(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-                        {/* Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                <Download className="w-5 h-5 text-indigo-600" />
-                                Xuất Excel chi tiết
-                            </h3>
-                            <button onClick={() => setShowExportDialog(false)} className="p-1 rounded-lg hover:bg-slate-100 transition-colors">
-                                <X className="w-5 h-5 text-slate-400" />
-                            </button>
-                        </div>
+                <Portal>
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowExportDialog(false)}>
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+                            {/* Header */}
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                    <Download className="w-5 h-5 text-indigo-600" />
+                                    Xuất Excel chi tiết
+                                </h3>
+                                <button onClick={() => setShowExportDialog(false)} className="p-1 rounded-lg hover:bg-slate-100 transition-colors">
+                                    <X className="w-5 h-5 text-slate-400" />
+                                </button>
+                            </div>
 
-                        <div className="px-6 py-4 space-y-5 overflow-y-auto max-h-[calc(85vh-130px)]">
-                            {/* Date Mode */}
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Phạm vi thời gian</label>
-                                <div className="flex gap-2 mb-3">
-                                    <button
-                                        onClick={() => setExportDateMode('month')}
-                                        className={cn('flex-1 px-3 py-2 rounded-lg text-sm font-semibold border transition-colors',
-                                            exportDateMode === 'month' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                                        )}
-                                    >
-                                        <Calendar className="w-4 h-4 inline mr-1" />Theo tháng
-                                    </button>
-                                    <button
-                                        onClick={() => setExportDateMode('range')}
-                                        className={cn('flex-1 px-3 py-2 rounded-lg text-sm font-semibold border transition-colors',
-                                            exportDateMode === 'range' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                                        )}
-                                    >
-                                        <Calendar className="w-4 h-4 inline mr-1" />Tùy chỉnh
-                                    </button>
-                                </div>
-                                {exportDateMode === 'month' ? (
-                                    <input type="month" value={exportMonth} onChange={e => setExportMonth(e.target.value)}
-                                        className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-300" />
-                                ) : (
-                                    <div className="flex gap-2">
-                                        <div className="flex-1">
-                                            <label className="text-[10px] text-slate-400 font-medium">Từ ngày</label>
-                                            <input type="date" value={exportDateFrom} onChange={e => setExportDateFrom(e.target.value)}
-                                                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-300" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <label className="text-[10px] text-slate-400 font-medium">Đến ngày</label>
-                                            <input type="date" value={exportDateTo} onChange={e => setExportDateTo(e.target.value)}
-                                                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-300" />
-                                        </div>
+                            <div className="px-6 py-4 space-y-5 overflow-y-auto max-h-[calc(85vh-130px)]">
+                                {/* Date Mode */}
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Phạm vi thời gian</label>
+                                    <div className="flex gap-2 mb-3">
+                                        <button
+                                            onClick={() => setExportDateMode('month')}
+                                            className={cn('flex-1 px-3 py-2 rounded-lg text-sm font-semibold border transition-colors',
+                                                exportDateMode === 'month' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                            )}
+                                        >
+                                            <Calendar className="w-4 h-4 inline mr-1" />Theo tháng
+                                        </button>
+                                        <button
+                                            onClick={() => setExportDateMode('range')}
+                                            className={cn('flex-1 px-3 py-2 rounded-lg text-sm font-semibold border transition-colors',
+                                                exportDateMode === 'range' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                            )}
+                                        >
+                                            <Calendar className="w-4 h-4 inline mr-1" />Tùy chỉnh
+                                        </button>
                                     </div>
-                                )}
-                            </div>
-
-                            {/* Employee Selection */}
-                            <div>
-                                <div className="flex items-center justify-between mb-2">
-                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Chọn nhân viên</label>
-                                    <button onClick={handleToggleSelectAll}
-                                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-                                        <UserCheck className="w-3.5 h-3.5" />
-                                        {exportSelectAll ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
-                                    </button>
+                                    {exportDateMode === 'month' ? (
+                                        <input type="month" value={exportMonth} onChange={e => setExportMonth(e.target.value)}
+                                            className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-300" />
+                                    ) : (
+                                        <div className="flex gap-2">
+                                            <div className="flex-1">
+                                                <label className="text-[10px] text-slate-400 font-medium">Từ ngày</label>
+                                                <input type="date" value={exportDateFrom} onChange={e => setExportDateFrom(e.target.value)}
+                                                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-300" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <label className="text-[10px] text-slate-400 font-medium">Đến ngày</label>
+                                                <input type="date" value={exportDateTo} onChange={e => setExportDateTo(e.target.value)}
+                                                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-300" />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="border border-slate-200 rounded-xl max-h-[200px] overflow-y-auto divide-y divide-slate-100">
-                                    {allEmployees.map(emp => (
-                                        <label key={emp.uid} className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer transition-colors">
-                                            <input
-                                                type="checkbox"
-                                                checked={exportSelectedUids.has(emp.uid)}
-                                                onChange={() => handleToggleEmployee(emp.uid)}
-                                                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                            />
-                                            <span className="text-sm font-medium text-slate-700">{emp.name}</span>
-                                        </label>
-                                    ))}
+
+                                {/* Employee Selection */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Chọn nhân viên</label>
+                                        <button onClick={handleToggleSelectAll}
+                                            className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                                            <UserCheck className="w-3.5 h-3.5" />
+                                            {exportSelectAll ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                                        </button>
+                                    </div>
+                                    <div className="border border-slate-200 rounded-xl max-h-[200px] overflow-y-auto divide-y divide-slate-100">
+                                        {allEmployees.map(emp => (
+                                            <label key={emp.uid} className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer transition-colors">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={exportSelectedUids.has(emp.uid)}
+                                                    onChange={() => handleToggleEmployee(emp.uid)}
+                                                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <span className="text-sm font-medium text-slate-700">{emp.name}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 mt-1.5">
+                                        Đã chọn {exportSelectedUids.size}/{allEmployees.length} nhân viên
+                                    </p>
                                 </div>
-                                <p className="text-[10px] text-slate-400 mt-1.5">
-                                    Đã chọn {exportSelectedUids.size}/{allEmployees.length} nhân viên
-                                </p>
+
+                                {/* Info */}
+                                <div className="bg-indigo-50 rounded-lg p-3 text-xs text-indigo-700">
+                                    <p className="font-semibold mb-0.5">Lưu ý:</p>
+                                    <p>Chỉ xuất các bản ghi đã chấm <strong>chính thức</strong>. Mỗi dòng là một lượt chấm điểm với từng cột tiêu chí và người chấm.</p>
+                                </div>
                             </div>
 
-                            {/* Info */}
-                            <div className="bg-indigo-50 rounded-lg p-3 text-xs text-indigo-700">
-                                <p className="font-semibold mb-0.5">Lưu ý:</p>
-                                <p>Chỉ xuất các bản ghi đã chấm <strong>chính thức</strong>. Mỗi dòng là một lượt chấm điểm với từng cột tiêu chí và người chấm.</p>
+                            {/* Footer */}
+                            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-2">
+                                <button onClick={() => setShowExportDialog(false)}
+                                    className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={handleDetailedExport}
+                                    disabled={exportLoading || exportSelectedUids.size === 0}
+                                    className="px-4 py-2 rounded-lg text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-1.5"
+                                >
+                                    {exportLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
+                                    Xuất Excel
+                                </button>
                             </div>
-                        </div>
-
-                        {/* Footer */}
-                        <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-2">
-                            <button onClick={() => setShowExportDialog(false)}
-                                className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">
-                                Hủy
-                            </button>
-                            <button
-                                onClick={handleDetailedExport}
-                                disabled={exportLoading || exportSelectedUids.size === 0}
-                                className="px-4 py-2 rounded-lg text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-1.5"
-                            >
-                                {exportLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
-                                Xuất Excel
-                            </button>
                         </div>
                     </div>
-                </div>
+                </Portal>
             )}
         </div>
     );

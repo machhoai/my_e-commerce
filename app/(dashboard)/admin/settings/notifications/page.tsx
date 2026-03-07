@@ -6,6 +6,7 @@ import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore'
 import { NotificationTemplate, StoreDoc } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Edit2, Trash2, Send, Info, AlertCircle, CheckCircle2, Users, Building2, Shield } from 'lucide-react';
+import Portal from '@/components/Portal';
 
 export default function NotificationTemplatesPage() {
     const { user } = useAuth();
@@ -238,173 +239,177 @@ export default function NotificationTemplatesPage() {
 
             {/* Modal Form */}
             {isFormOpen && (
-                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                            <h2 className="text-xl font-bold text-slate-800">
-                                {editingTemplate ? 'Chỉnh sửa Mẫu' : 'Tạo Mẫu Tự Động'}
-                            </h2>
-                        </div>
-
-                        <form onSubmit={handleSave} className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Tên Mẫu (Dùng để nhận diện)
-                                </label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                    placeholder="Ví dụ: Lịch thay đổi đột xuất"
-                                />
+                <Portal>
+                    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                                <h2 className="text-xl font-bold text-slate-800">
+                                    {editingTemplate ? 'Chỉnh sửa Mẫu' : 'Tạo Mẫu Tự Động'}
+                                </h2>
                             </div>
 
-                            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3">
-                                <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
-                                <div className="text-sm text-blue-800">
-                                    <strong className="block mb-1">Cú pháp Hỗ trợ Biến:</strong>
-                                    Bao bọc TỪ_KHÓA bằng dấu ngoặc nhọn <code className="bg-white px-1 py-0.5 rounded text-blue-600 mx-0.5">{'{'} {'}'}</code>.
-                                    Hệ thống sẽ tự nhận diện và thay thế bằng dữ liệu thực.<br />
-                                    <strong>Ví dụ: </strong><code className="bg-white px-1 py-0.5 rounded text-blue-600">{' {name} '}</code>, <code className="bg-white px-1 py-0.5 rounded text-blue-600">{' {storeName} '}</code>, <code className="bg-white px-1 py-0.5 rounded text-blue-600">{' {shiftDate} '}</code>.
+                            <form onSubmit={handleSave} className="p-6 space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                                        Tên Mẫu (Dùng để nhận diện)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                        placeholder="Ví dụ: Lịch thay đổi đột xuất"
+                                    />
                                 </div>
-                            </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Tiêu đề Thông báo push
-                                </label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={formData.titleTemplate}
-                                    onChange={(e) => setFormData({ ...formData, titleTemplate: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                    placeholder="Chào {name}, ca làm ngày {shiftDate}..."
-                                />
-                            </div>
+                                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3">
+                                    <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                                    <div className="text-sm text-blue-800">
+                                        <strong className="block mb-1">Cú pháp Hỗ trợ Biến:</strong>
+                                        Bao bọc TỪ_KHÓA bằng dấu ngoặc nhọn <code className="bg-white px-1 py-0.5 rounded text-blue-600 mx-0.5">{'{'} {'}'}</code>.
+                                        Hệ thống sẽ tự nhận diện và thay thế bằng dữ liệu thực.<br />
+                                        <strong>Ví dụ: </strong><code className="bg-white px-1 py-0.5 rounded text-blue-600">{' {name} '}</code>, <code className="bg-white px-1 py-0.5 rounded text-blue-600">{' {storeName} '}</code>, <code className="bg-white px-1 py-0.5 rounded text-blue-600">{' {shiftDate} '}</code>.
+                                    </div>
+                                </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Nội dung thân thông báo
-                                </label>
-                                <textarea
-                                    required
-                                    rows={4}
-                                    value={formData.bodyTemplate}
-                                    onChange={(e) => setFormData({ ...formData, bodyTemplate: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
-                                    placeholder="Bạn vừa được phân công thay cho {managerName}..."
-                                />
-                            </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                                        Tiêu đề Thông báo push
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={formData.titleTemplate}
+                                        onChange={(e) => setFormData({ ...formData, titleTemplate: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                        placeholder="Chào {name}, ca làm ngày {shiftDate}..."
+                                    />
+                                </div>
 
-                            <div className="flex items-center gap-2 pt-2">
-                                <input
-                                    type="checkbox"
-                                    id="isSystem"
-                                    checked={formData.isSystemEvent}
-                                    onChange={(e) => setFormData({ ...formData, isSystemEvent: e.target.checked })}
-                                    className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-                                />
-                                <label htmlFor="isSystem" className="text-sm text-slate-700">
-                                    Đánh dấu là Mẫu Sự kiện gốc (Hệ thống)
-                                </label>
-                            </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                                        Nội dung thân thông báo
+                                    </label>
+                                    <textarea
+                                        required
+                                        rows={4}
+                                        value={formData.bodyTemplate}
+                                        onChange={(e) => setFormData({ ...formData, bodyTemplate: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
+                                        placeholder="Bạn vừa được phân công thay cho {managerName}..."
+                                    />
+                                </div>
 
-                            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                                <button
-                                    type="button"
-                                    onClick={handleCloseForm}
-                                    className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-                                >
-                                    Hủy bỏ
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSaving}
-                                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2"
-                                >
-                                    {isSaving ? (
-                                        <>
-                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                            Đang lưu...
-                                        </>
-                                    ) : (
-                                        'Lưu thông tin'
-                                    )}
-                                </button>
-                            </div>
-                        </form>
+                                <div className="flex items-center gap-2 pt-2">
+                                    <input
+                                        type="checkbox"
+                                        id="isSystem"
+                                        checked={formData.isSystemEvent}
+                                        onChange={(e) => setFormData({ ...formData, isSystemEvent: e.target.checked })}
+                                        className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                                    />
+                                    <label htmlFor="isSystem" className="text-sm text-slate-700">
+                                        Đánh dấu là Mẫu Sự kiện gốc (Hệ thống)
+                                    </label>
+                                </div>
+
+                                <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                                    <button
+                                        type="button"
+                                        onClick={handleCloseForm}
+                                        className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                                    >
+                                        Hủy bỏ
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isSaving}
+                                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2"
+                                    >
+                                        {isSaving ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                Đang lưu...
+                                            </>
+                                        ) : (
+                                            'Lưu thông tin'
+                                        )}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
+                </Portal>
             )}
 
             {/* Broadcast Modal */}
             {broadcastTemplate && (
-                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                        <div className="px-6 py-4 border-b border-slate-100 bg-emerald-50/50">
-                            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                <Send className="w-5 h-5 text-emerald-600" />
-                                Gửi thông báo: {broadcastTemplate.name}
-                            </h2>
-                        </div>
-
-                        <div className="p-6 space-y-4">
-                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                <p className="text-sm font-medium text-slate-900">{broadcastTemplate.titleTemplate}</p>
-                                <p className="text-xs text-slate-500 mt-1">{broadcastTemplate.bodyTemplate}</p>
+                <Portal>
+                    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                            <div className="px-6 py-4 border-b border-slate-100 bg-emerald-50/50">
+                                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                    <Send className="w-5 h-5 text-emerald-600" />
+                                    Gửi thông báo: {broadcastTemplate.name}
+                                </h2>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Đối tượng nhận thông báo
-                                </label>
-                                <select
-                                    value={broadcastAudience}
-                                    onChange={e => setBroadcastAudience(e.target.value)}
-                                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
-                                >
-                                    <option value="all">🌐 Tất cả nhân viên</option>
-                                    {stores.map(s => (
-                                        <option key={s.id} value={`store:${s.id}`}>🏪 {s.name}</option>
-                                    ))}
-                                    <option value="role:employee">👤 Nhân viên</option>
-                                    <option value="role:manager">👔 Quản lý</option>
-                                    <option value="role:store_manager">🏬 Quản lý cửa hàng</option>
-                                </select>
-                            </div>
+                            <div className="p-6 space-y-4">
+                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                    <p className="text-sm font-medium text-slate-900">{broadcastTemplate.titleTemplate}</p>
+                                    <p className="text-xs text-slate-500 mt-1">{broadcastTemplate.bodyTemplate}</p>
+                                </div>
 
-                            <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
-                                <button
-                                    onClick={() => setBroadcastTemplate(null)}
-                                    disabled={isBroadcasting}
-                                    className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-                                >
-                                    Hủy bỏ
-                                </button>
-                                <button
-                                    onClick={handleBroadcast}
-                                    disabled={isBroadcasting}
-                                    className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-sm font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2"
-                                >
-                                    {isBroadcasting ? (
-                                        <>
-                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                            Đang gửi...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Send className="w-4 h-4" />
-                                            Gửi thông báo
-                                        </>
-                                    )}
-                                </button>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Đối tượng nhận thông báo
+                                    </label>
+                                    <select
+                                        value={broadcastAudience}
+                                        onChange={e => setBroadcastAudience(e.target.value)}
+                                        className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                                    >
+                                        <option value="all">🌐 Tất cả nhân viên</option>
+                                        {stores.map(s => (
+                                            <option key={s.id} value={`store:${s.id}`}>🏪 {s.name}</option>
+                                        ))}
+                                        <option value="role:employee">👤 Nhân viên</option>
+                                        <option value="role:manager">👔 Quản lý</option>
+                                        <option value="role:store_manager">🏬 Quản lý cửa hàng</option>
+                                    </select>
+                                </div>
+
+                                <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
+                                    <button
+                                        onClick={() => setBroadcastTemplate(null)}
+                                        disabled={isBroadcasting}
+                                        className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                                    >
+                                        Hủy bỏ
+                                    </button>
+                                    <button
+                                        onClick={handleBroadcast}
+                                        disabled={isBroadcasting}
+                                        className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-sm font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2"
+                                    >
+                                        {isBroadcasting ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                Đang gửi...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Send className="w-4 h-4" />
+                                                Gửi thông báo
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                </Portal>
             )}
         </div>
     );

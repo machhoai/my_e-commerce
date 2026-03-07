@@ -106,15 +106,18 @@ export interface ShiftHandoverDoc {
 }
 
 // ── Purchase Order Status ─────────────────────────────────────
-export type PurchaseOrderStatus = 'PENDING' | 'DISPATCHED' | 'REJECTED';
+export type PurchaseOrderStatus = 'PENDING' | 'IN_TRANSIT' | 'COMPLETED' | 'DISPATCHED' | 'REJECTED' | 'CANCELED';
 
 // ── Purchase Order Item (embedded) ────────────────────────────
 export interface PurchaseOrderItem {
     productId: string;
+    productCode?: string;        // companyCode || barcode — for display priority
     productName: string;
     unit: string;
     requestedQty: number;
-    approvedQty?: number;        // Set by admin when dispatching
+    dispatchedQty?: number;      // Set by admin when dispatching (số thực xuất)
+    receivedQty?: number;        // Set by store when receiving (số thực nhận)
+    approvedQty?: number;        // Legacy alias for dispatchedQty
 }
 
 // ── Purchase Order (purchase_orders collection) ───────────────
@@ -129,7 +132,13 @@ export interface PurchaseOrderDoc {
     createdByName: string;
     approvedBy?: string;         // userId of admin who dispatched
     approvedByName?: string;
+    qrCodeToken?: string;        // Secure token for QR-based receiving
     timestamp: string;           // ISO timestamp
     dispatchedAt?: string;       // ISO timestamp when dispatched
+    completedAt?: string;        // ISO timestamp when store confirmed receipt
+    canceledAt?: string;         // ISO timestamp when canceled by store
+    rejectedAt?: string;         // ISO timestamp when rejected by admin
+    cancelReason?: string;       // Reason for cancellation
+    rejectReason?: string;       // Reason for rejection
     note?: string;
 }

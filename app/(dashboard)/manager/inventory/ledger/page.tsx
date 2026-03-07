@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { BookOpen, Search, Package } from 'lucide-react';
+import { BookOpen, Search } from 'lucide-react';
 import type { InventoryTransactionDoc, ProductDoc } from '@/types/inventory';
-import type { StoreDoc, CounterDoc } from '@/types';
+import type { CounterDoc } from '@/types';
 
 const TYPE_LABEL: Record<string, string> = {
     IMPORT_CENTRAL: 'Nhập kho TT',
@@ -27,12 +27,10 @@ export default function LedgerPage() {
     const { user, userDoc } = useAuth();
     const [transactions, setTransactions] = useState<InventoryTransactionDoc[]>([]);
     const [products, setProducts] = useState<ProductDoc[]>([]);
-    const [stores, setStores] = useState<StoreDoc[]>([]);
     const [counters, setCounters] = useState<CounterDoc[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Filters
-    const [selectedStoreId, setSelectedStoreId] = useState('');
     const [filterLocationId, setFilterLocationId] = useState('');
     const [filterProductId, setFilterProductId] = useState('');
     const [filterType, setFilterType] = useState('');
@@ -40,8 +38,7 @@ export default function LedgerPage() {
     const [dateTo, setDateTo] = useState('');
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
-    const isAdmin = userDoc?.role === 'admin';
-    const effectiveStoreId = isAdmin ? selectedStoreId : userDoc?.storeId || '';
+    const storeId = userDoc?.storeId || '';
 
     // Fetch products
     useEffect(() => {
@@ -56,39 +53,32 @@ export default function LedgerPage() {
         })();
     }, [user, getToken]);
 
-    // Fetch stores (admin)
-    useEffect(() => {
-        if (!user || !isAdmin) return;
-        (async () => {
-            try {
-                const token = await getToken();
-                const res = await fetch('/api/stores', { headers: { Authorization: `Bearer ${token}` } });
-                const data = await res.json();
-                setStores(Array.isArray(data) ? data : []);
-            } catch { /* silent */ }
-        })();
-    }, [user, isAdmin, getToken]);
+
 
     // Fetch counters
     useEffect(() => {
-        if (!effectiveStoreId || !user) { setCounters([]); return; }
+        if (!storeId || !user) { setCounters([]); return; }
         (async () => {
             try {
                 const token = await getToken();
-                const res = await fetch(`/api/stores/${effectiveStoreId}/settings`, { headers: { Authorization: `Bearer ${token}` } });
+                const res = await fetch(`/api/stores/${storeId}/settings`, { headers: { Authorization: `Bearer ${token}` } });
                 const data = await res.json();
                 setCounters(data.counters || []);
             } catch { setCounters([]); }
         })();
-    }, [user, effectiveStoreId, getToken]);
+    }, [user, storeId, getToken]);
 
-    // Fetch transactions
+    // Fetch transactions — scoped to this store
     const fetchTransactions = useCallback(async () => {
-        if (!user) return;
+        if (!user || !storeId) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         try {
             const token = await getToken();
             const params = new URLSearchParams();
+            params.set('storeId', storeId);
             if (filterLocationId) params.set('locationId', filterLocationId);
             if (filterProductId) params.set('productId', filterProductId);
             if (filterType) params.set('type', filterType);
@@ -100,8 +90,11 @@ export default function LedgerPage() {
             });
             const data = await res.json();
             setTransactions(Array.isArray(data) ? data : []);
-        } catch { /* silent */ } finally { setLoading(false); }
-    }, [user, filterLocationId, filterProductId, filterType, dateFrom, dateTo, getToken]);
+        } catch (err) {
+            console.error('Ledger fetch error:', err);
+            setTransactions([]);
+        } finally { setLoading(false); }
+    }, [user, storeId, filterLocationId, filterProductId, filterType, dateFrom, dateTo, getToken]);
 
     useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 
@@ -109,10 +102,7 @@ export default function LedgerPage() {
 
     const getLocationLabel = (type: string, id: string) => {
         if (type === 'CENTRAL') return 'Kho trung tâm';
-        if (type === 'STORE') {
-            const store = stores.find(s => s.id === id);
-            return store ? `CH: ${store.name}` : `CH: ${id}`;
-        }
+        if (type === 'STORE') return 'Kho cửa hàng';
         if (type === 'COUNTER') {
             const counter = counters.find(c => c.id === id);
             return counter ? `Quầy: ${counter.name}` : `Quầy: ${id}`;
@@ -120,13 +110,12 @@ export default function LedgerPage() {
         return id || '—';
     };
 
-    // Build location filter options
+    // Build location filter options (store-scoped, no CENTRAL)
     const locationOptions: { value: string; label: string }[] = [
         { value: '', label: 'Tất cả' },
-        { value: 'CENTRAL', label: 'Kho trung tâm' },
     ];
-    if (effectiveStoreId) {
-        locationOptions.push({ value: effectiveStoreId, label: `Kho cửa hàng` });
+    if (storeId) {
+        locationOptions.push({ value: storeId, label: 'Kho cửa hàng' });
         counters.forEach(c => locationOptions.push({ value: c.id, label: `Quầy: ${c.name}` }));
     }
 
@@ -137,20 +126,8 @@ export default function LedgerPage() {
                     <BookOpen className="w-7 h-7 text-amber-600" />
                     Thẻ kho (Sổ giao dịch)
                 </h1>
-                <p className="text-slate-500 mt-1">Lịch sử tất cả các giao dịch xuất nhập kho.</p>
+                <p className="text-slate-500 mt-1">Lịch sử giao dịch xuất nhập kho cửa hàng.</p>
             </div>
-
-            {/* Admin store selector */}
-            {isAdmin && (
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex items-center gap-3">
-                    <Package className="w-5 h-5 text-indigo-500" />
-                    <select value={selectedStoreId} onChange={e => { setSelectedStoreId(e.target.value); setFilterLocationId(''); }}
-                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300">
-                        <option value="">-- Chọn cửa hàng --</option>
-                        {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                </div>
-            )}
 
             {/* Filters */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">

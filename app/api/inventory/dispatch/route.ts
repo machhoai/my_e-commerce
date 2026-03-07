@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { recordTransaction, updateBalance } from '@/lib/inventory-services';
+import { randomUUID } from 'crypto';
 
 // POST /api/inventory/dispatch — approve and dispatch a purchase order (admin only)
+// Phase 2: Deducts CENTRAL stock, generates QR token, sets status to IN_TRANSIT.
+// Stock is NOT added to the store until the store confirms receipt via /api/inventory/receive.
 export async function POST(req: NextRequest) {
     try {
         const token = req.headers.get('Authorization')?.split('Bearer ')[1];
@@ -41,7 +44,10 @@ export async function POST(req: NextRequest) {
 
         const storeId = order.storeId;
 
-        // Process each item: decrement CENTRAL, increment STORE, record transaction
+        // Generate secure QR token
+        const qrCodeToken = randomUUID();
+
+        // Process each item: ONLY decrement from CENTRAL (store receives later via QR)
         for (const item of approvedItems) {
             const qty = Number(item.approvedQty) || 0;
             if (qty <= 0) continue;
@@ -49,10 +55,7 @@ export async function POST(req: NextRequest) {
             // Decrement from central warehouse
             await updateBalance(item.productId, 'CENTRAL', 'CENTRAL', -qty);
 
-            // Increment at the store
-            await updateBalance(item.productId, 'STORE', storeId, qty);
-
-            // Record ledger entry
+            // Record ledger entry (goods leaving central)
             await recordTransaction({
                 productId: item.productId,
                 fromLocationType: 'CENTRAL',
@@ -64,13 +67,14 @@ export async function POST(req: NextRequest) {
                 status: 'APPROVED',
                 createdByUserId: decoded.uid,
                 referenceId: orderId,
-                note: `Xuất kho cho ${order.storeName || storeId}`,
+                note: `Xuất kho cho ${order.storeName || storeId} — đang vận chuyển`,
             });
         }
 
-        // Update the order status
+        // Update the order: IN_TRANSIT + QR token
         await orderRef.update({
-            status: 'DISPATCHED',
+            status: 'IN_TRANSIT',
+            qrCodeToken,
             approvedBy: decoded.uid,
             approvedByName: callerName,
             dispatchedAt: new Date().toISOString(),
@@ -79,11 +83,16 @@ export async function POST(req: NextRequest) {
                 productName: item.productName || '',
                 unit: item.unit || '',
                 requestedQty: Number(item.requestedQty) || 0,
-                approvedQty: Number(item.approvedQty) || 0,
+                dispatchedQty: Number(item.approvedQty) || 0,
+                approvedQty: Number(item.approvedQty) || 0, // legacy compat
             })),
         });
 
-        return NextResponse.json({ message: 'Đã duyệt và xuất kho thành công' });
+        return NextResponse.json({
+            message: 'Đã duyệt xuất kho — đơn hàng đang vận chuyển',
+            qrCodeToken,
+            orderId,
+        });
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Server error';
         return NextResponse.json({ error: message }, { status: 500 });

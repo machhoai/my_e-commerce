@@ -1,6 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import { UserDoc } from '@/types';
-import { GripVertical, UserCog, X, MousePointerClick } from 'lucide-react';
+import { GripVertical, UserCog, X, MousePointerClick, Trash2 } from 'lucide-react';
 import { shortName } from '@/lib/utils';
 
 interface Props {
@@ -8,7 +8,8 @@ interface Props {
     isSelected: boolean;
     disabled?: boolean;
     isManagerAssigned?: boolean;
-    onRemove?: () => void; // Callback to remove force-assigned registration
+    onRemove?: () => void;       // Remove force-assigned registration from pool
+    onClearAll?: () => void;     // FIX 4: remove employee from ALL counters at once
     // Click-to-assign
     isClickSelected?: boolean;   // This card is the currently "picked" employee
     onClickSelect?: () => void;  // Called when the card is clicked to select/deselect
@@ -23,6 +24,7 @@ export default function EmployeeCard({
     disabled = false,
     isManagerAssigned = false,
     onRemove,
+    onClearAll,
     isClickSelected = false,
     onClickSelect,
 }: Props) {
@@ -49,19 +51,19 @@ export default function EmployeeCard({
         ${!isClickSelected && !isSelected && !isDragging && isManagerAssigned ? 'border-amber-300 bg-amber-50/50' : ''}
         ${!isClickSelected && !isSelected && !isDragging && !isManagerAssigned ? 'border-slate-200 bg-white hover:border-slate-300' : ''}
         ${disabled ? 'opacity-50 cursor-not-allowed bg-slate-50' : ''}
-        ${onClickSelect && !isDragging && !isSelected ? 'cursor-pointer' : !isDragging ? 'cursor-grab' : ''}
+        ${onClickSelect && !isDragging ? 'cursor-pointer' : !isDragging ? 'cursor-grab' : ''}
       `}
         >
-            {/* Drag handle — also triggers onClickSelect if provided */}
+            {/* Drag handle — also triggers onClickSelect */}
             <div
                 {...listeners}
                 {...attributes}
                 onPointerDown={(e) => {
-                    // Let the drag sensor handle pointer events; click logic fires on onClick
                     (listeners as any)?.onPointerDown?.(e);
                 }}
                 onClick={() => {
-                    if (onClickSelect && !isSelected) onClickSelect();
+                    // FIX 2: allow click regardless of isSelected state
+                    onClickSelect?.();
                 }}
                 className="flex items-center gap-2 flex-1 min-w-0"
             >
@@ -91,8 +93,25 @@ export default function EmployeeCard({
                     </div>
                 </div>
             </div>
-            {/* Hủy gán button — only for manager-assigned employees */}
-            {onRemove && isManagerAssigned && (
+
+            {/* FIX 4: "Unassign from all counters" button — shown on assigned cards */}
+            {onClearAll && !isClickSelected && (
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        onClearAll();
+                    }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="ml-1 p-1.5 rounded-md text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
+                    title="Gỡ khỏi tất cả quầy"
+                >
+                    <Trash2 className="w-3.5 h-3.5" />
+                </button>
+            )}
+
+            {/* Hủy gán button — only for manager-assigned employees in pool */}
+            {onRemove && isManagerAssigned && !isClickSelected && !isSelected && (
                 <button
                     onClick={(e) => {
                         e.stopPropagation();

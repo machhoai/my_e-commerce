@@ -152,7 +152,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             label: 'Kho tổng',
             href: '/admin/inventory/stock',
             icon: Package,
-            show: userDoc?.role === 'admin',
+            show: userDoc?.role === 'admin' || hasPermission('manage_central_warehouse'),
             matchPrefix: '/admin/inventory',
             group: 'Kho hàng',
         },
@@ -180,6 +180,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             href: '/manager/settings',
             icon: SettingsIcon,
             show: userDoc?.role === 'store_manager',
+            group: 'Hệ thống',
         },
     ];
 
@@ -328,7 +329,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
 
     return (
-        <div className="flex bg-slate-50 max-h-screen">
+        <div className="flex bg-slate-50 h-screen">
             {/* Desktop Sidebar */}
             <aside className="hidden md:flex w-64 bg-slate-900 border-r border-slate-800 text-slate-100 flex-col shrink-0">
                 <SidebarContent />
@@ -336,7 +337,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {/* Mobile Drawer Overlay */}
             {mobileOpen && (
-                <div className="md:hidden fixed inset-0 z-40 flex">
+                <div className="md:hidden fixed inset-0 z-[100] flex">
                     {/* Backdrop */}
                     <div
                         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -357,7 +358,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
 
             {/* Main Content — full height, no header */}
-            <main className="flex-1 h-screen overflow-y-auto flex flex-col">
+            <main className="flex-1 h-screen overflow-y-scroll flex flex-col">
                 <div className="mx-auto px-4 md:px-8 pb-4 md:pb-8 w-full">
                     {children}
                 </div>
@@ -366,7 +367,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* Mobile Floating Hamburger Button */}
             {!mobileOpen && (
                 <button
-                    className="md:hidden fixed bottom-5 right-5 z-30 w-12 h-12 bg-slate-900 text-white rounded-full shadow-lg shadow-slate-900/40 flex items-center justify-center hover:bg-slate-800 active:scale-95 transition-all"
+                    className="md:hidden fixed bottom-5 left-5 z-30 w-12 h-12 bg-slate-900 text-white rounded-full shadow-lg shadow-slate-900/40 flex items-center justify-center hover:bg-slate-800 active:scale-95 transition-all"
                     onClick={() => setMobileOpen(true)}
                     aria-label="Mở menu"
                 >

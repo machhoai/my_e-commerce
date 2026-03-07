@@ -6,7 +6,7 @@ import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firesto
 import { UserDoc, ScheduleDoc, SettingsDoc, StoreDoc, CustomRoleDoc } from '@/types';
 import { toLocalDateString, cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { History, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Search, ArrowUpDown, Building2 } from 'lucide-react';
+import { History, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Search, ArrowUpDown, Building2, Ban } from 'lucide-react';
 import { useTableParams } from '@/hooks/useTableParams';
 import { processTableData } from '@/lib/processTableData';
 import DataTableToolbar, { SortableHeader } from '@/components/DataTableToolbar';
@@ -22,6 +22,8 @@ interface EmployeeStats {
     totalShifts: number;
     maxShifts: number;
     storeName?: string;
+    isActive: boolean;
+    statusFilter: string; // 'active' | 'disabled'
 }
 
 function ManagerHistoryPageContent() {
@@ -75,6 +77,14 @@ function ManagerHistoryPageContent() {
                 { value: 'manager', label: 'Quản lý' },
                 { value: 'employee', label: 'Nhân viên' },
                 ...customRoles.map(r => ({ value: `custom:${r.id}`, label: r.name })),
+            ],
+        },
+        {
+            key: 'statusFilter',
+            label: 'Trạng thái TK',
+            options: [
+                { value: 'active', label: 'Đang hoạt động' },
+                { value: 'disabled', label: 'Vô hiệu hóa' },
             ],
         },
     ];
@@ -202,6 +212,8 @@ function ManagerHistoryPageContent() {
                         totalShifts: shiftCounts.get(u.uid) || 0,
                         maxShifts: u.type === 'FT' ? maxFT : maxPT,
                         storeName: u.storeId ? (storeNameMap.get(u.storeId) ?? u.storeId) : undefined,
+                        isActive: u.isActive !== false,
+                        statusFilter: u.isActive !== false ? 'active' : 'disabled',
                     });
                 });
 
@@ -235,6 +247,7 @@ function ManagerHistoryPageContent() {
         filters: [
             { field: 'type' as keyof EmployeeStats, value: params.type || '' },
             { field: 'roleFilter' as keyof EmployeeStats, value: params.roleFilter || '' },
+            { field: 'statusFilter' as keyof EmployeeStats, value: params.statusFilter || '' },
         ],
         sortField: (params.sort as keyof EmployeeStats) || undefined,
         sortOrder: params.order as 'asc' | 'desc',
@@ -310,7 +323,7 @@ function ManagerHistoryPageContent() {
                             onSearchChange={(v) => setParam('q', v)}
                             searchPlaceholder="Tìm nhân viên..."
                             filters={tableFilters}
-                            filterValues={{ type: params.type || '', roleFilter: params.roleFilter || '' }}
+                            filterValues={{ type: params.type || '', roleFilter: params.roleFilter || '', statusFilter: params.statusFilter || '' }}
                             onFilterChange={(key, value) => setParam(key, value)}
                             sortOptions={tableSortOptions}
                             currentSort={params.sort}
@@ -361,12 +374,16 @@ function ManagerHistoryPageContent() {
                                                 return (
                                                     <tr key={stat.uid} className={cn(
                                                         "hover:bg-slate-50 transition-colors",
+                                                        !stat.isActive && 'opacity-50',
                                                         isDanger ? "bg-red-50/30" : isWarning ? "bg-amber-50/30" : ""
                                                     )}>
                                                         <td className="px-6 py-4 gap-1 font-medium text-slate-800 flex flex-col">
                                                             {stat.name}
-                                                            {stat.role === 'manager' && <span className="text-[10px] w-fit bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold uppercase truncate">Quản lý</span>}
-                                                            {stat.role === 'store_manager' && <span className="text-[10px] w-fit bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold uppercase truncate">Trưởng cửa hàng</span>}
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {stat.role === 'manager' && <span className="text-[10px] w-fit bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold uppercase truncate">Quản lý</span>}
+                                                                {stat.role === 'store_manager' && <span className="text-[10px] w-fit bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold uppercase truncate">Trưởng cửa hàng</span>}
+                                                                {!stat.isActive && <span className="text-[10px] w-fit bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold uppercase truncate flex items-center gap-0.5"><Ban className="w-2.5 h-2.5" />Vô hiệu hóa</span>}
+                                                            </div>
                                                         </td>
                                                         <td className="px-6 py-4">
                                                             <div className="flex items-center justify-center">
@@ -405,7 +422,11 @@ function ManagerHistoryPageContent() {
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
-                                                            {isDanger ? (
+                                                            {!stat.isActive ? (
+                                                                <span className="inline-flex items-center gap-1.5 text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg text-xs font-bold border border-slate-200">
+                                                                    <Ban className="w-3.5 h-3.5" /> Vô hiệu hóa
+                                                                </span>
+                                                            ) : isDanger ? (
                                                                 <span className="inline-flex items-center gap-1.5 text-red-700 bg-red-100 px-2.5 py-1 rounded-lg text-xs font-bold border border-red-200">
                                                                     <AlertTriangle className="w-3.5 h-3.5" /> Thừa ca
                                                                 </span>

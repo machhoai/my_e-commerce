@@ -1,10 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Truck, CheckCircle2, AlertCircle, X, Package } from 'lucide-react';
+import { Truck, CheckCircle2, AlertCircle, X, Package, Printer, QrCode } from 'lucide-react';
+import Portal from '@/components/Portal';
 import type { PurchaseOrderDoc, PurchaseOrderItem } from '@/types/inventory';
 import type { StoreDoc } from '@/types';
+import { QRCodeSVG } from 'qrcode.react';
+
+interface DispatchResult {
+    orderId: string;
+    qrCodeToken: string;
+    order: PurchaseOrderDoc;
+    items: (PurchaseOrderItem & { approvedQty: number })[];
+}
 
 export default function DispatchPage() {
     const { user, userDoc } = useAuth();
@@ -15,6 +24,8 @@ export default function DispatchPage() {
     const [dispatchingId, setDispatchingId] = useState<string | null>(null);
     const [modalItems, setModalItems] = useState<(PurchaseOrderItem & { approvedQty: number })[]>([]);
     const [message, setMessage] = useState({ type: '', text: '' });
+    const [dispatchResult, setDispatchResult] = useState<DispatchResult | null>(null);
+    const printRef = useRef<HTMLDivElement>(null);
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
@@ -67,19 +78,52 @@ export default function DispatchPage() {
         setMessage({ type: '', text: '' });
         try {
             const token = await getToken();
+            const currentOrder = orders.find(o => o.id === dispatchingId)!;
             const res = await fetch('/api/inventory/dispatch', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ orderId: dispatchingId, approvedItems: modalItems }),
             });
-            if (!res.ok) throw new Error((await res.json()).error);
-            setMessage({ type: 'success', text: 'Đã duyệt và xuất kho thành công!' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+
+            setMessage({ type: 'success', text: 'Đã duyệt xuất kho — đơn hàng đang vận chuyển!' });
+            setDispatchResult({
+                orderId: dispatchingId,
+                qrCodeToken: data.qrCodeToken,
+                order: currentOrder,
+                items: modalItems,
+            });
             setDispatchingId(null);
             fetchOrders();
         } catch (err: any) {
             setMessage({ type: 'error', text: err.message || 'Có lỗi xảy ra' });
         }
     };
+
+    const handlePrint = () => {
+        if (!printRef.current) return;
+        const printContent = printRef.current.innerHTML;
+        const win = window.open('', '_blank', 'width=800,height=600');
+        if (!win) return;
+        win.document.write(`<!DOCTYPE html><html><head><title>Phiếu xuất kho</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 24px; color: #1e293b; }
+                h1 { font-size: 20px; margin: 0 0 4px; }
+                table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+                th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; font-size: 13px; }
+                th { background: #f1f5f9; font-weight: 600; }
+                .footer { margin-top: 32px; font-size: 11px; color: #94a3b8; text-align: center; }
+            </style>
+        </head><body>${printContent}</body></html>`);
+        win.document.close();
+        win.focus();
+        setTimeout(() => { win.print(); win.close(); }, 300);
+    };
+
+    const qrUrl = dispatchResult
+        ? `${typeof window !== 'undefined' ? window.location.origin : ''}/manager/inventory/receive/${dispatchResult.orderId}?token=${dispatchResult.qrCodeToken}`
+        : '';
 
     return (
         <div className="space-y-6 mx-auto">
@@ -105,6 +149,64 @@ export default function DispatchPage() {
                 <div className={`p-3 rounded-xl flex items-center gap-2 border text-sm font-medium ${message.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
                     {message.type === 'error' ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                     {message.text}
+                </div>
+            )}
+
+            {/* Dispatch Result with QR */}
+            {dispatchResult && (
+                <div className="bg-white rounded-2xl border-2 border-emerald-200 shadow-sm overflow-hidden">
+                    <div className="bg-emerald-50 p-4 border-b border-emerald-100 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <QrCode className="w-5 h-5 text-emerald-600" />
+                            <h2 className="text-lg font-bold text-emerald-800">Phiếu xuất kho & Mã QR</h2>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button onClick={handlePrint}
+                                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                                <Printer className="w-4 h-4" /> In phiếu
+                            </button>
+                            <button onClick={() => setDispatchResult(null)} className="text-slate-400 hover:text-slate-700 p-1.5">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
+                    <div ref={printRef} className="p-6">
+                        <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 4px' }}>PHIẾU XUẤT KHO</h1>
+                        <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>
+                            <p>Đơn hàng: <strong>{dispatchResult.orderId}</strong></p>
+                            <p>Cửa hàng: <strong>{dispatchResult.order.storeName || dispatchResult.order.storeId}</strong></p>
+                            <p>Người đặt: {dispatchResult.order.createdByName}</p>
+                            <p>Ngày xuất: {new Date().toLocaleString('vi-VN')}</p>
+                        </div>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', margin: '12px 0' }}>
+                            <thead>
+                                <tr>
+                                    <th style={{ border: '1px solid #cbd5e1', padding: '8px 12px', textAlign: 'left', fontSize: '13px', background: '#f1f5f9', fontWeight: 600 }}>Sản phẩm</th>
+                                    <th style={{ border: '1px solid #cbd5e1', padding: '8px 12px', textAlign: 'left', fontSize: '13px', background: '#f1f5f9', fontWeight: 600 }}>ĐVT</th>
+                                    <th style={{ border: '1px solid #cbd5e1', padding: '8px 12px', textAlign: 'right', fontSize: '13px', background: '#f1f5f9', fontWeight: 600 }}>Yêu cầu</th>
+                                    <th style={{ border: '1px solid #cbd5e1', padding: '8px 12px', textAlign: 'right', fontSize: '13px', background: '#f1f5f9', fontWeight: 600 }}>Thực xuất</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {dispatchResult.items.map(item => (
+                                    <tr key={item.productId}>
+                                        <td style={{ border: '1px solid #cbd5e1', padding: '8px 12px', fontSize: '13px' }}>{item.productName}</td>
+                                        <td style={{ border: '1px solid #cbd5e1', padding: '8px 12px', fontSize: '13px' }}>{item.unit}</td>
+                                        <td style={{ border: '1px solid #cbd5e1', padding: '8px 12px', fontSize: '13px', textAlign: 'right' }}>{item.requestedQty}</td>
+                                        <td style={{ border: '1px solid #cbd5e1', padding: '8px 12px', fontSize: '13px', textAlign: 'right', fontWeight: 'bold' }}>{item.approvedQty}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        <div style={{ marginTop: '20px', textAlign: 'center' }}>
+                            <QRCodeSVG value={qrUrl} size={200} level="H" />
+                            <p style={{ fontSize: '12px', color: '#64748b', marginTop: '8px' }}>Quét mã QR để xác nhận nhận hàng tại cửa hàng</p>
+                            <p style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px', wordBreak: 'break-all' }}>{qrUrl}</p>
+                        </div>
+                        <p style={{ marginTop: '32px', fontSize: '11px', color: '#94a3b8', textAlign: 'center' }}>
+                            Phiếu xuất kho — In bởi hệ thống quản lý kho
+                        </p>
+                    </div>
                 </div>
             )}
 
@@ -149,39 +251,44 @@ export default function DispatchPage() {
 
             {/* Dispatch Modal */}
             {dispatchingId && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
-                        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                            <h2 className="text-lg font-bold text-slate-800">Duyệt và điều chỉnh số lượng</h2>
-                            <button onClick={() => setDispatchingId(null)} className="text-slate-400 hover:text-slate-700 p-1">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            {modalItems.map((item, idx) => (
-                                <div key={item.productId} className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-semibold text-slate-700 text-sm truncate">{item.productName}</p>
-                                        <p className="text-xs text-slate-400">Yêu cầu: {item.requestedQty} {item.unit}</p>
+                <Portal>
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
+                            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                                <h2 className="text-lg font-bold text-slate-800">Duyệt và điều chỉnh số lượng thực xuất</h2>
+                                <button onClick={() => setDispatchingId(null)} className="text-slate-400 hover:text-slate-700 p-1">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                {modalItems.map((item, idx) => (
+                                    <div key={item.productId} className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-semibold text-slate-700 text-sm truncate">{item.productName}</p>
+                                            <p className="text-xs text-slate-400">Yêu cầu: {item.requestedQty} {item.unit}</p>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-[10px] text-slate-400 mb-1">Thực xuất</span>
+                                            <input type="number" min={0} value={item.approvedQty}
+                                                onChange={e => {
+                                                    const updated = [...modalItems];
+                                                    updated[idx] = { ...updated[idx], approvedQty: Number(e.target.value) || 0 };
+                                                    setModalItems(updated);
+                                                }}
+                                                className="w-20 bg-white border border-slate-200 rounded-lg p-2 text-sm text-center font-bold outline-none focus:ring-2 focus:ring-emerald-300" />
+                                        </div>
                                     </div>
-                                    <input type="number" min={0} value={item.approvedQty}
-                                        onChange={e => {
-                                            const updated = [...modalItems];
-                                            updated[idx] = { ...updated[idx], approvedQty: Number(e.target.value) || 0 };
-                                            setModalItems(updated);
-                                        }}
-                                        className="w-20 bg-white border border-slate-200 rounded-lg p-2 text-sm text-center font-bold outline-none focus:ring-2 focus:ring-emerald-300" />
-                                </div>
-                            ))}
-                        </div>
-                        <div className="p-6 border-t border-slate-100">
-                            <button onClick={handleDispatch}
-                                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md">
-                                <Truck className="w-4 h-4" /> Xác nhận xuất kho
-                            </button>
+                                ))}
+                            </div>
+                            <div className="p-6 border-t border-slate-100">
+                                <button onClick={handleDispatch}
+                                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md">
+                                    <Truck className="w-4 h-4" /> Xác nhận xuất kho & Tạo mã QR
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </Portal>
             )}
         </div>
     );

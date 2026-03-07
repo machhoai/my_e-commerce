@@ -26,6 +26,7 @@ export default function GlobalOverviewPage() {
     const [selectedShift, setSelectedShift] = useState<string>('');
 
     const [users, setUsers] = useState<UserDoc[]>([]);
+    const [allUsersMap, setAllUsersMap] = useState<Map<string, UserDoc>>(new Map());
     const [schedules, setSchedules] = useState<ScheduleDoc[]>([]);
     const [counters, setCounters] = useState<CounterDoc[]>([]);
     const [settings, setSettings] = useState<SettingsDoc | null>(null);
@@ -77,8 +78,14 @@ export default function GlobalOverviewPage() {
                     usersQuery = query(collection(db, 'users'), where('storeId', '==', effectiveStoreId));
                 }
                 const usersSnap = await getDocs(usersQuery);
-                const allUsers = usersSnap.docs.map(d => d.data() as UserDoc)
-                    .filter(u => u.role !== 'admin' && u.isActive !== false)
+                const fullMap = new Map<string, UserDoc>();
+                usersSnap.docs.forEach(d => {
+                    const u = d.data() as UserDoc;
+                    fullMap.set(u.uid, u);
+                });
+                setAllUsersMap(fullMap);
+                const allUsers = Array.from(fullMap.values())
+                    .filter(u => u.role !== 'admin')
                     .sort((a, b) => a.name.localeCompare(b.name));
                 setUsers(allUsers);
 
@@ -800,16 +807,19 @@ export default function GlobalOverviewPage() {
                                             </thead>
                                             <tbody>
                                                 {users.map((u, userIdx) => (
-                                                    <tr key={u.uid} className="hover:bg-slate-50/50 transition-colors group">
+                                                    <tr key={u.uid} className={cn("hover:bg-slate-50/50 transition-colors group", u.isActive === false && 'opacity-70')}>
                                                         {/* User Cell - Sticky */}
                                                         <td className={cn(
                                                             "p-4 border-b border-r border-slate-200 sticky left-0 bg-white group-hover:bg-slate-50/50 z-10 shadow-[1px_0_0_0_#e2e8f0]",
                                                             userIdx === users.length - 1 ? 'border-b-0' : ''
                                                         )}>
-                                                            <span className={cn(
-                                                                'font-semibold truncate',
-                                                                u.role === 'store_manager' ? 'text-red-600' : u.role === 'manager' ? 'text-amber-600' : u.type === 'FT' ? 'text-blue-600' : 'text-emerald-600'
-                                                            )} title={u.name}>{shortName(u.name)}</span>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className={cn(
+                                                                    'font-semibold truncate',
+                                                                    u.role === 'store_manager' ? 'text-red-600' : u.role === 'manager' ? 'text-amber-600' : u.type === 'FT' ? 'text-blue-600' : 'text-emerald-600'
+                                                                )} title={u.name}>{shortName(u.name)}</span>
+                                                                {u.isActive === false && <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 text-red-600 font-bold shrink-0">Vô hiệu</span>}
+                                                            </div>
                                                             {isAdmin && u.storeId && (
                                                                 <div className="flex items-center gap-1.5 mt-1 text-[10px] font-bold flex-wrap">
                                                                     <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600">
@@ -924,7 +934,7 @@ export default function GlobalOverviewPage() {
 
                                                             if (cellSchedule && cellSchedule.employeeIds) {
                                                                 cellSchedule.employeeIds.forEach(uid => {
-                                                                    const userObj = users.find(u => u.uid === uid);
+                                                                    const userObj = allUsersMap.get(uid);
                                                                     if (userObj) assignedUsersForCell.push(userObj);
                                                                 });
                                                             }
@@ -939,13 +949,15 @@ export default function GlobalOverviewPage() {
                                                                             assignedUsersForCell.map(u => {
                                                                                 const isUserForceAssigned = cellSchedule?.assignedByManagerUids?.includes(u.uid) ?? false;
                                                                                 return (
-                                                                                    <div key={u.uid} className={`text-[12px] w-full p-2 py-1.5 rounded shadow-sm flex items-center gap-1.5 transition-all ${isUserForceAssigned
-                                                                                        ? 'bg-amber-50 border border-amber-200 hover:bg-amber-100'
-                                                                                        : 'bg-white border border-slate-200 hover:bg-slate-50'
+                                                                                    <div key={u.uid} className={`text-[12px] w-full p-2 py-1.5 rounded shadow-sm flex items-center gap-1.5 transition-all ${u.isActive === false
+                                                                                        ? 'bg-slate-50 border border-slate-200 opacity-70'
+                                                                                        : isUserForceAssigned
+                                                                                            ? 'bg-amber-50 border border-amber-200 hover:bg-amber-100'
+                                                                                            : 'bg-white border border-slate-200 hover:bg-slate-50'
                                                                                         }`}>
                                                                                         <span className={cn(
                                                                                             'font-semibold truncate',
-                                                                                            u.role === 'store_manager' ? 'text-red-600' : u.role === 'manager' ? 'text-amber-600' : u.type === 'FT' ? 'text-blue-600' : 'text-emerald-600'
+                                                                                            u.isActive === false ? 'text-slate-400' : u.role === 'store_manager' ? 'text-red-600' : u.role === 'manager' ? 'text-amber-600' : u.type === 'FT' ? 'text-blue-600' : 'text-emerald-600'
                                                                                         )} title={u.name}>{shortName(u.name)}</span>
                                                                                         {isUserForceAssigned && (
                                                                                             <span title="Quản lý gán ca"><UserCog className="w-3 h-3 text-amber-500 shrink-0" /></span>

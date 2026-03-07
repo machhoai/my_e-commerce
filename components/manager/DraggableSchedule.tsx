@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
     DndContext,
     DragOverlay,
@@ -53,12 +53,15 @@ export default function DraggableSchedule({
         }),
         useSensor(TouchSensor, {
             activationConstraint: {
-                delay: 250,      // ms before drag activates on touch
-                tolerance: 5,    // px of movement allowed during delay
+                delay: 250,
+                tolerance: 5,
             },
         }),
         useSensor(KeyboardSensor)
     );
+
+    // Valid counter IDs — used to guard against false drops
+    const validCounterIds = useMemo(() => new Set(counters.map(c => c.id)), [counters]);
 
     const handleDragStart = (event: DragStartEvent) => {
         setActiveId(event.active.id as string);
@@ -66,11 +69,13 @@ export default function DraggableSchedule({
         setSelectedEmployeeId(null);
     };
 
+    // FIX 1: Only assign if dropped onto a valid counter drop zone
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
         setActiveId(null);
 
-        if (!over) return;
+        // Guard: no drop target or target is not a real counter
+        if (!over || !validCounterIds.has(over.id as string)) return;
 
         const userId = active.id as string;
         const counterId = over.id as string;
@@ -84,7 +89,7 @@ export default function DraggableSchedule({
         }
     };
 
-    /** Click-to-Assign: triggered when a counter zone is clicked while an employee is selected */
+    // FIX 3: Keep employee selected after assigning — don't clear selectedEmployeeId
     const handleClickAssign = (counterId: string) => {
         if (!selectedEmployeeId) return;
         const currentCounterAssigns = assignments[counterId] || [];
@@ -94,7 +99,8 @@ export default function DraggableSchedule({
                 [counterId]: [...currentCounterAssigns, selectedEmployeeId],
             });
         }
-        setSelectedEmployeeId(null);
+        // Intentionally NOT clearing selectedEmployeeId here so the user can
+        // keep clicking other counters to assign the same employee
     };
 
     const handleRemove = (counterId: string, userId: string) => {
@@ -107,8 +113,19 @@ export default function DraggableSchedule({
         });
     };
 
+    // FIX 4: Remove an employee from ALL counters in one click
+    const removeFromAllCounters = (userId: string) => {
+        const updated: Record<string, string[]> = {};
+        for (const [counterId, uids] of Object.entries(assignments)) {
+            updated[counterId] = uids.filter(id => id !== userId);
+        }
+        onAssignmentChange(updated);
+        // Also deselect if this was the selected employee
+        if (selectedEmployeeId === userId) setSelectedEmployeeId(null);
+    };
+
     const activeUser = activeId ? employees.find(e => e.uid === activeId) : null;
-    const allAssignedIds = new Set(Object.values(assignments).flat());
+    const allAssignedIds = useMemo(() => new Set(Object.values(assignments).flat()), [assignments]);
 
     const unassignedEmployees = employees.filter(e => !allAssignedIds.has(e.uid));
     const assignedEmployees = employees.filter(e => allAssignedIds.has(e.uid));
@@ -122,18 +139,26 @@ export default function DraggableSchedule({
         >
             <div className="flex flex-col lg:grid lg:grid-cols-4 gap-6">
 
-                {/* Top (mobile) / Left (desktop): Registered Employees */}
+                {/* Left panel: Employee pool */}
                 <div className="lg:col-span-1 flex flex-col gap-4">
                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col">
-                        <h2 className="font-bold text-slate-800 text-lg border-b border-slate-100 pb-3 mb-4">
+                        <h2 className="font-bold text-slate-800 text-lg">
                             Nhân viên đã đăng ký ({employees.length})
                         </h2>
+                        <span className="text-xs text-slate-500 border-b border-slate-100 pb-3 mb-4">
+                            Nhấn vào một quầy để gán nhân viên, hoặc nhấn lại thẻ để hủy chọn. Hoặc có thể kéo nhân viên vào quầy.
+                        </span>
 
-                        {/* Click-to-assign instruction banner */}
+                        {/* Active selection banner */}
                         {selectedEmployeeId && (
-                            <div className="mb-3 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-xs font-medium text-blue-700 flex items-center gap-2">
-                                <span>👆</span>
-                                <span>Nhấn vào một quầy để gán nhân viên, hoặc nhấn lại thẻ để hủy chọn</span>
+                            <div className="mb-3 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-xs font-medium text-blue-700 flex items-center justify-between gap-2">
+                                <span>👆 Nhấn vào quầy để gán. Nhấn lại thẻ để hủy chọn.</span>
+                                <button
+                                    onClick={() => setSelectedEmployeeId(null)}
+                                    className="text-blue-400 hover:text-blue-700 font-bold shrink-0"
+                                >
+                                    Xong
+                                </button>
                             </div>
                         )}
 
@@ -175,7 +200,7 @@ export default function DraggableSchedule({
                                         </div>
                                     </div>
 
-                                    {/* Assigned Group */}
+                                    {/* FIX 2 + 4: Assigned employees — fully clickable + unassign-all button */}
                                     {assignedEmployees.length > 0 && (
                                         <div>
                                             <h3 className="text-xs font-semibold text-emerald-600/70 uppercase tracking-wider mb-3 pt-4 border-t border-slate-100">
@@ -187,36 +212,45 @@ export default function DraggableSchedule({
                                                         key={`assigned_${user.uid}`}
                                                         user={user}
                                                         isSelected={true}
+                                                        isClickSelected={selectedEmployeeId === user.uid}
+                                                        onClickSelect={() => {
+                                                            // FIX 2: assigned cards are also clickable for multi-counter assign
+                                                            setSelectedEmployeeId(prev =>
+                                                                prev === user.uid ? null : user.uid
+                                                            );
+                                                        }}
                                                         isManagerAssigned={managerAssignedUids.has(user.uid)}
+                                                        onRemove={managerAssignedUids.has(user.uid) && onRemoveRegistration
+                                                            ? () => onRemoveRegistration(user.uid)
+                                                            : undefined}
+                                                        onClearAll={() => removeFromAllCounters(user.uid)}
                                                     />
                                                 ))}
                                             </div>
                                         </div>
                                     )}
-
-                                    <div className="flex w-full items-center gap-3">
-                                        <button
-                                            onClick={() => setShowForceAssignModal?.(true)}
-                                            disabled={isLoading || !selectedShiftId}
-                                            className="flex items-center w-full justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold text-sm transition-all shadow-sm shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            <UserPlus className="w-4 h-4" />
-                                            Đăng ký thêm nhân viên
-                                        </button>
-                                    </div>
                                 </>
                             )}
+                            <div className="flex w-full items-center gap-3">
+                                <button
+                                    onClick={() => setShowForceAssignModal?.(true)}
+                                    disabled={isLoading || !selectedShiftId}
+                                    className="flex items-center w-full justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold text-sm transition-all shadow-sm shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <UserPlus className="w-4 h-4" />
+                                    Đăng ký thêm nhân viên
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Bottom (mobile) / Right (desktop): Counters */}
+                {/* Right panel: Counters */}
                 <div className="lg:col-span-3">
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                         {counters.map((counter) => {
                             const assignedUserIds = assignments[counter.id] || [];
 
-                            // Separate active vs inactive assigned users
                             const activeAssigned = assignedUserIds
                                 .filter(uid => !inactiveUids.has(uid))
                                 .map(uid => employees.find(e => e.uid === uid))

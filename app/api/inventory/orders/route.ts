@@ -24,6 +24,19 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const status = searchParams.get('status');
         const storeId = searchParams.get('storeId');
+        const orderId = searchParams.get('id');
+
+        // Single order fetch by ID
+        if (orderId) {
+            const orderSnap = await db.collection('purchase_orders').doc(orderId).get();
+            if (!orderSnap.exists) return NextResponse.json([], { status: 200 });
+            const orderData = { id: orderSnap.id, ...orderSnap.data() };
+            // Check access
+            if (caller.role !== 'admin' && (orderData as any).storeId !== caller.storeId) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            }
+            return NextResponse.json([orderData]);
+        }
 
         let q: FirebaseFirestore.Query = db.collection('purchase_orders');
 
@@ -88,6 +101,74 @@ export async function POST(req: NextRequest) {
         await docRef.set(order);
 
         return NextResponse.json({ id: docRef.id, message: 'Đơn đặt hàng đã được tạo' });
+    } catch (err: unknown) {
+        return NextResponse.json({ error: err instanceof Error ? err.message : 'Server error' }, { status: 500 });
+    }
+}
+
+// PATCH /api/inventory/orders — cancel (store) or reject (admin)
+export async function PATCH(req: NextRequest) {
+    try {
+        const caller = await verifyCaller(req);
+        if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+        const body = await req.json();
+        const { orderId, action, reason } = body;
+
+        if (!orderId || !action) {
+            return NextResponse.json({ error: 'orderId and action are required' }, { status: 400 });
+        }
+        if (!['cancel', 'reject'].includes(action)) {
+            return NextResponse.json({ error: 'action must be cancel or reject' }, { status: 400 });
+        }
+
+        const db = getAdminDb();
+        const orderRef = db.collection('purchase_orders').doc(orderId);
+        const orderSnap = await orderRef.get();
+        if (!orderSnap.exists) return NextResponse.json({ error: 'Không tìm thấy đơn hàng' }, { status: 404 });
+
+        const order = orderSnap.data() as any;
+
+        // Authorization
+        if (action === 'cancel') {
+            // Store side: only same store or admin
+            if (caller.role !== 'admin' && order.storeId !== caller.storeId) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            }
+            if (order.status !== 'PENDING') {
+                return NextResponse.json({ error: 'Chỉ có thể hủy đơn đang chờ duyệt' }, { status: 400 });
+            }
+            await orderRef.update({
+                status: 'CANCELED',
+                cancelReason: reason || '',
+                canceledAt: new Date().toISOString(),
+                canceledBy: caller.uid,
+                canceledByName: caller.name,
+            });
+            return NextResponse.json({ message: 'Đơn hàng đã được hủy' });
+        }
+
+        if (action === 'reject') {
+            // Admin only
+            if (caller.role !== 'admin') {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            }
+            if (order.status !== 'PENDING') {
+                return NextResponse.json({ error: 'Chỉ có thể từ chối đơn đang chờ duyệt' }, { status: 400 });
+            }
+            if (!reason?.trim()) {
+                return NextResponse.json({ error: 'Lý do từ chối là bắt buộc' }, { status: 400 });
+            }
+            await orderRef.update({
+                status: 'REJECTED',
+                rejectReason: reason.trim(),
+                rejectedAt: new Date().toISOString(),
+                rejectedBy: caller.uid,
+                rejectedByName: caller.name,
+            });
+            return NextResponse.json({ message: 'Đã từ chối đơn hàng' });
+        }
+
     } catch (err: unknown) {
         return NextResponse.json({ error: err instanceof Error ? err.message : 'Server error' }, { status: 500 });
     }

@@ -10,6 +10,7 @@ import {
     AlertCircle, MapPin, Building2, Users, Crown, ShieldCheck, UserCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Portal from '@/components/Portal';
 
 interface StoreStats {
     storeManagers: number;
@@ -199,40 +200,42 @@ export default function AdminStoresPage() {
 
             {/* Create/Edit Modal */}
             {isCreateOpen && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in fade-in zoom-in-95">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-lg font-bold text-slate-800">{editStore ? 'Sửa Cửa hàng' : 'Thêm Cửa hàng Mới'}</h2>
-                            <button onClick={resetForm} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
-                                <X className="w-5 h-5 text-slate-500" />
-                            </button>
-                        </div>
-                        <form onSubmit={handleCreateOrUpdate} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Tên cửa hàng *</label>
-                                <input
-                                    value={formName} onChange={e => setFormName(e.target.value)} required
-                                    placeholder="VD: Chi nhánh Quận 1"
-                                    className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Địa chỉ</label>
-                                <input
-                                    value={formAddress} onChange={e => setFormAddress(e.target.value)}
-                                    placeholder="VD: 123 Nguyễn Huệ, Q.1, TP.HCM"
-                                    className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400"
-                                />
-                            </div>
-                            <div className="flex gap-3 pt-2">
-                                <button type="button" onClick={resetForm} className="flex-1 border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl font-medium text-sm">Hủy</button>
-                                <button type="submit" disabled={actionLoading} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm disabled:opacity-50">
-                                    {actionLoading ? 'Đang lưu...' : (editStore ? 'Cập nhật' : 'Tạo mới')}
+                <Portal>
+                    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in fade-in zoom-in-95">
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-lg font-bold text-slate-800">{editStore ? 'Sửa Cửa hàng' : 'Thêm Cửa hàng Mới'}</h2>
+                                <button onClick={resetForm} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                                    <X className="w-5 h-5 text-slate-500" />
                                 </button>
                             </div>
-                        </form>
+                            <form onSubmit={handleCreateOrUpdate} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Tên cửa hàng *</label>
+                                    <input
+                                        value={formName} onChange={e => setFormName(e.target.value)} required
+                                        placeholder="VD: Chi nhánh Quận 1"
+                                        className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Địa chỉ</label>
+                                    <input
+                                        value={formAddress} onChange={e => setFormAddress(e.target.value)}
+                                        placeholder="VD: 123 Nguyễn Huệ, Q.1, TP.HCM"
+                                        className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400"
+                                    />
+                                </div>
+                                <div className="flex gap-3 pt-2">
+                                    <button type="button" onClick={resetForm} className="flex-1 border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl font-medium text-sm">Hủy</button>
+                                    <button type="submit" disabled={actionLoading} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm disabled:opacity-50">
+                                        {actionLoading ? 'Đang lưu...' : (editStore ? 'Cập nhật' : 'Tạo mới')}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
+                </Portal>
             )}
 
             {/* Stores Table */}
