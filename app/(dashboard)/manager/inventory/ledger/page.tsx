@@ -98,7 +98,10 @@ export default function LedgerPage() {
 
     useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 
-    const getProductName = (id: string) => products.find(p => p.id === id)?.name || id;
+    const getProductCode = (id: string) => {
+        const p = products.find(p => p.id === id);
+        return p?.companyCode || p?.barcode || p?.name || id;
+    };
 
     const getLocationLabel = (type: string, id: string) => {
         if (type === 'CENTRAL') return 'Kho trung tâm';
@@ -144,7 +147,7 @@ export default function LedgerPage() {
                         <select value={filterProductId} onChange={e => setFilterProductId(e.target.value)}
                             className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none">
                             <option value="">Tất cả</option>
-                            {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            {products.map(p => <option key={p.id} value={p.id}>{p.companyCode || p.barcode || p.name}</option>)}
                         </select>
                     </div>
                     <div>
@@ -200,7 +203,9 @@ export default function LedgerPage() {
                                                 {TYPE_LABEL[tx.type] || tx.type}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 font-medium text-slate-700 whitespace-nowrap">{getProductName(tx.productId)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                            <span className="font-mono font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-xs">{getProductCode(tx.productId)}</span>
+                                        </td>
                                         <td className="px-4 py-3 text-right font-bold text-slate-800">{tx.quantity}</td>
                                         <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{getLocationLabel(tx.fromLocationType, tx.fromLocationId)}</td>
                                         <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{getLocationLabel(tx.toLocationType, tx.toLocationId)}</td>

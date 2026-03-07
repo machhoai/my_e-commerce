@@ -232,10 +232,8 @@ export default function AdminDispatchPage() {
                                 {dispatchResult.items.map(item => (
                                     <tr key={item.productId}>
                                         <td style={{ border: '1px solid #cbd5e1', padding: '8px 12px', fontSize: '13px' }}>
-                                            {item.productCode && (
-                                                <span className="code" style={{ fontWeight: 'bold', color: '#2563eb' }}>[{item.productCode}] </span>
-                                            )}
-                                            {item.productName}
+                                            <span style={{ fontWeight: 'bold', color: '#2563eb', fontFamily: 'monospace' }}>{item.productCode || '—'}</span>
+                                            <span style={{ color: '#64748b', marginLeft: '8px' }}>{item.productName}</span>
                                         </td>
                                         <td style={{ border: '1px solid #cbd5e1', padding: '8px 12px', fontSize: '13px' }}>{item.unit}</td>
                                         <td style={{ border: '1px solid #cbd5e1', padding: '8px 12px', fontSize: '13px', textAlign: 'right' }}>{item.requestedQty}</td>
@@ -285,11 +283,10 @@ export default function AdminDispatchPage() {
                                         <td className="px-6 py-3 text-slate-600">
                                             <div className="space-y-0.5">
                                                 {order.items.map((item, i) => (
-                                                    <div key={i} className="text-xs flex items-baseline gap-1">
-                                                        {item.productCode
-                                                            ? <span className="font-bold text-blue-600 shrink-0">[{item.productCode}]</span>
-                                                            : null}
-                                                        <span className="text-slate-700">{item.productName}</span>
+                                                    <div key={i} className="text-xs flex items-center gap-1.5">
+                                                        <span className="font-mono font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-[11px] shrink-0">
+                                                            {item.productCode || '—'}
+                                                        </span>
                                                         <span className="text-slate-400">×{item.requestedQty} {item.unit}</span>
                                                     </div>
                                                 ))}
@@ -380,13 +377,13 @@ export default function AdminDispatchPage() {
                                 {modalItems.map((item, idx) => (
                                     <div key={item.productId} className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex items-baseline gap-1 flex-wrap">
-                                                {item.productCode && (
-                                                    <span className="font-bold text-blue-600 text-xs">[{item.productCode}]</span>
-                                                )}
-                                                <p className="font-semibold text-slate-700 text-sm truncate">{item.productName}</p>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="font-mono font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-xs">
+                                                    {item.productCode || '—'}
+                                                </span>
+                                                <span className="text-slate-500 text-xs truncate">{item.productName}</span>
                                             </div>
-                                            <p className="text-xs text-slate-400">Yêu cầu: {item.requestedQty} {item.unit}</p>
+                                            <p className="text-xs text-slate-400 mt-0.5">Yêu cầu: {item.requestedQty} {item.unit}</p>
                                         </div>
                                         <div className="flex flex-col items-center">
                                             <span className="text-[10px] text-slate-400 mb-1">Thực xuất</span>

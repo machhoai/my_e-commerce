@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
     ShoppingCart, Search, AlertTriangle, Package, X, Plus, Minus,
     Trash2, Send, CheckCircle2, AlertCircle, SlidersHorizontal,
-    ChevronDown, Pencil, Check, LayoutGrid, List, ClipboardList, XCircle,
+    ChevronDown, ChevronUp, Pencil, Check, LayoutGrid, List, ClipboardList, XCircle,
 } from 'lucide-react';
 import type { ProductDoc, InventoryBalanceDoc, PurchaseOrderDoc } from '@/types/inventory';
 import type { StoreDoc } from '@/types';
@@ -416,6 +416,9 @@ export default function StoreInventoryDashboard() {
     const [message, setMessage] = useState({ type: '', text: '' });
     const [selectedStoreId, setSelectedStoreId] = useState('');
 
+    // Collapsible history orders
+    const [expandedHistoryOrders, setExpandedHistoryOrders] = useState<Set<string>>(new Set());
+
     // Cancel order state
     const [cancelingId, setCancelingId] = useState<string | null>(null);
     const [cancelReason, setCancelReason] = useState('');
@@ -589,6 +592,15 @@ export default function StoreInventoryDashboard() {
     const inCartIds = new Set(cart.map(i => i.productId));
     const outCount = mergedProducts.filter(p => p.stockStatus === 'out').length;
     const lowCount = mergedProducts.filter(p => p.stockStatus === 'low').length;
+
+    const toggleHistoryOrder = (orderId: string) => {
+        setExpandedHistoryOrders(prev => {
+            const next = new Set(prev);
+            if (next.has(orderId)) next.delete(orderId);
+            else next.add(orderId);
+            return next;
+        });
+    };
 
     const handleCancel = async () => {
         if (!cancelingId) return;
@@ -823,75 +835,105 @@ export default function StoreInventoryDashboard() {
 
             {/* ── HISTORY TAB ── */}
             {activeTab === 'history' && (
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="p-5 border-b border-slate-100">
-                        <h2 className="font-bold text-slate-800">Lịch sử đặt hàng</h2>
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h2 className="font-bold text-slate-800 text-lg">Lịch sử đặt hàng</h2>
+                        <span className="text-xs text-slate-400">{orders.length} đơn</span>
                     </div>
                     {loading ? (
                         <div className="flex justify-center py-12"><div className="w-6 h-6 border-4 border-slate-300 border-t-indigo-600 rounded-full animate-spin" /></div>
                     ) : orders.length === 0 ? (
-                        <p className="text-sm text-slate-400 text-center py-12">Chưa có đơn đặt hàng nào</p>
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm text-center py-12">
+                            <p className="text-sm text-slate-400">Chưa có đơn đặt hàng nào</p>
+                        </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="text-left text-xs text-slate-500 uppercase bg-slate-50 border-b">
-                                        <th className="px-6 py-3">Thời gian</th>
-                                        <th className="px-6 py-3">Người tạo</th>
-                                        <th className="px-6 py-3">Sản phẩm</th>
-                                        <th className="px-6 py-3">Trạng thái</th>
-                                        <th className="px-6 py-3 text-right">Hành động</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {orders.map(order => (
-                                        <tr key={order.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                                            <td className="px-6 py-3 text-slate-500 whitespace-nowrap">{new Date(order.timestamp).toLocaleString('vi-VN')}</td>
-                                            <td className="px-6 py-3 text-slate-700 font-medium">{order.createdByName}</td>
-                                            <td className="px-6 py-3 text-slate-600">
-                                                <div className="space-y-0.5">
-                                                    {order.items.map((item, i) => (
-                                                        <div key={i} className="text-xs flex items-baseline gap-1">
-                                                            {item.productCode && (
-                                                                <span className="font-bold text-slate-800">{item.productCode}</span>
-                                                            )}
-                                                            <span className="text-slate-700">{item.productName}</span>
-                                                            <span className="text-slate-400">x{item.requestedQty} {item.unit}</span>
-                                                            {item.dispatchedQty !== undefined && item.dispatchedQty !== item.requestedQty && (
-                                                                <span className="text-emerald-600">(xuat: {item.dispatchedQty})</span>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                {(order as any).rejectReason && (
-                                                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                                                        <XCircle className="w-3 h-3 shrink-0" /> Ly do tu choi: {(order as any).rejectReason}
-                                                    </p>
-                                                )}
-                                                {(order as any).cancelReason && (
-                                                    <p className="text-xs text-slate-400 mt-1">Ly do huy: {(order as any).cancelReason}</p>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-3">
-                                                <span className={`text-xs font-bold px-2 py-1 rounded border ${STATUS_BADGE[order.status] || ''}`}>
+                        orders.map(order => {
+                            const isExpanded = expandedHistoryOrders.has(order.id);
+                            const totalItems = order.items.length;
+                            const totalQty = order.items.reduce((s, i) => s + i.requestedQty, 0);
+
+                            return (
+                                <div key={order.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                    {/* Collapsible header */}
+                                    <button
+                                        onClick={() => toggleHistoryOrder(order.id)}
+                                        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50/80 transition-colors"
+                                    >
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_BADGE[order.status] || ''}`}>
                                                     {STATUS_LABEL[order.status] || order.status}
                                                 </span>
-                                            </td>
-                                            <td className="px-6 py-3 text-right">
-                                                {order.status === 'PENDING' && (
-                                                    <button
-                                                        onClick={() => { setCancelingId(order.id); setCancelReason(''); }}
-                                                        className="flex items-center gap-1 text-xs font-bold text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap"
-                                                    >
-                                                        <XCircle className="w-3 h-3" /> Huy don
-                                                    </button>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                                <span className="text-xs text-slate-400">
+                                                    {new Date(order.timestamp).toLocaleString('vi-VN')}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <p className="text-sm text-slate-600">
+                                                    <span className="font-bold text-slate-800">{totalItems}</span> sản phẩm · <span className="font-bold text-slate-800">{totalQty}</span> đơn vị
+                                                </p>
+                                                <span className="text-xs text-slate-400">· {order.createdByName}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Cancel button for PENDING orders */}
+                                        {order.status === 'PENDING' && (
+                                            <button
+                                                onClick={e => { e.stopPropagation(); setCancelingId(order.id); setCancelReason(''); }}
+                                                className="flex items-center gap-1 text-xs font-bold text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2.5 py-1.5 rounded-xl transition-colors whitespace-nowrap shrink-0"
+                                            >
+                                                <XCircle className="w-3 h-3" /> Hủy đơn
+                                            </button>
+                                        )}
+
+                                        {isExpanded
+                                            ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
+                                            : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
+                                    </button>
+
+                                    {/* Collapsible item list */}
+                                    {isExpanded && (
+                                        <div className="border-t border-slate-100 px-4 py-3 bg-slate-50/50">
+                                            <div className="space-y-1.5">
+                                                {order.items.map((item, i) => (
+                                                    <div key={i} className="flex items-center justify-between text-xs py-1">
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <span className="font-mono font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">
+                                                                {item.productCode || '—'}
+                                                            </span>
+                                                            <span className="text-slate-500 truncate">{item.productName}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                                                            <span className="text-slate-600 font-semibold whitespace-nowrap">
+                                                                ×{item.requestedQty} {item.unit}
+                                                            </span>
+                                                            {item.dispatchedQty !== undefined && item.dispatchedQty !== item.requestedQty && (
+                                                                <span className="text-emerald-600 whitespace-nowrap">(xuất: {item.dispatchedQty})</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            {(order as any).rejectReason && (
+                                                <p className="text-xs text-red-500 mt-2 flex items-center gap-1 pt-2 border-t border-slate-100">
+                                                    <XCircle className="w-3 h-3 shrink-0" /> Lý do từ chối: {(order as any).rejectReason}
+                                                </p>
+                                            )}
+                                            {(order as any).cancelReason && (
+                                                <p className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-100">
+                                                    Lý do hủy: {(order as any).cancelReason}
+                                                </p>
+                                            )}
+                                            {order.note && (
+                                                <p className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-100">
+                                                    Ghi chú: {order.note}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })
                     )}
                 </div>
             )}

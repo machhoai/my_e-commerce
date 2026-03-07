@@ -9,6 +9,7 @@ import type { StoreDoc, CounterDoc } from '@/types';
 // ── Pivot row for the overview table ──────────────────────────
 interface PivotRow {
     productId: string;
+    productCode: string;
     productName: string;
     productImage: string;
     unit: string;
@@ -31,6 +32,7 @@ function buildPivot(
             const p = products.find(x => x.id === productId);
             map.set(productId, {
                 productId,
+                productCode: p?.companyCode || p?.barcode || '',
                 productName: p?.name || productId,
                 productImage: p?.image || '',
                 unit: p?.unit || '',
@@ -128,7 +130,9 @@ function PivotTable({ rows, counters }: { rows: PivotRow[]; counters: CounterDoc
                                                 </div>
                                             )}
                                             <div className="min-w-0">
-                                                <p className={`font-medium truncate ${isLow ? 'text-red-700' : 'text-slate-700'}`}>{row.productName}</p>
+                                                <p className={`font-mono font-bold text-xs truncate ${isLow ? 'text-red-700' : 'text-slate-800'}`}>
+                                                    {row.productCode || row.productName}
+                                                </p>
                                                 <p className="text-[10px] text-slate-400">{row.unit}</p>
                                             </div>
                                             {isLow && (
@@ -179,10 +183,16 @@ function CounterStockTable({
     products: ProductDoc[];
     loading: boolean;
 }) {
-    const stockRows = balances.map(b => {
+    const activeBalances = balances.filter(b => {
+        const product = products.find(p => p.id === b.productId);
+        return !(product && product.isActive === false);
+    });
+
+    const stockRows = activeBalances.map(b => {
         const product = products.find(p => p.id === b.productId);
         return {
             ...b,
+            productCode: product?.companyCode || product?.barcode || '',
             productName: product?.name || b.productId,
             productImage: product?.image || '',
             unit: product?.unit || '',
@@ -243,7 +253,7 @@ function CounterStockTable({
                                                     <Package className="w-4 h-4 text-slate-400" />
                                                 </div>
                                             )}
-                                            <span className="font-medium text-slate-700">{row.productName}</span>
+                                            <span className="font-mono font-bold text-slate-800 text-xs">{row.productCode || row.productName}</span>
                                         </div>
                                     </td>
                                     <td className="px-4 py-3 text-slate-500">{row.unit}</td>
@@ -306,7 +316,7 @@ export default function CounterStockDashboard() {
                 const token = await getToken();
                 const res = await fetch('/api/inventory/products', { headers: { Authorization: `Bearer ${token}` } });
                 const data = await res.json();
-                setProducts(Array.isArray(data) ? data : []);
+                setProducts(Array.isArray(data) ? data.filter((p: ProductDoc) => p.isActive !== false) : []);
             } catch { /* silent */ }
         })();
     }, [user, getToken]);

@@ -75,7 +75,10 @@ export default function CentralLedgerPage() {
         return <div className="flex items-center justify-center h-64 text-red-500 font-bold">Bạn không có quyền truy cập.</div>;
     }
 
-    const getProductName = (id: string) => products.find(p => p.id === id)?.name || id;
+    const getProductCode = (id: string) => {
+        const p = products.find(p => p.id === id);
+        return p?.companyCode || p?.barcode || p?.name || id;
+    };
 
     const getLocationLabel = (locationType: string, locationId: string) => {
         if (locationType === 'CENTRAL') return 'Kho trung tâm';
@@ -115,7 +118,7 @@ export default function CentralLedgerPage() {
                     <select value={filterProductId} onChange={e => setFilterProductId(e.target.value)}
                         className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-slate-300">
                         <option value="">Tất cả sản phẩm</option>
-                        {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        {products.map(p => <option key={p.id} value={p.id}>{p.companyCode || p.barcode || p.name}</option>)}
                     </select>
                     <select value={filterType} onChange={e => setFilterType(e.target.value)}
                         className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none sm:w-48">
@@ -164,7 +167,9 @@ export default function CentralLedgerPage() {
                                 {transactions.map(tx => (
                                     <tr key={tx.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                                         <td className="px-4 py-3 text-slate-500 whitespace-nowrap text-xs">{new Date(tx.timestamp).toLocaleString('vi-VN')}</td>
-                                        <td className="px-4 py-3 font-medium text-slate-700">{getProductName(tx.productId)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                            <span className="font-mono font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-xs">{getProductCode(tx.productId)}</span>
+                                        </td>
                                         <td className="px-4 py-3">
                                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${TYPE_COLORS[tx.type] || 'bg-slate-50 text-slate-600 border-slate-200'}`}>
                                                 {TYPE_LABELS[tx.type] || tx.type}
