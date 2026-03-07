@@ -96,6 +96,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(firebaseUser);
             if (firebaseUser) {
                 await fetchUserDoc(firebaseUser.uid);
+
+                // Refresh the 7-day session cookie on app load (rolling window).
+                // This keeps the session alive as long as the user opens the app
+                // at least once every 7 days.
+                try {
+                    const idToken = await firebaseUser.getIdToken();
+                    await fetch('/api/auth/session', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ idToken }),
+                    });
+                } catch (err) {
+                    console.error('Failed to refresh session cookie:', err);
+                }
             } else {
                 setUserDoc(null);
                 setPermissions(new Set());
@@ -122,9 +136,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await signOut(auth);
             throw new Error('Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản lý.');
         }
+
+        // Create a 7-day server-side session cookie for PWA persistence
+        try {
+            const idToken = await credential.user.getIdToken();
+            await fetch('/api/auth/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken }),
+            });
+        } catch (err) {
+            console.error('Failed to create session cookie:', err);
+        }
     }, []);
 
     const logout = useCallback(async () => {
+        // Clear the server-side session cookie before signing out
+        try {
+            await fetch('/api/auth/session', { method: 'DELETE' });
+        } catch (err) {
+            console.error('Failed to clear session cookie:', err);
+        }
         await signOut(auth);
         setUserDoc(null);
         setPermissions(new Set());
