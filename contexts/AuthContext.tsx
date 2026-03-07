@@ -10,6 +10,7 @@ import React, {
 import {
     User,
     signInWithEmailAndPassword,
+    signInWithCustomToken,
     signOut,
     onAuthStateChanged,
     updatePassword,
@@ -92,14 +93,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     useEffect(() => {
+        // Track whether we've already tried session cookie recovery
+        // to prevent infinite loops (signInWithCustomToken triggers
+        // onAuthStateChanged again).
+        let recoveryAttempted = false;
+
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             setUser(firebaseUser);
+
             if (firebaseUser) {
+                // ✅ User authenticated (from IndexedDB or recovery)
                 await fetchUserDoc(firebaseUser.uid);
 
-                // Refresh the 7-day session cookie on app load (rolling window).
-                // This keeps the session alive as long as the user opens the app
-                // at least once every 7 days.
+                // Sync token → session cookie (rolling 7-day window).
+                // This keeps the cookie alive as long as the user opens
+                // the app at least once every 7 days.
                 try {
                     const idToken = await firebaseUser.getIdToken();
                     await fetch('/api/auth/session', {
@@ -110,11 +118,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 } catch (err) {
                     console.error('Failed to refresh session cookie:', err);
                 }
+
+                recoveryAttempted = false;
+                setLoading(false);
             } else {
+                // ❌ User is null — IndexedDB may have been wiped by the OS.
+                // Try to recover from the server-side session cookie ONCE.
+                if (!recoveryAttempted) {
+                    recoveryAttempted = true;
+                    try {
+                        const res = await fetch('/api/auth/session');
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.customToken) {
+                                // Re-authenticate silently — this will
+                                // trigger onAuthStateChanged again with
+                                // the recovered user.
+                                await signInWithCustomToken(auth, data.customToken);
+                                return; // Don't setLoading(false) yet
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Session recovery failed:', err);
+                    }
+                }
+
+                // Recovery failed or not applicable — truly logged out
+                recoveryAttempted = false;
                 setUserDoc(null);
                 setPermissions(new Set());
+                setLoading(false);
             }
-            setLoading(false);
         });
 
         return () => unsubscribe();

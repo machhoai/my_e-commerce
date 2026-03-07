@@ -1,37 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * Next.js Middleware: Session cookie guard for protected routes.
+ * Next.js Middleware: Soft session check for protected routes.
  *
- * Checks for the presence of the 'session' cookie on dashboard routes.
- * If missing, redirects to /login. This provides a server-side safety net
- * for PWA users whose client-side auth state may have been evicted.
+ * IMPORTANT: This middleware must NOT hard-redirect to /login when the
+ * session cookie is missing. Firebase Client Auth stores state in IndexedDB,
+ * which cannot be read from middleware (runs in Edge Runtime). Redirecting
+ * here would kill the client-side auth recovery cycle — the client's
+ * onAuthStateChanged never gets a chance to fire, verify the valid IndexedDB
+ * token, and sync it back to a session cookie.
  *
- * NOTE: We intentionally do NOT verify the cookie cryptographically here
- * because Firebase Admin SDK doesn't run in Edge Runtime. The actual
- * Firebase auth state handles authorization; this is purely a UX guard
- * to prevent flashing dashboard UI before client-side redirect kicks in.
+ * Route protection is handled client-side by AuthGuard, which correctly
+ * waits for onAuthStateChanged to resolve before deciding whether to
+ * redirect to /login.
+ *
+ * This middleware only adds a header indicating the session status so that
+ * Server Components can optionally use it for SSR decisions.
  */
 export function middleware(request: NextRequest) {
-    const { pathname } = request.nextUrl;
-
-    // Check for session cookie on protected routes
     const sessionCookie = request.cookies.get('session');
+    const response = NextResponse.next();
 
-    if (!sessionCookie?.value) {
-        // No session cookie — redirect to login
-        const loginUrl = new URL('/login', request.url);
-        loginUrl.searchParams.set('redirect', pathname);
-        return NextResponse.redirect(loginUrl);
-    }
+    // Pass session status as a header for Server Components (optional SSR use)
+    response.headers.set(
+        'x-session-status',
+        sessionCookie?.value ? 'active' : 'none'
+    );
 
-    return NextResponse.next();
+    return response;
 }
 
 export const config = {
-    // Only run middleware on dashboard (protected) routes.
-    // The (dashboard) route group means URLs are /admin/*, /manager/*, etc.
-    // Exclude: /login, /api/*, /_next/*, static files, manifest, etc.
+    // Run on protected routes — but only to set headers, never to redirect.
     matcher: [
         '/admin/:path*',
         '/manager/:path*',
