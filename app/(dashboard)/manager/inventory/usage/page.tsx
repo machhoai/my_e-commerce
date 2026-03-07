@@ -1,18 +1,23 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCounterAssignment } from '@/hooks/useCounterAssignment';
-import { ScanBarcode, Lock, CheckCircle2, AlertCircle, Package, Send, Minus, Plus, Camera } from 'lucide-react';
+import { ScanBarcode, CheckCircle2, AlertCircle, Package, Send, Minus, Plus, Camera, ChevronDown } from 'lucide-react';
 import type { ProductDoc } from '@/types/inventory';
+import type { CounterDoc } from '@/types';
 import dynamic from 'next/dynamic';
 
 const BarcodeScanner = dynamic(() => import('@/components/inventory/BarcodeScanner'), { ssr: false });
 
 export default function UsagePage() {
-    const { user } = useAuth();
-    const assignment = useCounterAssignment();
+    const { user, userDoc, getToken } = useAuth();
 
+    // Counter selection
+    const [counters, setCounters] = useState<CounterDoc[]>([]);
+    const [selectedCounterId, setSelectedCounterId] = useState('');
+    const [countersLoading, setCountersLoading] = useState(true);
+
+    // Barcode & product
     const [barcode, setBarcode] = useState('');
     const [product, setProduct] = useState<ProductDoc | null>(null);
     const [quantity, setQuantity] = useState(1);
@@ -22,7 +27,29 @@ export default function UsagePage() {
     const [message, setMessage] = useState({ type: '', text: '' });
     const [showScanner, setShowScanner] = useState(false);
 
-    const getToken = useCallback(() => user?.getIdToken(), [user]);
+    const selectedCounter = counters.find(c => c.id === selectedCounterId);
+
+    // Fetch all counters for the manager's store
+    useEffect(() => {
+        if (!user || !userDoc?.storeId) return;
+        (async () => {
+            setCountersLoading(true);
+            try {
+                const token = await getToken();
+                const res = await fetch(`/api/counters?storeId=${userDoc.storeId}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                const data: CounterDoc[] = await res.json();
+                const active = Array.isArray(data) ? data.filter(c => c.isActive !== false) : [];
+                setCounters(active);
+                if (active.length > 0) setSelectedCounterId(active[0].id);
+            } catch {
+                setMessage({ type: 'error', text: 'Không thể tải danh sách quầy.' });
+            } finally {
+                setCountersLoading(false);
+            }
+        })();
+    }, [user, userDoc?.storeId, getToken]);
 
     // Look up product by barcode
     const lookupBarcode = async (code: string) => {
@@ -65,7 +92,7 @@ export default function UsagePage() {
     };
 
     const handleSubmit = async () => {
-        if (!product || !assignment.counterId) return;
+        if (!product || !selectedCounterId) return;
         setLoading(true);
         setMessage({ type: '', text: '' });
         try {
@@ -74,7 +101,7 @@ export default function UsagePage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({
-                    counterId: assignment.counterId,
+                    counterId: selectedCounterId,
                     productId: product.id,
                     quantity,
                     note,
@@ -95,40 +122,10 @@ export default function UsagePage() {
     };
 
     // ── Loading state ──
-    if (assignment.loading) {
+    if (countersLoading) {
         return (
             <div className="flex justify-center py-20">
                 <div className="w-8 h-8 border-4 border-slate-300 border-t-indigo-600 rounded-full animate-spin" />
-            </div>
-        );
-    }
-
-    // ── Locked state ──
-    if (!assignment.isAuthorized) {
-        return (
-            <div className="space-y-6 mx-auto">
-                <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent flex items-center gap-2">
-                        <ScanBarcode className="w-7 h-7 text-orange-600" />
-                        Quét mã vạch — Sử dụng hàng
-                    </h1>
-                </div>
-
-                <div className="bg-gradient-to-br from-red-50 to-orange-50 border-2 border-red-200 rounded-2xl p-8 text-center space-y-4">
-                    <div className="w-16 h-16 mx-auto bg-red-100 rounded-full flex items-center justify-center">
-                        <Lock className="w-8 h-8 text-red-500" />
-                    </div>
-                    <h2 className="text-xl font-bold text-red-700">Đã khoá</h2>
-                    <p className="text-red-600 max-w-md mx-auto leading-relaxed">
-                        {assignment.error || 'Bạn không được phân công trực tại quầy nào hôm nay. Quét mã vạch và ghi nhận sử dụng bị khoá.'}
-                    </p>
-                    <div className="pt-2">
-                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-500 bg-red-100 border border-red-200 px-3 py-1.5 rounded-full">
-                            <Lock className="w-3 h-3" />
-                            Chức năng bị khoá
-                        </span>
-                    </div>
-                </div>
             </div>
         );
     }
@@ -142,14 +139,36 @@ export default function UsagePage() {
                     Quét mã vạch — Sử dụng hàng
                 </h1>
                 <p className="text-slate-500 mt-1">
-                    Đang trực tại <strong className="text-indigo-600">{assignment.counterName}</strong> — {assignment.shiftId}
+                    Quản lý có thể quét mã vạch cho bất kỳ quầy nào.
                 </p>
             </div>
 
-            {/* Status indicator */}
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-sm text-emerald-700 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>Bạn đã được phân công tại <strong>{assignment.counterName}</strong>. Sẵn sàng quét mã vạch.</span>
+            {/* Counter Selector */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-2">
+                <label className="block text-sm font-semibold text-slate-700">Chọn quầy</label>
+                {counters.length === 0 ? (
+                    <p className="text-sm text-slate-400">Chưa có quầy nào trong cửa hàng.</p>
+                ) : (
+                    <div className="relative">
+                        <select
+                            id="counter-select"
+                            value={selectedCounterId}
+                            onChange={e => setSelectedCounterId(e.target.value)}
+                            className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-xl py-3 pl-4 pr-10 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 transition-all"
+                        >
+                            {counters.map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                )}
+                {selectedCounter && (
+                    <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-sm text-indigo-700 flex items-center gap-2 mt-2">
+                        <CheckCircle2 className="w-4 h-4 shrink-0" />
+                        <span>Đang ghi nhận cho quầy <strong>{selectedCounter.name}</strong>. Sẵn sàng quét mã vạch.</span>
+                    </div>
+                )}
             </div>
 
             {/* Barcode Input */}
@@ -228,7 +247,7 @@ export default function UsagePage() {
                     </div>
 
                     {/* Submit */}
-                    <button onClick={handleSubmit} disabled={loading}
+                    <button onClick={handleSubmit} disabled={loading || !selectedCounterId}
                         className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 disabled:from-slate-400 disabled:to-slate-400 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md">
                         {loading ? (
                             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
