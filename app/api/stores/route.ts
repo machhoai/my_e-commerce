@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
         const callerUid = await verifyAdmin(req);
         if (!callerUid) return NextResponse.json({ error: 'Bị từ chối truy cập' }, { status: 403 });
 
-        const body = await req.json() as { name: string; address?: string };
+        const body = await req.json() as { name: string; address?: string; type?: string };
         if (!body.name?.trim()) {
             return NextResponse.json({ error: 'Tên cửa hàng là bắt buộc' }, { status: 400 });
         }
@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
             id: storeRef.id,
             name: body.name.trim(),
             address: body.address?.trim() || '',
+            type: (body.type as any) || 'STORE',
             isActive: true,
             createdAt: new Date().toISOString(),
         };
@@ -81,13 +82,14 @@ export async function PUT(req: NextRequest) {
         const callerUid = await verifyAdmin(req);
         if (!callerUid) return NextResponse.json({ error: 'Bị từ chối truy cập' }, { status: 403 });
 
-        const body = await req.json() as { id: string; name?: string; address?: string };
+        const body = await req.json() as { id: string; name?: string; address?: string; type?: string };
         if (!body.id) return NextResponse.json({ error: 'Thiếu storeId' }, { status: 400 });
 
         const adminDb = getAdminDb();
         const updateData: Partial<StoreDoc> = {};
         if (body.name !== undefined) updateData.name = body.name.trim();
         if (body.address !== undefined) updateData.address = body.address.trim();
+        if (body.type !== undefined) (updateData as any).type = body.type;
 
         await adminDb.collection('stores').doc(body.id).update(updateData);
         return NextResponse.json({ message: 'Cập nhật cửa hàng thành công' });

@@ -68,8 +68,18 @@ export async function GET(req: NextRequest) {
         const adminDb = getAdminDb();
         await ensureSystemRoles(adminDb);
 
+        // Optional: filter by applicableTo location type
+        const { searchParams } = new URL(req.url);
+        const applicableToFilter = searchParams.get('applicableTo') as 'STORE' | 'OFFICE' | 'CENTRAL' | null;
+
         const snap = await adminDb.collection('custom_roles').orderBy('name').get();
-        const roles = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        let roles = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        if (applicableToFilter) {
+            roles = roles.filter((r: any) =>
+                !r.applicableTo || r.applicableTo.includes(applicableToFilter)
+            );
+        }
 
         return NextResponse.json(roles);
     } catch (err) {
@@ -98,6 +108,7 @@ export async function POST(req: NextRequest) {
             permissions: AppPermission[];
             creatorRoles?: string[];
             color?: string;
+            applicableTo?: ('STORE' | 'OFFICE' | 'CENTRAL')[];
         };
 
         if (!body.name?.trim()) {
@@ -109,6 +120,7 @@ export async function POST(req: NextRequest) {
             permissions: body.permissions || [],
             creatorRoles: body.creatorRoles || ['admin'],
             color: body.color || undefined,
+            ...(body.applicableTo?.length ? { applicableTo: body.applicableTo } : {}),
             isSystem: false,
             isLocked: false,
             createdAt: new Date().toISOString(),

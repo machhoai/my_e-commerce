@@ -18,6 +18,7 @@ const ROLE_LABELS: Record<string, string> = {
     store_manager: 'CH Trưởng',
     manager: 'Quản lý',
     employee: 'Nhân viên',
+    office: 'Văn phòng',
 };
 
 const ROLE_BADGE_CLASS: Record<string, string> = {
@@ -25,6 +26,7 @@ const ROLE_BADGE_CLASS: Record<string, string> = {
     store_manager: 'bg-purple-50 text-purple-700 border-purple-100',
     manager: 'bg-amber-50 text-amber-700 border-amber-100',
     employee: 'bg-blue-50 text-blue-700 border-blue-100',
+    office: 'bg-teal-50 text-teal-700 border-teal-100',
 };
 
 function AdminUsersPageContent() {
@@ -69,6 +71,13 @@ function AdminUsersPageContent() {
     const [newStoreId, setNewStoreId] = useState('');
     const [newCustomRoleId, setNewCustomRoleId] = useState('');
 
+    // Derive the location type of the selected location — drives dynamic form behavior
+    const selectedLocationType = newStoreId
+        ? ((stores.find(s => s.id === newStoreId) as any)?.type as 'STORE' | 'OFFICE' | 'CENTRAL' | undefined) ?? 'STORE'
+        : undefined; // admin / no location assigned
+
+    const LOCATION_ICON: Record<string, string> = { STORE: '🏪', OFFICE: '🏢', CENTRAL: '🏭' };
+
     const [actionLoading, setActionLoading] = useState(false);
     const [actionMessage, setActionMessage] = useState({ type: '', text: '' });
     const [customRoles, setCustomRoles] = useState<CustomRoleDoc[]>([]);
@@ -81,6 +90,7 @@ function AdminUsersPageContent() {
             { value: 'store_manager', label: 'CH Trưởng' },
             { value: 'manager', label: 'Quản lý' },
             { value: 'employee', label: 'Nhân viên' },
+            { value: 'office', label: 'Văn phòng' },
         ];
     const tableFilters = [
         {
@@ -546,22 +556,95 @@ function AdminUsersPageContent() {
                                                 }}
                                                 className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5"
                                             >
-                                                {customRoles.map(r => (
-                                                    <option key={r.id} value={r.isSystem ? r.id : `custom:${r.id}`}>
-                                                        {r.name}{r.isSystem ? '' : ' ✦'}
-                                                    </option>
-                                                ))}
+                                                {/* Roles shown based on location context */}
+                                                {selectedLocationType === 'OFFICE' ? (
+                                                    // OFFICE context: only office-relevant roles
+                                                    <optgroup label="Văn phòng">
+                                                        <option value="office">🏢 Văn phòng (VP)</option>
+                                                        <option value="admin">Quản trị viên</option>
+                                                    </optgroup>
+                                                ) : selectedLocationType === 'CENTRAL' ? (
+                                                    // CENTRAL context: warehouse roles
+                                                    <optgroup label="Kho tổng">
+                                                        <option value="manager">Quản lý kho</option>
+                                                        <option value="employee">Nhân viên kho</option>
+                                                        <option value="admin">Quản trị viên</option>
+                                                    </optgroup>
+                                                ) : (
+                                                    // STORE or no location: all store roles
+                                                    <>
+                                                        <optgroup label="Vai trò hệ thống">
+                                                            <option value="admin">Quản trị viên</option>
+                                                            <option value="store_manager">CH Trưởng</option>
+                                                            <option value="manager">Quản lý</option>
+                                                            <option value="employee">Nhân viên</option>
+                                                        </optgroup>
+                                                        {customRoles.filter(r => !r.isSystem).length > 0 && (
+                                                            <optgroup label="Vai trò tuỳ chỉnh">
+                                                                {customRoles.filter(r => !r.isSystem).map(r => (
+                                                                    <option key={r.id} value={`custom:${r.id}`}>
+                                                                        {r.name} ❆
+                                                                    </option>
+                                                                ))}
+                                                            </optgroup>
+                                                        )}
+                                                    </>
+                                                )}
                                             </select>
                                         </div>
                                         <div className="space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-700">Cửa hàng</label>
-                                            <select value={newStoreId} onChange={e => setNewStoreId(e.target.value)}
-                                                className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5">
-                                                <option value="">(Không thuộc cửa hàng)</option>
-                                                {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                            <label className="text-sm font-medium text-slate-700 flex items-center justify-between">
+                                                <span>Địa điểm</span>
+                                                {selectedLocationType && (
+                                                    <span className={cn(
+                                                        'text-[10px] font-bold px-2 py-0.5 rounded-full',
+                                                        selectedLocationType === 'OFFICE' ? 'bg-teal-100 text-teal-700' :
+                                                            selectedLocationType === 'CENTRAL' ? 'bg-orange-100 text-orange-700' :
+                                                                'bg-indigo-100 text-indigo-700'
+                                                    )}>
+                                                        {LOCATION_ICON[selectedLocationType]} {selectedLocationType === 'STORE' ? 'Cửa hàng' : selectedLocationType === 'OFFICE' ? 'Văn phòng' : 'Kho tổng'}
+                                                    </span>
+                                                )}
+                                            </label>
+                                            <select
+                                                value={newStoreId}
+                                                onChange={e => {
+                                                    setNewStoreId(e.target.value);
+                                                    // Auto-reset role when switching location context
+                                                    const newLocType = (stores.find(s => s.id === e.target.value) as any)?.type;
+                                                    if (newLocType === 'OFFICE') setNewRole('office');
+                                                    else if (newLocType === 'CENTRAL') setNewRole('manager');
+                                                    else setNewRole('employee');
+                                                }}
+                                                className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5"
+                                            >
+                                                <option value="">(Admin — không thuộc địa điểm nào)</option>
+                                                {/* Group by type */}
+                                                {stores.filter(s => (s as any).type === 'STORE' || !(s as any).type).length > 0 && (
+                                                    <optgroup label="🏪 Cửa hàng">
+                                                        {stores.filter(s => (s as any).type === 'STORE' || !(s as any).type).map(s => (
+                                                            <option key={s.id} value={s.id}>{s.name}{!s.isActive ? ' (Đã tắt)' : ''}</option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
+                                                {stores.filter(s => (s as any).type === 'OFFICE').length > 0 && (
+                                                    <optgroup label="🏢 Văn phòng">
+                                                        {stores.filter(s => (s as any).type === 'OFFICE').map(s => (
+                                                            <option key={s.id} value={s.id}>{s.name}{!s.isActive ? ' (Đã tắt)' : ''}</option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
+                                                {stores.filter(s => (s as any).type === 'CENTRAL').length > 0 && (
+                                                    <optgroup label="🏭 Kho tổng">
+                                                        {stores.filter(s => (s as any).type === 'CENTRAL').map(s => (
+                                                            <option key={s.id} value={s.id}>{s.name}{!s.isActive ? ' (Đã tắt)' : ''}</option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
                                             </select>
                                         </div>
-                                        {newRole !== 'admin' && (
+                                        {/* canManageHR is STORE-specific — hide for OFFICE and CENTRAL */}
+                                        {newRole !== 'admin' && (!selectedLocationType || selectedLocationType === 'STORE') && (
                                             <label className="flex items-center gap-2 cursor-pointer p-3 border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
                                                 <input type="checkbox" checked={newCanManageHR} onChange={e => setNewCanManageHR(e.target.checked)}
                                                     className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer" />

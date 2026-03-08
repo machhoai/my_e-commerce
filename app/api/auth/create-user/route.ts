@@ -61,6 +61,18 @@ export async function POST(req: NextRequest) {
             effectiveStoreId = callerStoreId; // others must use their own store
         }
 
+        // Resolve locationType from the assigned location's type field
+        let locationType: 'STORE' | 'OFFICE' | 'CENTRAL' | undefined;
+        if (effectiveStoreId) {
+            const storeSnap = await adminDb.collection('stores').doc(effectiveStoreId).get();
+            const storeType = storeSnap.data()?.type;
+            if (storeType === 'OFFICE' || storeType === 'CENTRAL' || storeType === 'STORE') {
+                locationType = storeType;
+            } else {
+                locationType = 'STORE'; // Default for legacy stores without type
+            }
+        }
+
         if (!name || !phone || !role || !type) {
             return NextResponse.json({ error: 'Thiếu các trường bắt buộc' }, { status: 400 });
         }
@@ -83,6 +95,7 @@ export async function POST(req: NextRequest) {
             isActive: true,
             createdAt: new Date().toISOString(),
             ...(effectiveStoreId && { storeId: effectiveStoreId }),
+            ...(locationType && { locationType }),
             ...(dob && { dob }),
             ...(jobTitle && { jobTitle }),
             ...(realEmail && { email: realEmail }),

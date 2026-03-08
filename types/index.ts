@@ -2,7 +2,7 @@
 // Firestore Collection Types
 // ============================================================
 
-export type UserRole = 'admin' | 'store_manager' | 'manager' | 'employee';
+export type UserRole = 'admin' | 'store_manager' | 'manager' | 'employee' | 'office';
 export type EmployeeType = 'FT' | 'PT';
 
 // All available granular permissions in the system
@@ -43,6 +43,7 @@ export interface CustomRoleDoc {
     isLocked?: boolean;         // Fully locked (admin role) — cannot be edited or deleted
     creatorRoles: string[];     // Which role IDs are allowed to create/assign this role
     color?: string;             // Display color for the role badge
+    applicableTo?: ('STORE' | 'OFFICE' | 'CENTRAL')[];  // Which location types can use this role
     createdAt?: string;
     createdBy?: string;
 }
@@ -69,6 +70,7 @@ export interface StoreDoc {
     id: string;
     name: string;
     address?: string;
+    type?: 'STORE' | 'CENTRAL' | 'OFFICE'; // Location type for routing purposes
     isActive: boolean;
     createdAt?: string;
     settings?: StoreSettings;  // Per-store registration & shift configuration
@@ -82,7 +84,8 @@ export interface UserDoc {
     type: EmployeeType;
     isActive: boolean;
     createdAt?: string;
-    storeId?: string; // Which store this user belongs to (undefined only for admin)
+    storeId?: string; // Which store/office/central location this user belongs to
+    locationType?: 'STORE' | 'OFFICE' | 'CENTRAL'; // Cached from the assigned location's type — drives context-aware navigation
 
     // Extended Profile Fields
     dob?: string;

@@ -90,7 +90,17 @@ export async function POST(request: Request) {
         if (requesterRole === 'admin') {
             if (body.role !== undefined) updateData.role = body.role;
             if (body.canManageHR !== undefined) updateData.canManageHR = Boolean(body.canManageHR);
-            if (body.storeId !== undefined) updateData.storeId = body.storeId;
+            if (body.storeId !== undefined) {
+                updateData.storeId = body.storeId;
+                // Resolve and cache locationType when storeId changes
+                if (body.storeId) {
+                    const storeSnap = await adminDb.collection('stores').doc(body.storeId).get();
+                    const storeType = storeSnap.data()?.type;
+                    updateData.locationType = (storeType === 'OFFICE' || storeType === 'CENTRAL') ? storeType : 'STORE';
+                } else {
+                    updateData.locationType = null; // Clearing storeId (admin only)
+                }
+            }
             if (body.customRoleId !== undefined) updateData.customRoleId = body.customRoleId || null;
         }
 
