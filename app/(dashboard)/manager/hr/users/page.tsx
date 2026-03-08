@@ -381,7 +381,7 @@ function ManagerUsersPageContent() {
                                     className="flex-1 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white font-medium"
                                 >
                                     <option value="">-- Tất cả cửa hàng --</option>
-                                    {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
                                 </select>
                             </div>
                         )}
@@ -720,7 +720,7 @@ function ManagerUsersPageContent() {
                                                                             className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 cursor-pointer"
                                                                         >
                                                                             <option value="">-- Chưa gán cửa hàng --</option>
-                                                                            {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                                                            {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
                                                                         </select>
                                                                     </div>
                                                                 )}

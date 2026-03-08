@@ -10,7 +10,7 @@ async function verifyAdmin(req: NextRequest) {
     const decoded = await adminAuth.verifyIdToken(token);
     const adminDb = getAdminDb();
     const callerSnap = await adminDb.collection('users').doc(decoded.uid).get();
-    if (!callerSnap.exists || callerSnap.data()?.role !== 'admin') return null;
+    if (!callerSnap.exists || !['admin', 'super_admin'].includes(callerSnap.data()?.role)) return null;
     return decoded.uid;
 }
 
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
         if (!callerSnap.exists) return NextResponse.json({ error: 'Không tìm thấy người dùng' }, { status: 403 });
         const callerRole = callerSnap.data()?.role;
 
-        if (callerRole === 'admin') {
+        if (callerRole === 'admin' || callerRole === 'super_admin') {
             const snap = await adminDb.collection('stores').orderBy('name').get();
             const stores = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             return NextResponse.json(stores);
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
         const callerUid = await verifyAdmin(req);
         if (!callerUid) return NextResponse.json({ error: 'Bị từ chối truy cập' }, { status: 403 });
 
-        const body = await req.json() as { name: string; address?: string; type?: string };
+        const body = await req.json() as { name: string; address?: string };
         if (!body.name?.trim()) {
             return NextResponse.json({ error: 'Tên cửa hàng là bắt buộc' }, { status: 400 });
         }
@@ -63,7 +63,6 @@ export async function POST(req: NextRequest) {
             id: storeRef.id,
             name: body.name.trim(),
             address: body.address?.trim() || '',
-            type: (body.type as any) || 'STORE',
             isActive: true,
             createdAt: new Date().toISOString(),
         };
@@ -82,14 +81,13 @@ export async function PUT(req: NextRequest) {
         const callerUid = await verifyAdmin(req);
         if (!callerUid) return NextResponse.json({ error: 'Bị từ chối truy cập' }, { status: 403 });
 
-        const body = await req.json() as { id: string; name?: string; address?: string; type?: string };
+        const body = await req.json() as { id: string; name?: string; address?: string };
         if (!body.id) return NextResponse.json({ error: 'Thiếu storeId' }, { status: 400 });
 
         const adminDb = getAdminDb();
         const updateData: Partial<StoreDoc> = {};
         if (body.name !== undefined) updateData.name = body.name.trim();
         if (body.address !== undefined) updateData.address = body.address.trim();
-        if (body.type !== undefined) (updateData as any).type = body.type;
 
         await adminDb.collection('stores').doc(body.id).update(updateData);
         return NextResponse.json({ message: 'Cập nhật cửa hàng thành công' });

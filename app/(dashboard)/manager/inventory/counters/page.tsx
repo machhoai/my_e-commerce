@@ -423,7 +423,7 @@ export default function CounterStockDashboard() {
                     <select value={selectedStoreId} onChange={e => { setSelectedStoreId(e.target.value); setSelectedTab(OVERVIEW_TAB); }}
                         className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300">
                         <option value="">-- Chọn cửa hàng --</option>
-                        {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
                     </select>
                 </div>
             )}

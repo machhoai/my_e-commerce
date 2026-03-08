@@ -9,7 +9,7 @@ async function requireAdmin(req: NextRequest) {
     const decoded = await adminAuth.verifyIdToken(token);
     const adminDb = getAdminDb();
     const callerDoc = await adminDb.collection('users').doc(decoded.uid).get();
-    if (!callerDoc.exists || callerDoc.data()?.role !== 'admin') throw new Error('FORBIDDEN');
+    if (!callerDoc.exists || !['admin', 'super_admin'].includes(callerDoc.data()?.role)) throw new Error('FORBIDDEN');
     return { decoded, adminDb };
 }
 
@@ -40,6 +40,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             permissions?: AppPermission[];
             creatorRoles?: string[];
             color?: string;
+            applicableTo?: ('STORE' | 'OFFICE' | 'CENTRAL')[];
         };
 
         const updateData: Record<string, unknown> = {};
@@ -47,6 +48,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         if (body.permissions !== undefined) updateData.permissions = body.permissions;
         if (body.creatorRoles !== undefined) updateData.creatorRoles = body.creatorRoles;
         if (body.color !== undefined) updateData.color = body.color;
+        if (body.applicableTo !== undefined) {
+            updateData.applicableTo = body.applicableTo.length > 0 ? body.applicableTo : null;
+        }
 
         if (Object.keys(updateData).length === 0) {
             return NextResponse.json({ error: 'Không có dữ liệu cập nhật' }, { status: 400 });

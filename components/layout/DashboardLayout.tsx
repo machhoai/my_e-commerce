@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -24,8 +24,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     // Fetch store name (only relevant for STORE context users)
     useEffect(() => {
-        const isStoreContext = userDoc?.locationType === 'STORE' || (!userDoc?.locationType && userDoc?.storeId && userDoc?.role !== 'admin');
-        if (isStoreContext && userDoc?.storeId) {
+        const isStoreCtx = userDoc?.workplaceType === 'STORE' || (!userDoc?.workplaceType && userDoc?.storeId && userDoc?.role !== 'admin');
+        if (isStoreCtx && userDoc?.storeId) {
             const fetchStore = async () => {
                 try {
                     const snap = await getDoc(doc(db, 'stores', userDoc.storeId!));
@@ -89,53 +89,61 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
 
     // Determine effective location context
-    // Admin sees everything; office role or locationType=OFFICE => office context
+    // Admin sees everything; workplaceType drives context for other roles
     const isAdmin = userDoc?.role === 'admin';
-    const isOfficeContext = !isAdmin && (userDoc?.locationType === 'OFFICE' || userDoc?.role === 'office');
-    const isCentralContext = !isAdmin && userDoc?.locationType === 'CENTRAL';
-    // Default: STORE context (legacy users without locationType are treated as STORE)
-    const isStoreContext = !isAdmin && !isOfficeContext && !isCentralContext;
+    const isSuperAdmin = userDoc?.role === 'super_admin';
+    const isOfficeContext = !isAdmin && !isSuperAdmin && (userDoc?.workplaceType === 'OFFICE' || userDoc?.role === 'office');
+    const isCentralContext = !isAdmin && !isSuperAdmin && userDoc?.workplaceType === 'CENTRAL';
+    // Default: STORE context (legacy users without workplaceType are treated as STORE)
+    const isStoreContext = !isAdmin && !isSuperAdmin && !isOfficeContext && !isCentralContext;
 
     const routes = [
-        // ── STORE-ONLY: Employee personal links ──
+        // ── Employee self-service (Store context only, non-admin) ──
         {
             label: 'Lịch của tôi',
             href: '/employee/dashboard',
             icon: Calendar,
-            show: isStoreContext && userDoc?.role !== 'admin',
+            show: isStoreContext,
         },
         {
             label: 'Đăng ký ca làm',
             href: '/employee/register',
             icon: Calendar,
-            show: isStoreContext && userDoc?.role !== 'admin',
+            show: isStoreContext,
         },
         {
             label: 'KPI của tôi',
             href: '/employee/kpi-stats',
             icon: BarChart3,
-            show: isStoreContext && userDoc?.role !== 'admin',
+            show: isStoreContext,
         },
         {
             label: 'Kho quầy',
             href: '/employee/inventory/usage',
             icon: ScanBarcode,
-            show: isStoreContext && userDoc?.role !== 'admin',
+            show: isStoreContext,
             matchPrefix: '/employee/inventory',
         },
         {
             label: 'Hồ sơ cá nhân',
             href: '/profile',
             icon: User,
-            show: (isStoreContext && userDoc?.role !== 'admin') || isOfficeContext,
+            show: isStoreContext || isOfficeContext,
         },
 
-        // ── STORE-ONLY: Management (Nhân sự group) ──
+        // ── Nhân sự & Xếp lịch (Store managers + admin/superadmin) ──
         {
             label: 'Lịch làm việc',
             href: '/manager/scheduling/overview',
             icon: Calendar,
-            show: isStoreContext && (userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || hasPermission('view_overview') || hasPermission('view_schedule') || hasPermission('edit_schedule') || hasPermission('view_history')),
+            show: isAdmin || isSuperAdmin ||
+                (isStoreContext && (
+                    userDoc?.role === 'store_manager' ||
+                    hasPermission('view_overview') ||
+                    hasPermission('view_schedule') ||
+                    hasPermission('edit_schedule') ||
+                    hasPermission('view_history')
+                )),
             matchPrefix: '/manager/scheduling',
             group: 'Nhân sự',
         },
@@ -143,59 +151,90 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             label: 'Nhân sự & KPI',
             href: '/manager/hr/users',
             icon: Users,
-            show: isStoreContext && (userDoc?.role === 'admin' || userDoc?.role === 'store_manager' || hasPermission('manage_hr') || hasPermission('view_users') || hasPermission('score_employees') || hasPermission('view_all_kpi')),
+            show: isAdmin || isSuperAdmin ||
+                (isStoreContext && (
+                    userDoc?.role === 'store_manager' ||
+                    hasPermission('manage_hr') ||
+                    hasPermission('view_users') ||
+                    hasPermission('score_employees') ||
+                    hasPermission('view_all_kpi')
+                )),
             matchPrefix: '/manager/hr',
             group: 'Nhân sự',
         },
 
-        // ── STORE-ONLY: Inventory (Kho hàng group) ──
+        // ── Kho hàng - Cửa hàng ──
         {
             label: 'Quản lý Kho',
             href: '/manager/inventory/order',
             icon: Package,
-            show: isStoreContext && (userDoc?.role === 'store_manager' || userDoc?.role === 'admin'),
+            show: isAdmin || isSuperAdmin ||
+                (isStoreContext && (
+                    userDoc?.role === 'store_manager' ||
+                    hasPermission('view_inventory') ||
+                    hasPermission('create_order')
+                )),
             matchPrefix: '/manager/inventory',
             group: 'Kho hàng',
         },
 
-        // ── CENTRAL & ADMIN: Warehouse ──
+        // ── Kho tổng (Central + admin + perms) ──
         {
             label: 'Kho tổng',
             href: '/admin/inventory/stock',
             icon: Package,
-            show: isAdmin || isCentralContext || hasPermission('manage_central_warehouse'),
+            show: isAdmin || isSuperAdmin || isCentralContext || hasPermission('manage_central_warehouse'),
             matchPrefix: '/admin/inventory',
             group: 'Kho hàng',
         },
 
-        // ── OFFICE: Office-specific menus ──
+        // ── Văn phòng ──
         {
             label: 'Duyệt lệnh VP',
             href: '/office/inventory/approvals',
             icon: Package,
-            show: isAdmin || isOfficeContext,
+            show: isAdmin || isSuperAdmin || isOfficeContext || hasPermission('approve_office_order') || hasPermission('reject_office_order'),
             matchPrefix: '/office/inventory',
             group: 'Văn phòng',
         },
 
-        // ── ADMIN: System management ──
+        // ── Hệ thống (Admin + Super Admin) ──
+        {
+            label: 'Quản lý Cửa hàng',
+            href: '/admin/settings/stores',
+            icon: Store,
+            show: isAdmin || isSuperAdmin,
+            group: 'Hệ thống',
+        },
+        {
+            label: 'Quản lý Văn phòng',
+            href: '/admin/offices',
+            icon: Building2,
+            show: isAdmin || isSuperAdmin,
+            group: 'Hệ thống',
+        },
+        {
+            label: 'Quản lý Kho tổng',
+            href: '/admin/warehouses',
+            icon: Warehouse,
+            show: isAdmin || isSuperAdmin,
+            group: 'Hệ thống',
+        },
         {
             label: 'Quản lý Người dùng',
             href: '/admin/users',
             icon: Users,
-            show: isAdmin,
+            show: isAdmin || isSuperAdmin,
             group: 'Hệ thống',
         },
         {
             label: 'Cài đặt hệ thống',
             href: '/admin/settings/general',
             icon: SettingsIcon,
-            show: isAdmin,
+            show: isAdmin || isSuperAdmin,
             matchPrefix: '/admin/settings',
             group: 'Hệ thống',
         },
-
-        // ── STORE MANAGER: Store settings ──
         {
             label: 'Cài đặt cửa hàng',
             href: '/manager/settings',
@@ -206,6 +245,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ];
 
     const roleLabelMap: Record<string, string> = {
+        super_admin: 'siêu quản trị',
         admin: 'quản trị viên',
         store_manager: 'cửa hàng trưởng',
         manager: 'quản lý',
@@ -214,6 +254,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     };
 
     const roleBadgeClass: Record<string, string> = {
+        super_admin: 'bg-yellow-500/20 text-yellow-300',
         admin: 'bg-red-500/20 text-red-400',
         store_manager: 'bg-purple-500/20 text-purple-400',
         manager: 'bg-amber-500/20 text-amber-400',
