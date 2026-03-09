@@ -233,9 +233,9 @@ export default function GlobalOverviewPage() {
                             })
                             .filter(Boolean)
                             .join('\n');
-                        row.push(names || '- Trống -');
+                        row.push(names || '-');
                     } else {
-                        row.push('- Trống -');
+                        row.push('-');
                     }
                 });
             });
@@ -967,7 +967,7 @@ export default function GlobalOverviewPage() {
                                                                             })
                                                                         ) : (
                                                                             <div className="text-[11px] p-2 text-slate-400 font-medium italic text-center w-full h-full flex items-center justify-center min-h-[40px] rounded border border-transparent">
-                                                                                - Trống -
+                                                                                -
                                                                             </div>
                                                                         )}
                                                                     </div>
