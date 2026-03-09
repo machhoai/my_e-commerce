@@ -7,6 +7,7 @@ import {
     ChevronDown, BarChart3, Warehouse,
 } from 'lucide-react';
 import type { ProductDoc, InventoryBalanceDoc } from '@/types/inventory';
+import type { WarehouseDoc } from '@/types';
 import {
     PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
     BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -183,24 +184,77 @@ export default function CentralOverviewPage() {
     const [sortBy, setSortBy] = useState<'name' | 'stock_asc' | 'stock_desc'>('stock_asc');
     const [showFilters, setShowFilters] = useState(false);
 
+    // Warehouse
+    const [warehouses, setWarehouses] = useState<WarehouseDoc[]>([]);
+    const [selectedWarehouseId, setSelectedWarehouseId] = useState('ALL'); // 'ALL' = tổng tất cả kho
+
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
+    // Fetch warehouses
+    useEffect(() => {
+        if (!user) return;
+        (async () => {
+            try {
+                const token = await getToken();
+                const res = await fetch('/api/warehouses', { headers: { Authorization: `Bearer ${token}` } });
+                const data = await res.json();
+                setWarehouses(Array.isArray(data) ? data.filter((w: WarehouseDoc) => w.isActive) : []);
+            } catch { /* silent */ }
+        })();
+    }, [user, getToken]);
+
+    // Fetch products + balances
     useEffect(() => {
         if (!user) return;
         setLoading(true);
         (async () => {
             try {
                 const token = await getToken();
-                const [prodRes, balRes] = await Promise.all([
-                    fetch('/api/inventory/products?all=true', { headers: { Authorization: `Bearer ${token}` } }),
-                    fetch('/api/inventory/balances?locationType=CENTRAL&locationId=CENTRAL', { headers: { Authorization: `Bearer ${token}` } }),
-                ]);
-                const [prodData, balData] = await Promise.all([prodRes.json(), balRes.json()]);
+                const headers = { Authorization: `Bearer ${token}` };
+
+                const prodRes = await fetch('/api/inventory/products?all=true', { headers });
+                const prodData = await prodRes.json();
                 setProducts(Array.isArray(prodData) ? prodData : []);
-                setBalances(Array.isArray(balData) ? balData : []);
+
+                if (selectedWarehouseId === 'ALL') {
+                    // Fetch balances for all active warehouses and aggregate
+                    const activeWarehouses = warehouses.length > 0 ? warehouses : [];
+                    if (activeWarehouses.length === 0) {
+                        // Fallback: fetch with old CENTRAL if no warehouses loaded yet
+                        const balRes = await fetch('/api/inventory/balances?locationType=CENTRAL&locationId=CENTRAL', { headers });
+                        const balData = await balRes.json();
+                        setBalances(Array.isArray(balData) ? balData : []);
+                    } else {
+                        const allBalances = await Promise.all(
+                            activeWarehouses.map(async (w) => {
+                                const res = await fetch(`/api/inventory/balances?locationType=CENTRAL&locationId=${w.id}`, { headers });
+                                const data = await res.json();
+                                return Array.isArray(data) ? data as InventoryBalanceDoc[] : [];
+                            })
+                        );
+                        // Aggregate: sum currentStock per productId
+                        const aggregated = new Map<string, InventoryBalanceDoc>();
+                        for (const warehouseBalances of allBalances) {
+                            for (const bal of warehouseBalances) {
+                                const existing = aggregated.get(bal.productId);
+                                if (existing) {
+                                    existing.currentStock += bal.currentStock;
+                                    if (bal.lastUpdated > existing.lastUpdated) existing.lastUpdated = bal.lastUpdated;
+                                } else {
+                                    aggregated.set(bal.productId, { ...bal });
+                                }
+                            }
+                        }
+                        setBalances(Array.from(aggregated.values()));
+                    }
+                } else {
+                    const balRes = await fetch(`/api/inventory/balances?locationType=CENTRAL&locationId=${selectedWarehouseId}`, { headers });
+                    const balData = await balRes.json();
+                    setBalances(Array.isArray(balData) ? balData : []);
+                }
             } catch { /* silent */ } finally { setLoading(false); }
         })();
-    }, [user, getToken]);
+    }, [user, getToken, selectedWarehouseId, warehouses]);
 
     // Merge products with central balances
     const merged: MergedProduct[] = useMemo(() => {
@@ -253,6 +307,17 @@ export default function CentralOverviewPage() {
                     </h1>
                     <p className="text-slate-500 mt-1">Theo dõi toàn bộ tồn kho trung tâm theo thời gian thực.</p>
                 </div>
+            </div>
+
+            {/* Warehouse Selector */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex items-center gap-3">
+                <Warehouse className="w-5 h-5 text-orange-500" />
+                <span className="text-sm font-semibold text-slate-700 shrink-0">Xem theo kho:</span>
+                <select value={selectedWarehouseId} onChange={e => setSelectedWarehouseId(e.target.value)}
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-orange-300">
+                    <option value="ALL">📊 Tổng tất cả các kho</option>
+                    {warehouses.map(w => <option key={w.id} value={w.id}>🏭 {w.name}</option>)}
+                </select>
             </div>
 
             {/* Summary KPI Cards */}

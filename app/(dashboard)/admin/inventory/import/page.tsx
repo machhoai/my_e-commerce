@@ -6,9 +6,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
     Package, Search, Download, X, Plus, Minus,
     Trash2, Send, CheckCircle2, AlertCircle, SlidersHorizontal,
-    ChevronDown, Truck, Building,
+    ChevronDown, Truck, Building, Warehouse,
 } from 'lucide-react';
 import type { ProductDoc, InventoryBalanceDoc } from '@/types/inventory';
+import type { WarehouseDoc } from '@/types';
 
 // ── Types ──────────────────────────────────────────────────────────
 interface MergedProduct extends ProductDoc {
@@ -286,24 +287,46 @@ export default function CentralImportPage() {
     const [sortBy, setSortBy] = useState<'name' | 'stock_asc' | 'stock_desc'>('stock_asc');
     const [showFilters, setShowFilters] = useState(false);
 
+    // Warehouse
+    const [warehouses, setWarehouses] = useState<WarehouseDoc[]>([]);
+    const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
+
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
+    // Fetch warehouses
     useEffect(() => {
         if (!user) return;
+        (async () => {
+            try {
+                const token = await getToken();
+                const res = await fetch('/api/warehouses', { headers: { Authorization: `Bearer ${token}` } });
+                const data = await res.json();
+                const list: WarehouseDoc[] = Array.isArray(data) ? data.filter((w: WarehouseDoc) => w.isActive) : [];
+                setWarehouses(list);
+                if (list.length > 0 && !selectedWarehouseId) {
+                    setSelectedWarehouseId(list[0].id);
+                }
+            } catch { /* silent */ }
+        })();
+    }, [user, getToken]);
+
+    // Fetch balances for selected warehouse
+    useEffect(() => {
+        if (!user || !selectedWarehouseId) return;
         setLoading(true);
         (async () => {
             try {
                 const token = await getToken();
                 const [prodRes, balRes] = await Promise.all([
                     fetch('/api/inventory/products?all=true', { headers: { Authorization: `Bearer ${token}` } }),
-                    fetch('/api/inventory/balances?locationType=CENTRAL&locationId=CENTRAL', { headers: { Authorization: `Bearer ${token}` } }),
+                    fetch(`/api/inventory/balances?locationType=CENTRAL&locationId=${selectedWarehouseId}`, { headers: { Authorization: `Bearer ${token}` } }),
                 ]);
                 const [prodData, balData] = await Promise.all([prodRes.json(), balRes.json()]);
                 setProducts(Array.isArray(prodData) ? prodData : []);
                 setBalances(Array.isArray(balData) ? balData : []);
             } catch { /* silent */ } finally { setLoading(false); }
         })();
-    }, [user, getToken]);
+    }, [user, getToken, selectedWarehouseId]);
 
     const merged: MergedProduct[] = useMemo(() => {
         return products.filter(p => p.isActive).map(p => {
@@ -385,7 +408,8 @@ export default function CentralImportPage() {
                         productName: i.productName,
                         quantity: i.importQty,
                     })),
-                    note: supplier ? `Nhập kho từ NCC: ${supplier}` : 'Nhập kho tổng',
+                    warehouseId: selectedWarehouseId,
+                    note: supplier ? `Nhập kho từ NCC: ${supplier}` : 'Nhập kho',
                 }),
             });
             if (!res.ok) throw new Error((await res.json()).error);
@@ -394,7 +418,7 @@ export default function CentralImportPage() {
             setBatch([]);
             setSupplier('');
             // Refresh balances
-            const balRes = await fetch('/api/inventory/balances?locationType=CENTRAL&locationId=CENTRAL', {
+            const balRes = await fetch(`/api/inventory/balances?locationType=CENTRAL&locationId=${selectedWarehouseId}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const balData = await balRes.json();
@@ -416,9 +440,9 @@ export default function CentralImportPage() {
                 <div>
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent flex items-center gap-2">
                         <Download className="w-7 h-7 text-blue-600" />
-                        Nhập kho tổng
+                        Nhập kho
                     </h1>
-                    <p className="text-slate-500 mt-1">Chọn hàng hóa và lập lô nhập từ nhà cung cấp vào kho trung tâm.</p>
+                    <p className="text-slate-500 mt-1">Chọn kho và lập lô nhập từ nhà cung cấp.</p>
                 </div>
                 {batch.length > 0 && (
                     <button
@@ -429,6 +453,17 @@ export default function CentralImportPage() {
                         <span>Lô nhập ({batch.length})</span>
                     </button>
                 )}
+            </div>
+
+            {/* Warehouse Selector */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex items-center gap-3">
+                <Warehouse className="w-5 h-5 text-orange-500" />
+                <span className="text-sm font-semibold text-slate-700 shrink-0">Nhập vào kho:</span>
+                <select value={selectedWarehouseId} onChange={e => setSelectedWarehouseId(e.target.value)}
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-orange-300">
+                    {warehouses.length === 0 && <option value="">Chưa có kho nào</option>}
+                    {warehouses.map(w => <option key={w.id} value={w.id}>🏭 {w.name}</option>)}
+                </select>
             </div>
 
             {/* Summary Cards */}

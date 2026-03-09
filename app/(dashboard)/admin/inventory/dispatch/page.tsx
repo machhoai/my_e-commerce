@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Truck, CheckCircle2, AlertCircle, ChevronDown, X, Package, Printer, QrCode, XCircle } from 'lucide-react';
+import { Truck, CheckCircle2, AlertCircle, ChevronDown, X, Package, Printer, QrCode, XCircle, Warehouse, FileText, ExternalLink, PackageCheck } from 'lucide-react';
 import Portal from '@/components/Portal';
 import type { PurchaseOrderDoc, PurchaseOrderItem } from '@/types/inventory';
-import type { StoreDoc } from '@/types';
+import type { StoreDoc, WarehouseDoc } from '@/types';
 import { QRCodeSVG } from 'qrcode.react';
 
 interface DispatchResult {
@@ -19,7 +19,9 @@ export default function AdminDispatchPage() {
     const { user, userDoc } = useAuth();
     const [orders, setOrders] = useState<PurchaseOrderDoc[]>([]);
     const [stores, setStores] = useState<StoreDoc[]>([]);
+    const [warehouses, setWarehouses] = useState<WarehouseDoc[]>([]);
     const [selectedStoreId, setSelectedStoreId] = useState('');
+    const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
     const [loading, setLoading] = useState(true);
     const [dispatchingId, setDispatchingId] = useState<string | null>(null);
     const [modalItems, setModalItems] = useState<(PurchaseOrderItem & { approvedQty: number })[]>([]);
@@ -56,19 +58,33 @@ export default function AdminDispatchPage() {
         })();
     }, [user, getToken]);
 
-    // Fetch APPROVED_BY_OFFICE orders (warehouse only sees these)
+    // Fetch warehouses
+    useEffect(() => {
+        if (!user) return;
+        (async () => {
+            try {
+                const token = await getToken();
+                const res = await fetch('/api/warehouses', { headers: { Authorization: `Bearer ${token}` } });
+                const data = await res.json();
+                setWarehouses(Array.isArray(data) ? data.filter((w: WarehouseDoc) => w.isActive) : []);
+            } catch { /* silent */ }
+        })();
+    }, [user, getToken]);
+
+    // Fetch APPROVED_BY_OFFICE + PACKING orders
     const fetchOrders = useCallback(async () => {
         if (!user) return;
         setLoading(true);
         try {
             const token = await getToken();
-            let url = '/api/inventory/orders?status=APPROVED_BY_OFFICE';
+            let url = '/api/inventory/orders?status=APPROVED_BY_OFFICE,PACKING';
             if (selectedStoreId) url += `&storeId=${selectedStoreId}`;
+            if (selectedWarehouseId) url += `&warehouseId=${selectedWarehouseId}`;
             const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
             const data = await res.json();
             setOrders(Array.isArray(data) ? data : []);
         } catch { /* silent */ } finally { setLoading(false); }
-    }, [user, selectedStoreId, getToken]);
+    }, [user, selectedStoreId, selectedWarehouseId, getToken]);
 
     useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
@@ -101,6 +117,24 @@ export default function AdminDispatchPage() {
                 items: modalItems,
             });
             setDispatchingId(null);
+            fetchOrders();
+        } catch (err: any) {
+            setMessage({ type: 'error', text: err.message || 'Có lỗi xảy ra' });
+        }
+    };
+
+    // Warehouse approve → PACKING
+    const handleWarehouseApprove = async (orderId: string) => {
+        try {
+            const token = await getToken();
+            const res = await fetch('/api/inventory/orders', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ orderId, action: 'warehouse_approve' }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            setMessage({ type: 'success', text: 'Đã chấp nhận — bắt đầu đóng gói!' });
             fetchOrders();
         } catch (err: any) {
             setMessage({ type: 'error', text: err.message || 'Có lỗi xảy ra' });
@@ -174,13 +208,23 @@ export default function AdminDispatchPage() {
             </div>
 
             {/* Store filter */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex items-center gap-3">
-                <Package className="w-5 h-5 text-indigo-500" />
-                <select value={selectedStoreId} onChange={e => setSelectedStoreId(e.target.value)}
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300">
-                    <option value="">Tất cả cửa hàng</option>
-                    {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
-                </select>
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="flex items-center gap-3 flex-1">
+                    <Package className="w-5 h-5 text-indigo-500 shrink-0" />
+                    <select value={selectedStoreId} onChange={e => setSelectedStoreId(e.target.value)}
+                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                        <option value="">Tất cả cửa hàng</option>
+                        {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
+                    </select>
+                </div>
+                <div className="flex items-center gap-3 flex-1">
+                    <Warehouse className="w-5 h-5 text-orange-500 shrink-0" />
+                    <select value={selectedWarehouseId} onChange={e => setSelectedWarehouseId(e.target.value)}
+                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-orange-300">
+                        <option value="">📊 Tất cả các kho</option>
+                        {warehouses.map(w => <option key={w.id} value={w.id}>🏭 {w.name}</option>)}
+                    </select>
+                </div>
             </div>
 
             {message.text && (
@@ -216,6 +260,7 @@ export default function AdminDispatchPage() {
                         <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>
                             <p>Đơn hàng: <strong>{dispatchResult.orderId}</strong></p>
                             <p>Cửa hàng: <strong>{dispatchResult.order.storeName || dispatchResult.order.storeId}</strong></p>
+                            {dispatchResult.order.warehouseName && <p>Kho xuất: <strong>{dispatchResult.order.warehouseName}</strong></p>}
                             <p>Người đặt: {dispatchResult.order.createdByName}</p>
                             <p>Ngày xuất: {new Date().toLocaleString('vi-VN')}</p>
                         </div>
@@ -270,6 +315,7 @@ export default function AdminDispatchPage() {
                                 <tr className="text-left text-xs text-slate-500 uppercase bg-slate-50 border-b">
                                     <th className="px-6 py-3">Cửa hàng</th>
                                     <th className="px-6 py-3">Người đặt</th>
+                                    <th className="px-6 py-3">Tài liệu</th>
                                     <th className="px-6 py-3">Sản phẩm</th>
                                     <th className="px-6 py-3">Ngày đặt</th>
                                     <th className="px-6 py-3 text-right">Hành động</th>
@@ -280,11 +326,45 @@ export default function AdminDispatchPage() {
                                     <tr key={order.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                                         <td className="px-6 py-3">
                                             <p className="font-medium text-slate-700">{stores.find(s => s.id === order.storeId)?.name || order.storeId}</p>
-                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 border border-sky-200 mt-0.5">
-                                                ✓ VP đã duyệt
-                                            </span>
+                                            {order.status === 'PACKING' ? (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200 mt-0.5">
+                                                    <PackageCheck className="w-3 h-3" /> Đang đóng gói
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 border border-sky-200 mt-0.5">
+                                                    ✓ VP: {order.officeApprovedByName || 'đã duyệt'}
+                                                </span>
+                                            )}
+                                            {order.warehouseName && (
+                                                <p className="text-[10px] text-orange-600 font-medium mt-1 flex items-center gap-1">
+                                                    <Warehouse className="w-3 h-3" /> {order.warehouseName}
+                                                </p>
+                                            )}
                                         </td>
-                                        <td className="px-6 py-3 text-slate-600">{order.createdByName}</td>
+                                        <td className="px-6 py-3">
+                                            <p className="text-slate-600">{order.createdByName}</p>
+                                        </td>
+                                        <td className="px-6 py-3">
+                                            <div className="flex flex-col gap-1">
+                                                {order.attachmentUrl && (
+                                                    <a href={order.attachmentUrl} target="_blank" rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800">
+                                                        <FileText className="w-3 h-3" /> File đề xuất
+                                                        <ExternalLink className="w-2.5 h-2.5" />
+                                                    </a>
+                                                )}
+                                                {order.officeExportSlipUrl && (
+                                                    <a href={order.officeExportSlipUrl} target="_blank" rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-800">
+                                                        <FileText className="w-3 h-3" /> Phiếu xuất kho
+                                                        <ExternalLink className="w-2.5 h-2.5" />
+                                                    </a>
+                                                )}
+                                                {!order.attachmentUrl && !order.officeExportSlipUrl && (
+                                                    <span className="text-[10px] text-slate-300 italic">Không có file</span>
+                                                )}
+                                            </div>
+                                        </td>
                                         <td className="px-6 py-3 text-slate-600">
                                             <div className="space-y-0.5">
                                                 {order.items.map((item, i) => (
@@ -304,10 +384,17 @@ export default function AdminDispatchPage() {
                                                     className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
                                                     <XCircle className="w-3.5 h-3.5" /> Từ chối
                                                 </button>
-                                                <button onClick={() => openDispatchModal(order)}
-                                                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors">
-                                                    Duyệt xuất kho
-                                                </button>
+                                                {order.status === 'PACKING' ? (
+                                                    <button onClick={() => openDispatchModal(order)}
+                                                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
+                                                        <Truck className="w-3.5 h-3.5" /> Xác nhận xuất kho
+                                                    </button>
+                                                ) : (
+                                                    <button onClick={() => handleWarehouseApprove(order.id)}
+                                                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
+                                                        <PackageCheck className="w-3.5 h-3.5" /> Chấp nhận đóng gói
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

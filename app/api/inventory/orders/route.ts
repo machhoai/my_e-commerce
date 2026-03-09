@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const status = searchParams.get('status');
         const storeId = searchParams.get('storeId');
+        const warehouseId = searchParams.get('warehouseId');
         const orderId = searchParams.get('id');
 
         // Single order fetch by ID
@@ -48,8 +49,17 @@ export async function GET(req: NextRequest) {
             q = q.where('storeId', '==', storeId);
         }
 
+        if (warehouseId) {
+            q = q.where('warehouseId', '==', warehouseId);
+        }
+
         if (status) {
-            q = q.where('status', '==', status);
+            const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
+            if (statuses.length === 1) {
+                q = q.where('status', '==', statuses[0]);
+            } else if (statuses.length > 1) {
+                q = q.where('status', 'in', statuses);
+            }
         }
 
         const snap = await q.limit(200).get();
@@ -73,7 +83,7 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { storeId, storeName, items, note, attachmentUrl } = body;
+        const { storeId, storeName, warehouseId, warehouseName, items, note, attachmentUrl } = body;
 
         if (!storeId || !items?.length) {
             return NextResponse.json({ error: 'storeId and items are required' }, { status: 400 });
@@ -86,6 +96,8 @@ export async function POST(req: NextRequest) {
             id: docRef.id,
             storeId,
             storeName: storeName || '',
+            warehouseId: warehouseId || '',
+            warehouseName: warehouseName || '',
             items: items.map((item: any) => ({
                 productId: item.productId,
                 productName: item.productName || '',
@@ -123,7 +135,7 @@ export async function PATCH(req: NextRequest) {
             return NextResponse.json({ error: 'orderId and action are required' }, { status: 400 });
         }
 
-        const VALID_ACTIONS = ['cancel', 'office_approve', 'office_reject', 'warehouse_reject'];
+        const VALID_ACTIONS = ['cancel', 'office_approve', 'office_reject', 'warehouse_approve', 'warehouse_reject'];
         if (!VALID_ACTIONS.includes(action)) {
             return NextResponse.json({ error: `action must be one of: ${VALID_ACTIONS.join(', ')}` }, { status: 400 });
         }
@@ -163,12 +175,16 @@ export async function PATCH(req: NextRequest) {
             if (order.status !== 'PENDING_OFFICE') {
                 return NextResponse.json({ error: 'Đơn không ở trạng thái chờ VP duyệt' }, { status: 400 });
             }
-            await orderRef.update({
+            const updateData: any = {
                 status: 'APPROVED_BY_OFFICE',
                 officeApprovedBy: caller.uid,
                 officeApprovedByName: caller.name,
                 officeApprovedAt: now,
-            });
+            };
+            if (body.exportSlipUrl) {
+                updateData.officeExportSlipUrl = body.exportSlipUrl;
+            }
+            await orderRef.update(updateData);
             return NextResponse.json({ message: 'Đã duyệt đơn hàng' });
         }
 
@@ -193,13 +209,30 @@ export async function PATCH(req: NextRequest) {
             return NextResponse.json({ message: 'Đã từ chối đơn hàng' });
         }
 
-        // ── WAREHOUSE REJECT ───────────────────────────────────
-        if (action === 'warehouse_reject') {
+        // ── WAREHOUSE APPROVE (→ PACKING) ─────────────────────
+        if (action === 'warehouse_approve') {
             if (caller.role !== 'admin') {
                 return NextResponse.json({ error: 'Forbidden — admin only' }, { status: 403 });
             }
             if (order.status !== 'APPROVED_BY_OFFICE') {
                 return NextResponse.json({ error: 'Đơn phải ở trạng thái VP đã duyệt' }, { status: 400 });
+            }
+            await orderRef.update({
+                status: 'PACKING',
+                warehouseAcceptedBy: caller.uid,
+                warehouseAcceptedByName: caller.name,
+                warehouseAcceptedAt: now,
+            });
+            return NextResponse.json({ message: 'Kho đã chấp nhận — bắt đầu đóng gói' });
+        }
+
+        // ── WAREHOUSE REJECT ───────────────────────────────────
+        if (action === 'warehouse_reject') {
+            if (caller.role !== 'admin') {
+                return NextResponse.json({ error: 'Forbidden — admin only' }, { status: 403 });
+            }
+            if (order.status !== 'APPROVED_BY_OFFICE' && order.status !== 'PACKING') {
+                return NextResponse.json({ error: 'Đơn phải ở trạng thái VP đã duyệt hoặc đang đóng gói' }, { status: 400 });
             }
             if (!reason?.trim()) {
                 return NextResponse.json({ error: 'Lý do từ chối xuất kho là bắt buộc' }, { status: 400 });

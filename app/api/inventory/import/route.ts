@@ -19,7 +19,8 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { items, note } = body;
+        const { items, note, warehouseId: rawWarehouseId } = body;
+        const warehouseId = rawWarehouseId || 'CENTRAL';
         // items: [{ productId, productName, quantity }]
 
         if (!items?.length) {
@@ -32,8 +33,8 @@ export async function POST(req: NextRequest) {
             const qty = Number(item.quantity) || 0;
             if (qty <= 0) continue;
 
-            // Increment central warehouse balance
-            await updateBalance(item.productId, 'CENTRAL', 'CENTRAL', qty);
+            // Increment warehouse balance
+            await updateBalance(item.productId, 'CENTRAL', warehouseId, qty);
 
             // Record ledger entry
             await recordTransaction({
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
                 fromLocationType: '',
                 fromLocationId: '',
                 toLocationType: 'CENTRAL',
-                toLocationId: 'CENTRAL',
+                toLocationId: warehouseId,
                 quantity: qty,
                 type: 'IMPORT_CENTRAL',
                 status: 'APPROVED',

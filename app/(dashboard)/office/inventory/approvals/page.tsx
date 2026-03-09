@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     ClipboardCheck, CheckCircle2, XCircle, ExternalLink, Package,
-    Search, RefreshCw, FileText, Clock, Store, X,
+    Search, RefreshCw, FileText, Clock, Store, X, Upload,
 } from 'lucide-react';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '@/lib/firebase';
 import type { PurchaseOrderDoc } from '@/types/inventory';
 
 const STATUS_BADGE: Record<string, string> = {
@@ -26,6 +28,7 @@ export default function OfficeApprovalsPage() {
     // Approve state
     const [approvingId, setApprovingId] = useState<string | null>(null);
     const [isApproving, setIsApproving] = useState(false);
+    const [exportSlipFile, setExportSlipFile] = useState<File | null>(null);
 
     // Reject state
     const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -76,13 +79,23 @@ export default function OfficeApprovalsPage() {
         setIsApproving(true);
         try {
             const token = await getToken();
+
+            // Upload export slip file if present
+            let exportSlipUrl: string | undefined;
+            if (exportSlipFile) {
+                const fileRef = storageRef(storage, `order-attachments/${approvingId}/export-slip-${Date.now()}-${exportSlipFile.name}`);
+                await uploadBytes(fileRef, exportSlipFile);
+                exportSlipUrl = await getDownloadURL(fileRef);
+            }
+
             const res = await fetch('/api/inventory/orders', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ orderId: approvingId, action: 'office_approve' }),
+                body: JSON.stringify({ orderId: approvingId, action: 'office_approve', exportSlipUrl }),
             });
             if (!res.ok) throw new Error((await res.json()).error);
             setApprovingId(null);
+            setExportSlipFile(null);
             fetchOrders();
         } catch (err: any) {
             alert(err.message);
@@ -284,12 +297,48 @@ export default function OfficeApprovalsPage() {
                             </div>
                             <h2 className="text-lg font-bold text-slate-800">Xác nhận duyệt lệnh</h2>
                             <p className="text-sm text-slate-500 mt-2">
-                                Đơn hàng sẽ được chuyển sang kho tổng để xuất hàng.
+                                Đơn hàng sẽ được chuyển sang kho để xuất hàng.
                             </p>
                         </div>
+
+                        {/* Export slip file upload */}
+                        <div className="px-6 pb-4 space-y-1.5">
+                            <p className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                                <Upload className="w-3.5 h-3.5 text-emerald-500" />
+                                Đính kèm phiếu xuất kho
+                                <span className="text-slate-400 font-normal">(tùy chọn)</span>
+                            </p>
+                            <label className="flex items-center gap-2 cursor-pointer bg-slate-50 border-2 border-dashed border-slate-200 hover:border-emerald-300 rounded-xl px-3 py-2.5 transition-colors group">
+                                <input
+                                    type="file"
+                                    accept=".pdf,.xlsx,.xls,.doc,.docx,.png,.jpg,.jpeg"
+                                    className="hidden"
+                                    onChange={e => setExportSlipFile(e.target.files?.[0] ?? null)}
+                                />
+                                {exportSlipFile ? (
+                                    <>
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                                        <span className="text-xs text-emerald-700 font-medium truncate flex-1">{exportSlipFile.name}</span>
+                                        <button
+                                            type="button"
+                                            onClick={e => { e.preventDefault(); setExportSlipFile(null); }}
+                                            className="text-slate-400 hover:text-red-500 shrink-0"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <FileText className="w-4 h-4 text-slate-400 group-hover:text-emerald-500 shrink-0" />
+                                        <span className="text-xs text-slate-400 group-hover:text-emerald-600">Chọn file phiếu xuất kho...</span>
+                                    </>
+                                )}
+                            </label>
+                        </div>
+
                         <div className="p-6 border-t border-slate-100 flex gap-3">
                             <button
-                                onClick={() => setApprovingId(null)}
+                                onClick={() => { setApprovingId(null); setExportSlipFile(null); }}
                                 className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl font-medium text-sm transition-colors"
                             >
                                 Hủy

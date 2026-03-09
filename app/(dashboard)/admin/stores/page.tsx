@@ -177,7 +177,7 @@ export default function AdminStoresPage() {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+            {/* <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
                 {([
                     { key: 'STORE', label: '🏪 Cửa hàng', count: stores.filter(s => (s as any).type === 'STORE' || !(s as any).type).length },
                     { key: 'OFFICE', label: '🏢 Văn phòng', count: stores.filter(s => (s as any).type === 'OFFICE').length },
@@ -200,7 +200,7 @@ export default function AdminStoresPage() {
                         )}>{tab.count}</span>
                     </button>
                 ))}
-            </div>
+            </div> */}
 
             {/* Summary Stats */}
             {!loading && (

@@ -8,10 +8,10 @@ import { storage } from '@/lib/firebase';
 import {
     ShoppingCart, Search, AlertTriangle, Package, X, Plus, Minus,
     Trash2, Send, CheckCircle2, AlertCircle, SlidersHorizontal,
-    ChevronDown, ChevronUp, Pencil, Check, LayoutGrid, List, ClipboardList, XCircle,
+    ChevronDown, ChevronUp, Pencil, Check, LayoutGrid, List, ClipboardList, XCircle, Warehouse,
 } from 'lucide-react';
 import type { ProductDoc, InventoryBalanceDoc, PurchaseOrderDoc } from '@/types/inventory';
-import type { StoreDoc } from '@/types';
+import type { StoreDoc, WarehouseDoc } from '@/types';
 import {
     PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
     BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -251,6 +251,9 @@ function CartDrawer({
     onSubmit,
     submitting,
     message,
+    warehouses,
+    selectedWarehouseId,
+    onWarehouseChange,
 }: {
     open: boolean;
     onClose: () => void;
@@ -260,6 +263,9 @@ function CartDrawer({
     onSubmit: (note: string, attachmentFile: File | null) => void;
     submitting: boolean;
     message: { type: string; text: string };
+    warehouses: { id: string; name: string }[];
+    selectedWarehouseId: string;
+    onWarehouseChange: (id: string) => void;
 }) {
     const [note, setNote] = useState('');
     const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
@@ -350,6 +356,22 @@ function CartDrawer({
                             </div>
                         )}
 
+                        {/* Warehouse selector */}
+                        <div className="space-y-1.5">
+                            <p className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                                <Warehouse className="w-3.5 h-3.5 text-orange-500" />
+                                Đặt hàng từ kho <span className="text-red-500">*</span>
+                            </p>
+                            <select value={selectedWarehouseId} onChange={e => onWarehouseChange(e.target.value)}
+                                className={`w-full bg-white border rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-orange-300 ${!selectedWarehouseId ? 'border-red-300 text-slate-400' : 'border-slate-200 text-slate-800'}`}>
+                                <option value="">-- Chọn kho đặt hàng --</option>
+                                {warehouses.map(w => <option key={w.id} value={w.id}>🏭 {w.name}</option>)}
+                            </select>
+                            {!selectedWarehouseId && (
+                                <p className="text-[11px] text-red-500 font-medium">Vui lòng chọn kho trước khi đặt hàng</p>
+                            )}
+                        </div>
+
                         {/* File Attachment */}
                         <div className="space-y-1.5">
                             <p className="text-xs font-bold text-slate-600">
@@ -397,7 +419,7 @@ function CartDrawer({
                         </div>
                         <button
                             onClick={() => onSubmit(note, attachmentFile)}
-                            disabled={submitting}
+                            disabled={submitting || !selectedWarehouseId}
                             className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-md shadow-indigo-500/20"
                         >
                             {submitting
@@ -449,6 +471,7 @@ export default function StoreInventoryDashboard() {
     const [balances, setBalances] = useState<InventoryBalanceDoc[]>([]);
     const [orders, setOrders] = useState<PurchaseOrderDoc[]>([]);
     const [stores, setStores] = useState<StoreDoc[]>([]);
+    const [warehouses, setWarehouses] = useState<WarehouseDoc[]>([]);
     const [loading, setLoading] = useState(true);
 
     // UI state
@@ -458,6 +481,7 @@ export default function StoreInventoryDashboard() {
     const [submitting, setSubmitting] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
     const [selectedStoreId, setSelectedStoreId] = useState('');
+    const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
 
     // Collapsible history orders
     const [expandedHistoryOrders, setExpandedHistoryOrders] = useState<Set<string>>(new Set());
@@ -522,6 +546,20 @@ export default function StoreInventoryDashboard() {
             } catch { /* silent */ }
         })();
     }, [user, isAdmin, getToken]);
+
+    // Fetch warehouses
+    useEffect(() => {
+        if (!user) return;
+        (async () => {
+            try {
+                const token = await getToken();
+                const res = await fetch('/api/warehouses', { headers: { Authorization: `Bearer ${token}` } });
+                const data = await res.json();
+                const list: WarehouseDoc[] = Array.isArray(data) ? data.filter((w: WarehouseDoc) => w.isActive) : [];
+                setWarehouses(list);
+            } catch { /* silent */ }
+        })();
+    }, [user, getToken]);
 
     // Merge products + balances
     const mergedProducts = useMemo<MergedProduct[]>(() => {
@@ -624,6 +662,8 @@ export default function StoreInventoryDashboard() {
                 body: JSON.stringify({
                     storeId: effectiveStoreId,
                     storeName,
+                    warehouseId: selectedWarehouseId,
+                    warehouseName: warehouses.find(w => w.id === selectedWarehouseId)?.name || '',
                     items: cart.map(i => ({
                         productId: i.productId,
                         productCode: i.productCode || '',
@@ -714,6 +754,7 @@ export default function StoreInventoryDashboard() {
                     </select>
                 </div>
             )}
+
 
             {/* ── ORDER TAB ── */}
             {activeTab === 'order' && (
@@ -1038,6 +1079,9 @@ export default function StoreInventoryDashboard() {
                 onSubmit={handleSubmitOrder}
                 submitting={submitting}
                 message={message}
+                warehouses={warehouses}
+                selectedWarehouseId={selectedWarehouseId}
+                onWarehouseChange={setSelectedWarehouseId}
             />
 
             {/* ── Cancel Order Modal ── */}

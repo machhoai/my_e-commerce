@@ -121,8 +121,8 @@ export async function updateBalance(
 
             if (newStock < 0) {
                 throw new Error(
-                    `Insufficient stock for product ${productId} at ${locationType}:${locationId}. ` +
-                    `Current: ${current.currentStock}, requested change: ${quantityChange}`
+                    `Tồn kho không đủ cho sản phẩm ${productId} tại ${locationType}:${locationId}. ` +
+                    `Hiện có: ${current.currentStock}, cần xuất: ${Math.abs(quantityChange)}`
                 );
             }
 
@@ -134,7 +134,8 @@ export async function updateBalance(
             // First time — create the balance document
             if (quantityChange < 0) {
                 throw new Error(
-                    `Cannot create balance with negative stock for product ${productId} at ${locationType}:${locationId}`
+                    `Sản phẩm ${productId} chưa có tồn kho tại ${locationType}:${locationId}. ` +
+                    `Vui lòng nhập kho trước khi xuất.`
                 );
             }
 

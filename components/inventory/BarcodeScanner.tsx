@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { Camera, X, SwitchCamera } from 'lucide-react';
+import { useRef, useState, useCallback } from 'react';
+import { Camera, X, SwitchCamera, ImagePlus, AlertTriangle, ShieldAlert, Loader2 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import Portal from '@/components/Portal';
 
@@ -12,11 +12,24 @@ interface BarcodeScannerProps {
 
 export default function BarcodeScanner({ onScanSuccess, onClose }: BarcodeScannerProps) {
     const scannerRef = useRef<Html5Qrcode | null>(null);
-    const [error, setError] = useState('');
+    const [scanError, setScanError] = useState('');
+    const [cameraActive, setCameraActive] = useState(false);
+    const [cameraLoading, setCameraLoading] = useState(false);
     const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+    const [fileProcessing, setFileProcessing] = useState(false);
     const containerId = 'barcode-scanner-region';
 
-    const startScanner = async (facing: 'environment' | 'user') => {
+    // ── Rule 1 & 2 & 4: User-triggered, error handling, secure context ──
+    const startCamera = useCallback(async (facing: 'environment' | 'user') => {
+        // Rule 4: Secure context check
+        if (typeof window !== 'undefined' && !window.isSecureContext) {
+            setScanError('Tính năng quét mã yêu cầu HTTPS hoặc localhost. Vui lòng sử dụng kết nối an toàn.');
+            return;
+        }
+
+        setCameraLoading(true);
+        setScanError('');
+
         try {
             // Stop existing scanner if running
             if (scannerRef.current?.isScanning) {
@@ -25,7 +38,6 @@ export default function BarcodeScanner({ onScanSuccess, onClose }: BarcodeScanne
 
             const scanner = new Html5Qrcode(containerId);
             scannerRef.current = scanner;
-            setError('');
 
             await scanner.start(
                 { facingMode: facing },
@@ -35,42 +47,45 @@ export default function BarcodeScanner({ onScanSuccess, onClose }: BarcodeScanne
                     aspectRatio: 1.5,
                 },
                 (decodedText) => {
-                    // Barcode detected — stop scanner and return result
                     scanner.stop().then(() => {
                         onScanSuccess(decodedText);
                     }).catch(() => {
                         onScanSuccess(decodedText);
                     });
                 },
-                () => { /* ignore scan failures (each frame that doesn't find a barcode) */ }
+                () => { /* ignore per-frame scan failures */ }
             );
+
+            setCameraActive(true);
         } catch (err: any) {
             const msg = err?.message || String(err);
             if (msg.includes('NotAllowedError') || msg.includes('Permission')) {
-                setError('Quyền truy cập camera bị từ chối. Vui lòng cho phép truy cập camera trong cài đặt trình duyệt.');
+                setScanError(
+                    'Quyền truy cập camera bị từ chối. Vui lòng kiểm tra quyền trong Cài đặt trình duyệt hoặc Cài đặt ứng dụng (Settings > Safari/Chrome > Camera).'
+                );
             } else if (msg.includes('NotFoundError') || msg.includes('Requested device not found')) {
-                setError('Không tìm thấy camera trên thiết bị này.');
+                setScanError('Không tìm thấy camera trên thiết bị này.');
+            } else if (msg.includes('NotReadableError') || msg.includes('Could not start')) {
+                setScanError(
+                    'Camera đang được sử dụng bởi ứng dụng khác hoặc không thể truy cập. Vui lòng đóng các ứng dụng camera khác và thử lại.'
+                );
+            } else if (msg.includes('OverconstrainedError')) {
+                setScanError('Camera không hỗ trợ cấu hình yêu cầu. Vui lòng thử đổi camera.');
             } else {
-                setError('Không thể khởi động camera. Vui lòng thử lại.');
+                setScanError(
+                    `Không thể truy cập Camera. Vui lòng kiểm tra quyền trong Cài đặt hoặc đảm bảo bạn đang dùng HTTPS. (${msg})`
+                );
             }
+            setCameraActive(false);
+        } finally {
+            setCameraLoading(false);
         }
-    };
-
-    useEffect(() => {
-        startScanner(facingMode);
-
-        return () => {
-            if (scannerRef.current?.isScanning) {
-                scannerRef.current.stop().catch(() => { });
-            }
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [onScanSuccess]);
 
     const handleSwitchCamera = async () => {
         const newFacing = facingMode === 'environment' ? 'user' : 'environment';
         setFacingMode(newFacing);
-        await startScanner(newFacing);
+        await startCamera(newFacing);
     };
 
     const handleClose = async () => {
@@ -78,6 +93,28 @@ export default function BarcodeScanner({ onScanSuccess, onClose }: BarcodeScanne
             await scannerRef.current.stop().catch(() => { });
         }
         onClose();
+    };
+
+    // ── Rule 3: Scan from image file (PWA fallback) ──
+    const handleScanFromFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setFileProcessing(true);
+        setScanError('');
+
+        try {
+            const scanner = new Html5Qrcode('file-scan-region', /* verbose= */ false);
+            const result = await scanner.scanFile(file, /* showImage= */ false);
+            scanner.clear();
+            onScanSuccess(result);
+        } catch {
+            setScanError('Không thể đọc mã vạch/QR từ ảnh. Vui lòng chụp rõ hơn và thử lại.');
+        } finally {
+            setFileProcessing(false);
+            // Reset input so same file can be re-selected
+            e.target.value = '';
+        }
     };
 
     return (
@@ -91,13 +128,15 @@ export default function BarcodeScanner({ onScanSuccess, onClose }: BarcodeScanne
                             Quét mã vạch
                         </h3>
                         <div className="flex items-center gap-1">
-                            <button
-                                onClick={handleSwitchCamera}
-                                className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
-                                title="Đổi camera"
-                            >
-                                <SwitchCamera className="w-5 h-5" />
-                            </button>
+                            {cameraActive && (
+                                <button
+                                    onClick={handleSwitchCamera}
+                                    className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+                                    title="Đổi camera"
+                                >
+                                    <SwitchCamera className="w-5 h-5" />
+                                </button>
+                            )}
                             <button
                                 onClick={handleClose}
                                 className="p-2 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-600 transition-colors"
@@ -108,23 +147,91 @@ export default function BarcodeScanner({ onScanSuccess, onClose }: BarcodeScanne
                     </div>
 
                     {/* Scanner viewport */}
-                    <div className="relative bg-black">
+                    <div className="relative bg-black min-h-[200px]">
                         <div id={containerId} className="w-full" />
-                        {!error && (
+
+                        {/* Rule 1: Manual start button — shown when camera is NOT active */}
+                        {!cameraActive && !cameraLoading && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 gap-4 p-6">
+                                <div className="w-20 h-20 rounded-full bg-indigo-600/20 flex items-center justify-center">
+                                    <Camera className="w-10 h-10 text-indigo-400" />
+                                </div>
+                                <button
+                                    onClick={() => startCamera(facingMode)}
+                                    className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-600/30 active:scale-95 flex items-center gap-2"
+                                >
+                                    <Camera className="w-4 h-4" />
+                                    Bật Camera Quét Mã
+                                </button>
+                                <p className="text-white/40 text-xs text-center">
+                                    Nhấn nút để bật camera quét mã vạch / QR
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Loading state */}
+                        {cameraLoading && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 gap-3">
+                                <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+                                <p className="text-white/60 text-sm">Đang khởi động camera...</p>
+                            </div>
+                        )}
+
+                        {/* Active scanner hint */}
+                        {cameraActive && !scanError && (
                             <p className="text-center text-white/70 text-xs py-2 bg-black/50">
                                 Hướng camera vào mã vạch sản phẩm
                             </p>
                         )}
                     </div>
 
-                    {/* Error */}
-                    {error && (
+                    {/* Error display */}
+                    {scanError && (
                         <div className="px-5 py-4">
-                            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
-                                {error}
+                            <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700 flex items-start gap-3">
+                                <ShieldAlert className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="font-bold mb-1">Không thể truy cập Camera</p>
+                                    <p className="text-red-600">{scanError}</p>
+                                    {cameraActive === false && (
+                                        <button
+                                            onClick={() => { setScanError(''); startCamera(facingMode); }}
+                                            className="mt-2 text-xs font-bold text-indigo-600 hover:text-indigo-800 underline"
+                                        >
+                                            Thử lại
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
+
+                    {/* Rule 3: Image file fallback (critical for iOS PWA) */}
+                    <div className="px-5 py-4 border-t border-slate-100">
+                        <p className="text-xs text-slate-400 text-center mb-2 flex items-center justify-center gap-1.5">
+                            <AlertTriangle className="w-3 h-3" />
+                            Camera không hoạt động? Chụp ảnh mã vạch trực tiếp:
+                        </p>
+                        <label className="cursor-pointer flex items-center justify-center gap-2 w-full py-2.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl font-bold text-sm transition-colors active:scale-[0.98]">
+                            {fileProcessing ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <ImagePlus className="w-4 h-4" />
+                            )}
+                            {fileProcessing ? 'Đang xử lý...' : 'Chụp ảnh mã vạch'}
+                            <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                className="hidden"
+                                onChange={handleScanFromFile}
+                                disabled={fileProcessing}
+                            />
+                        </label>
+                    </div>
+
+                    {/* Hidden element for file scanning */}
+                    <div id="file-scan-region" className="hidden" />
 
                     {/* Footer */}
                     <div className="px-5 py-3 border-t border-slate-200">

@@ -108,7 +108,8 @@ export interface ShiftHandoverDoc {
 // ── Purchase Order Status ─────────────────────────────────────
 export type PurchaseOrderStatus =
     | 'PENDING_OFFICE'      // Chờ văn phòng duyệt (initial state)
-    | 'APPROVED_BY_OFFICE'  // VP đã duyệt, chờ kho tổng xuất
+    | 'APPROVED_BY_OFFICE'  // VP đã duyệt, chờ kho chấp nhận
+    | 'PACKING'             // Kho đã chấp nhận, đang đóng gói
     | 'IN_TRANSIT'          // Đang vận chuyển (kho đã xuất, QR tạo)
     | 'COMPLETED'           // Cửa hàng đã nhận, xác nhận qua QR
     | 'REJECTED'            // Bị từ chối (bởi VP hoặc kho)
@@ -134,6 +135,8 @@ export interface PurchaseOrderDoc {
     id: string;
     storeId: string;
     storeName: string;
+    warehouseId?: string;         // Target warehouse for this order
+    warehouseName?: string;
     items: PurchaseOrderItem[];
     status: PurchaseOrderStatus;
     createdBy: string;           // userId
@@ -155,5 +158,8 @@ export interface PurchaseOrderDoc {
     officeApprovedAt?: string;
     officeRejectedBy?: string;
     officeRejectedByName?: string;
+    officeExportSlipUrl?: string;       // File attached by office when approving (phiếu xuất kho)
+    warehouseDispatchedBy?: string;     // uid of warehouse staff who dispatched
+    warehouseDispatchedByName?: string;
     note?: string;
 }

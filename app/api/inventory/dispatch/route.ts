@@ -38,11 +38,13 @@ export async function POST(req: NextRequest) {
         }
 
         const order = orderSnap.data()!;
-        if (order.status !== 'PENDING') {
-            return NextResponse.json({ error: 'Đơn hàng đã được xử lý' }, { status: 400 });
+        const validStatuses = ['PACKING', 'PENDING', 'APPROVED_BY_OFFICE'];
+        if (!validStatuses.includes(order.status as string)) {
+            return NextResponse.json({ error: 'Đơn hàng phải ở trạng thái đang đóng gói' }, { status: 400 });
         }
 
         const storeId = order.storeId;
+        const warehouseId = order.warehouseId || 'CENTRAL';
 
         // Generate secure QR token
         const qrCodeToken = randomUUID();
@@ -52,14 +54,14 @@ export async function POST(req: NextRequest) {
             const qty = Number(item.approvedQty) || 0;
             if (qty <= 0) continue;
 
-            // Decrement from central warehouse
-            await updateBalance(item.productId, 'CENTRAL', 'CENTRAL', -qty);
+            // Decrement from the target warehouse
+            await updateBalance(item.productId, 'CENTRAL', warehouseId, -qty);
 
             // Record ledger entry (goods leaving central)
             await recordTransaction({
                 productId: item.productId,
                 fromLocationType: 'CENTRAL',
-                fromLocationId: 'CENTRAL',
+                fromLocationId: warehouseId,
                 toLocationType: 'STORE',
                 toLocationId: storeId,
                 quantity: qty,
@@ -77,10 +79,13 @@ export async function POST(req: NextRequest) {
             qrCodeToken,
             approvedBy: decoded.uid,
             approvedByName: callerName,
+            warehouseDispatchedBy: decoded.uid,
+            warehouseDispatchedByName: callerName,
             dispatchedAt: new Date().toISOString(),
             items: approvedItems.map((item: any) => ({
                 productId: item.productId,
                 productName: item.productName || '',
+                productCode: item.productCode || '',
                 unit: item.unit || '',
                 requestedQty: Number(item.requestedQty) || 0,
                 dispatchedQty: Number(item.approvedQty) || 0,

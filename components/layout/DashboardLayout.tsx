@@ -165,7 +165,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         // ── Kho hàng - Cửa hàng ──
         {
-            label: 'Quản lý Kho',
+            label: 'Kho cửa hàng',
             href: '/manager/inventory/order',
             icon: Package,
             show: isAdmin || isSuperAdmin ||
@@ -181,16 +181,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         // ── Kho tổng (Central + admin + perms) ──
         {
             label: 'Kho tổng',
-            href: '/admin/inventory/stock',
+            href: '/admin/inventory/overview',
             icon: Package,
             show: isAdmin || isSuperAdmin || isCentralContext || hasPermission('manage_central_warehouse'),
             matchPrefix: '/admin/inventory',
             group: 'Kho hàng',
         },
 
+        // ── Sản phẩm ──
+        {
+            label: 'Sản phẩm',
+            href: '/admin/products/products',
+            icon: Package,
+            show: isAdmin || isSuperAdmin || isCentralContext || hasPermission('manage_central_warehouse'),
+            matchPrefix: '/admin/products',
+            group: 'Kho hàng',
+        },
+
         // ── Văn phòng ──
         {
-            label: 'Duyệt lệnh VP',
+            label: 'Duyệt lệnh',
             href: '/office/inventory/approvals',
             icon: Package,
             show: isAdmin || isSuperAdmin || isOfficeContext || hasPermission('approve_office_order') || hasPermission('reject_office_order'),
@@ -201,9 +211,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         // ── Hệ thống (Admin + Super Admin) ──
         {
             label: 'Quản lý Cửa hàng',
-            href: '/admin/settings/stores',
+            href: '/admin/stores',
             icon: Store,
             show: isAdmin || isSuperAdmin,
+            matchPrefix: '/admin/stores',
             group: 'Hệ thống',
         },
         {
@@ -442,6 +453,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </span>
                     )}
                 </button>
+            )}
+
+            {/* Mobile Floating Scan Key Button (bottom-right, mirrors hamburger) */}
+            {!mobileOpen && (
+                <Link
+                    href="/scan"
+                    className={cn(
+                        "md:hidden fixed bottom-5 right-5 z-30 w-14 h-14 bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-full shadow-lg shadow-violet-600/40 flex items-center justify-center hover:from-violet-700 hover:to-indigo-700 active:scale-95 transition-all",
+                        pathname === '/scan' && "ring-3 ring-violet-300 ring-offset-2"
+                    )}
+                    aria-label="Quét mã sản phẩm"
+                >
+                    <ScanBarcode className="w-6 h-6" />
+                </Link>
             )}
         </div>
     );
