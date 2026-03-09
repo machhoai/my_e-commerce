@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '@/lib/firebase';
 import {
     ShoppingCart, Search, AlertTriangle, Package, X, Plus, Minus,
     Trash2, Send, CheckCircle2, AlertCircle, SlidersHorizontal,
@@ -255,11 +257,12 @@ function CartDrawer({
     cart: CartItem[];
     onUpdateQty: (productId: string, qty: number) => void;
     onRemove: (productId: string) => void;
-    onSubmit: (note: string) => void;
+    onSubmit: (note: string, attachmentFile: File | null) => void;
     submitting: boolean;
     message: { type: string; text: string };
 }) {
     const [note, setNote] = useState('');
+    const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
     const [mounted, setMounted] = useState(false);
     useEffect(() => { setMounted(true); }, []);
 
@@ -267,7 +270,7 @@ function CartDrawer({
         <>
             {/* Backdrop */}
             {open && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[105]" onClick={onClose} />}
-            {/* Drawer — always rendered but off-screen when closed so transition works */}
+            {/* Drawer */}
             <div className={`fixed inset-y-0 top-0 right-0 w-full max-w-md bg-white shadow-2xl z-[110] flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : 'translate-x-full'}`}>
                 {/* Header */}
                 <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-indigo-600 to-blue-600 text-white">
@@ -346,6 +349,41 @@ function CartDrawer({
                                 {message.text}
                             </div>
                         )}
+
+                        {/* File Attachment */}
+                        <div className="space-y-1.5">
+                            <p className="text-xs font-bold text-slate-600">
+                                Đính kèm file đề xuất cơ cấu
+                                <span className="text-slate-400 font-normal ml-1">(PDF, Excel, Word)</span>
+                            </p>
+                            <label className="flex items-center gap-2 cursor-pointer bg-white border-2 border-dashed border-slate-200 hover:border-indigo-300 rounded-xl px-3 py-2.5 transition-colors group">
+                                <input
+                                    type="file"
+                                    accept=".pdf,.xlsx,.xls,.doc,.docx"
+                                    className="hidden"
+                                    onChange={e => setAttachmentFile(e.target.files?.[0] ?? null)}
+                                />
+                                {attachmentFile ? (
+                                    <>
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                                        <span className="text-xs text-emerald-700 font-medium truncate flex-1">{attachmentFile.name}</span>
+                                        <button
+                                            type="button"
+                                            onClick={e => { e.preventDefault(); setAttachmentFile(null); }}
+                                            className="text-slate-400 hover:text-red-500 shrink-0"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 shrink-0" />
+                                        <span className="text-xs text-slate-400 group-hover:text-indigo-600">Chọn file đính kèm...</span>
+                                    </>
+                                )}
+                            </label>
+                        </div>
+
                         <textarea
                             value={note}
                             onChange={e => setNote(e.target.value)}
@@ -358,7 +396,7 @@ function CartDrawer({
                             <span className="font-bold text-slate-700">{cart.reduce((s, i) => s + i.requestedQty, 0)} đơn vị</span>
                         </div>
                         <button
-                            onClick={() => onSubmit(note)}
+                            onClick={() => onSubmit(note, attachmentFile)}
                             disabled={submitting}
                             className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-md shadow-indigo-500/20"
                         >
@@ -377,22 +415,27 @@ function CartDrawer({
     return createPortal(drawerContent, document.body);
 }
 
+
 // ── Status badges ─────────────────────────────────────────────────
 const STATUS_BADGE: Record<string, string> = {
-    PENDING: 'bg-amber-100 text-amber-700 border-amber-200',
-    IN_TRANSIT: 'bg-blue-100 text-blue-700 border-blue-200',
+    PENDING_OFFICE: 'bg-amber-100 text-amber-700 border-amber-200',
+    APPROVED_BY_OFFICE: 'bg-sky-100 text-sky-700 border-sky-200',
+    IN_TRANSIT: 'bg-indigo-100 text-indigo-700 border-indigo-200',
     COMPLETED: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    DISPATCHED: 'bg-emerald-100 text-emerald-700 border-emerald-200',
     REJECTED: 'bg-red-100 text-red-700 border-red-200',
     CANCELED: 'bg-slate-100 text-slate-500 border-slate-200',
+    PENDING: 'bg-amber-100 text-amber-700 border-amber-200',
+    DISPATCHED: 'bg-emerald-100 text-emerald-700 border-emerald-200',
 };
 const STATUS_LABEL: Record<string, string> = {
-    PENDING: 'Chờ duyệt',
-    IN_TRANSIT: 'Đang vận chuyển',
-    COMPLETED: 'Đã nhận hàng',
-    DISPATCHED: 'Đã xuất kho',
-    REJECTED: 'Từ chối',
-    CANCELED: 'Đã hủy',
+    PENDING_OFFICE: 'Ch\u1edd VP duy\u1ec7t',
+    APPROVED_BY_OFFICE: 'VP \u0111\u00e3 duy\u1ec7t',
+    IN_TRANSIT: '\u0110ang giao h\u00e0ng',
+    COMPLETED: 'Ho\u00e0n t\u1ea5t',
+    REJECTED: '\u0110\u00e3 t\u1eeb ch\u1ed1i',
+    CANCELED: '\u0110\u00e3 h\u1ee7y',
+    PENDING: 'Ch\u1edd duy\u1ec7t',
+    DISPATCHED: '\u0110\u00e3 xu\u1ea5t kho',
 };
 
 // ── Main Page ─────────────────────────────────────────────────────
@@ -553,7 +596,7 @@ export default function StoreInventoryDashboard() {
         } catch { /* silent */ }
     };
 
-    const handleSubmitOrder = async (note: string) => {
+    const handleSubmitOrder = async (note: string, attachmentFile: File | null) => {
         if (!cart.length || !effectiveStoreId) {
             setMessage({ type: 'error', text: 'Vui lòng chọn cửa hàng và thêm sản phẩm' });
             return;
@@ -563,6 +606,18 @@ export default function StoreInventoryDashboard() {
         try {
             const token = await getToken();
             const storeName = isAdmin ? stores.find(s => s.id === effectiveStoreId)?.name || '' : '';
+
+            // Upload attachment to Firebase Storage if provided
+            let attachmentUrl: string | null = null;
+            if (attachmentFile) {
+                const fileRef = storageRef(
+                    storage,
+                    `purchase_proposals/${effectiveStoreId}/${Date.now()}_${attachmentFile.name}`
+                );
+                await uploadBytes(fileRef, attachmentFile);
+                attachmentUrl = await getDownloadURL(fileRef);
+            }
+
             const res = await fetch('/api/inventory/orders', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -577,12 +632,12 @@ export default function StoreInventoryDashboard() {
                         requestedQty: i.requestedQty,
                     })),
                     note,
+                    attachmentUrl,
                 }),
             });
             if (!res.ok) throw new Error((await res.json()).error);
-            setMessage({ type: 'success', text: 'Đã tạo đơn đặt hàng thành công!' });
+            setMessage({ type: 'success', text: 'Đã tạo đơn đặt hàng! Đang chờ văn phòng duyệt.' });
             setCart([]);
-            // Refresh orders
             fetchAll();
         } catch (err: any) {
             setMessage({ type: 'error', text: err.message || 'Có lỗi xảy ra' });
@@ -655,7 +710,7 @@ export default function StoreInventoryDashboard() {
                     <select value={selectedStoreId} onChange={e => setSelectedStoreId(e.target.value)}
                         className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300">
                         <option value="">-- Chọn cửa hàng --</option>
-                        {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
                     </select>
                 </div>
             )}
@@ -876,8 +931,8 @@ export default function StoreInventoryDashboard() {
                                             </div>
                                         </div>
 
-                                        {/* Cancel button for PENDING orders */}
-                                        {order.status === 'PENDING' && (
+                                        {/* Cancel button for orders that can still be cancelled */}
+                                        {(order.status === 'PENDING_OFFICE' || order.status === 'PENDING') && (
                                             <button
                                                 onClick={e => { e.stopPropagation(); setCancelingId(order.id); setCancelReason(''); }}
                                                 className="flex items-center gap-1 text-xs font-bold text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2.5 py-1.5 rounded-xl transition-colors whitespace-nowrap shrink-0"
@@ -914,6 +969,25 @@ export default function StoreInventoryDashboard() {
                                                     </div>
                                                 ))}
                                             </div>
+                                            {order.attachmentUrl && (
+                                                <a
+                                                    href={order.attachmentUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center justify-between mt-3 p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl hover:bg-indigo-100 transition-colors group"
+                                                >
+                                                    <div className="flex items-center gap-2 text-xs text-indigo-700">
+                                                        <span className="text-sm">📎</span>
+                                                        <span className="font-semibold">File đề xuất đính kèm</span>
+                                                    </div>
+                                                    <span className="text-xs font-bold text-indigo-600 group-hover:underline">Xem / Tải xuống ↗️</span>
+                                                </a>
+                                            )}
+                                            {(order as any).officeApprovedBy && (
+                                                <p className="text-xs text-sky-600 mt-2 pt-2 border-t border-slate-100 flex items-center gap-1">
+                                                    ✓ Văn phòng đã duyệt bởi <strong>{(order as any).officeApprovedByName || (order as any).officeApprovedBy}</strong>
+                                                </p>
+                                            )}
                                             {(order as any).rejectReason && (
                                                 <p className="text-xs text-red-500 mt-2 flex items-center gap-1 pt-2 border-t border-slate-100">
                                                     <XCircle className="w-3 h-3 shrink-0" /> Lý do từ chối: {(order as any).rejectReason}

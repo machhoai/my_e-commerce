@@ -106,7 +106,15 @@ export interface ShiftHandoverDoc {
 }
 
 // ── Purchase Order Status ─────────────────────────────────────
-export type PurchaseOrderStatus = 'PENDING' | 'IN_TRANSIT' | 'COMPLETED' | 'DISPATCHED' | 'REJECTED' | 'CANCELED';
+export type PurchaseOrderStatus =
+    | 'PENDING_OFFICE'      // Chờ văn phòng duyệt (initial state)
+    | 'APPROVED_BY_OFFICE'  // VP đã duyệt, chờ kho tổng xuất
+    | 'IN_TRANSIT'          // Đang vận chuyển (kho đã xuất, QR tạo)
+    | 'COMPLETED'           // Cửa hàng đã nhận, xác nhận qua QR
+    | 'REJECTED'            // Bị từ chối (bởi VP hoặc kho)
+    | 'CANCELED'            // Bị hủy bởi cửa hàng
+    // Legacy statuses — kept for backward-compat with old data
+    | 'PENDING' | 'DISPATCHED';
 
 // ── Purchase Order Item (embedded) ────────────────────────────
 export interface PurchaseOrderItem {
@@ -137,8 +145,15 @@ export interface PurchaseOrderDoc {
     dispatchedAt?: string;       // ISO timestamp when dispatched
     completedAt?: string;        // ISO timestamp when store confirmed receipt
     canceledAt?: string;         // ISO timestamp when canceled by store
-    rejectedAt?: string;         // ISO timestamp when rejected by admin
-    cancelReason?: string;       // Reason for cancellation
-    rejectReason?: string;       // Reason for rejection
+    rejectedAt?: string;         // ISO timestamp when rejected
+    cancelReason?: string;       // Reason for cancellation by store
+    rejectReason?: string;       // Reason for rejection (office or warehouse)
+    // 2-Tier Approval Fields
+    attachmentUrl?: string | null;  // Firebase Storage URL for proposal file
+    officeApprovedBy?: string;      // uid of office user who approved
+    officeApprovedByName?: string;
+    officeApprovedAt?: string;
+    officeRejectedBy?: string;
+    officeRejectedByName?: string;
     note?: string;
 }

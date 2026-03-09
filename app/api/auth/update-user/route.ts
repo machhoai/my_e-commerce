@@ -87,10 +87,33 @@ export async function POST(request: Request) {
         }
 
         // Admin-only fields
-        if (requesterRole === 'admin') {
+        if (requesterRole === 'admin' || requesterRole === 'super_admin') {
             if (body.role !== undefined) updateData.role = body.role;
             if (body.canManageHR !== undefined) updateData.canManageHR = Boolean(body.canManageHR);
-            if (body.storeId !== undefined) updateData.storeId = body.storeId;
+
+            // Workplace assignment: workplaceType determines which ID field is populated
+            if (body.workplaceType !== undefined) {
+                const wt: 'STORE' | 'OFFICE' | 'CENTRAL' = body.workplaceType;
+                updateData.workplaceType = wt;
+
+                // Clear all 3 IDs first, then set the relevant one
+                updateData.storeId = null;
+                updateData.officeId = null;
+                updateData.warehouseId = null;
+
+                if (wt === 'STORE' && body.storeId) updateData.storeId = body.storeId;
+                if (wt === 'OFFICE' && body.officeId) updateData.officeId = body.officeId;
+                if (wt === 'CENTRAL' && body.warehouseId) updateData.warehouseId = body.warehouseId;
+            } else {
+                // Legacy: if only storeId sent (no workplaceType), assume STORE
+                if (body.storeId !== undefined) {
+                    updateData.storeId = body.storeId || null;
+                    updateData.workplaceType = body.storeId ? 'STORE' : null;
+                    updateData.officeId = null;
+                    updateData.warehouseId = null;
+                }
+            }
+
             if (body.customRoleId !== undefined) updateData.customRoleId = body.customRoleId || null;
         }
 

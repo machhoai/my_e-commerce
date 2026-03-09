@@ -19,7 +19,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { UserDoc, AppPermission, CustomRoleDoc } from '@/types';
+import { UserDoc, AppPermission, CustomRoleDoc, ALL_PERMISSIONS } from '@/types';
 import { phoneToEmail } from '@/lib/utils';
 
 interface AuthContextValue {
@@ -39,6 +39,10 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 // Derive built-in permissions from base role (backward compat)
 function getBuiltInPermissions(userDoc: UserDoc): AppPermission[] {
     const { role, canManageHR } = userDoc;
+    // Super admin gets every permission
+    if (role === 'super_admin') {
+        return ALL_PERMISSIONS.map(p => p.key);
+    }
     if (role === 'admin' || role === 'store_manager') {
         return ['view_overview', 'view_history', 'view_schedule', 'edit_schedule', 'view_users', 'manage_hr', 'manage_kpi_templates', 'score_employees', 'view_all_kpi', 'export_kpi'];
     }
@@ -206,9 +210,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         [user]
     );
 
+    // SUPER_ADMIN bypass: unconditionally grants every permission
     const hasPermission = useCallback(
-        (key: AppPermission) => permissions.has(key),
-        [permissions]
+        (key: AppPermission) => userDoc?.role === 'super_admin' ? true : permissions.has(key),
+        [permissions, userDoc]
     );
 
     return (

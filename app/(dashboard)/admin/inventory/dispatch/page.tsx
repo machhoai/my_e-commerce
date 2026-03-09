@@ -56,13 +56,13 @@ export default function AdminDispatchPage() {
         })();
     }, [user, getToken]);
 
-    // Fetch PENDING orders
+    // Fetch APPROVED_BY_OFFICE orders (warehouse only sees these)
     const fetchOrders = useCallback(async () => {
         if (!user) return;
         setLoading(true);
         try {
             const token = await getToken();
-            let url = '/api/inventory/orders?status=PENDING';
+            let url = '/api/inventory/orders?status=APPROVED_BY_OFFICE';
             if (selectedStoreId) url += `&storeId=${selectedStoreId}`;
             const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
             const data = await res.json();
@@ -120,7 +120,7 @@ export default function AdminDispatchPage() {
             const res = await fetch('/api/inventory/orders', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ orderId: rejectingId, action: 'reject', reason: rejectReason }),
+                body: JSON.stringify({ orderId: rejectingId, action: 'warehouse_reject', reason: rejectReason }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
@@ -179,7 +179,7 @@ export default function AdminDispatchPage() {
                 <select value={selectedStoreId} onChange={e => setSelectedStoreId(e.target.value)}
                     className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300">
                     <option value="">Tất cả cửa hàng</option>
-                    {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
                 </select>
             </div>
 
@@ -278,7 +278,12 @@ export default function AdminDispatchPage() {
                             <tbody>
                                 {orders.map(order => (
                                     <tr key={order.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                                        <td className="px-6 py-3 font-medium text-slate-700">{stores.find(s => s.id === order.storeId)?.name || order.storeId}</td>
+                                        <td className="px-6 py-3">
+                                            <p className="font-medium text-slate-700">{stores.find(s => s.id === order.storeId)?.name || order.storeId}</p>
+                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 border border-sky-200 mt-0.5">
+                                                ✓ VP đã duyệt
+                                            </span>
+                                        </td>
                                         <td className="px-6 py-3 text-slate-600">{order.createdByName}</td>
                                         <td className="px-6 py-3 text-slate-600">
                                             <div className="space-y-0.5">

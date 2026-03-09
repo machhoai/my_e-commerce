@@ -19,10 +19,7 @@ export async function POST(req: NextRequest) {
         const callerStoreId = callerDoc.data()?.storeId;
 
         // Who can create users?
-        // admin: anyone
-        // store_manager: manager and employee (within their store)
-        // manager (with canManageHR): employee only (within their store)
-        const allowedCallers = ['admin', 'store_manager', 'manager'];
+        const allowedCallers = ['admin', 'super_admin', 'store_manager', 'manager'];
         if (!allowedCallers.includes(callerRole)) {
             return NextResponse.json({ error: 'Bị từ chối truy cập' }, { status: 403 });
         }
@@ -34,32 +31,39 @@ export async function POST(req: NextRequest) {
         const {
             name, phone, type, dob, jobTitle,
             email: realEmail, idCard, bankAccount, education,
-            canManageHR, storeId: bodyStoreId,
+            canManageHR,
+            // Workplace assignment
+            workplaceType: bodyWorkplaceType,
+            storeId: bodyStoreId,
+            officeId: bodyOfficeId,
+            warehouseId: bodyWarehouseId,
         } = body as {
             name: string; phone: string; type: UserDoc['type'];
             dob?: string; jobTitle?: string; email?: string;
             idCard?: string; bankAccount?: string; education?: string;
-            canManageHR?: boolean; storeId?: string;
+            canManageHR?: boolean;
+            workplaceType?: 'STORE' | 'OFFICE' | 'CENTRAL';
+            storeId?: string; officeId?: string; warehouseId?: string;
         };
 
         let { role } = body as { role: UserDoc['role'] };
 
         // Enforce role restrictions
         if (callerRole === 'store_manager') {
-            // store_manager can only create manager or employee
             if (!['manager', 'employee'].includes(role)) role = 'employee';
         } else if (callerRole === 'manager') {
-            // manager can only create employee
             role = 'employee';
         }
 
-        // Enforce storeId restrictions
-        let effectiveStoreId: string | undefined;
-        if (callerRole === 'admin') {
-            effectiveStoreId = bodyStoreId; // admin can assign any store
-        } else {
-            effectiveStoreId = callerStoreId; // others must use their own store
-        }
+        // Resolve workplaceType and the single location ID
+        const isAdmin = callerRole === 'admin' || callerRole === 'super_admin';
+        const effectiveWorkplaceType: 'STORE' | 'OFFICE' | 'CENTRAL' = isAdmin
+            ? (bodyWorkplaceType || 'STORE')
+            : 'STORE'; // non-admin always creates within their store
+
+        const effectiveStoreId = isAdmin ? bodyStoreId : callerStoreId;
+        const effectiveOfficeId = isAdmin ? bodyOfficeId : undefined;
+        const effectiveWarehouseId = isAdmin ? bodyWarehouseId : undefined;
 
         if (!name || !phone || !role || !type) {
             return NextResponse.json({ error: 'Thiếu các trường bắt buộc' }, { status: 400 });
@@ -68,11 +72,7 @@ export async function POST(req: NextRequest) {
         const email = phoneToEmail(phone);
         const password = defaultPassword(phone);
 
-        const newUser = await adminAuth.createUser({
-            email,
-            password,
-            displayName: name,
-        });
+        const newUser = await adminAuth.createUser({ email, password, displayName: name });
 
         const userDoc: UserDoc = {
             uid: newUser.uid,
@@ -82,15 +82,17 @@ export async function POST(req: NextRequest) {
             type,
             isActive: true,
             createdAt: new Date().toISOString(),
+            workplaceType: effectiveWorkplaceType,
             ...(effectiveStoreId && { storeId: effectiveStoreId }),
+            ...(effectiveOfficeId && { officeId: effectiveOfficeId }),
+            ...(effectiveWarehouseId && { warehouseId: effectiveWarehouseId }),
             ...(dob && { dob }),
             ...(jobTitle && { jobTitle }),
             ...(realEmail && { email: realEmail }),
             ...(idCard && { idCard }),
             ...(bankAccount && { bankAccount }),
             ...(education && { education }),
-            // Only admin can grant canManageHR
-            ...(callerRole === 'admin' && canManageHR !== undefined && { canManageHR: Boolean(canManageHR) }),
+            ...(isAdmin && canManageHR !== undefined && { canManageHR: Boolean(canManageHR) }),
         };
 
         await adminDb.collection('users').doc(newUser.uid).set(userDoc);

@@ -40,8 +40,9 @@ export async function GET(req: NextRequest) {
 
         let q: FirebaseFirestore.Query = db.collection('purchase_orders');
 
-        // Admin sees all, others see only their store
-        if (caller.role !== 'admin') {
+        // Admin and office see all; others only see their store
+        const canSeeAll = caller.role === 'admin' || caller.role === 'office';
+        if (!canSeeAll) {
             q = q.where('storeId', '==', caller.storeId || '');
         } else if (storeId) {
             q = q.where('storeId', '==', storeId);
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { storeId, storeName, items, note } = body;
+        const { storeId, storeName, items, note, attachmentUrl } = body;
 
         if (!storeId || !items?.length) {
             return NextResponse.json({ error: 'storeId and items are required' }, { status: 400 });
@@ -88,10 +89,12 @@ export async function POST(req: NextRequest) {
             items: items.map((item: any) => ({
                 productId: item.productId,
                 productName: item.productName || '',
+                productCode: item.productCode || '',
                 unit: item.unit || '',
                 requestedQty: Number(item.requestedQty) || 0,
             })),
-            status: 'PENDING',
+            status: 'PENDING_OFFICE',
+            attachmentUrl: attachmentUrl || null,
             createdBy: caller.uid,
             createdByName: caller.name,
             timestamp: new Date().toISOString(),
@@ -106,7 +109,8 @@ export async function POST(req: NextRequest) {
     }
 }
 
-// PATCH /api/inventory/orders — cancel (store) or reject (admin)
+// PATCH /api/inventory/orders — status transitions
+// Actions: cancel | office_approve | office_reject | warehouse_reject
 export async function PATCH(req: NextRequest) {
     try {
         const caller = await verifyCaller(req);
@@ -118,8 +122,10 @@ export async function PATCH(req: NextRequest) {
         if (!orderId || !action) {
             return NextResponse.json({ error: 'orderId and action are required' }, { status: 400 });
         }
-        if (!['cancel', 'reject'].includes(action)) {
-            return NextResponse.json({ error: 'action must be cancel or reject' }, { status: 400 });
+
+        const VALID_ACTIONS = ['cancel', 'office_approve', 'office_reject', 'warehouse_reject'];
+        if (!VALID_ACTIONS.includes(action)) {
+            return NextResponse.json({ error: `action must be one of: ${VALID_ACTIONS.join(', ')}` }, { status: 400 });
         }
 
         const db = getAdminDb();
@@ -128,33 +134,51 @@ export async function PATCH(req: NextRequest) {
         if (!orderSnap.exists) return NextResponse.json({ error: 'Không tìm thấy đơn hàng' }, { status: 404 });
 
         const order = orderSnap.data() as any;
+        const now = new Date().toISOString();
 
-        // Authorization
+        // ── CANCEL (Store side) ─────────────────────────────────
         if (action === 'cancel') {
-            // Store side: only same store or admin
             if (caller.role !== 'admin' && order.storeId !== caller.storeId) {
                 return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
             }
-            if (order.status !== 'PENDING') {
-                return NextResponse.json({ error: 'Chỉ có thể hủy đơn đang chờ duyệt' }, { status: 400 });
+            const cancelableStatuses = ['PENDING_OFFICE', 'PENDING'];
+            if (!cancelableStatuses.includes(order.status)) {
+                return NextResponse.json({ error: 'Chỉ có thể hủy đơn đang chờ văn phòng duyệt' }, { status: 400 });
             }
             await orderRef.update({
                 status: 'CANCELED',
                 cancelReason: reason || '',
-                canceledAt: new Date().toISOString(),
+                canceledAt: now,
                 canceledBy: caller.uid,
                 canceledByName: caller.name,
             });
             return NextResponse.json({ message: 'Đơn hàng đã được hủy' });
         }
 
-        if (action === 'reject') {
-            // Admin only
-            if (caller.role !== 'admin') {
-                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        // ── OFFICE APPROVE ─────────────────────────────────────
+        if (action === 'office_approve') {
+            if (caller.role !== 'admin' && caller.role !== 'office') {
+                return NextResponse.json({ error: 'Forbidden — office or admin only' }, { status: 403 });
             }
-            if (order.status !== 'PENDING') {
-                return NextResponse.json({ error: 'Chỉ có thể từ chối đơn đang chờ duyệt' }, { status: 400 });
+            if (order.status !== 'PENDING_OFFICE') {
+                return NextResponse.json({ error: 'Đơn không ở trạng thái chờ VP duyệt' }, { status: 400 });
+            }
+            await orderRef.update({
+                status: 'APPROVED_BY_OFFICE',
+                officeApprovedBy: caller.uid,
+                officeApprovedByName: caller.name,
+                officeApprovedAt: now,
+            });
+            return NextResponse.json({ message: 'Đã duyệt đơn hàng' });
+        }
+
+        // ── OFFICE REJECT ──────────────────────────────────────
+        if (action === 'office_reject') {
+            if (caller.role !== 'admin' && caller.role !== 'office') {
+                return NextResponse.json({ error: 'Forbidden — office or admin only' }, { status: 403 });
+            }
+            if (order.status !== 'PENDING_OFFICE') {
+                return NextResponse.json({ error: 'Đơn không ở trạng thái chờ VP duyệt' }, { status: 400 });
             }
             if (!reason?.trim()) {
                 return NextResponse.json({ error: 'Lý do từ chối là bắt buộc' }, { status: 400 });
@@ -162,11 +186,32 @@ export async function PATCH(req: NextRequest) {
             await orderRef.update({
                 status: 'REJECTED',
                 rejectReason: reason.trim(),
-                rejectedAt: new Date().toISOString(),
+                rejectedAt: now,
+                officeRejectedBy: caller.uid,
+                officeRejectedByName: caller.name,
+            });
+            return NextResponse.json({ message: 'Đã từ chối đơn hàng' });
+        }
+
+        // ── WAREHOUSE REJECT ───────────────────────────────────
+        if (action === 'warehouse_reject') {
+            if (caller.role !== 'admin') {
+                return NextResponse.json({ error: 'Forbidden — admin only' }, { status: 403 });
+            }
+            if (order.status !== 'APPROVED_BY_OFFICE') {
+                return NextResponse.json({ error: 'Đơn phải ở trạng thái VP đã duyệt' }, { status: 400 });
+            }
+            if (!reason?.trim()) {
+                return NextResponse.json({ error: 'Lý do từ chối xuất kho là bắt buộc' }, { status: 400 });
+            }
+            await orderRef.update({
+                status: 'REJECTED',
+                rejectReason: reason.trim(),
+                rejectedAt: now,
                 rejectedBy: caller.uid,
                 rejectedByName: caller.name,
             });
-            return NextResponse.json({ message: 'Đã từ chối đơn hàng' });
+            return NextResponse.json({ message: 'Đã từ chối xuất kho' });
         }
 
     } catch (err: unknown) {

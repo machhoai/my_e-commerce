@@ -526,7 +526,7 @@ export default function ManagerSchedulePage() {
                         className="flex-1 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 bg-slate-50 font-medium"
                     >
                         <option value="">-- Chọn cửa hàng để xem lịch --</option>
-                        {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
                     </select>
                     {!effectiveStoreId && (
                         <p className="text-xs text-amber-600 font-medium shrink-0">⚠️ Chọn cửa hàng để tiếp tục</p>

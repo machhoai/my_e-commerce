@@ -52,6 +52,7 @@ export default function AdminRolesPage() {
     const [newRolePerms, setNewRolePerms] = useState<Set<AppPermission>>(new Set());
     const [newCreatorRoles, setNewCreatorRoles] = useState<Set<string>>(new Set(['admin']));
     const [newColor, setNewColor] = useState('slate');
+    const [newApplicableTo, setNewApplicableTo] = useState<Set<'STORE' | 'OFFICE' | 'CENTRAL'>>(new Set());
 
     // Edit state
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -59,6 +60,7 @@ export default function AdminRolesPage() {
     const [editPerms, setEditPerms] = useState<Set<AppPermission>>(new Set());
     const [editCreatorRoles, setEditCreatorRoles] = useState<Set<string>>(new Set());
     const [editColor, setEditColor] = useState('slate');
+    const [editApplicableTo, setEditApplicableTo] = useState<Set<'STORE' | 'OFFICE' | 'CENTRAL'>>(new Set());
 
     // Expansion
     const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -98,10 +100,11 @@ export default function AdminRolesPage() {
                     permissions: Array.from(newRolePerms),
                     creatorRoles: Array.from(newCreatorRoles),
                     color: newColor,
+                    applicableTo: Array.from(newApplicableTo),
                 }),
             });
             if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
-            setNewRoleName(''); setNewRolePerms(new Set()); setNewCreatorRoles(new Set(['admin'])); setNewColor('slate');
+            setNewRoleName(''); setNewRolePerms(new Set()); setNewCreatorRoles(new Set(['admin'])); setNewColor('slate'); setNewApplicableTo(new Set());
             showMsg('success', 'Đã tạo role mới!');
             fetchRoles();
         } catch (err) {
@@ -122,6 +125,7 @@ export default function AdminRolesPage() {
                     permissions: Array.from(editPerms),
                     creatorRoles: Array.from(editCreatorRoles),
                     color: editColor,
+                    applicableTo: Array.from(editApplicableTo),
                 }),
             });
             if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
@@ -154,6 +158,7 @@ export default function AdminRolesPage() {
         setEditPerms(new Set(role.permissions));
         setEditCreatorRoles(new Set(role.creatorRoles || ['admin']));
         setEditColor(role.color || 'slate');
+        setEditApplicableTo(new Set(role.applicableTo || []));
     };
 
     const togglePerm = (set: Set<AppPermission>, key: AppPermission, setter: (s: Set<AppPermission>) => void) => {
@@ -171,16 +176,56 @@ export default function AdminRolesPage() {
     // All roles that could be a "creator" (i.e., system roles that represent user roles)
     const creatorCandidates = roles.filter(r => r.isSystem);
 
-    if (userDoc?.role !== 'admin') {
+    if (userDoc?.role !== 'admin' && userDoc?.role !== 'super_admin') {
         return <div className="p-8 text-center text-red-500 font-bold">Không có quyền truy cập.</div>;
     }
+
+    const APPLICABLE_OPTIONS: { key: 'STORE' | 'OFFICE' | 'CENTRAL'; label: string; icon: string; color: string }[] = [
+        { key: 'STORE', label: 'Cửa hàng', icon: '🏪', color: 'bg-indigo-50 border-indigo-300 text-indigo-700' },
+        { key: 'OFFICE', label: 'Văn phòng', icon: '🏢', color: 'bg-teal-50 border-teal-300 text-teal-700' },
+        { key: 'CENTRAL', label: 'Kho tổng', icon: '🏭', color: 'bg-orange-50 border-orange-300 text-orange-700' },
+    ];
+
+    // Group permissions by their `group` field
+    const permissionGroups = Array.from(new Set(ALL_PERMISSIONS.map(p => p.group)));
+
+    const renderApplicableTo = (
+        selected: Set<'STORE' | 'OFFICE' | 'CENTRAL'>,
+        setter: (s: Set<'STORE' | 'OFFICE' | 'CENTRAL'>) => void,
+    ) => (
+        <div>
+            <label className="text-xs font-semibold text-slate-600 block mb-2">Loại hình áp dụng</label>
+            <div className="flex gap-2 flex-wrap">
+                {APPLICABLE_OPTIONS.map(opt => {
+                    const active = selected.has(opt.key);
+                    return (
+                        <button key={opt.key} type="button"
+                            onClick={() => {
+                                const next = new Set(selected);
+                                active ? next.delete(opt.key) : next.add(opt.key);
+                                setter(next);
+                            }}
+                            className={cn(
+                                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all',
+                                active ? opt.color + ' ring-2 ring-offset-1 ring-violet-300' : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                            )}
+                        >
+                            {opt.icon} {opt.label}
+                            {active && <span className="ml-0.5">✓</span>}
+                        </button>
+                    );
+                })}
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Chọn rỗng = áp dụng cho mọi loại</p>
+        </div>
+    );
 
     const renderCreatorRolePicker = (
         selected: Set<string>,
         setter: (s: Set<string>) => void,
     ) => (
         <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-2 flex items-center gap-1.5">
+            <label className="text-xs font-semibold text-slate-600 mb-2 flex items-center gap-1.5">
                 <Users className="w-3.5 h-3.5 text-violet-500" />
                 Ai được phép tạo/gán role này?
             </label>
@@ -226,22 +271,37 @@ export default function AdminRolesPage() {
 
     const renderPermissions = (perms: Set<AppPermission>, setter: (s: Set<AppPermission>) => void) => (
         <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-2">Quyền hạn</label>
-            <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
-                {ALL_PERMISSIONS.map(p => (
-                    <label key={p.key} className={cn(
-                        'flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors',
-                        perms.has(p.key) ? 'bg-violet-50 border-violet-300' : 'bg-slate-50 border-slate-200 hover:border-violet-200'
-                    )}>
-                        <input type="checkbox" className="mt-0.5 accent-violet-600"
-                            checked={perms.has(p.key)}
-                            onChange={() => togglePerm(perms, p.key, setter)}
-                        />
-                        <div>
-                            <p className="text-sm font-semibold text-slate-700">{p.label}</p>
-                            <p className="text-xs text-slate-500">{p.description}</p>
+            <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold text-slate-600">Quyền hạn ({perms.size}/{ALL_PERMISSIONS.length})</label>
+                <div className="flex gap-2">
+                    <button type="button" onClick={() => setter(new Set(ALL_PERMISSIONS.map(p => p.key)))}
+                        className="text-[10px] text-violet-600 hover:underline font-semibold">Chọn tất cả</button>
+                    <button type="button" onClick={() => setter(new Set())}
+                        className="text-[10px] text-slate-400 hover:underline">Bỏ hết</button>
+                </div>
+            </div>
+            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                {permissionGroups.map(group => (
+                    <div key={group}>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5 px-1">{group}</p>
+                        <div className="space-y-1">
+                            {ALL_PERMISSIONS.filter(p => p.group === group).map(p => (
+                                <label key={p.key} className={cn(
+                                    'flex items-start gap-2.5 p-2 rounded-lg border cursor-pointer transition-colors',
+                                    perms.has(p.key) ? 'bg-violet-50 border-violet-300' : 'bg-slate-50 border-slate-200 hover:border-violet-200'
+                                )}>
+                                    <input type="checkbox" className="mt-0.5 accent-violet-600"
+                                        checked={perms.has(p.key)}
+                                        onChange={() => togglePerm(perms, p.key, setter)}
+                                    />
+                                    <div>
+                                        <p className="text-xs font-semibold text-slate-700">{p.label}</p>
+                                        <p className="text-[10px] text-slate-400">{p.description}</p>
+                                    </div>
+                                </label>
+                            ))}
                         </div>
-                    </label>
+                    </div>
                 ))}
             </div>
         </div>
@@ -296,6 +356,7 @@ export default function AdminRolesPage() {
                             />
                         </div>
 
+                        {renderApplicableTo(newApplicableTo, setNewApplicableTo)}
                         {renderColorPicker(newColor, setNewColor)}
                         {renderCreatorRolePicker(newCreatorRoles, setNewCreatorRoles)}
                         {renderPermissions(newRolePerms, setNewRolePerms)}
@@ -340,20 +401,26 @@ export default function AdminRolesPage() {
                                             onChange={e => setEditName(e.target.value)}
                                             className="w-full border border-violet-300 rounded-lg p-2 text-sm font-semibold focus:ring-2 focus:ring-violet-500/20 outline-none"
                                         />
+                                        {renderApplicableTo(editApplicableTo, setEditApplicableTo)}
                                         {renderColorPicker(editColor, setEditColor)}
                                         {renderCreatorRolePicker(editCreatorRoles, setEditCreatorRoles)}
-                                        <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-                                            {ALL_PERMISSIONS.map(p => (
-                                                <label key={p.key} className={cn(
-                                                    'flex items-center gap-2 p-2 rounded-lg border cursor-pointer text-sm transition-colors',
-                                                    editPerms.has(p.key) ? 'bg-violet-50 border-violet-300 font-semibold text-violet-800' : 'border-slate-100 text-slate-600'
-                                                )}>
-                                                    <input type="checkbox" className="accent-violet-600"
-                                                        checked={editPerms.has(p.key)}
-                                                        onChange={() => togglePerm(editPerms, p.key, setEditPerms)}
-                                                    />
-                                                    {p.label}
-                                                </label>
+                                        <div className="space-y-1 max-h-56 overflow-y-auto pr-1">
+                                            {permissionGroups.map(group => (
+                                                <div key={group}>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1 px-1">{group}</p>
+                                                    {ALL_PERMISSIONS.filter(p => p.group === group).map(p => (
+                                                        <label key={p.key} className={cn(
+                                                            'flex items-center gap-2 p-2 rounded-lg border cursor-pointer text-xs transition-colors',
+                                                            editPerms.has(p.key) ? 'bg-violet-50 border-violet-300 font-semibold text-violet-800' : 'border-slate-100 text-slate-600'
+                                                        )}>
+                                                            <input type="checkbox" className="accent-violet-600"
+                                                                checked={editPerms.has(p.key)}
+                                                                onChange={() => togglePerm(editPerms, p.key, setEditPerms)}
+                                                            />
+                                                            {p.label}
+                                                        </label>
+                                                    ))}
+                                                </div>
                                             ))}
                                         </div>
                                         <div className="flex gap-2">
@@ -387,6 +454,18 @@ export default function AdminRolesPage() {
                                                             Hệ thống
                                                         </span>
                                                     )}
+                                                    {role.applicableTo && role.applicableTo.length > 0 && role.applicableTo.map(loc => (
+                                                        <span key={loc} className={cn(
+                                                            'text-[9px] font-bold px-1.5 py-0.5 rounded-full',
+                                                            loc === 'OFFICE' ? 'bg-teal-100 text-teal-700' :
+                                                                loc === 'CENTRAL' ? 'bg-orange-100 text-orange-700' :
+                                                                    'bg-indigo-100 text-indigo-700'
+                                                        )}>
+                                                            {loc === 'STORE' ? '🏪'
+                                                                : loc === 'OFFICE' ? '🏢'
+                                                                    : '🏭'} {loc}
+                                                        </span>
+                                                    ))}
                                                     {role.isLocked && (
                                                         <Lock className="w-3 h-3 text-slate-400" />
                                                     )}

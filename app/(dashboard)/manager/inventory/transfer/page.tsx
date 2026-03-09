@@ -94,8 +94,8 @@ function ProductCombobox({
                                     onClick={() => !isDisabled && handleSelect(p)}
                                     disabled={isDisabled}
                                     className={`w-full text-left px-4 py-3 flex items-center justify-between gap-3 border-b border-slate-50 last:border-0 transition-colors ${isDisabled
-                                            ? 'opacity-40 cursor-not-allowed bg-slate-50'
-                                            : 'hover:bg-violet-50/60 cursor-pointer'
+                                        ? 'opacity-40 cursor-not-allowed bg-slate-50'
+                                        : 'hover:bg-violet-50/60 cursor-pointer'
                                         }`}
                                 >
                                     <div className="min-w-0">
@@ -325,7 +325,7 @@ export default function TransferPage() {
                     <select value={selectedStoreId} onChange={e => setSelectedStoreId(e.target.value)}
                         className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300">
                         <option value="">-- Chọn cửa hàng --</option>
-                        {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
                     </select>
                 </div>
             )}
@@ -374,8 +374,8 @@ export default function TransferPage() {
 
                         {/* Destination: Quầy */}
                         <div className={`rounded-2xl border-2 p-5 transition-all ${selectedCounter
-                                ? 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200'
-                                : 'bg-slate-50 border-dashed border-slate-300'
+                            ? 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200'
+                            : 'bg-slate-50 border-dashed border-slate-300'
                             }`}>
                             <div className="flex items-center gap-3 mb-2">
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedCounter ? 'bg-emerald-100' : 'bg-slate-200'

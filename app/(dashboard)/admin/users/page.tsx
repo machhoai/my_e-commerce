@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
-import { UserDoc, UserRole, EmployeeType, StoreDoc, CustomRoleDoc } from '@/types';
+import { UserDoc, UserRole, EmployeeType, StoreDoc, OfficeDoc, WarehouseDoc, CustomRoleDoc } from '@/types';
 import { Users, Plus, ShieldAlert, KeyRound, MailPlus, Search, ShieldCheck, Building2, AlertCircle, CheckCircle2, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTableParams } from '@/hooks/useTableParams';
@@ -18,6 +18,7 @@ const ROLE_LABELS: Record<string, string> = {
     store_manager: 'CH Trưởng',
     manager: 'Quản lý',
     employee: 'Nhân viên',
+    office: 'Văn phòng',
 };
 
 const ROLE_BADGE_CLASS: Record<string, string> = {
@@ -25,14 +26,17 @@ const ROLE_BADGE_CLASS: Record<string, string> = {
     store_manager: 'bg-purple-50 text-purple-700 border-purple-100',
     manager: 'bg-amber-50 text-amber-700 border-amber-100',
     employee: 'bg-blue-50 text-blue-700 border-blue-100',
+    office: 'bg-teal-50 text-teal-700 border-teal-100',
 };
 
 function AdminUsersPageContent() {
     const { user, loading: authLoading } = useAuth();
     const { params, setParam, setParams, clearAll, toggleSort, activeFilterCount, setPage, setPageSize } = useTableParams();
 
-    // Store selector state
+    // Location data for all 3 collections
     const [stores, setStores] = useState<StoreDoc[]>([]);
+    const [offices, setOffices] = useState<OfficeDoc[]>([]);
+    const [warehouses, setWarehouses] = useState<WarehouseDoc[]>([]);
     const [selectedStoreId, setSelectedStoreId] = useState<string>(() => {
         if (typeof window !== 'undefined') {
             return localStorage.getItem('globalSelectedStoreId') || '';
@@ -66,8 +70,18 @@ function AdminUsersPageContent() {
     const [newBankAccount, setNewBankAccount] = useState('');
     const [newEducation, setNewEducation] = useState('');
     const [newCanManageHR, setNewCanManageHR] = useState(false);
+    const [newWorkplaceType, setNewWorkplaceType] = useState<'STORE' | 'OFFICE' | 'CENTRAL'>('STORE');
     const [newStoreId, setNewStoreId] = useState('');
+    const [newOfficeId, setNewOfficeId] = useState('');
+    const [newWarehouseId, setNewWarehouseId] = useState('');
     const [newCustomRoleId, setNewCustomRoleId] = useState('');
+
+    // Derive the location type of the selected location — drives dynamic form behavior
+    const selectedLocationType = newStoreId
+        ? ((stores.find(s => s.id === newStoreId) as any)?.type as 'STORE' | 'OFFICE' | 'CENTRAL' | undefined) ?? 'STORE'
+        : undefined; // admin / no location assigned
+
+    const LOCATION_ICON: Record<string, string> = { STORE: '🏪', OFFICE: '🏢', CENTRAL: '🏭' };
 
     const [actionLoading, setActionLoading] = useState(false);
     const [actionMessage, setActionMessage] = useState({ type: '', text: '' });
@@ -81,6 +95,7 @@ function AdminUsersPageContent() {
             { value: 'store_manager', label: 'CH Trưởng' },
             { value: 'manager', label: 'Quản lý' },
             { value: 'employee', label: 'Nhân viên' },
+            { value: 'office', label: 'Văn phòng' },
         ];
     const tableFilters = [
         {
@@ -115,18 +130,24 @@ function AdminUsersPageContent() {
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
-    // Fetch stores once
+    // Fetch all location collections at once
     useEffect(() => {
         if (!user) return;
-        async function fetchStores() {
+        async function fetchLocations() {
             try {
                 const token = await getToken();
-                const res = await fetch('/api/stores', { headers: { 'Authorization': `Bearer ${token}` } });
-                const data = await res.json();
-                setStores(Array.isArray(data) ? data : []);
-            } catch { console.error('Failed to load stores'); }
+                const [r1, r2, r3] = await Promise.all([
+                    fetch('/api/stores', { headers: { Authorization: `Bearer ${token}` } }),
+                    fetch('/api/offices', { headers: { Authorization: `Bearer ${token}` } }),
+                    fetch('/api/warehouses', { headers: { Authorization: `Bearer ${token}` } }),
+                ]);
+                const [d1, d2, d3] = await Promise.all([r1.json(), r2.json(), r3.json()]);
+                setStores(Array.isArray(d1) ? d1 : []);
+                setOffices(Array.isArray(d2) ? d2 : []);
+                setWarehouses(Array.isArray(d3) ? d3 : []);
+            } catch { console.error('Failed to load locations'); }
         }
-        fetchStores();
+        fetchLocations();
     }, [user, getToken]);
 
     // Fetch custom roles for dropdown
@@ -164,7 +185,8 @@ function AdminUsersPageContent() {
         setNewName(''); setNewPhone(''); setNewRole('employee'); setNewType('PT');
         setNewDob(''); setNewJobTitle(''); setNewEmail(''); setNewIdCard('');
         setNewBankAccount(''); setNewEducation(''); setNewCanManageHR(false); setNewCustomRoleId('');
-        setNewStoreId(selectedStoreId);
+        setNewWorkplaceType('STORE');
+        setNewStoreId(selectedStoreId); setNewOfficeId(''); setNewWarehouseId('');
         setEditUid(null);
         setIsCreateModalOpen(false);
     };
@@ -180,7 +202,9 @@ function AdminUsersPageContent() {
         setNewName(u.name); setNewPhone(u.phone); setNewRole(u.role); setNewType(u.type);
         setNewDob(u.dob || ''); setNewJobTitle(u.jobTitle || ''); setNewEmail(u.email || '');
         setNewIdCard(u.idCard || ''); setNewBankAccount(u.bankAccount || ''); setNewEducation(u.education || '');
-        setNewCanManageHR(u.canManageHR || false); setNewStoreId(u.storeId || '');
+        setNewCanManageHR(u.canManageHR || false);
+        setNewWorkplaceType(u.workplaceType || 'STORE');
+        setNewStoreId(u.storeId || ''); setNewOfficeId(u.officeId || ''); setNewWarehouseId(u.warehouseId || '');
         setNewCustomRoleId(u.customRoleId || '');
         setIsCreateModalOpen(true);
     };
@@ -200,7 +224,11 @@ function AdminUsersPageContent() {
                 name: newName, phone: newPhone, role: newRole, type: newType,
                 dob: newDob, jobTitle: newJobTitle, email: newEmail,
                 idCard: newIdCard, bankAccount: newBankAccount, education: newEducation,
-                canManageHR: newCanManageHR, storeId: newStoreId || undefined,
+                canManageHR: newCanManageHR,
+                workplaceType: newWorkplaceType,
+                storeId: newWorkplaceType === 'STORE' ? (newStoreId || undefined) : undefined,
+                officeId: newWorkplaceType === 'OFFICE' ? (newOfficeId || undefined) : undefined,
+                warehouseId: newWorkplaceType === 'CENTRAL' ? (newWarehouseId || undefined) : undefined,
                 customRoleId: newCustomRoleId || null,
                 ...(editUid ? { targetUid: editUid } : {}),
             };
@@ -262,6 +290,24 @@ function AdminUsersPageContent() {
     const selectedStoreName = stores.find(s => s.id === selectedStoreId)?.name;
     const roleFilterValue = params.role || '';
     const isCustomRoleFilter = roleFilterValue.startsWith('custom:');
+
+    // Unified location label lookup across all 3 collections
+    const locationLabelMap = new Map<string, { name: string; type: string }>(
+        [
+            ...stores.map(s => [s.id, { name: s.name, type: 'STORE' }] as [string, { name: string; type: string }]),
+            ...offices.map(o => [o.id, { name: o.name, type: 'OFFICE' }] as [string, { name: string; type: string }]),
+            ...warehouses.map(w => [w.id, { name: w.name, type: 'CENTRAL' }] as [string, { name: string; type: string }]),
+        ]
+    );
+    const getLocationLabel = (u: UserDoc) => {
+        const id = u.storeId || u.officeId || u.warehouseId;
+        if (!id) return null;
+        const loc = locationLabelMap.get(id);
+        if (!loc) return id;
+        const icon = loc.type === 'OFFICE' ? '🏢' : loc.type === 'CENTRAL' ? '🏭' : '🏪';
+        return `${icon} ${loc.name}`;
+    };
+
     const filtered = processTableData(
         isCustomRoleFilter
             ? users.filter(u => u.customRoleId === roleFilterValue.slice(7))
@@ -434,7 +480,7 @@ function AdminUsersPageContent() {
                                                     </td>
                                                     <td className="px-4 py-3.5">
                                                         <span className="text-xs font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600">
-                                                            {u.storeId ? (storeMap.get(u.storeId) ?? u.storeId) : <span className="italic text-slate-400">— Admin —</span>}
+                                                            {getLocationLabel(u) ?? <span className="italic text-slate-400">— Admin —</span>}
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-3.5 text-center">
@@ -546,22 +592,98 @@ function AdminUsersPageContent() {
                                                 }}
                                                 className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5"
                                             >
-                                                {customRoles.map(r => (
-                                                    <option key={r.id} value={r.isSystem ? r.id : `custom:${r.id}`}>
-                                                        {r.name}{r.isSystem ? '' : ' ✦'}
-                                                    </option>
-                                                ))}
+                                                {/* Roles shown based on location context */}
+                                                {selectedLocationType === 'OFFICE' ? (
+                                                    // OFFICE context: only office-relevant roles
+                                                    <optgroup label="Văn phòng">
+                                                        <option value="office">🏢 Văn phòng (VP)</option>
+                                                        <option value="admin">Quản trị viên</option>
+                                                    </optgroup>
+                                                ) : selectedLocationType === 'CENTRAL' ? (
+                                                    // CENTRAL context: warehouse roles
+                                                    <optgroup label="Kho tổng">
+                                                        <option value="manager">Quản lý kho</option>
+                                                        <option value="employee">Nhân viên kho</option>
+                                                        <option value="admin">Quản trị viên</option>
+                                                    </optgroup>
+                                                ) : (
+                                                    // STORE or no location: all store roles
+                                                    <>
+                                                        <optgroup label="Vai trò hệ thống">
+                                                            <option value="admin">Quản trị viên</option>
+                                                            <option value="store_manager">CH Trưởng</option>
+                                                            <option value="manager">Quản lý</option>
+                                                            <option value="employee">Nhân viên</option>
+                                                        </optgroup>
+                                                        {customRoles.filter(r => !r.isSystem).length > 0 && (
+                                                            <optgroup label="Vai trò tuỳ chỉnh">
+                                                                {customRoles.filter(r => !r.isSystem).map(r => (
+                                                                    <option key={r.id} value={`custom:${r.id}`}>
+                                                                        {r.name} ❆
+                                                                    </option>
+                                                                ))}
+                                                            </optgroup>
+                                                        )}
+                                                    </>
+                                                )}
                                             </select>
                                         </div>
                                         <div className="space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-700">Cửa hàng</label>
-                                            <select value={newStoreId} onChange={e => setNewStoreId(e.target.value)}
-                                                className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5">
-                                                <option value="">(Không thuộc cửa hàng)</option>
-                                                {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                            </select>
+                                            <label className="text-sm font-medium text-slate-700">Loại nơi làm việc</label>
+                                            <div className="flex gap-2">
+                                                {(['STORE', 'OFFICE', 'CENTRAL'] as const).map(wt => (
+                                                    <button
+                                                        key={wt}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setNewWorkplaceType(wt);
+                                                            setNewStoreId(''); setNewOfficeId(''); setNewWarehouseId('');
+                                                            if (wt === 'OFFICE') setNewRole('office');
+                                                            else if (wt === 'CENTRAL') setNewRole('manager');
+                                                            else setNewRole('employee');
+                                                        }}
+                                                        className={cn(
+                                                            'flex-1 py-2 rounded-lg text-sm font-semibold border transition-all',
+                                                            newWorkplaceType === wt
+                                                                ? wt === 'STORE' ? 'bg-indigo-600 text-white border-indigo-600'
+                                                                    : wt === 'OFFICE' ? 'bg-teal-600 text-white border-teal-600'
+                                                                        : 'bg-orange-600 text-white border-orange-600'
+                                                                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                                        )}
+                                                    >
+                                                        {wt === 'STORE' ? '🏥 Cửa hàng' : wt === 'OFFICE' ? '🏢 Văn phòng' : '🏭 Kho tổng'}
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
-                                        {newRole !== 'admin' && (
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-slate-700">
+                                                {newWorkplaceType === 'STORE' ? '🏥 Chọn Cửa hàng' : newWorkplaceType === 'OFFICE' ? '🏢 Chọn Văn phòng' : '🏭 Chọn Kho tổng'}
+                                            </label>
+                                            {newWorkplaceType === 'STORE' && (
+                                                <select value={newStoreId} onChange={e => setNewStoreId(e.target.value)}
+                                                    className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5">
+                                                    <option value="">(Không thuộc cửa hàng nào)</option>
+                                                    {stores.map(s => <option key={s.id} value={s.id}>{s.name}{!s.isActive ? ' (Đã tắt)' : ''}</option>)}
+                                                </select>
+                                            )}
+                                            {newWorkplaceType === 'OFFICE' && (
+                                                <select value={newOfficeId} onChange={e => setNewOfficeId(e.target.value)}
+                                                    className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-teal-500 focus:border-teal-400 block p-2.5">
+                                                    <option value="">(Không thuộc văn phòng nào)</option>
+                                                    {offices.map(o => <option key={o.id} value={o.id}>{o.name}{!o.isActive ? ' (Đã tắt)' : ''}</option>)}
+                                                </select>
+                                            )}
+                                            {newWorkplaceType === 'CENTRAL' && (
+                                                <select value={newWarehouseId} onChange={e => setNewWarehouseId(e.target.value)}
+                                                    className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-orange-500 focus:border-orange-400 block p-2.5">
+                                                    <option value="">(Không thuộc kho nào)</option>
+                                                    {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}{!w.isActive ? ' (Đã tắt)' : ''}</option>)}
+                                                </select>
+                                            )}
+                                        </div>
+                                        {/* canManageHR is STORE-specific */}
+                                        {newRole !== 'admin' && newWorkplaceType === 'STORE' && (
                                             <label className="flex items-center gap-2 cursor-pointer p-3 border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
                                                 <input type="checkbox" checked={newCanManageHR} onChange={e => setNewCanManageHR(e.target.checked)}
                                                     className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer" />

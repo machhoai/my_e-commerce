@@ -2,37 +2,71 @@
 // Firestore Collection Types
 // ============================================================
 
-export type UserRole = 'admin' | 'store_manager' | 'manager' | 'employee';
+export type UserRole = 'super_admin' | 'admin' | 'store_manager' | 'manager' | 'employee' | 'office';
 export type EmployeeType = 'FT' | 'PT';
 
 // All available granular permissions in the system
 export type AppPermission =
+    // ── Inventory ──
+    | 'view_inventory'    // Xem kho hàng
+    | 'create_product'   // Thêm sản phẩm
+    | 'edit_product'     // Sửa sản phẩm
+    | 'import_excel'     // Import Excel
+    | 'delete_product'   // Xóa sản phẩm
+    // ── Orders ──
+    | 'create_order'            // Tạo lệnh đặt hàng
+    | 'cancel_order'            // Hủy lệnh đặt hàng
+    | 'approve_office_order'    // Duyệt lệnh (Văn phòng)
+    | 'reject_office_order'     // Từ chối lệnh (Văn phòng)
+    | 'dispatch_central_order'  // Xuất kho (Kho Tổng)
+    // ── HR & Scheduling (legacy keys kept for compat) ──
     | 'view_overview'    // Xem lịch tổng quan
     | 'view_history'     // Xem lịch sử & thống kê
     | 'view_schedule'    // Xem trang xếp lịch (chỉ đọc)
     | 'edit_schedule'    // Xếp ca / lưu lịch
     | 'view_users'       // Xem danh sách nhân viên
     | 'manage_hr'        // Thêm/sửa/tắt hoạt động nhân viên
-    | 'register_shift'   // Đăng ký ca làm (nhân viên)
+    | 'register_shift'   // Đăng ký ca làm (ân viên)
     | 'manage_kpi_templates'  // Tạo/sửa mẫu KPI
     | 'score_employees'       // Chấm điểm nhân viên
     | 'view_all_kpi'          // Xem thống kê KPI tất cả NV
     | 'export_kpi'            // Xuất báo cáo KPI
-    | 'manage_central_warehouse'; // Quản lý kho tổng
+    | 'manage_central_warehouse' // Quản lý kho tổng
+    // ── System ──
+    | 'manage_locations' // Quản lý địa điểm (chi nhánh, VP, kho)
+    | 'manage_roles'     // Quản lý phân quyền
+    | 'manage_users';    // Quản lý tài khoản người dùng
 
-export const ALL_PERMISSIONS: { key: AppPermission; label: string; description: string }[] = [
-    { key: 'view_overview', label: 'Xem Tổng quan', description: 'Xem lịch tổng quan hàng tuần' },
-    { key: 'view_history', label: 'Xem Lịch sử', description: 'Xem thống kê và lịch sử các tháng' },
-    { key: 'view_schedule', label: 'Xem Xếp lịch', description: 'Xem (không sửa) trang xếp ca' },
-    { key: 'edit_schedule', label: 'Chỉnh sửa Xếp lịch', description: 'Tạo/lưu lịch phân công ca' },
-    { key: 'view_users', label: 'Xem Nhân viên', description: 'Xem danh sách nhân viên' },
-    { key: 'manage_hr', label: 'Quản lý Nhân sự', description: 'Thêm, sửa, vô hiệu hóa tài khoản' },
-    { key: 'register_shift', label: 'Đăng ký Ca làm', description: 'Tự đăng ký lịch làm hàng tuần' },
-    { key: 'manage_kpi_templates', label: 'Quản lý Mẫu KPI', description: 'Tạo, sửa, xóa mẫu chấm điểm KPI' },
-    { key: 'score_employees', label: 'Chấm điểm NV', description: 'Chấm điểm KPI chính thức cho nhân viên' },
-    { key: 'view_all_kpi', label: 'Xem KPI Tất cả NV', description: 'Xem thống kê KPI của tất cả nhân viên' },
-    { key: 'export_kpi', label: 'Xuất Báo cáo KPI', description: 'Xuất báo cáo PDF/Excel KPI nhân viên' },
-    { key: 'manage_central_warehouse', label: 'Quản lý Kho tổng', description: 'Truy cập và quản lý kho trung tâm (nhập kho, xuất kho, thẻ kho tổng)' },
+export const ALL_PERMISSIONS: { key: AppPermission; label: string; description: string; group: string }[] = [
+    // Kho hàng
+    { key: 'view_inventory', label: 'Xem Kho hàng', description: 'Xem danh sách sản phẩm và tồn kho', group: 'Kho hàng' },
+    { key: 'create_product', label: 'Thêm Sản phẩm', description: 'Tạo sản phẩm mới trong danh mục', group: 'Kho hàng' },
+    { key: 'edit_product', label: 'Sửa Sản phẩm', description: 'Cập nhật thông tin sản phẩm', group: 'Kho hàng' },
+    { key: 'import_excel', label: 'Import Excel', description: 'Nhập dữ liệu hàng loạt từ file Excel', group: 'Kho hàng' },
+    { key: 'delete_product', label: 'Xóa Sản phẩm', description: 'Xóa sản phẩm khỏi hệ thống', group: 'Kho hàng' },
+    // Đặt lệnh
+    { key: 'create_order', label: 'Tạo Lệnh Đặt hàng', description: 'Tạo lệnh đặt hàng mới từ cửa hàng', group: 'Đặt lệnh' },
+    { key: 'cancel_order', label: 'Hủy Lệnh', description: 'Hủy lệnh đặt hàng đang chờ xử lý', group: 'Đặt lệnh' },
+    { key: 'approve_office_order', label: 'Duyệt lệnh (VP)', description: 'Phê duyệt lệnh đặt hàng tại tầng Văn phòng', group: 'Đặt lệnh' },
+    { key: 'reject_office_order', label: 'Từ chối lệnh (VP)', description: 'Từ chối lệnh đặt hàng tại tầng Văn phòng', group: 'Đặt lệnh' },
+    { key: 'dispatch_central_order', label: 'Xuất kho (Kho Tổng)', description: 'Xác nhận xuất hàng từ kho trung tâm', group: 'Đặt lệnh' },
+    // Nhân sự & Xếp lịch
+    { key: 'view_overview', label: 'Xem Tổng quan', description: 'Xem lịch tổng quan hàng tuần', group: 'Nhân sự' },
+    { key: 'view_history', label: 'Xem Lịch sử', description: 'Xem thống kê và lịch sử các tháng', group: 'Nhân sự' },
+    { key: 'view_schedule', label: 'Xem Xếp lịch', description: 'Xem (không sửa) trang xếp ca', group: 'Nhân sự' },
+    { key: 'edit_schedule', label: 'Chỉnh sửa Xếp lịch', description: 'Tạo/lưu lịch phân công ca', group: 'Nhân sự' },
+    { key: 'view_users', label: 'Xem Nhân viên', description: 'Xem danh sách nhân viên', group: 'Nhân sự' },
+    { key: 'manage_hr', label: 'Quản lý Nhân sự', description: 'Thêm, sửa, vô hiệu hóa tài khoản', group: 'Nhân sự' },
+    { key: 'register_shift', label: 'Đăng ký Ca làm', description: 'Tự đăng ký lịch làm hàng tuần', group: 'Nhân sự' },
+    { key: 'manage_kpi_templates', label: 'Quản lý Mẫu KPI', description: 'Tạo, sửa, xóa mẫu chấm điểm KPI', group: 'Nhân sự' },
+    { key: 'score_employees', label: 'Chấm điểm NV', description: 'Chấm điểm KPI chính thức cho nhân viên', group: 'Nhân sự' },
+    { key: 'view_all_kpi', label: 'Xem KPI Tất cả NV', description: 'Xem thống kê KPI của tất cả nhân viên', group: 'Nhân sự' },
+    { key: 'export_kpi', label: 'Xuất Báo cáo KPI', description: 'Xuất báo cáo PDF/Excel KPI nhân viên', group: 'Nhân sự' },
+    { key: 'manage_central_warehouse', label: 'Quản lý Kho tổng', description: 'Truy cập và quản lý kho trung tâm', group: 'Kho hàng' },
+    // Hệ thống
+    { key: 'manage_locations', label: 'Quản lý Địa điểm', description: 'Tạo, sửa, bật/tắt cửa hàng, văn phòng, kho', group: 'Hệ thống' },
+    { key: 'manage_roles', label: 'Quản lý Phân quyền', description: 'Tạo, sửa, xóa vai trò tùy chỉnh', group: 'Hệ thống' },
+    { key: 'manage_users', label: 'Quản lý Người dùng', description: 'Tạo, sửa, khóa tài khoản người dùng', group: 'Hệ thống' },
 ];
 
 export interface CustomRoleDoc {
@@ -43,6 +77,7 @@ export interface CustomRoleDoc {
     isLocked?: boolean;         // Fully locked (admin role) — cannot be edited or deleted
     creatorRoles: string[];     // Which role IDs are allowed to create/assign this role
     color?: string;             // Display color for the role badge
+    applicableTo?: ('STORE' | 'OFFICE' | 'CENTRAL')[];  // Which location types can use this role
     createdAt?: string;
     createdBy?: string;
 }
@@ -74,6 +109,24 @@ export interface StoreDoc {
     settings?: StoreSettings;  // Per-store registration & shift configuration
 }
 
+export interface OfficeDoc {
+    id: string;
+    name: string;
+    address?: string;
+    contactEmail?: string;
+    isActive: boolean;
+    createdAt?: string;
+}
+
+export interface WarehouseDoc {
+    id: string;
+    name: string;
+    address?: string;
+    capacitySqm?: number;
+    isActive: boolean;
+    createdAt?: string;
+}
+
 export interface UserDoc {
     uid: string;
     name: string;
@@ -82,7 +135,12 @@ export interface UserDoc {
     type: EmployeeType;
     isActive: boolean;
     createdAt?: string;
-    storeId?: string; // Which store this user belongs to (undefined only for admin)
+
+    // Workplace assignment — workplaceType drives context-aware navigation
+    workplaceType?: 'STORE' | 'OFFICE' | 'CENTRAL';
+    storeId?: string;      // Populated when workplaceType === 'STORE'
+    officeId?: string;     // Populated when workplaceType === 'OFFICE'
+    warehouseId?: string;  // Populated when workplaceType === 'CENTRAL'
 
     // Extended Profile Fields
     dob?: string;

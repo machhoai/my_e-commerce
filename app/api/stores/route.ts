@@ -10,7 +10,7 @@ async function verifyAdmin(req: NextRequest) {
     const decoded = await adminAuth.verifyIdToken(token);
     const adminDb = getAdminDb();
     const callerSnap = await adminDb.collection('users').doc(decoded.uid).get();
-    if (!callerSnap.exists || callerSnap.data()?.role !== 'admin') return null;
+    if (!callerSnap.exists || !['admin', 'super_admin'].includes(callerSnap.data()?.role)) return null;
     return decoded.uid;
 }
 
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
         if (!callerSnap.exists) return NextResponse.json({ error: 'Không tìm thấy người dùng' }, { status: 403 });
         const callerRole = callerSnap.data()?.role;
 
-        if (callerRole === 'admin') {
+        if (callerRole === 'admin' || callerRole === 'super_admin') {
             const snap = await adminDb.collection('stores').orderBy('name').get();
             const stores = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             return NextResponse.json(stores);
