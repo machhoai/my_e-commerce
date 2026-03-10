@@ -10,6 +10,7 @@ import {
     Calendar as CalendarIcon, Save, AlertCircle, Info, CheckCircle2,
     ChevronLeft, ChevronRight, Trash2, Lock, Users2
 } from 'lucide-react';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function EmployeeRegisterPage() {
     const { user, userDoc } = useAuth();
@@ -398,33 +399,38 @@ export default function EmployeeRegisterPage() {
     return (
         <div className="space-y-6 mx-auto">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-4">
-                <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
-                        <CalendarIcon className="w-7 h-7 text-blue-600" />
-                        Đăng ký Lịch làm
-                    </h1>
-                    <p className="text-slate-500 mt-1 flex items-center gap-2">
-                        Chọn thời gian bạn có thể làm việc cho tuần tới.
-                        <span className="bg-slate-100 text-center text-slate-700 px-2 py-0.5 rounded text-xs font-bold border border-slate-200 uppercase">
-                            Nhân viên {isFT ? 'Toàn thời gian' : 'Bán thời gian'}
-                        </span>
-                    </p>
-                </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <CalendarIcon className="w-7 h-7 text-blue-600" />
+                                Đăng ký Lịch làm
+                            </h1>
+                            <p className="text-slate-500 mt-1 flex items-center gap-2 text-sm">
+                                Chọn thời gian bạn có thể làm việc cho tuần tới.
+                                <span className="bg-slate-100 text-center text-slate-700 px-2 py-0.5 rounded text-xs font-bold border border-slate-200 uppercase">
+                                    Nhân viên {isFT ? 'Toàn thời gian' : 'Bán thời gian'}
+                                </span>
+                            </p>
+                        </div>
 
-                {/* Week Navigation */}
-                <div className="flex items-center justify-center gap-4 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-                    <button onClick={handlePreviousWeek} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
-                        <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <div className="flex-1 text-sm font-semibold text-slate-700 min-w-[140px] text-center">
-                        {formatDate(weekDays[0])} - {formatDate(weekDays[6])}
+                        {/* Week Navigation */}
+                        <div className="flex items-center justify-center gap-4 bg-white p-2 rounded-xl shadow-sm border border-slate-200 shrink-0">
+                            <button onClick={handlePreviousWeek} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
+                                <ChevronLeft className="w-5 h-5" />
+                            </button>
+                            <div className="flex-1 text-sm font-semibold text-slate-700 min-w-[140px] text-center">
+                                {formatDate(weekDays[0])} - {formatDate(weekDays[6])}
+                            </div>
+                            <button onClick={handleNextWeek} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
+                                <ChevronRight className="w-5 h-5" />
+                            </button>
+                        </div>
                     </div>
-                    <button onClick={handleNextWeek} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
-                        <ChevronRight className="w-5 h-5" />
-                    </button>
-                </div>
-            </div>
+                }
+            />
 
             {/* ★ REAL-TIME LOCK BANNER — appears instantly when admin closes registration or viewing old week */}
             {isClosed && (

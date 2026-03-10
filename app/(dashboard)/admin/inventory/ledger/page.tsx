@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { BookOpen } from 'lucide-react';
 import type { ProductDoc, InventoryTransactionDoc } from '@/types/inventory';
 import type { StoreDoc } from '@/types';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function CentralLedgerPage() {
     const { user, userDoc, hasPermission } = useAuth();
@@ -104,13 +105,20 @@ export default function CentralLedgerPage() {
 
     return (
         <div className="space-y-6 mx-auto">
-            <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-700 to-slate-500 bg-clip-text text-transparent flex items-center gap-2">
-                    <BookOpen className="w-7 h-7 text-slate-600" />
-                    Thẻ kho tổng
-                </h1>
-                <p className="text-slate-500 mt-1">Lịch sử nhập/xuất kho trung tâm.</p>
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-700 to-slate-500 bg-clip-text text-transparent flex items-center gap-2">
+                                <BookOpen className="w-7 h-7 text-slate-600" />
+                                Thẻ kho tổng
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Lịch sử nhập/xuất kho trung tâm.</p>
+                        </div>
+                    </div>
+                }
+            />
 
             {/* Filters */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">

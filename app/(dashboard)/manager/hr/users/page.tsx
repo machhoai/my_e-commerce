@@ -12,6 +12,7 @@ import { processTableData } from '@/lib/processTableData';
 import DataTableToolbar, { SortableHeader } from '@/components/DataTableToolbar';
 import DataTablePagination from '@/components/DataTablePagination';
 import Portal from '@/components/Portal';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 function ManagerUsersPageContent() {
     const { user, userDoc, loading: authLoading } = useAuth();
@@ -357,17 +358,22 @@ function ManagerUsersPageContent() {
                 return (
                     <>
                         {/* Header */}
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <div>
-                                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
-                                    <Users className="w-7 h-7 text-blue-600" />
-                                    Quản lý Nhân viên
-                                </h1>
-                                <p className="text-slate-500 mt-1">
-                                    Xem và quản lý trạng thái hoạt động của tất cả nhân viên bán thời gian và toàn thời gian.
-                                </p>
-                            </div>
-                        </div>
+                        <DashboardHeader
+                            showSelect={false}
+                            titleChildren={
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
+                                            <Users className="w-7 h-7 text-blue-600" />
+                                            Quản lý Nhân viên
+                                        </h1>
+                                        <p className="text-slate-500 mt-1">
+                                            Xem và quản lý trạng thái hoạt động của tất cả nhân viên bán thời gian và toàn thời gian.
+                                        </p>
+                                    </div>
+                                </div>
+                            }
+                        />
 
                         {/* Admin Store Selector Banner */}
                         {userDoc?.role === 'admin' && (

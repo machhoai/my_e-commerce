@@ -10,6 +10,7 @@ import {
     RefreshCw, ChevronDown, ChevronUp, Layers,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function ManagerKpiTemplatesPage() {
     const { user, userDoc, getToken } = useAuth();
@@ -133,16 +134,21 @@ export default function ManagerKpiTemplatesPage() {
     return (
         <div className="space-y-6 mx-auto">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                        <ClipboardList className="w-7 h-7 text-teal-600" />
-                        Quản lý Mẫu KPI
-                    </h1>
-                    <p className="text-slate-500 mt-1 text-sm">Tạo và quản lý các mẫu chấm điểm KPI cho từng quầy.</p>
-                </div>
-                <button onClick={fetchTemplates} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"><RefreshCw className="w-4 h-4" /></button>
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex items-center justify-between w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                                <ClipboardList className="w-7 h-7 text-teal-600" />
+                                Quản lý Mẫu KPI
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Tạo và quản lý các mẫu chấm điểm KPI cho từng quầy.</p>
+                        </div>
+                        <button onClick={fetchTemplates} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors flex shrink-0"><RefreshCw className="w-4 h-4" /></button>
+                    </div>
+                }
+            />
 
             {/* Alerts */}
             {error && <div className="bg-red-50 text-red-600 p-3 rounded-xl flex items-center gap-2 border border-red-100">

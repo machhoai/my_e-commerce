@@ -10,6 +10,7 @@ import {
     RefreshCw, ChevronDown, ChevronUp, Building2, Layers,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function KpiTemplatesPage() {
     const { user, userDoc, getToken } = useAuth();
@@ -150,16 +151,23 @@ export default function KpiTemplatesPage() {
     return (
         <div className="space-y-6 mx-auto">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                        <ClipboardList className="w-7 h-7 text-teal-600" />
-                        Quản lý Mẫu KPI
-                    </h1>
-                    <p className="text-slate-500 mt-1 text-sm">Tạo và quản lý các mẫu chấm điểm KPI cho từng quầy.</p>
-                </div>
-                <button onClick={fetchTemplates} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"><RefreshCw className="w-4 h-4" /></button>
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <ClipboardList className="w-7 h-7 text-teal-600" />
+                                Quản lý Mẫu KPI
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Tạo và quản lý các mẫu chấm điểm KPI cho từng quầy.</p>
+                        </div>
+                        <button onClick={fetchTemplates} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors shrink-0">
+                            <RefreshCw className="w-4 h-4" />
+                        </button>
+                    </div>
+                }
+            />
 
             {/* Admin Store Selector */}
             {userDoc.role === 'admin' && (

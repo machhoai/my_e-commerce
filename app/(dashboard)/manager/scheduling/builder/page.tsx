@@ -13,6 +13,7 @@ import {
     ChevronDown, ChevronLeft, ChevronRight, Building2,
     UserPlus, Undo2, FileWarning, Trash2, Layers,
 } from 'lucide-react';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 // ─── Draft Types ────────────────────────────────────────────────────────────
 
@@ -546,44 +547,49 @@ export default function ManagerSchedulePage() {
             ) : (
                 <>
                     {/* Header + Controls */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
-                                <Calendar className="w-7 h-7 text-blue-600" />
-                                Quản lý Lịch làm việc
-                            </h1>
-                            <p className="text-slate-500 mt-1">Kéo hoặc nhấn chọn nhân viên rồi nhấn vào quầy để phân công ca làm.</p>
-                        </div>
-
-                        <div className="flex items-stretch flex-col md:flex-row gap-4">
-                            <div className="flex items-center justify-center w-full gap-2 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-                                <button onClick={handlePreviousWeek} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
-                                    <ChevronLeft className="w-5 h-5" />
-                                </button>
-                                <div className="text-sm font-semibold text-slate-700 min-w-[140px] text-center flex-1 truncate">
-                                    {formatDate(weekDays[0])} - {formatDate(weekDays[6])}
+                    <DashboardHeader
+                        showSelect={false}
+                        titleChildren={
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                                <div>
+                                    <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
+                                        <Calendar className="w-7 h-7 text-blue-600" />
+                                        Quản lý Lịch làm việc
+                                    </h1>
+                                    <p className="text-slate-500 mt-1 text-sm">Kéo hoặc nhấn chọn nhân viên rồi nhấn vào quầy để phân công ca làm.</p>
                                 </div>
-                                <button onClick={handleNextWeek} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
-                                    <ChevronRight className="w-5 h-5" />
-                                </button>
-                            </div>
 
-                            <div className="w-px items-stretch bg-slate-200 hidden md:block" />
+                                <div className="flex items-stretch flex-col md:flex-row gap-4 shrink-0">
+                                    <div className="flex items-center justify-center w-full gap-2 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
+                                        <button onClick={handlePreviousWeek} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
+                                            <ChevronLeft className="w-5 h-5" />
+                                        </button>
+                                        <div className="text-sm font-semibold text-slate-700 min-w-[140px] text-center flex-1 truncate">
+                                            {formatDate(weekDays[0])} - {formatDate(weekDays[6])}
+                                        </div>
+                                        <button onClick={handleNextWeek} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
+                                            <ChevronRight className="w-5 h-5" />
+                                        </button>
+                                    </div>
 
-                            <div className="relative w-full h-full bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-                                <Clock className="size-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <select
-                                    value={selectedShiftId}
-                                    onChange={e => setSelectedShiftId(e.target.value)}
-                                    className="pl-10 pr-8 py-2 w-full h-full text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer min-w-[140px]"
-                                >
-                                    {shiftTimes.length === 0 && <option value="">Không có ca làm nào</option>}
-                                    {shiftTimes.map(shift => <option key={shift} value={shift}>{shift}</option>)}
-                                </select>
-                                <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                    <div className="w-px items-stretch bg-slate-200 hidden md:block" />
+
+                                    <div className="relative w-full h-full bg-white p-2 rounded-xl shadow-sm border border-slate-200">
+                                        <Clock className="size-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                        <select
+                                            value={selectedShiftId}
+                                            onChange={e => setSelectedShiftId(e.target.value)}
+                                            className="pl-10 pr-8 py-2 w-full h-full text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer min-w-[140px]"
+                                        >
+                                            {shiftTimes.length === 0 && <option value="">Không có ca làm nào</option>}
+                                            {shiftTimes.map(shift => <option key={shift} value={shift}>{shift}</option>)}
+                                        </select>
+                                        <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
+                        }
+                    />
 
                     {/* 7-Day Date Picker */}
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-2 overflow-x-auto">

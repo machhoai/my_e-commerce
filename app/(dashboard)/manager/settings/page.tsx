@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Settings as SettingsIcon, Save, Plus, X, AlertCircle, CheckCircle2, Store, Clock, Users, Timer, ShieldAlert, Package } from 'lucide-react';
 import { SettingsDoc, CounterDoc, RegistrationSchedule } from '@/types';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 const DAY_NAMES = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -216,30 +217,35 @@ export default function ManagerSettingsPage() {
     return (
         <div className="space-y-6 mx-auto">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent flex items-center gap-2">
-                        <SettingsIcon className="w-7 h-7 text-slate-700" />
-                        Cài đặt cửa hàng
-                    </h1>
-                    <p className="text-slate-500 mt-1">
-                        Quản lý cài đặt ca làm, quầy, định mức và lịch đăng ký cho cửa hàng của bạn.
-                    </p>
-                </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent flex items-center gap-2">
+                                <SettingsIcon className="w-7 h-7 text-slate-700" />
+                                Cài đặt cửa hàng
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">
+                                Quản lý cài đặt ca làm, quầy, định mức và lịch đăng ký cho cửa hàng của bạn.
+                            </p>
+                        </div>
 
-                <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-6 py-2.5 rounded-xl font-medium shadow-md transition-colors disabled:opacity-50 focus:ring-4 focus:ring-slate-300"
-                >
-                    {saving ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                        <Save className="w-4 h-4" />
-                    )}
-                    Lưu cài đặt
-                </button>
-            </div>
+                        <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-6 py-2.5 rounded-xl font-medium shadow-md transition-colors disabled:opacity-50 focus:ring-4 focus:ring-slate-300"
+                        >
+                            {saving ? (
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                                <Save className="w-4 h-4" />
+                            )}
+                            Lưu cài đặt
+                        </button>
+                    </div>
+                }
+            />
 
             {error && (
                 <div className="bg-red-50 text-red-600 p-4 rounded-xl flex items-center gap-3 border border-red-100 animate-in fade-in slide-in-from-top-2">

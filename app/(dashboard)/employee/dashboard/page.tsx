@@ -8,6 +8,7 @@ import { ScheduleDoc, SettingsDoc, StoreDoc, KpiTemplateDoc } from '@/types';
 import { getWeekStart, getWeekDays, formatDate, toLocalDateString, cn } from '@/lib/utils';
 import { Calendar as CalendarIcon, Clock, MapPin, ChevronLeft, ChevronRight, Activity, TrendingUp, UserCog, ClipboardCheck } from 'lucide-react';
 import SelfScoringModal from '@/components/kpi/SelfScoringModal';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function EmployeeDashboardPage() {
     const { user, userDoc, getToken } = useAuth();
@@ -220,35 +221,40 @@ export default function EmployeeDashboardPage() {
 
     return (
         <div className="space-y-6 w-full h-full min-h-0 mx-auto">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-4">
-                <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-500 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
-                        <Activity className="w-7 h-7 text-emerald-500" />
-                        Lịch làm việc Trực tuyến
-                    </h1>
-                    <p className="text-slate-500 mt-1">
-                        Quầy và ca làm được phân công sẽ cập nhật theo thời gian thực tại đây.
-                    </p>
-                </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-500 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <Activity className="w-7 h-7 text-emerald-500" />
+                                Lịch làm việc Trực tuyến
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">
+                                Quầy và ca làm được phân công sẽ cập nhật theo thời gian thực tại đây.
+                            </p>
+                        </div>
 
-                <div className="flex items-center gap-4 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-                    <button
-                        onClick={handlePreviousWeek}
-                        className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600 focus:ring-2 focus:ring-emerald-500/20"
-                    >
-                        <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <div className="text-sm flex-1 font-semibold text-slate-700 min-w-[140px] text-center bg-slate-50 py-1.5 px-3 rounded-md">
-                        {formatDate(weekDays[0])} <span className="text-slate-400 font-normal mx-1">đến</span> {formatDate(weekDays[6])}
+                        <div className="flex items-center gap-4 bg-white p-2 rounded-xl shadow-sm border border-slate-200 shrink-0">
+                            <button
+                                onClick={handlePreviousWeek}
+                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600 focus:ring-2 focus:ring-emerald-500/20"
+                            >
+                                <ChevronLeft className="w-5 h-5" />
+                            </button>
+                            <div className="text-sm flex-1 font-semibold text-slate-700 min-w-[140px] text-center bg-slate-50 py-1.5 px-3 rounded-md">
+                                {formatDate(weekDays[0])} <span className="text-slate-400 font-normal mx-1">đến</span> {formatDate(weekDays[6])}
+                            </div>
+                            <button
+                                onClick={handleNextWeek}
+                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600 focus:ring-2 focus:ring-emerald-500/20"
+                            >
+                                <ChevronRight className="w-5 h-5" />
+                            </button>
+                        </div>
                     </div>
-                    <button
-                        onClick={handleNextWeek}
-                        className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600 focus:ring-2 focus:ring-emerald-500/20"
-                    >
-                        <ChevronRight className="w-5 h-5" />
-                    </button>
-                </div>
-            </div>
+                }
+            />
 
             {renderMonthlySummary()}
 

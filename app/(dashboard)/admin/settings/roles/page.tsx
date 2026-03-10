@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { CustomRoleDoc, AppPermission, ALL_PERMISSIONS } from '@/types';
 import { Shield, Plus, Trash2, Pencil, Save, X, CheckCircle2, AlertCircle, RefreshCw, Lock, ChevronDown, ChevronUp, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 const COLOR_OPTIONS = [
     { value: 'red', label: 'Đỏ', className: 'bg-red-100 text-red-700 border-red-200' },
@@ -310,18 +311,23 @@ export default function AdminRolesPage() {
     return (
         <div className="space-y-8 mx-auto">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                        <Shield className="w-7 h-7 text-violet-600" />
-                        Quản lý Phân Quyền
-                    </h1>
-                    <p className="text-slate-500 mt-1 text-sm">Quản lý tất cả vai trò (hệ thống và tùy chỉnh) cùng quyền hạn chi tiết.</p>
-                </div>
-                <button onClick={fetchRoles} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
-                    <RefreshCw className="w-4 h-4" />
-                </button>
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <Shield className="w-7 h-7 text-violet-600" />
+                                Quản lý Phân Quyền
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Quản lý tất cả vai trò (hệ thống và tùy chỉnh) cùng quyền hạn chi tiết.</p>
+                        </div>
+                        <button onClick={fetchRoles} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors shrink-0">
+                            <RefreshCw className="w-4 h-4" />
+                        </button>
+                    </div>
+                }
+            />
 
             {/* Alerts */}
             {error && (

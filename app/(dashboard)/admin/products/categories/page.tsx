@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Layers, Plus, Pencil, Trash2, X, Save, CheckCircle2, AlertCircle } from 'lucide-react';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 interface Category {
     id: string;
@@ -92,13 +93,20 @@ export default function CategoryManagementPage() {
 
     return (
         <div className="space-y-6 mx-auto">
-            <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
-                    <Layers className="w-7 h-7 text-violet-600" />
-                    Quản lý Danh mục
-                </h1>
-                <p className="text-slate-500 mt-1">Tạo và quản lý danh mục sản phẩm trong hệ thống kho.</p>
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <Layers className="w-7 h-7 text-violet-600" />
+                                Quản lý Danh mục
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Tạo và quản lý danh mục sản phẩm trong hệ thống kho.</p>
+                        </div>
+                    </div>
+                }
+            />
 
             {message.text && (
                 <div className={`p-3 rounded-xl flex items-center gap-2 border text-sm font-medium ${message.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>

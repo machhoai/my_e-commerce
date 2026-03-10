@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { KpiRecordDoc } from '@/types';
 import { toLocalDateString, cn } from '@/lib/utils';
 import { BarChart3, Calendar, TrendingUp, TrendingDown, Award, Minus } from 'lucide-react';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function EmployeeKpiStatsPage() {
     const { user, userDoc, getToken } = useAuth();
@@ -38,22 +39,26 @@ export default function EmployeeKpiStatsPage() {
 
     return (
         <div className="space-y-6 mx-auto">
-            <div className="flex items-center justify-between mt-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                        <BarChart3 className="w-7 h-7 text-teal-600" />
-                        Thống kê KPI cá nhân
-                    </h1>
-                    <p className="text-slate-500 mt-1 text-sm">Xem điểm KPI của bạn theo tháng.</p>
-                </div>
-            </div>
-
-            {/* Month Picker */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex items-center gap-3">
-                <Calendar className="w-4 h-4 text-teal-500" />
-                <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
-                    className="border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-teal-300 font-medium" />
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                                <BarChart3 className="w-7 h-7 text-teal-600" />
+                                Thống kê KPI cá nhân
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Xem điểm KPI của bạn theo tháng.</p>
+                        </div>
+                        {/* Month Picker */}
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex items-center gap-3 shrink-0">
+                            <Calendar className="w-4 h-4 text-teal-500" />
+                            <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+                                className="border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-teal-300 font-medium" />
+                        </div>
+                    </div>
+                }
+            />
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

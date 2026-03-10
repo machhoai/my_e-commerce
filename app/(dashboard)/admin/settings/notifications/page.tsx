@@ -7,6 +7,7 @@ import { NotificationTemplate, StoreDoc } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Edit2, Trash2, Send, Info, AlertCircle, CheckCircle2, Users, Building2, Shield } from 'lucide-react';
 import Portal from '@/components/Portal';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function NotificationTemplatesPage() {
     const { user } = useAuth();
@@ -157,20 +158,27 @@ export default function NotificationTemplatesPage() {
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-800">Mẫu Thông Báo</h1>
-                    <p className="text-slate-500 mt-1">Quản lý và soạn mãu nội dung gửi đẩy tự động</p>
-                </div>
-                <button
-                    onClick={() => handleOpenForm()}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm"
-                >
-                    <Plus className="w-4 h-4" />
-                    Tạo mẫu mới
-                </button>
-            </div>
+        <div className="space-y-6 mx-auto animate-in fade-in duration-500">
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent flex items-center gap-2">
+                                Mẫu Thông Báo
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Quản lý và soạn mãu nội dung gửi đẩy tự động</p>
+                        </div>
+                        <button
+                            onClick={() => handleOpenForm()}
+                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-blue-500/20 transition-all shrink-0"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Tạo mẫu mới
+                        </button>
+                    </div>
+                }
+            />
 
             {feedback && (
                 <div className={`p-4 rounded-xl flex items-start gap-3 border ${feedback.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -11,6 +11,7 @@ import { db } from '@/lib/firebase';
 import { StoreDoc } from '@/types';
 
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { user, userDoc, logout, loading, hasPermission } = useAuth();
@@ -18,6 +19,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [mobileOpen, setMobileOpen] = useState(false);
     const [storeName, setStoreName] = useState<string>('');
     const [unreadCount, setUnreadCount] = useState(0);
+
+    const [expandedGroups, setExpandedGroups] = useState<string[]>(['Nhân sự', 'Kho hàng', 'Văn phòng', 'Hệ thống']);
 
     // Initialize Push Notifications hook (handles permission request and saving token)
     usePushNotifications();
@@ -87,7 +90,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         );
     }
 
-
     // Determine effective location context
     // Admin sees everything; workplaceType drives context for other roles
     const isAdmin = userDoc?.role === 'admin';
@@ -104,18 +106,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             href: '/employee/dashboard',
             icon: Calendar,
             show: isStoreContext,
+            group: 'Cá nhân',
         },
         {
             label: 'Đăng ký ca làm',
             href: '/employee/register',
             icon: Calendar,
             show: isStoreContext,
+            group: 'Cá nhân',
         },
         {
             label: 'KPI của tôi',
             href: '/employee/kpi-stats',
             icon: BarChart3,
             show: isStoreContext,
+            group: 'Cá nhân',
         },
         {
             label: 'Kho quầy',
@@ -123,12 +128,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             icon: ScanBarcode,
             show: isStoreContext,
             matchPrefix: '/employee/inventory',
+            group: 'Cá nhân',
         },
         {
             label: 'Hồ sơ cá nhân',
             href: '/profile',
             icon: User,
             show: isStoreContext || isOfficeContext,
+            group: 'Cá nhân',
         },
 
         // ── Nhân sự & Xếp lịch (Store managers + admin/superadmin) ──
@@ -182,7 +189,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {
             label: 'Kho tổng',
             href: '/admin/inventory/overview',
-            icon: Package,
+            icon: Warehouse,
             show: isAdmin || isSuperAdmin || isCentralContext || hasPermission('manage_central_warehouse'),
             matchPrefix: '/admin/inventory',
             group: 'Kho hàng',
@@ -256,20 +263,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ];
 
     const roleLabelMap: Record<string, string> = {
-        super_admin: 'siêu quản trị',
-        admin: 'quản trị viên',
-        store_manager: 'cửa hàng trưởng',
-        manager: 'quản lý',
-        employee: 'nhân viên',
-        office: 'văn phòng',
+        super_admin: 'Siêu Quản Trị',
+        admin: 'Quản Trị Viên',
+        store_manager: 'Cửa Hàng Trưởng',
+        manager: 'Quản Lý',
+        employee: 'Nhân Viên',
+        office: 'Văn Phòng',
     };
 
     const roleBadgeClass: Record<string, string> = {
-        super_admin: 'bg-yellow-500/20 text-yellow-300',
-        admin: 'bg-red-500/20 text-red-400',
+        super_admin: 'bg-yellow-500/20 text-yellow-500',
+        admin: 'bg-emerald-500/20 text-emerald-500',
         store_manager: 'bg-purple-500/20 text-purple-400',
         manager: 'bg-amber-500/20 text-amber-400',
-        employee: 'bg-green-500/20 text-green-400',
+        employee: 'bg-blue-500/20 text-blue-400',
         office: 'bg-teal-500/20 text-teal-400',
     };
 
@@ -278,135 +285,181 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // Build grouped visible routes
     const visibleRoutes = routes.filter(r => r.show);
 
-    const SidebarContent = () => (
-        <div className="flex flex-col h-full">
-            <div className="p-6">
-                <img src="/logo.png" alt="logo" className="w-full h-16 object-contain" />
-                <h1 className="text-lg font-bold text-center bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-                    Quản lí nhân sự
-                </h1>
-                <p className="text-sm text-center mt-2 text-slate-400">
-                    Xin chào, {userDoc.name || 'Người dùng'}
-                </p>
-                <p className="text-xs text-slate-500 uppercase flex items-center justify-center gap-1 mt-1">
-                    <span className={cn(
-                        'px-1.5 py-0.5 rounded text-[10px] font-bold',
-                        roleBadgeClass[userDoc.role] ?? 'bg-slate-700 text-slate-300'
-                    )}>
-                        {roleLabelMap[userDoc.role] ?? userDoc.role}
-                    </span>
-                    {userDoc.type && (
-                        <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                            {userDoc.type}
-                        </span>
-                    )}
-                </p>
-                {storeName && userDoc.role !== 'admin' && (
-                    <div className="mt-3 flex items-center justify-center gap-1.5 text-xs text-indigo-400 bg-indigo-500/10 px-2.5 py-1.5 rounded-lg border border-indigo-500/20 w-fit mx-auto">
-                        <Building2 className="w-3.5 h-3.5 shrink-0" />
-                        <span className="font-semibold text-center leading-tight">{storeName}</span>
+    const toggleGroup = (title: string) => {
+        setExpandedGroups((prev) =>
+            prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title]
+        );
+    };
+
+    const SidebarContent = () => {
+        // Group visible routes
+        const groups: { title: string, items: typeof visibleRoutes }[] = [];
+        const groupOrder = ['Cá nhân', 'Nhân sự', 'Kho hàng', 'Văn phòng', 'Hệ thống'];
+
+        groupOrder.forEach(gTitle => {
+            const items = visibleRoutes.filter(r => r.group === gTitle);
+            if (items.length > 0) {
+                groups.push({ title: gTitle, items });
+            }
+        });
+
+        // Add ungrouped items
+        const ungroupedItems = visibleRoutes.filter(r => !r.group);
+        if (ungroupedItems.length > 0) {
+            groups.push({ title: 'Khác', items: ungroupedItems });
+        }
+
+        const getInitials = (name: string) => {
+            if (!name) return 'U';
+            const parts = name.split(' ').filter(Boolean);
+            if (parts.length >= 2) {
+                return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+            }
+            return name.substring(0, 2).toUpperCase();
+        };
+
+        return (
+            <div className="flex flex-col h-full bg-slate-950 text-slate-100">
+                {/* Header/Branding */}
+                <div className="border-slate-800 pt-2 shrink-0">
+                    <div className="flex items-center h-16 w-full gap-3">
+                        <img src="/logo.png" alt="" className="h-full w-full object-contain" />
                     </div>
-                )}
-            </div>
+                </div>
 
-            <nav className="flex-1 px-4 space-y-1 mt-2 overflow-y-auto">
-                {(() => {
-                    let lastGroup = '';
-                    return visibleRoutes.map((route) => {
-                        const isActive = route.matchPrefix
-                            ? pathname.startsWith(route.matchPrefix)
-                            : pathname.startsWith(route.href);
-
-                        // Render group header if new group
-                        const showGroupHeader = route.group && route.group !== lastGroup;
-                        if (route.group) lastGroup = route.group;
-
-                        return (
-                            <div key={route.href}>
-                                {showGroupHeader && (
-                                    <div className="pt-4 mt-2 pb-1 px-3 first:pt-0">
-                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{route.group}</p>
-                                    </div>
-                                )}
-                                <Link
-                                    href={route.href}
-                                    onClick={() => setMobileOpen(false)}
-                                    className={cn(
-                                        'flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium',
-                                        isActive
-                                            ? 'bg-blue-600 text-white'
-                                            : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'
-                                    )}
-                                >
-                                    <route.icon className="w-4 h-4 shrink-0" />
-                                    {route.label}
-                                </Link>
-                            </div>
-                        );
-                    });
-                })()}
-
-                {/* Notification Nav Item with Badge */}
-                <Link
-                    href="/notifications"
-                    onClick={() => setMobileOpen(false)}
-                    className={cn(
-                        'flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium',
-                        isNotificationsActive
-                            ? 'bg-blue-600 text-white'
-                            : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'
-                    )}
-                >
-                    <div className="relative">
-                        <Bell className="w-4 h-4 shrink-0" />
-                        {unreadCount > 0 && (
-                            <span className="absolute -top-1.5 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white px-1 ring-2 ring-slate-900">
-                                {unreadCount > 99 ? '99+' : unreadCount}
+                {/* User Profile */}
+                <div className="border-b border-slate-800 p-4 shrink-0">
+                    <div className="flex items-center gap-3">
+                        <Avatar className="size-10 border-2 border-slate-700">
+                            <AvatarImage src="/placeholder-user.jpg" alt="User" />
+                            <AvatarFallback className="bg-slate-800 text-slate-300 text-sm font-semibold">{getInitials(userDoc.name)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm text-slate-400">Xin chào,</p>
+                            <p className="font-medium truncate">{userDoc.name || 'Người dùng'}</p>
+                        </div>
+                        <div className="space-y-0.5">
+                            <button
+                                onClick={logout}
+                                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-red-400/90 hover:bg-red-950/30 hover:text-red-400 transition-colors"
+                            >
+                                <LogOut className="size-5" />
+                            </button>
+                        </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        <span className={cn(
+                            "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                            roleBadgeClass[userDoc.role] ?? 'bg-slate-800 text-slate-300'
+                        )}>
+                            {roleLabelMap[userDoc.role] ?? userDoc.role}
+                        </span>
+                        {storeName && userDoc.role !== 'admin' && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-slate-700 px-2.5 py-0.5 text-xs text-slate-300">
+                                <Building2 className="size-3" />
+                                <span className="max-w-[120px] truncate">{storeName}</span>
+                            </span>
+                        )}
+                        {userDoc.type && (
+                            <span className="inline-flex items-center rounded-full bg-slate-800 px-2.5 py-0.5 text-xs text-slate-300 font-medium">
+                                {userDoc.type}
                             </span>
                         )}
                     </div>
-                    <span className="ml-0.5">Thông báo</span>
-                </Link>
-            </nav>
+                </div>
 
-            <div className="p-4 border-t border-slate-800 space-y-2">
-                <Link
-                    href="/change-password"
-                    onClick={() => setMobileOpen(false)}
-                    className="flex w-full items-center gap-3 px-3 py-2 rounded-md text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors text-sm"
-                >
-                    <KeyRound className="w-4 h-4" />
-                    Đổi mật khẩu
-                </Link>
-                <button
-                    onClick={logout}
-                    className="flex w-full items-center gap-3 px-3 py-2 rounded-md text-red-400 hover:text-red-300 hover:bg-red-950/30 transition-colors text-sm"
-                >
-                    <LogOut className="w-4 h-4" />
-                    Đăng xuất
-                </button>
-                <div className="mt-3 pt-3 border-t border-slate-800/60 text-center">
-                    <p className="text-[10px] text-slate-600 leading-tight">
-                        Thiết kế &amp; phát triển bởi
-                    </p>
-                    <p className="text-[11px] font-semibold text-slate-500 tracking-wide mt-0.5">
-                        Mạch Hoài
-                    </p>
-                    <p className="text-[9px] text-slate-700 mt-0.5 leading-tight">
-                        IT &amp; Đào tạo
-                    </p>
-                    <p className="text-[9px] text-slate-700 leading-tight">
-                        Công ty TNHH JoyWorld Entertainment
+                {/* Navigation */}
+                <nav className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+                    {groups.map((group) => (
+                        <div key={group.title} className="mb-2">
+                            <button
+                                onClick={() => toggleGroup(group.title)}
+                                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs font-medium uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
+                            >
+                                {group.title}
+                                <ChevronDown
+                                    className={cn(
+                                        "size-3.5 transition-transform duration-200",
+                                        expandedGroups.includes(group.title) ? "rotate-0" : "-rotate-90"
+                                    )}
+                                />
+                            </button>
+                            {expandedGroups.includes(group.title) && (
+                                <div className="mt-1 space-y-0.5">
+                                    {group.items.map((route) => {
+                                        const isActive = route.matchPrefix
+                                            ? pathname.startsWith(route.matchPrefix)
+                                            : pathname.startsWith(route.href);
+
+                                        return (
+                                            <Link
+                                                key={route.href}
+                                                href={route.href}
+                                                onClick={() => setMobileOpen(false)}
+                                                className={cn(
+                                                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                                                    isActive
+                                                        ? "bg-emerald-600/20 text-emerald-400 font-medium"
+                                                        : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                                                )}
+                                            >
+                                                <route.icon className={cn("size-4 shrink-0", isActive && "text-emerald-400")} />
+                                                <span>{route.label}</span>
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+
+                    {/* Notifications */}
+                    <div className="mt-2 border-t border-slate-800 pt-2">
+                        <Link
+                            href="/notifications"
+                            onClick={() => setMobileOpen(false)}
+                            className={cn(
+                                "flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors",
+                                isNotificationsActive
+                                    ? "bg-slate-800 text-white font-medium"
+                                    : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                            )}
+                        >
+                            <div className="flex items-center gap-3">
+                                <Bell className={cn("size-4", isNotificationsActive && "text-emerald-500")} />
+                                <span>Thông báo</span>
+                            </div>
+                            {unreadCount > 0 && (
+                                <span className="flex size-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                                    {unreadCount > 99 ? '99+' : unreadCount}
+                                </span>
+                            )}
+                        </Link>
+                        <Link
+                            href="/change-password"
+                            onClick={() => setMobileOpen(false)}
+                            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition-colors"
+                        >
+                            <KeyRound className="size-4" />
+                            <span>Đổi mật khẩu</span>
+                        </Link>
+                    </div>
+                </nav>
+
+                {/* Footer */}
+                <div className="p-2 shrink-0">
+                    <p className="px-3 text-[10px] text-slate-500/70 text-center">
+                        Thiết kế & phát triển bởi Mạch Hoài
                     </p>
                 </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <div className="flex bg-slate-50 h-screen">
             {/* Desktop Sidebar */}
-            <aside className="hidden md:flex w-64 bg-slate-900 border-r border-slate-800 text-slate-100 flex-col shrink-0">
+            <aside className="hidden md:flex w-64 bg-slate-950 border-r border-slate-800 text-slate-100 flex-col shrink-0">
                 <SidebarContent />
             </aside>
 
@@ -419,9 +472,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         onClick={() => setMobileOpen(false)}
                     />
                     {/* Drawer */}
-                    <aside className="relative z-50 w-72 bg-slate-900 text-slate-100 flex flex-col animate-in slide-in-from-left-4 duration-200">
+                    <aside className="relative z-50 w-72 bg-slate-950 text-slate-100 flex flex-col animate-in slide-in-from-left-4 duration-200 overflow-hidden">
                         <button
-                            className="absolute top-4 right-4 text-slate-400 hover:text-slate-100 p-1"
+                            className="absolute top-4 right-4 text-slate-400 hover:text-slate-100 p-1 z-50 rounded-lg bg-slate-800/50"
                             onClick={() => setMobileOpen(false)}
                             aria-label="Đóng menu"
                         >
@@ -433,8 +486,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
 
             {/* Main Content — full height, no header */}
-            <main className="flex-1 h-screen overflow-y-scroll flex flex-col">
-                <div className="mx-auto px-4 md:px-8 pb-4 md:pb-8 w-full">
+            <main className="flex-1 h-screen overflow-hidden flex flex-col bg-slate-50/50">
+                <div className="flex-1 overflow-y-auto w-full px-2 custom-scrollbar">
                     {children}
                 </div>
             </main>
@@ -442,7 +495,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* Mobile Floating Hamburger Button */}
             {!mobileOpen && (
                 <button
-                    className="md:hidden fixed bottom-5 left-5 z-30 w-12 h-12 bg-slate-900 text-white rounded-full shadow-lg shadow-slate-900/40 flex items-center justify-center hover:bg-slate-800 active:scale-95 transition-all"
+                    className="md:hidden fixed bottom-5 left-5 z-30 w-12 h-12 bg-slate-950 text-white rounded-full shadow-lg shadow-slate-900/40 flex items-center justify-center hover:bg-slate-800 active:scale-95 transition-all outline-none"
                     onClick={() => setMobileOpen(true)}
                     aria-label="Mở menu"
                 >
@@ -460,7 +513,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <Link
                     href="/scan"
                     className={cn(
-                        "md:hidden fixed bottom-5 right-5 z-30 w-14 h-14 bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-full shadow-lg shadow-violet-600/40 flex items-center justify-center hover:from-violet-700 hover:to-indigo-700 active:scale-95 transition-all",
+                        "md:hidden fixed bottom-5 right-5 z-30 w-14 h-14 bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-full shadow-lg shadow-violet-600/40 flex items-center justify-center hover:from-violet-700 hover:to-indigo-700 active:scale-95 transition-all outline-none",
                         pathname === '/scan' && "ring-3 ring-violet-300 ring-offset-2"
                     )}
                     aria-label="Quét mã sản phẩm"

@@ -12,6 +12,7 @@ import type { PurchaseOrderDoc } from '@/types/inventory';
 import type { StoreDoc, WarehouseDoc } from '@/types';
 import Portal from '@/components/Portal';
 import { QRCodeSVG } from 'qrcode.react';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
     PENDING_OFFICE: { label: 'Chờ VP duyệt', badge: 'bg-amber-100 text-amber-700 border-amber-200' },
@@ -135,19 +136,24 @@ export default function WarehouseHistoryPage() {
     return (
         <div className="space-y-6 mx-auto">
             {/* Header */}
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
-                        <ClipboardList className="w-7 h-7 text-violet-600" />
-                        Lịch sử đơn hàng
-                    </h1>
-                    <p className="text-slate-500 mt-1">Xem tất cả đơn hàng, phiếu xuất kho, và thông tin duyệt.</p>
-                </div>
-                <button onClick={fetchOrders}
-                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-sm">
-                    <RefreshCw className="w-4 h-4" /> Làm mới
-                </button>
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <ClipboardList className="w-7 h-7 text-violet-600" />
+                                Lịch sử đơn hàng
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Xem tất cả đơn hàng, phiếu xuất kho, và thông tin duyệt.</p>
+                        </div>
+                        <button onClick={fetchOrders}
+                            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-sm shrink-0">
+                            <RefreshCw className="w-4 h-4" /> Làm mới
+                        </button>
+                    </div>
+                }
+            />
 
             {/* Toolbar */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">

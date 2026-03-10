@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useParams, useSearchParams } from 'next/navigation';
 import { PackageCheck, AlertCircle, CheckCircle2, ShieldAlert, Package, Loader2 } from 'lucide-react';
 import type { PurchaseOrderDoc, PurchaseOrderItem } from '@/types/inventory';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 interface ReceiveItem extends PurchaseOrderItem {
     receivedQty: number;
@@ -165,15 +166,22 @@ export default function ReceiveOrderPage() {
 
     return (
         <div className="space-y-6 mx-auto max-w-2xl">
-            <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
-                    <PackageCheck className="w-7 h-7 text-blue-600" />
-                    Xác nhận nhận hàng
-                </h1>
-                <p className="text-slate-500 mt-1">
-                    Kiểm tra số lượng thực nhận và xác nhận. Tồn kho sẽ được cập nhật sau khi bạn xác nhận.
-                </p>
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <PackageCheck className="w-7 h-7 text-blue-600" />
+                                Xác nhận nhận hàng
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">
+                                Kiểm tra số lượng thực nhận và xác nhận. Tồn kho sẽ được cập nhật sau khi bạn xác nhận.
+                            </p>
+                        </div>
+                    </div>
+                }
+            />
 
             {/* Order info */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-2">

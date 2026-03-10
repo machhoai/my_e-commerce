@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import type { ProductDoc, InventoryBalanceDoc } from '@/types/inventory';
 import type { WarehouseDoc } from '@/types';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 // ── Types ──────────────────────────────────────────────────────────
 interface MergedProduct extends ProductDoc {
@@ -436,35 +437,32 @@ export default function CentralImportPage() {
     return (
         <div className="space-y-6 mx-auto">
             {/* Header */}
-            <div className="flex items-start justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent flex items-center gap-2">
-                        <Download className="w-7 h-7 text-blue-600" />
-                        Nhập kho
-                    </h1>
-                    <p className="text-slate-500 mt-1">Chọn kho và lập lô nhập từ nhà cung cấp.</p>
-                </div>
-                {batch.length > 0 && (
-                    <button
-                        onClick={() => setDrawerOpen(true)}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-blue-500/20 transition-all"
-                    >
-                        <Truck className="w-4 h-4" />
-                        <span>Lô nhập ({batch.length})</span>
-                    </button>
-                )}
-            </div>
-
-            {/* Warehouse Selector */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex items-center gap-3">
-                <Warehouse className="w-5 h-5 text-orange-500" />
-                <span className="text-sm font-semibold text-slate-700 shrink-0">Nhập vào kho:</span>
-                <select value={selectedWarehouseId} onChange={e => setSelectedWarehouseId(e.target.value)}
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-orange-300">
-                    {warehouses.length === 0 && <option value="">Chưa có kho nào</option>}
-                    {warehouses.map(w => <option key={w.id} value={w.id}>🏭 {w.name}</option>)}
-                </select>
-            </div>
+            <DashboardHeader
+                warehouses={warehouses}
+                selectedWarehouseId={selectedWarehouseId}
+                onWarehouseChange={setSelectedWarehouseId}
+                type="warehouse"
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <Download className="w-7 h-7 text-blue-600" />
+                                Nhập kho
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Chọn kho và lập lô nhập từ nhà cung cấp.</p>
+                        </div>
+                        {batch.length > 0 && (
+                            <button
+                                onClick={() => setDrawerOpen(true)}
+                                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-blue-500/20 transition-all shrink-0"
+                            >
+                                <Truck className="w-4 h-4" />
+                                <span>Lô nhập ({batch.length})</span>
+                            </button>
+                        )}
+                    </div>
+                }
+            />
 
             {/* Summary Cards */}
             {!loading && (

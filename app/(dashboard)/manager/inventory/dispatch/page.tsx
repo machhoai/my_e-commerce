@@ -7,6 +7,7 @@ import Portal from '@/components/Portal';
 import type { PurchaseOrderDoc, PurchaseOrderItem } from '@/types/inventory';
 import type { StoreDoc } from '@/types';
 import { QRCodeSVG } from 'qrcode.react';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 interface DispatchResult {
     orderId: string;
@@ -127,23 +128,24 @@ export default function DispatchPage() {
 
     return (
         <div className="space-y-6 mx-auto">
-            <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
-                    <Truck className="w-7 h-7 text-emerald-600" />
-                    Duyệt xuất kho
-                </h1>
-                <p className="text-slate-500 mt-1">Xem và duyệt các đơn đặt hàng từ cửa hàng.</p>
-            </div>
-
-            {/* Store filter */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex items-center gap-3">
-                <Package className="w-5 h-5 text-indigo-500" />
-                <select value={selectedStoreId} onChange={e => setSelectedStoreId(e.target.value)}
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300">
-                    <option value="">Tất cả cửa hàng</option>
-                    {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
-                </select>
-            </div>
+            {/* Header */}
+            <DashboardHeader
+                warehouses={stores}
+                selectedWarehouseId={selectedStoreId}
+                onWarehouseChange={setSelectedStoreId}
+                type="store"
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <Truck className="w-7 h-7 text-emerald-600" />
+                                Duyệt xuất kho
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Xem và duyệt các đơn đặt hàng từ cửa hàng.</p>
+                        </div>
+                    </div>
+                }
+            />
 
             {message.text && (
                 <div className={`p-3 rounded-xl flex items-center gap-2 border text-sm font-medium ${message.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>

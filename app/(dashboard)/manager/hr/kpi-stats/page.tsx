@@ -17,6 +17,7 @@ import { processTableData } from '@/lib/processTableData';
 import DataTableToolbar, { SortableHeader } from '@/components/DataTableToolbar';
 import DataTablePagination from '@/components/DataTablePagination';
 import Portal from '@/components/Portal';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 function ManagerKpiStatsPageContent() {
     const { user, userDoc, getToken, hasPermission } = useAuth();
@@ -306,35 +307,41 @@ function ManagerKpiStatsPageContent() {
 
     return (
         <div className="space-y-6 mx-auto">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                        <BarChart3 className="w-7 h-7 text-indigo-600" />
-                        Thống kê KPI
-                    </h1>
-                    <p className="text-slate-500 mt-1 text-sm">Lịch sử chấm điểm và thống kê KPI nhân viên theo tháng.</p>
-                </div>
-                {/* Export buttons */}
-                {hasPermission('export_kpi') && (
-                    <div className="flex items-center gap-2">
-                        <button onClick={handleExportPdf} disabled={!!exporting || !filteredRecords.length}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-semibold text-xs disabled:opacity-50 transition-colors">
-                            {exporting === 'pdf' ? <div className="w-3.5 h-3.5 border-2 border-red-500 border-t-transparent rounded-full animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
-                            PDF
-                        </button>
-                        <button onClick={handleExportExcel} disabled={!!exporting || !filteredRecords.length}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-semibold text-xs disabled:opacity-50 transition-colors">
-                            {exporting === 'excel' ? <div className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
-                            Excel
-                        </button>
-                        <button onClick={handleOpenExportDialog}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 font-semibold text-xs transition-colors">
-                            <Download className="w-3.5 h-3.5" />
-                            Xuất chi tiết
-                        </button>
+            {/* Header */}
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex items-center justify-between w-full gap-4 flex-wrap">
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                                <BarChart3 className="w-7 h-7 text-indigo-600" />
+                                Thống kê KPI
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Lịch sử chấm điểm và thống kê KPI nhân viên theo tháng.</p>
+                        </div>
+                        {/* Export buttons */}
+                        {hasPermission('export_kpi') && (
+                            <div className="flex items-center gap-2">
+                                <button onClick={handleExportPdf} disabled={!!exporting || !filteredRecords.length}
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-semibold text-xs disabled:opacity-50 transition-colors">
+                                    {exporting === 'pdf' ? <div className="w-3.5 h-3.5 border-2 border-red-500 border-t-transparent rounded-full animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                                    PDF
+                                </button>
+                                <button onClick={handleExportExcel} disabled={!!exporting || !filteredRecords.length}
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-semibold text-xs disabled:opacity-50 transition-colors">
+                                    {exporting === 'excel' ? <div className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
+                                    Excel
+                                </button>
+                                <button onClick={handleOpenExportDialog}
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 font-semibold text-xs transition-colors">
+                                    <Download className="w-3.5 h-3.5" />
+                                    Xuất chi tiết
+                                </button>
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
+                }
+            />
 
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-3">

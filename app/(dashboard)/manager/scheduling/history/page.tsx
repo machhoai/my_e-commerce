@@ -11,6 +11,7 @@ import { useTableParams } from '@/hooks/useTableParams';
 import { processTableData } from '@/lib/processTableData';
 import DataTableToolbar, { SortableHeader } from '@/components/DataTableToolbar';
 import DataTablePagination from '@/components/DataTablePagination';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 interface EmployeeStats {
     uid: string;
@@ -289,29 +290,34 @@ function ManagerHistoryPageContent() {
                 return (
                     <>
                         {/* Header */}
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <div>
-                                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
-                                    <History className="w-7 h-7 text-blue-600" />
-                                    Lịch sử &amp; Thống kê Ca làm
-                                </h1>
-                                <p className="text-slate-500 mt-1">
-                                    Xem tổng số ca <strong>đã hoàn thành</strong> của nhân viên trong tháng để đối chiếu tính lương.
-                                </p>
-                            </div>
+                        <DashboardHeader
+                            showSelect={false}
+                            titleChildren={
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                                    <div>
+                                        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
+                                            <History className="w-7 h-7 text-blue-600" />
+                                            Lịch sử &amp; Thống kê Ca làm
+                                        </h1>
+                                        <p className="text-slate-500 mt-1 text-sm">
+                                            Xem tổng số ca <strong className="font-semibold text-slate-700">đã hoàn thành</strong> của nhân viên trong tháng để đối chiếu tính lương.
+                                        </p>
+                                    </div>
 
-                            <div className="flex items-center gap-2 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-                                <button onClick={handlePreviousMonth} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
-                                    <ChevronLeft className="w-5 h-5" />
-                                </button>
-                                <div className="text-sm flex-1 font-semibold text-slate-700 min-w-[140px] text-center capitalize">
-                                    Tháng {currentMonth.getMonth() + 1}/{currentMonth.getFullYear()}
+                                    <div className="flex items-center justify-center shrink-0 gap-2 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
+                                        <button onClick={handlePreviousMonth} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
+                                            <ChevronLeft className="w-5 h-5" />
+                                        </button>
+                                        <div className="text-sm flex-1 font-semibold text-slate-700 min-w-[140px] text-center capitalize">
+                                            Tháng {currentMonth.getMonth() + 1}/{currentMonth.getFullYear()}
+                                        </div>
+                                        <button onClick={handleNextMonth} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
+                                            <ChevronRight className="w-5 h-5" />
+                                        </button>
+                                    </div>
                                 </div>
-                                <button onClick={handleNextMonth} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
-                                    <ChevronRight className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
+                            }
+                        />
 
                         {error && (
                             <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-medium border border-red-100">{error}</div>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { WarehouseDoc } from '@/types';
 import { Warehouse, Plus, Pencil, Power, PowerOff, MapPin, Loader2, X, CheckCircle2, AlertCircle, Ruler } from 'lucide-react';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function AdminWarehousesPage() {
     const { user, userDoc } = useAuth();
@@ -95,19 +96,24 @@ export default function AdminWarehousesPage() {
     return (
         <div className="space-y-6 pb-12">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                        <Warehouse className="w-6 h-6 text-orange-500" />
-                        Quản lý Kho tổng
-                    </h1>
-                    <p className="text-slate-500 mt-1 text-sm">Danh sách các kho trung tâm trong hệ thống</p>
-                </div>
-                <button onClick={openCreate}
-                    className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-md shadow-orange-500/20 transition-all">
-                    <Plus className="w-4 h-4" /> Thêm Kho
-                </button>
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex items-center justify-between w-full flex-wrap gap-4">
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                                <Warehouse className="w-6 h-6 text-orange-500" />
+                                Quản lý Kho tổng
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Danh sách các kho trung tâm trong hệ thống</p>
+                        </div>
+                        <button onClick={openCreate}
+                            className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-md shadow-orange-500/20 transition-all">
+                            <Plus className="w-4 h-4" /> Thêm Kho
+                        </button>
+                    </div>
+                }
+            />
 
             {/* Message */}
             {msg.text && (

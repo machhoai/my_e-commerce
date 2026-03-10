@@ -5,6 +5,7 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { SettingsDoc, NotificationTemplate } from '@/types';
 import { Save, AlertCircle, CheckCircle2, Zap } from 'lucide-react';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 // Common System Events that trigger notifications
 const SYSTEM_EVENTS = [
@@ -90,13 +91,20 @@ export default function EventSettingsPage() {
 
     return (
         <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-800 flex items-center gap-2">
-                    <Zap className="w-6 h-6 text-amber-500" />
-                    Bản Đồ Sự Kiện
-                </h1>
-                <p className="text-slate-500 mt-1">Cấu hình các Mẫu Thông Báo ("Hệ thống") sẽ được tự động gửi đi khi xảy ra sự kiện.</p>
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent flex items-center gap-2">
+                                <Zap className="w-7 h-7 text-amber-500" />
+                                Bản Đồ Sự Kiện
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Cấu hình các Mẫu Thông Báo ("Hệ thống") sẽ được tự động gửi đi khi xảy ra sự kiện.</p>
+                        </div>
+                    </div>
+                }
+            />
 
             {feedback && (
                 <div className={`p-4 rounded-xl flex items-start gap-3 border ${feedback.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>

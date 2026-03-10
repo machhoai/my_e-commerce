@@ -13,6 +13,7 @@ import { storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import imageCompression from 'browser-image-compression';
 import ExcelImportModal from '@/components/inventory/ExcelImportModal';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 interface Category { id: string; name: string; }
 
@@ -265,22 +266,27 @@ export default function ProductManagementPage() {
 
     return (
         <div className="space-y-6 mx-auto">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
-                        <Package className="w-7 h-7 text-blue-600" />
-                        Quản lý Sản phẩm
-                    </h1>
-                    <p className="text-slate-500 mt-1">Danh mục sản phẩm trong hệ thống kho ({products.length} sản phẩm)</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <ExcelImportModal getToken={async () => getToken()} onSuccess={fetchProducts} />
-                    <button onClick={openAdd}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-md transition-colors">
-                        <Plus className="w-4 h-4" /> Thêm sản phẩm
-                    </button>
-                </div>
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <Package className="w-7 h-7 text-blue-600" />
+                                Quản lý Sản phẩm
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Danh mục sản phẩm trong hệ thống kho ({products.length} sản phẩm)</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <ExcelImportModal getToken={async () => getToken()} onSuccess={fetchProducts} />
+                            <button onClick={openAdd}
+                                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-md transition-colors">
+                                <Plus className="w-4 h-4" /> Thêm sản phẩm
+                            </button>
+                        </div>
+                    </div>
+                }
+            />
 
             {/* Filters */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">

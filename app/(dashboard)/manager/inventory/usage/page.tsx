@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ScanBarcode, CheckCircle2, AlertCircle, Package, Send, Minus, Plus, Camera, ChevronDown } from 'lucide-react';
 import type { ProductDoc } from '@/types/inventory';
 import type { CounterDoc } from '@/types';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 import dynamic from 'next/dynamic';
 
 const BarcodeScanner = dynamic(() => import('@/components/inventory/BarcodeScanner'), { ssr: false });
@@ -133,43 +134,32 @@ export default function UsagePage() {
     // ── Authorized state ──
     return (
         <div className="space-y-6 mx-auto">
-            <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
-                    <ScanBarcode className="w-7 h-7 text-indigo-600" />
-                    Quét mã vạch — Sử dụng hàng
-                </h1>
-                <p className="text-slate-500 mt-1">
-                    Quản lý có thể quét mã vạch cho bất kỳ quầy nào.
-                </p>
-            </div>
-
-            {/* Counter Selector */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-2">
-                <label className="block text-sm font-semibold text-slate-700">Chọn quầy</label>
-                {counters.length === 0 ? (
-                    <p className="text-sm text-slate-400">Chưa có quầy nào trong cửa hàng.</p>
-                ) : (
-                    <div className="relative">
-                        <select
-                            id="counter-select"
-                            value={selectedCounterId}
-                            onChange={e => setSelectedCounterId(e.target.value)}
-                            className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-xl py-3 pl-4 pr-10 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 transition-all"
-                        >
-                            {counters.map(c => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                        </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            {/* Header */}
+            <DashboardHeader
+                warehouses={counters as any[]} // Treat counters as warehouses for the dropdown since they have id and name
+                selectedWarehouseId={selectedCounterId}
+                onWarehouseChange={setSelectedCounterId}
+                type="warehouse"
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <ScanBarcode className="w-7 h-7 text-indigo-600" />
+                                Quét mã vạch — Sử dụng hàng
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">
+                                Quản lý có thể quét mã vạch cho bất kỳ quầy nào.
+                            </p>
+                            {selectedCounter && (
+                                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-sm text-indigo-700 flex items-center gap-2 mt-2">
+                                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                                    <span>Đang ghi nhận cho quầy <strong>{selectedCounter.name}</strong>. Sẵn sàng quét mã vạch.</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                )}
-                {selectedCounter && (
-                    <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-sm text-indigo-700 flex items-center gap-2 mt-2">
-                        <CheckCircle2 className="w-4 h-4 shrink-0" />
-                        <span>Đang ghi nhận cho quầy <strong>{selectedCounter.name}</strong>. Sẵn sàng quét mã vạch.</span>
-                    </div>
-                )}
-            </div>
+                }
+            />
 
             {/* Barcode Input */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">

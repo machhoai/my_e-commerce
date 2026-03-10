@@ -7,6 +7,7 @@ import Portal from '@/components/Portal';
 import type { PurchaseOrderDoc, PurchaseOrderItem } from '@/types/inventory';
 import type { StoreDoc, WarehouseDoc } from '@/types';
 import { QRCodeSVG } from 'qrcode.react';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 interface DispatchResult {
     orderId: string;
@@ -199,13 +200,20 @@ export default function AdminDispatchPage() {
 
     return (
         <div className="space-y-6 mx-auto">
-            <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
-                    <Truck className="w-7 h-7 text-emerald-600" />
-                    Duyệt xuất kho
-                </h1>
-                <p className="text-slate-500 mt-1">Xem và duyệt các đơn đặt hàng từ cửa hàng. Hàng sẽ được trừ khỏi kho tổng và tạo mã QR để cửa hàng xác nhận nhận hàng.</p>
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <Truck className="w-7 h-7 text-emerald-600" />
+                                Duyệt xuất kho
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Xem và duyệt các đơn đặt hàng từ cửa hàng. Hàng sẽ được trừ khỏi kho tổng và tạo mã QR để cửa hàng xác nhận nhận hàng.</p>
+                        </div>
+                    </div>
+                }
+            />
 
             {/* Store filter */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">

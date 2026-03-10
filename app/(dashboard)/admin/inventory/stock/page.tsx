@@ -6,6 +6,7 @@ import { Warehouse, AlertTriangle, Package, Search, Building2 } from 'lucide-rea
 import type { ProductDoc, InventoryBalanceDoc } from '@/types/inventory';
 import type { WarehouseDoc } from '@/types';
 import { cn } from '@/lib/utils';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function CentralStockPage() {
     const { user, userDoc } = useAuth();
@@ -120,42 +121,23 @@ export default function CentralStockPage() {
 
     return (
         <div className="space-y-6 mx-auto">
-            <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
-                    <Warehouse className="w-7 h-7 text-emerald-600" />
-                    Tồn kho Kho tổng
-                </h1>
-                <p className="text-slate-500 mt-1">Theo dõi tồn kho theo từng kho và nhận cảnh báo bổ sung hàng.</p>
-            </div>
-
-            {/* Warehouse Selector */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                    <div className="flex items-center gap-2 shrink-0">
-                        <Building2 className="w-5 h-5 text-emerald-500" />
-                        <span className="text-sm font-semibold text-slate-700">Kho:</span>
-                    </div>
-                    {warehousesLoading ? (
-                        <div className="flex items-center gap-2 text-sm text-slate-400">
-                            <div className="w-4 h-4 border-2 border-slate-300 border-t-emerald-500 rounded-full animate-spin" />
-                            Đang tải...
+            <DashboardHeader
+                warehouses={warehouses}
+                selectedWarehouseId={selectedWarehouseId}
+                onWarehouseChange={setSelectedWarehouseId}
+                showSelect={true}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <Warehouse className="w-7 h-7 text-emerald-600" />
+                                Tồn kho Kho tổng
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Theo dõi tồn kho theo từng kho và nhận cảnh báo bổ sung hàng.</p>
                         </div>
-                    ) : (
-                        <select
-                            value={selectedWarehouseId}
-                            onChange={e => setSelectedWarehouseId(e.target.value)}
-                            className="flex-1 w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
-                        >
-                            {warehouses.length === 0 && <option value="">Chưa có kho nào</option>}
-                            {warehouses.map(w => (
-                                <option key={w.id} value={w.id}>
-                                    🏭 {w.name}
-                                </option>
-                            ))}
-                        </select>
-                    )}
-                </div>
-            </div>
+                    </div>
+                }
+            />
 
             {/* Summary cards */}
             {selectedWarehouseId && !loading && (

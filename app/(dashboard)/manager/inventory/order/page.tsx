@@ -11,17 +11,20 @@ import {
     ChevronDown, ChevronUp, Pencil, Check, LayoutGrid, List, ClipboardList, XCircle, Warehouse,
 } from 'lucide-react';
 import type { ProductDoc, InventoryBalanceDoc, PurchaseOrderDoc } from '@/types/inventory';
+// New Shared Components
+import { InventoryCharts } from '@/components/inventory/overview/InventoryCharts';
+import { ProductGrid } from '@/components/inventory/overview/ProductGrid';
+
 import type { StoreDoc, WarehouseDoc } from '@/types';
 import {
     PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
     BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
 
+import type { MergedProduct } from '@/app/(dashboard)/admin/inventory/overview/page';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
+
 // ── Types ───────────────────────────────────────────────────────
-interface MergedProduct extends ProductDoc {
-    currentStoreStock: number;
-    stockStatus: 'safe' | 'low' | 'out';
-}
 
 interface CartItem {
     productId: string;
@@ -30,215 +33,6 @@ interface CartItem {
     unit: string;
     image: string;
     requestedQty: number;
-}
-
-// ── Donut: Inventory Health ──────────────────────────────────────
-const DONUT_COLORS = ['#10b981', '#f59e0b', '#ef4444'];
-
-function InventoryHealthDonut({ data }: { data: MergedProduct[] }) {
-    const chartData = useMemo(() => {
-        const safe = data.filter(d => d.stockStatus === 'safe').length;
-        const low = data.filter(d => d.stockStatus === 'low').length;
-        const out = data.filter(d => d.stockStatus === 'out').length;
-        return [
-            { name: 'An toàn', value: safe, color: '#10b981' },
-            { name: 'Sắp hết', value: low, color: '#f59e0b' },
-            { name: 'Hết hàng', value: out, color: '#ef4444' },
-        ].filter(d => d.value > 0);
-    }, [data]);
-
-    const total = data.length;
-
-    return (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <h3 className="text-sm font-bold text-slate-700 mb-1">Sức khỏe tồn kho</h3>
-            <p className="text-xs text-slate-400 mb-4">{total} sản phẩm</p>
-            <div className="flex items-center gap-4">
-                <div className="w-28 h-28 shrink-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie data={chartData} cx="50%" cy="50%" innerRadius={28} outerRadius={52} dataKey="value" strokeWidth={2}>
-                                {chartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                            </Pie>
-                            <Tooltip formatter={(v, n) => [v, n]} />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-                <div className="space-y-2 flex-1">
-                    {[
-                        { label: 'An toàn', color: 'bg-emerald-500', count: data.filter(d => d.stockStatus === 'safe').length },
-                        { label: 'Sắp hết', color: 'bg-amber-500', count: data.filter(d => d.stockStatus === 'low').length },
-                        { label: 'Hết hàng', color: 'bg-red-500', count: data.filter(d => d.stockStatus === 'out').length },
-                    ].map(item => (
-                        <div key={item.label} className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <div className={`w-2.5 h-2.5 rounded-full ${item.color}`} />
-                                <span className="text-xs text-slate-600">{item.label}</span>
-                            </div>
-                            <span className="text-xs font-bold text-slate-700">{item.count}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// ── Bar: Top 5 Critical ──────────────────────────────────────────
-function CriticalItemsBar({ data }: { data: MergedProduct[] }) {
-    const chartData = useMemo(() => {
-        return [...data]
-            .sort((a, b) => (a.currentStoreStock - a.minStock) - (b.currentStoreStock - b.minStock))
-            .slice(0, 5)
-            .map(d => ({
-                name: d.name.length > 14 ? d.name.slice(0, 14) + '…' : d.name,
-                tồnKho: d.currentStoreStock,
-                tốiThiểu: d.minStock,
-            }));
-    }, [data]);
-
-    return (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <h3 className="text-sm font-bold text-slate-700 mb-1">Top 5 sản phẩm cần bổ sung</h3>
-            <p className="text-xs text-slate-400 mb-4">Sắp xếp theo mức tồn kho thấp nhất</p>
-            <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 12, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                    <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#475569' }} width={90} />
-                    <Tooltip
-                        contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
-                        cursor={{ fill: '#f8fafc' }}
-                    />
-                    <Bar dataKey="tồnKho" fill="#6366f1" radius={[0, 4, 4, 0]} />
-                    <Bar dataKey="tốiThiểu" fill="#fca5a5" radius={[0, 4, 4, 0]} />
-                </BarChart>
-            </ResponsiveContainer>
-        </div>
-    );
-}
-
-// ── Product Card ──────────────────────────────────────────────────
-function ProductCard({
-    product,
-    inCart,
-    onAddToCart,
-    onUpdateMinStock,
-}: {
-    product: MergedProduct;
-    inCart: boolean;
-    onAddToCart: (product: MergedProduct) => void;
-    onUpdateMinStock: (productId: string, newMin: number) => void;
-}) {
-    const [editingMin, setEditingMin] = useState(false);
-    const [minValue, setMinValue] = useState(product.minStock);
-
-    const statusConfig = {
-        safe: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', label: 'Đủ hàng', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-        low: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', label: 'Sắp hết', badge: 'bg-amber-100 text-amber-700 border-amber-200' },
-        out: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', label: 'Hết hàng', badge: 'bg-red-100 text-red-700 border-red-200' },
-    }[product.stockStatus];
-
-    const handleSaveMin = () => {
-        onUpdateMinStock(product.id, minValue);
-        setEditingMin(false);
-    };
-
-    return (
-        <div className={`relative rounded-2xl border overflow-hidden transition-all hover:shadow-md group flex flex-col ${product.stockStatus !== 'safe' ? `${statusConfig.bg} ${statusConfig.border}` : 'bg-white border-slate-200'}`}>
-            {/* Image */}
-            <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
-                {product.image ? (
-                    <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                        <Package className="w-10 h-10 text-slate-300" />
-                    </div>
-                )}
-                {/* Status badge */}
-                <div className="absolute top-2 right-2">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusConfig.badge}`}>
-                        {statusConfig.label}
-                    </span>
-                </div>
-                {/* In cart indicator */}
-                {inCart && (
-                    <div className="absolute top-2 left-2 bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <ShoppingCart className="w-2.5 h-2.5" /> Đã thêm
-                    </div>
-                )}
-            </div>
-
-            {/* Body */}
-            <div className="p-3 flex flex-col gap-2 flex-1">
-                <div>
-                    <p className="text-xs font-bold text-slate-800">{product.companyCode || product.barcode || '—'}</p>
-                    <p className="font-semibold text-slate-800 text-sm leading-tight line-clamp-2 mt-0.5">{product.name}</p>
-                </div>
-
-                {/* Stock display */}
-                <div className="flex items-end justify-between mt-auto">
-                    <div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wide">Tồn kho</p>
-                        <p className={`text-2xl font-black ${statusConfig.text}`}>
-                            {product.currentStoreStock}
-                            <span className="text-xs font-normal text-slate-400 ml-1">{product.unit}</span>
-                        </p>
-                    </div>
-                    {/* Min stock — inline edit */}
-                    <div className="flex flex-col items-end">
-                        <p className="text-[10px] text-slate-400">Tối thiểu</p>
-                        {editingMin ? (
-                            <div className="flex items-center gap-1 mt-0.5">
-                                <input
-                                    type="number" min={0}
-                                    value={minValue}
-                                    onChange={e => setMinValue(Number(e.target.value))}
-                                    className="w-14 text-xs text-center border border-indigo-300 rounded-lg p-1 outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
-                                    autoFocus
-                                />
-                                <button onClick={handleSaveMin} className="text-emerald-600 hover:text-emerald-700">
-                                    <Check className="w-3.5 h-3.5" />
-                                </button>
-                                <button onClick={() => setEditingMin(false)} className="text-slate-400 hover:text-slate-600">
-                                    <X className="w-3.5 h-3.5" />
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-1 mt-0.5">
-                                <span className="text-sm font-semibold text-slate-600">{product.minStock}</span>
-                                <button onClick={() => setEditingMin(true)} className="text-slate-300 hover:text-indigo-500 transition-colors">
-                                    <Pencil className="w-3 h-3" />
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Low stock bar */}
-                {product.minStock > 0 && (
-                    <div className="w-full bg-slate-100 rounded-full h-1">
-                        <div
-                            className={`h-1 rounded-full transition-all ${product.stockStatus === 'safe' ? 'bg-emerald-500' : product.stockStatus === 'low' ? 'bg-amber-500' : 'bg-red-500'}`}
-                            style={{ width: `${Math.min(100, (product.currentStoreStock / Math.max(product.minStock * 2, 1)) * 100)}%` }}
-                        />
-                    </div>
-                )}
-
-                {/* Add to cart button */}
-                <button
-                    onClick={() => onAddToCart(product)}
-                    className={`w-full py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${inCart
-                        ? 'bg-indigo-100 text-indigo-700 border border-indigo-200 hover:bg-indigo-200'
-                        : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-sm shadow-indigo-500/20'
-                        }`}
-                >
-                    <ShoppingCart className="w-3.5 h-3.5" />
-                    {inCart ? 'Trong giỏ hàng' : 'Thêm vào giỏ'}
-                </button>
-            </div>
-        </div>
-    );
 }
 
 // ── Cart Drawer ───────────────────────────────────────────────────
@@ -480,7 +274,7 @@ export default function StoreInventoryDashboard() {
     const [cart, setCart] = useState<CartItem[]>([]);
     const [submitting, setSubmitting] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
-    const [selectedStoreId, setSelectedStoreId] = useState('');
+    const [selectedStoreId, setSelectedStoreId] = useState('ALL');
     const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
 
     // Collapsible history orders
@@ -568,7 +362,7 @@ export default function StoreInventoryDashboard() {
             const stock = bal?.currentStock ?? 0;
             const stockStatus: MergedProduct['stockStatus'] =
                 stock === 0 ? 'out' : stock <= p.minStock ? 'low' : 'safe';
-            return { ...p, currentStoreStock: stock, stockStatus };
+            return { ...p, currentStoreStock: stock, currentStock: stock, stockStatus };
         });
     }, [products, balances]);
 
@@ -592,8 +386,8 @@ export default function StoreInventoryDashboard() {
         if (filterCategory) list = list.filter(p => p.category === filterCategory);
         if (filterStatus !== 'all') list = list.filter(p => p.stockStatus === filterStatus);
         if (sortBy === 'name') list.sort((a, b) => a.name.localeCompare(b.name));
-        else if (sortBy === 'stockAsc') list.sort((a, b) => a.currentStoreStock - b.currentStoreStock);
-        else list.sort((a, b) => b.currentStoreStock - a.currentStoreStock);
+        else if (sortBy === 'stockAsc') list.sort((a, b) => a.currentStock - b.currentStock);
+        else list.sort((a, b) => b.currentStock - a.currentStock);
         return list;
     }, [mergedProducts, search, filterCategory, filterStatus, sortBy]);
 
@@ -718,18 +512,29 @@ export default function StoreInventoryDashboard() {
         }
     };
 
+    const title = (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+            <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+                    <LayoutGrid className="w-7 h-7 text-indigo-600" />
+                    Kho hàng cửa hàng
+                </h1>
+                <p className="text-slate-500 mt-1 text-sm">Theo dõi tồn kho và đặt hàng từ kho trung tâm.</p>
+            </div>
+        </div>
+    )
+
     return (
         <div className="space-y-5 mx-auto pb-24">
             {/* Header */}
-            <div className="flex items-start justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
-                        <LayoutGrid className="w-7 h-7 text-indigo-600" />
-                        Kho hàng cửa hàng
-                    </h1>
-                    <p className="text-slate-500 mt-1 text-sm">Theo dõi tồn kho và đặt hàng từ kho trung tâm.</p>
-                </div>
-            </div>
+            <DashboardHeader
+                type="store"
+                warehouses={stores}
+                selectedWarehouseId={selectedStoreId}
+                onWarehouseChange={setSelectedStoreId}
+                titleChildren={title}
+                showSelect={isAdmin}
+            />
 
             {/* Tabs */}
             <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
@@ -743,331 +548,193 @@ export default function StoreInventoryDashboard() {
                 </button>
             </div>
 
-            {/* Admin store selector */}
-            {isAdmin && (
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex items-center gap-3">
-                    <Package className="w-5 h-5 text-indigo-500" />
-                    <select value={selectedStoreId} onChange={e => setSelectedStoreId(e.target.value)}
-                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300">
-                        <option value="">-- Chọn cửa hàng --</option>
-                        {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
-                    </select>
-                </div>
-            )}
-
-
             {/* ── ORDER TAB ── */}
-            {activeTab === 'order' && (
-                <>
-                    {/* Alerts */}
-                    {(outCount > 0 || lowCount > 0) && effectiveStoreId && (
-                        <div className={`p-3 rounded-xl text-sm flex items-center gap-2 border ${outCount > 0 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                            <AlertTriangle className="w-4 h-4 shrink-0" />
-                            <span>
-                                {outCount > 0 && <><strong>{outCount}</strong> sản phẩm hết hàng. </>}
-                                {lowCount > 0 && <><strong>{lowCount}</strong> sản phẩm sắp hết. </>}
-                                Hãy đặt hàng ngay!
-                            </span>
-                        </div>
-                    )}
-
-                    {/* Charts row */}
-                    {effectiveStoreId && !loading && mergedProducts.length > 0 && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <InventoryHealthDonut data={mergedProducts} />
-                            <CriticalItemsBar data={mergedProducts} />
-                        </div>
-                    )}
-
-                    {/* Toolbar */}
-                    {effectiveStoreId && (
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
-                            <div className="flex flex-col sm:flex-row gap-3">
-                                {/* Search */}
-                                <div className="relative flex-1">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="Tìm theo Mã hoặc Tên sản phẩm..."
-                                        value={search}
-                                        onChange={e => setSearch(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300"
-                                    />
-                                </div>
-                                {/* Category filter */}
-                                <div className="relative">
-                                    <SlidersHorizontal className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
-                                        className="pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300 appearance-none">
-                                        <option value="">Tất cả danh mục</option>
-                                        {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                                    </select>
-                                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                                </div>
-                                {/* Sort */}
-                                <div className="relative">
-                                    <select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)}
-                                        className="pr-8 pl-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300 appearance-none">
-                                        <option value="name">Tên A-Z</option>
-                                        <option value="stockAsc">Tồn kho thấp → cao</option>
-                                        <option value="stockDesc">Tồn kho cao → thấp</option>
-                                    </select>
-                                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                                </div>
-                                {/* View toggle */}
-                                <div className="flex border border-slate-200 rounded-xl overflow-hidden shrink-0">
-                                    <button onClick={() => setViewMode('grid')}
-                                        className={`px-3 py-2 ${viewMode === 'grid' ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'} transition-colors`}>
-                                        <LayoutGrid className="w-4 h-4" />
-                                    </button>
-                                    <button onClick={() => setViewMode('list')}
-                                        className={`px-3 py-2 ${viewMode === 'list' ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'} transition-colors`}>
-                                        <List className="w-4 h-4" />
-                                    </button>
-                                </div>
+            {
+                activeTab === 'order' && (
+                    <>
+                        {/* Alerts */}
+                        {(outCount > 0 || lowCount > 0) && effectiveStoreId && (
+                            <div className={`p-3 rounded-xl text-sm flex items-center gap-2 border ${outCount > 0 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                                <AlertTriangle className="w-4 h-4 shrink-0" />
+                                <span>
+                                    {outCount > 0 && <><strong>{outCount}</strong> sản phẩm hết hàng. </>}
+                                    {lowCount > 0 && <><strong>{lowCount}</strong> sản phẩm sắp hết. </>}
+                                    Hãy đặt hàng ngay!
+                                </span>
                             </div>
+                        )}
 
-                            {/* Status filter chips */}
-                            <div className="flex gap-2 flex-wrap">
-                                {[
-                                    { value: 'all', label: 'Tất cả' },
-                                    { value: 'safe', label: '✓ An toàn' },
-                                    { value: 'low', label: '⚠ Sắp hết' },
-                                    { value: 'out', label: '✕ Hết hàng' },
-                                ].map(opt => (
-                                    <button key={opt.value} onClick={() => setFilterStatus(opt.value as typeof filterStatus)}
-                                        className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${filterStatus === opt.value
-                                            ? 'bg-indigo-600 text-white border-indigo-600'
-                                            : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'
-                                            }`}>
-                                        {opt.label}
-                                    </button>
-                                ))}
-                                {search || filterCategory || filterStatus !== 'all' ? (
-                                    <button onClick={() => { setSearch(''); setFilterCategory(''); setFilterStatus('all'); }}
-                                        className="px-3 py-1 rounded-full text-xs font-bold border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 transition-colors flex items-center gap-1">
-                                        <X className="w-3 h-3" /> Xóa lọc
-                                    </button>
-                                ) : null}
-                                <span className="ml-auto text-xs text-slate-400 self-center">{filteredProducts.length} / {mergedProducts.length} sản phẩm</span>
+                        {/* Charts row */}
+                        {effectiveStoreId && !loading && mergedProducts.length > 0 && (
+                            <div className="mt-2">
+                                <InventoryCharts merged={mergedProducts} />
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {/* Loading */}
-                    {loading && (
-                        <div className="flex justify-center py-16">
-                            <div className="w-8 h-8 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
-                        </div>
-                    )}
-
-                    {/* No store */}
-                    {!effectiveStoreId && !isAdmin && !loading && (
-                        <div className="text-center py-16 text-slate-400 text-sm">Tài khoản chưa được gán cửa hàng</div>
-                    )}
-
-                    {/* Product Grid */}
-                    {effectiveStoreId && !loading && (
-                        viewMode === 'grid' ? (
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                                {filteredProducts.map(p => (
-                                    <ProductCard key={p.id} product={p} inCart={inCartIds.has(p.id)}
-                                        onAddToCart={addToCart} onUpdateMinStock={handleUpdateMinStock} />
-                                ))}
+                        {/* Toolbar and Data Grid */}
+                        {effectiveStoreId && !loading && (
+                            <div className="mt-6">
+                                <ProductGrid
+                                    merged={mergedProducts}
+                                    categories={categories}
+                                    cartItemIds={inCartIds}
+                                    onAddToCart={addToCart}
+                                    onUpdateMinStock={handleUpdateMinStock}
+                                />
                             </div>
-                        ) : (
-                            /* List view */
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead>
-                                            <tr className="text-left text-xs text-slate-500 uppercase bg-slate-50 border-b">
-                                                <th className="px-4 py-3">Sản phẩm</th>
-                                                <th className="px-4 py-3">Danh mục</th>
-                                                <th className="px-4 py-3 text-right">Tồn kho</th>
-                                                <th className="px-4 py-3 text-right">Tối thiểu</th>
-                                                <th className="px-4 py-3">Trạng thái</th>
-                                                <th className="px-4 py-3 text-right">Hành động</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {filteredProducts.map(p => (
-                                                <tr key={p.id} className={`border-b border-slate-100 ${p.stockStatus !== 'safe' ? 'bg-red-50/30' : 'hover:bg-slate-50/50'}`}>
-                                                    <td className="px-4 py-3">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-lg bg-slate-100 overflow-hidden shrink-0">
-                                                                {p.image ? <img src={p.image} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Package className="w-4 h-4 text-slate-300" /></div>}
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-xs font-bold text-slate-800">{p.companyCode || p.barcode || '—'}</p>
-                                                                <p className="font-medium text-slate-700">{p.name}</p>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-slate-500">{p.category || '—'}</td>
-                                                    <td className={`px-4 py-3 text-right font-bold text-lg ${p.stockStatus === 'out' ? 'text-red-600' : p.stockStatus === 'low' ? 'text-amber-600' : 'text-slate-800'}`}>{p.currentStoreStock}</td>
-                                                    <td className="px-4 py-3 text-right text-slate-400">{p.minStock}</td>
-                                                    <td className="px-4 py-3">
-                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${p.stockStatus === 'safe' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : p.stockStatus === 'low' ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-red-100 text-red-700 border-red-200'}`}>
-                                                            {p.stockStatus === 'safe' ? 'An toàn' : p.stockStatus === 'low' ? 'Sắp hết' : 'Hết hàng'}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right">
-                                                        <button onClick={() => addToCart(p)} disabled={inCartIds.has(p.id)}
-                                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${inCartIds.has(p.id) ? 'bg-indigo-100 text-indigo-700' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}>
-                                                            {inCartIds.has(p.id) ? 'Đã thêm' : '+ Thêm'}
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )
-                    )}
-                </>
-            )}
+                        )}
+
+                        {/* No store */}
+                        {!effectiveStoreId && !isAdmin && !loading && (
+                            <div className="text-center py-16 text-slate-400 text-sm">Tài khoản chưa được gán cửa hàng</div>
+                        )}
+                    </>
+                )
+            }
 
             {/* ── HISTORY TAB ── */}
-            {activeTab === 'history' && (
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                        <h2 className="font-bold text-slate-800 text-lg">Lịch sử đặt hàng</h2>
-                        <span className="text-xs text-slate-400">{orders.length} đơn</span>
-                    </div>
-                    {loading ? (
-                        <div className="flex justify-center py-12"><div className="w-6 h-6 border-4 border-slate-300 border-t-indigo-600 rounded-full animate-spin" /></div>
-                    ) : orders.length === 0 ? (
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm text-center py-12">
-                            <p className="text-sm text-slate-400">Chưa có đơn đặt hàng nào</p>
+            {
+                activeTab === 'history' && (
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <h2 className="font-bold text-slate-800 text-lg">Lịch sử đặt hàng</h2>
+                            <span className="text-xs text-slate-400">{orders.length} đơn</span>
                         </div>
-                    ) : (
-                        orders.map(order => {
-                            const isExpanded = expandedHistoryOrders.has(order.id);
-                            const totalItems = order.items.length;
-                            const totalQty = order.items.reduce((s, i) => s + i.requestedQty, 0);
+                        {loading ? (
+                            <div className="flex justify-center py-12"><div className="w-6 h-6 border-4 border-slate-300 border-t-indigo-600 rounded-full animate-spin" /></div>
+                        ) : orders.length === 0 ? (
+                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm text-center py-12">
+                                <p className="text-sm text-slate-400">Chưa có đơn đặt hàng nào</p>
+                            </div>
+                        ) : (
+                            orders.map(order => {
+                                const isExpanded = expandedHistoryOrders.has(order.id);
+                                const totalItems = order.items.length;
+                                const totalQty = order.items.reduce((s, i) => s + i.requestedQty, 0);
 
-                            return (
-                                <div key={order.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                    {/* Collapsible header */}
-                                    <button
-                                        onClick={() => toggleHistoryOrder(order.id)}
-                                        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50/80 transition-colors"
-                                    >
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_BADGE[order.status] || ''}`}>
-                                                    {STATUS_LABEL[order.status] || order.status}
-                                                </span>
-                                                <span className="text-xs text-slate-400">
-                                                    {new Date(order.timestamp).toLocaleString('vi-VN')}
-                                                </span>
+                                return (
+                                    <div key={order.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                        {/* Collapsible header */}
+                                        <button
+                                            onClick={() => toggleHistoryOrder(order.id)}
+                                            className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50/80 transition-colors"
+                                        >
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_BADGE[order.status] || ''}`}>
+                                                        {STATUS_LABEL[order.status] || order.status}
+                                                    </span>
+                                                    <span className="text-xs text-slate-400">
+                                                        {new Date(order.timestamp).toLocaleString('vi-VN')}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <p className="text-sm text-slate-600">
+                                                        <span className="font-bold text-slate-800">{totalItems}</span> sản phẩm · <span className="font-bold text-slate-800">{totalQty}</span> đơn vị
+                                                    </p>
+                                                    <span className="text-xs text-slate-400">· {order.createdByName}</span>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <p className="text-sm text-slate-600">
-                                                    <span className="font-bold text-slate-800">{totalItems}</span> sản phẩm · <span className="font-bold text-slate-800">{totalQty}</span> đơn vị
-                                                </p>
-                                                <span className="text-xs text-slate-400">· {order.createdByName}</span>
-                                            </div>
-                                        </div>
 
-                                        {/* Cancel button for orders that can still be cancelled */}
-                                        {(order.status === 'PENDING_OFFICE' || order.status === 'PENDING') && (
-                                            <button
-                                                onClick={e => { e.stopPropagation(); setCancelingId(order.id); setCancelReason(''); }}
-                                                className="flex items-center gap-1 text-xs font-bold text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2.5 py-1.5 rounded-xl transition-colors whitespace-nowrap shrink-0"
-                                            >
-                                                <XCircle className="w-3 h-3" /> Hủy đơn
-                                            </button>
-                                        )}
-
-                                        {isExpanded
-                                            ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
-                                            : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
-                                    </button>
-
-                                    {/* Collapsible item list */}
-                                    {isExpanded && (
-                                        <div className="border-t border-slate-100 px-4 py-3 bg-slate-50/50">
-                                            <div className="space-y-1.5">
-                                                {order.items.map((item, i) => (
-                                                    <div key={i} className="flex items-center justify-between text-xs py-1">
-                                                        <div className="flex items-center gap-2 min-w-0">
-                                                            <span className="font-mono font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">
-                                                                {item.productCode || '—'}
-                                                            </span>
-                                                            <span className="text-slate-500 truncate">{item.productName}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2 shrink-0 ml-2">
-                                                            <span className="text-slate-600 font-semibold whitespace-nowrap">
-                                                                ×{item.requestedQty} {item.unit}
-                                                            </span>
-                                                            {item.dispatchedQty !== undefined && item.dispatchedQty !== item.requestedQty && (
-                                                                <span className="text-emerald-600 whitespace-nowrap">(xuất: {item.dispatchedQty})</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            {order.attachmentUrl && (
-                                                <a
-                                                    href={order.attachmentUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="flex items-center justify-between mt-3 p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl hover:bg-indigo-100 transition-colors group"
+                                            {/* Cancel button for orders that can still be cancelled */}
+                                            {(order.status === 'PENDING_OFFICE' || order.status === 'PENDING') && (
+                                                <button
+                                                    onClick={e => { e.stopPropagation(); setCancelingId(order.id); setCancelReason(''); }}
+                                                    className="flex items-center gap-1 text-xs font-bold text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2.5 py-1.5 rounded-xl transition-colors whitespace-nowrap shrink-0"
                                                 >
-                                                    <div className="flex items-center gap-2 text-xs text-indigo-700">
-                                                        <span className="text-sm">📎</span>
-                                                        <span className="font-semibold">File đề xuất đính kèm</span>
-                                                    </div>
-                                                    <span className="text-xs font-bold text-indigo-600 group-hover:underline">Xem / Tải xuống ↗️</span>
-                                                </a>
+                                                    <XCircle className="w-3 h-3" /> Hủy đơn
+                                                </button>
                                             )}
-                                            {(order as any).officeApprovedBy && (
-                                                <p className="text-xs text-sky-600 mt-2 pt-2 border-t border-slate-100 flex items-center gap-1">
-                                                    ✓ Văn phòng đã duyệt bởi <strong>{(order as any).officeApprovedByName || (order as any).officeApprovedBy}</strong>
-                                                </p>
-                                            )}
-                                            {(order as any).rejectReason && (
-                                                <p className="text-xs text-red-500 mt-2 flex items-center gap-1 pt-2 border-t border-slate-100">
-                                                    <XCircle className="w-3 h-3 shrink-0" /> Lý do từ chối: {(order as any).rejectReason}
-                                                </p>
-                                            )}
-                                            {(order as any).cancelReason && (
-                                                <p className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-100">
-                                                    Lý do hủy: {(order as any).cancelReason}
-                                                </p>
-                                            )}
-                                            {order.note && (
-                                                <p className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-100">
-                                                    Ghi chú: {order.note}
-                                                </p>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
-            )}
+
+                                            {isExpanded
+                                                ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
+                                                : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
+                                        </button>
+
+                                        {/* Collapsible item list */}
+                                        {isExpanded && (
+                                            <div className="border-t border-slate-100 px-4 py-3 bg-slate-50/50">
+                                                <div className="space-y-1.5">
+                                                    {order.items.map((item, i) => (
+                                                        <div key={i} className="flex items-center justify-between text-xs py-1">
+                                                            <div className="flex items-center gap-2 min-w-0">
+                                                                <span className="font-mono font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">
+                                                                    {item.productCode || '—'}
+                                                                </span>
+                                                                <span className="text-slate-500 truncate">{item.productName}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 shrink-0 ml-2">
+                                                                <span className="text-slate-600 font-semibold whitespace-nowrap">
+                                                                    ×{item.requestedQty} {item.unit}
+                                                                </span>
+                                                                {item.dispatchedQty !== undefined && item.dispatchedQty !== item.requestedQty && (
+                                                                    <span className="text-emerald-600 whitespace-nowrap">(xuất: {item.dispatchedQty})</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {order.attachmentUrl && (
+                                                    <a
+                                                        href={order.attachmentUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center justify-between mt-3 p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl hover:bg-indigo-100 transition-colors group"
+                                                    >
+                                                        <div className="flex items-center gap-2 text-xs text-indigo-700">
+                                                            <span className="text-sm">📎</span>
+                                                            <span className="font-semibold">File đề xuất đính kèm</span>
+                                                        </div>
+                                                        <span className="text-xs font-bold text-indigo-600 group-hover:underline">Xem / Tải xuống ↗️</span>
+                                                    </a>
+                                                )}
+                                                {(order as any).officeApprovedBy && (
+                                                    <p className="text-xs text-sky-600 mt-2 pt-2 border-t border-slate-100 flex items-center gap-1">
+                                                        ✓ Văn phòng đã duyệt bởi <strong>{(order as any).officeApprovedByName || (order as any).officeApprovedBy}</strong>
+                                                    </p>
+                                                )}
+                                                {(order as any).rejectReason && (
+                                                    <p className="text-xs text-red-500 mt-2 flex items-center gap-1 pt-2 border-t border-slate-100">
+                                                        <XCircle className="w-3 h-3 shrink-0" /> Lý do từ chối: {(order as any).rejectReason}
+                                                    </p>
+                                                )}
+                                                {(order as any).cancelReason && (
+                                                    <p className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-100">
+                                                        Lý do hủy: {(order as any).cancelReason}
+                                                    </p>
+                                                )}
+                                                {order.note && (
+                                                    <p className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-100">
+                                                        Ghi chú: {order.note}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                )
+            }
 
             {/* ── Floating Cart FAB ── */}
-            {activeTab === 'order' && effectiveStoreId && (
-                <button
-                    onClick={() => setCartOpen(true)}
-                    className="fixed bottom-6 right-6 z-30 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-2xl px-5 py-3.5 shadow-xl shadow-indigo-500/30 flex items-center gap-3 hover:shadow-2xl hover:from-indigo-700 hover:to-blue-700 transition-all"
-                >
-                    <ShoppingCart className="w-5 h-5" />
-                    <span className="font-bold text-sm">Giỏ hàng</span>
-                    {cart.length > 0 && (
-                        <span className="bg-white text-indigo-700 font-black text-xs px-2 py-0.5 rounded-full min-w-[22px] text-center">
-                            {cart.length}
-                        </span>
-                    )}
-                </button>
-            )}
+            {
+                activeTab === 'order' && effectiveStoreId && (
+                    <button
+                        onClick={() => setCartOpen(true)}
+                        className="fixed bottom-6 right-6 z-30 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-2xl px-5 py-3.5 shadow-xl shadow-indigo-500/30 flex items-center gap-3 hover:shadow-2xl hover:from-indigo-700 hover:to-blue-700 transition-all"
+                    >
+                        <ShoppingCart className="w-5 h-5" />
+                        <span className="font-bold text-sm">Giỏ hàng</span>
+                        {cart.length > 0 && (
+                            <span className="bg-white text-indigo-700 font-black text-xs px-2 py-0.5 rounded-full min-w-[22px] text-center">
+                                {cart.length}
+                            </span>
+                        )}
+                    </button>
+                )
+            }
 
             {/* ── Cart Drawer ── */}
             <CartDrawer
@@ -1085,50 +752,52 @@ export default function StoreInventoryDashboard() {
             />
 
             {/* ── Cancel Order Modal ── */}
-            {cancelingId && typeof document !== 'undefined' && createPortal(
-                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-                        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <XCircle className="w-5 h-5 text-red-500" />
-                                <h2 className="text-lg font-bold text-slate-800">Hủy đơn hàng</h2>
+            {
+                cancelingId && typeof document !== 'undefined' && createPortal(
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+                            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <XCircle className="w-5 h-5 text-red-500" />
+                                    <h2 className="text-lg font-bold text-slate-800">Hủy đơn hàng</h2>
+                                </div>
+                                <button onClick={() => setCancelingId(null)} className="text-slate-400 hover:text-slate-700 p-1">
+                                    <X className="w-5 h-5" />
+                                </button>
                             </div>
-                            <button onClick={() => setCancelingId(null)} className="text-slate-400 hover:text-slate-700 p-1">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <p className="text-sm text-slate-600">Bạn có chắc muốn hủy đơn này? Đơn sẽ được lưu trong lịch sử với trạng thái <strong>Đã hủy</strong>.</p>
-                            <div>
-                                <label className="text-xs font-bold text-slate-600 block mb-1">Lý do hủy (tùy chọn)</label>
-                                <textarea
-                                    value={cancelReason}
-                                    onChange={e => setCancelReason(e.target.value)}
-                                    rows={2}
-                                    placeholder="VD: Đặt nhầm, không cần nữa..."
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-red-300 resize-none"
-                                />
+                            <div className="p-6 space-y-4">
+                                <p className="text-sm text-slate-600">Bạn có chắc muốn hủy đơn này? Đơn sẽ được lưu trong lịch sử với trạng thái <strong>Đã hủy</strong>.</p>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-600 block mb-1">Lý do hủy (tùy chọn)</label>
+                                    <textarea
+                                        value={cancelReason}
+                                        onChange={e => setCancelReason(e.target.value)}
+                                        rows={2}
+                                        placeholder="VD: Đặt nhầm, không cần nữa..."
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-red-300 resize-none"
+                                    />
+                                </div>
+                            </div>
+                            <div className="p-6 border-t border-slate-100 flex gap-3">
+                                <button
+                                    onClick={() => setCancelingId(null)}
+                                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl font-medium text-sm transition-colors">
+                                    Quay lại
+                                </button>
+                                <button
+                                    onClick={handleCancel}
+                                    disabled={isCanceling}
+                                    className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all">
+                                    {isCanceling
+                                        ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Đang hủy...</>
+                                        : <><XCircle className="w-4 h-4" /> Xác nhận hủy</>}
+                                </button>
                             </div>
                         </div>
-                        <div className="p-6 border-t border-slate-100 flex gap-3">
-                            <button
-                                onClick={() => setCancelingId(null)}
-                                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl font-medium text-sm transition-colors">
-                                Quay lại
-                            </button>
-                            <button
-                                onClick={handleCancel}
-                                disabled={isCanceling}
-                                className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all">
-                                {isCanceling
-                                    ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Đang hủy...</>
-                                    : <><XCircle className="w-4 h-4" /> Xác nhận hủy</>}
-                            </button>
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
-        </div>
+                    </div>,
+                    document.body
+                )
+            }
+        </div >
     );
 }

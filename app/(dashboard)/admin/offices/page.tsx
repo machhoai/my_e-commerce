@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { OfficeDoc } from '@/types';
 import { Building2, Plus, Pencil, Power, PowerOff, Mail, MapPin, Loader2, X, CheckCircle2, AlertCircle } from 'lucide-react';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function AdminOfficesPage() {
     const { user, userDoc } = useAuth();
@@ -93,19 +94,24 @@ export default function AdminOfficesPage() {
     return (
         <div className="space-y-6 pb-12">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                        <Building2 className="w-6 h-6 text-teal-500" />
-                        Quản lý Văn phòng
-                    </h1>
-                    <p className="text-slate-500 mt-1 text-sm">Danh sách các văn phòng trong hệ thống</p>
-                </div>
-                <button onClick={openCreate}
-                    className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-md shadow-teal-500/20 transition-all">
-                    <Plus className="w-4 h-4" /> Thêm Văn phòng
-                </button>
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <Building2 className="w-6 h-6 text-teal-500" />
+                                Quản lý Văn phòng
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Danh sách các văn phòng trong hệ thống</p>
+                        </div>
+                        <button onClick={openCreate}
+                            className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-md shadow-teal-500/20 transition-all shrink-0">
+                            <Plus className="w-4 h-4" /> Thêm Văn phòng
+                        </button>
+                    </div>
+                }
+            />
 
             {/* Message */}
             {msg.text && (

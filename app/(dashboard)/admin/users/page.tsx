@@ -12,6 +12,7 @@ import { processTableData } from '@/lib/processTableData';
 import DataTableToolbar, { SortableHeader } from '@/components/DataTableToolbar';
 import DataTablePagination from '@/components/DataTablePagination';
 import Portal from '@/components/Portal';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 const ROLE_LABELS: Record<string, string> = {
     admin: 'Quản trị viên',
@@ -332,21 +333,26 @@ function AdminUsersPageContent() {
     return (
         <div className="space-y-6 mx-auto">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                        <Users className="w-7 h-7 text-slate-700" />
-                        Quản lý Người dùng
-                    </h1>
-                    <p className="text-slate-500 mt-1">Xem và quản lý nhân sự theo từng cửa hàng.</p>
-                </div>
-                <button
-                    onClick={openCreateModal}
-                    className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors shrink-0"
-                >
-                    <Plus className="w-4 h-4" /> Thêm nhân viên
-                </button>
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full mt-4">
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                                <Users className="w-7 h-7 text-slate-700" />
+                                Quản lý Người dùng
+                            </h1>
+                            <p className="text-slate-500 mt-1">Xem và quản lý nhân sự theo từng cửa hàng.</p>
+                        </div>
+                        <button
+                            onClick={openCreateModal}
+                            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors shrink-0"
+                        >
+                            <Plus className="w-4 h-4" /> Thêm nhân viên
+                        </button>
+                    </div>
+                }
+            />
 
             {/* Store Selector */}
             <div className="bg-white items-center rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-4">

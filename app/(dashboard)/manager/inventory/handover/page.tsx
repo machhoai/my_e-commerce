@@ -6,6 +6,7 @@ import { useCounterAssignment } from '@/hooks/useCounterAssignment';
 import { Handshake, Lock, CheckCircle2, AlertCircle, Package, Send } from 'lucide-react';
 import type { ProductDoc, InventoryBalanceDoc, HandoverCountedItem } from '@/types/inventory';
 import type { SettingsDoc } from '@/types';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 interface CountedRow {
     productId: string;
@@ -157,12 +158,19 @@ export default function HandoverPage() {
     if (!assignment.isAuthorized) {
         return (
             <div className="space-y-6 mx-auto">
-                <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent flex items-center gap-2">
-                        <Handshake className="w-7 h-7 text-orange-600" />
-                        Giao ca
-                    </h1>
-                </div>
+                <DashboardHeader
+                    showSelect={false}
+                    titleChildren={
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                            <div>
+                                <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent flex items-center gap-2">
+                                    <Handshake className="w-7 h-7 text-orange-600" />
+                                    Giao ca
+                                </h1>
+                            </div>
+                        </div>
+                    }
+                />
 
                 <div className="bg-gradient-to-br from-red-50 to-orange-50 border-2 border-red-200 rounded-2xl p-8 text-center space-y-4">
                     <div className="w-16 h-16 mx-auto bg-red-100 rounded-full flex items-center justify-center">
@@ -186,15 +194,22 @@ export default function HandoverPage() {
     // ── Authorized state ──
     return (
         <div className="space-y-6 mx-auto">
-            <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent flex items-center gap-2">
-                    <Handshake className="w-7 h-7 text-amber-600" />
-                    Giao ca
-                </h1>
-                <p className="text-slate-500 mt-1">
-                    Kiểm kê và giao ca tại <strong className="text-amber-600">{assignment.counterName}</strong> — {assignment.shiftId}
-                </p>
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <Handshake className="w-7 h-7 text-amber-600" />
+                                Giao ca
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">
+                                Kiểm kê và giao ca tại <strong className="text-amber-600">{assignment.counterName}</strong> — {assignment.shiftId}
+                            </p>
+                        </div>
+                    </div>
+                }
+            />
 
             {/* Status indicator */}
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-sm text-emerald-700 flex items-center gap-2">

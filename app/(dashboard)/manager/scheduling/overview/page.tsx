@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, doc, getDoc, orderBy, where } from 'firebase/firestore';
-import { UserDoc, ScheduleDoc, CounterDoc, SettingsDoc, StoreDoc } from '@/types';
+import { UserDoc, CounterDoc, ScheduleDoc, StoreDoc, SettingsDoc } from '@/types';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 import { getWeekStart, toLocalDateString, shortName } from '@/lib/utils';
 import { Calendar, ChevronLeft, ChevronRight, Users, Clock, Store, Building2, UserCog, Image, FileText, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -660,17 +661,22 @@ export default function GlobalOverviewPage() {
                 return (
                     <>
                         {/* Header */}
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <div>
-                                <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                                    <Calendar className="w-7 h-7 text-indigo-600" />
-                                    Lịch tổng quan toàn hệ thống
-                                </h1>
-                                <p className="text-slate-500 mt-1">
-                                    Xem chi tiết lịch làm việc và phân công vị trí của tất cả nhân viên.
-                                </p>
-                            </div>
-                        </div>
+                        <DashboardHeader
+                            showSelect={false}
+                            titleChildren={
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                                    <div>
+                                        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                                            <Calendar className="w-7 h-7 text-indigo-600" />
+                                            Lịch tổng quan toàn hệ thống
+                                        </h1>
+                                        <p className="text-slate-500 mt-1 text-sm">
+                                            Xem chi tiết lịch làm việc và phân công vị trí của tất cả nhân viên.
+                                        </p>
+                                    </div>
+                                </div>
+                            }
+                        />
 
                         {/* Controls */}
                         <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4">

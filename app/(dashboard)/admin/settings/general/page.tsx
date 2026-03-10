@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Settings as SettingsIcon, Save, Plus, X, AlertCircle, CheckCircle2, Store, Clock, Users, Timer, Building2, ShieldAlert, Package, Pencil } from 'lucide-react';
 import { SettingsDoc, CounterDoc, RegistrationSchedule, StoreDoc } from '@/types';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function AdminSettingsPage() {
     const { user } = useAuth();
@@ -248,33 +249,36 @@ export default function AdminSettingsPage() {
     return (
         <div className="space-y-6 mx-auto">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent flex items-center gap-2">
-                        <SettingsIcon className="w-7 h-7 text-slate-700" />
-                        Cài đặt hệ thống
-                    </h1>
-                    <p className="text-slate-500 mt-1">
-                        {selectedStoreId
-                            ? `Cài đặt cửa hàng: ${stores.find(s => s.id === selectedStoreId)?.name ?? selectedStoreId}`
-                            : 'Cấu hình toàn hệ thống (áp dụng mặc định). Chọn cửa hàng để cấu hình riêng.'}
-                    </p>
-                </div>
-
-                <button
-                    onClick={handleSave}
-                    disabled={saving || !selectedStoreId}
-                    className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-6 py-2.5 rounded-xl font-medium shadow-md transition-colors disabled:opacity-50 focus:ring-4 focus:ring-slate-300"
-
-                >
-                    {saving ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                        <Save className="w-4 h-4" />
-                    )}
-                    Lưu cài đặt
-                </button>
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent flex items-center gap-2">
+                                <SettingsIcon className="w-7 h-7 text-slate-700" />
+                                Cài đặt hệ thống
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">
+                                {selectedStoreId
+                                    ? `Cài đặt cửa hàng: ${stores.find(s => s.id === selectedStoreId)?.name ?? selectedStoreId}`
+                                    : 'Cấu hình toàn hệ thống (áp dụng mặc định). Chọn cửa hàng để cấu hình riêng.'}
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleSave}
+                            disabled={saving || !selectedStoreId}
+                            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-6 py-2.5 rounded-xl font-medium shadow-md transition-colors disabled:opacity-50 focus:ring-4 focus:ring-slate-300 shrink-0"
+                        >
+                            {saving ? (
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                                <Save className="w-4 h-4" />
+                            )}
+                            Lưu cài đặt
+                        </button>
+                    </div>
+                }
+            />
 
             {/* Store Selector — Admin can configure settings per-store */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Portal from '@/components/Portal';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 type LocationType = 'STORE' | 'OFFICE' | 'CENTRAL';
 
@@ -159,22 +160,27 @@ export default function AdminStoresPage() {
     return (
         <div className="space-y-6 mx-auto">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                        <Building2 className="w-7 h-7 text-indigo-600" />
-                        Quản lý Địa điểm
-                    </h1>
-                    <p className="text-slate-500 mt-1">Thêm, sửa, bật/tắt cửa hàng, văn phòng và kho tổng.</p>
-                </div>
-                <button
-                    onClick={() => { resetForm(); setFormType(activeTab); setIsCreateOpen(true); }}
-                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors shrink-0"
-                >
-                    <Plus className="w-4 h-4" />
-                    {activeTab === 'STORE' ? 'Thêm cửa hàng' : activeTab === 'OFFICE' ? 'Thêm văn phòng' : 'Thêm kho tổng'}
-                </button>
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                                <Building2 className="w-7 h-7 text-indigo-600" />
+                                Quản lý Địa điểm
+                            </h1>
+                            <p className="text-slate-500 mt-1">Thêm, sửa, bật/tắt cửa hàng, văn phòng và kho tổng.</p>
+                        </div>
+                        <button
+                            onClick={() => { resetForm(); setFormType(activeTab); setIsCreateOpen(true); }}
+                            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors shrink-0"
+                        >
+                            <Plus className="w-4 h-4" />
+                            {activeTab === 'STORE' ? 'Thêm cửa hàng' : activeTab === 'OFFICE' ? 'Thêm văn phòng' : 'Thêm kho tổng'}
+                        </button>
+                    </div>
+                }
+            />
 
             {/* Tabs */}
             {/* <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">

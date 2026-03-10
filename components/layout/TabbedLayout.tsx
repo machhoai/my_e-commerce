@@ -51,7 +51,7 @@ export default function TabbedLayout({ tabs, children }: TabbedLayoutProps) {
             </div>
 
             {/* Page Content */}
-            <div className="pt-6">
+            <div className="pt-4">
                 {children}
             </div>
         </div>

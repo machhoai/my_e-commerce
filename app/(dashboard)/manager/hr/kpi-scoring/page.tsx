@@ -11,6 +11,7 @@ import {
     ClipboardCheck, Calendar, Clock, ChevronDown, Building2,
     CheckCircle2, AlertCircle, X, User, RefreshCw,
 } from 'lucide-react';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function ManagerKpiScoringPage() {
     const { user, userDoc, getToken, hasPermission } = useAuth();
@@ -210,16 +211,22 @@ export default function ManagerKpiScoringPage() {
 
     return (
         <div className="space-y-6 mx-auto">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                        <ClipboardCheck className="w-7 h-7 text-indigo-600" />
-                        Chấm điểm ca trực
-                    </h1>
-                    <p className="text-slate-500 mt-1 text-sm">Chấm điểm KPI chính thức cho nhân viên theo ca.</p>
-                </div>
-                <button onClick={loadData} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"><RefreshCw className="w-4 h-4" /></button>
-            </div>
+            {/* Header */}
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex items-center justify-between w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                                <ClipboardCheck className="w-7 h-7 text-indigo-600" />
+                                Chấm điểm ca trực
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Chấm điểm KPI chính thức cho nhân viên theo ca.</p>
+                        </div>
+                        <button onClick={loadData} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"><RefreshCw className="w-4 h-4" /></button>
+                    </div>
+                }
+            />
 
             {/* Admin Store Selector */}
             {userDoc.role === 'admin' && (

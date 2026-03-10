@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, getDocs } from 'firebase/firestore';
 import { StoreDoc } from '@/types';
 import { Send, AlertCircle, CheckCircle2, Megaphone } from 'lucide-react';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 type TargetType = 'ALL' | 'STORE' | 'ROLE';
 
@@ -113,15 +114,22 @@ export default function AdminBroadcastPage() {
     return (
         <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900 border-l-4 border-indigo-600 pl-3 flex items-center gap-2">
-                    <Megaphone className="w-6 h-6 text-indigo-500" />
-                    Gửi Thông Báo Hệ Thống
-                </h1>
-                <p className="text-slate-500 mt-2 text-sm ml-4">
-                    Tạo và gửi thông báo đẩy (Push Notifications) và cảnh báo trong ứng dụng tới nhóm người dùng được chỉ định.
-                </p>
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <Megaphone className="w-7 h-7 text-indigo-600" />
+                                Gửi Thông Báo Hệ Thống
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">
+                                Tạo và gửi thông báo đẩy (Push Notifications) và cảnh báo trong ứng dụng tới nhóm người dùng được chỉ định.
+                            </p>
+                        </div>
+                    </div>
+                }
+            />
 
             {feedback && (
                 <div className={`p-4 rounded-xl flex items-start gap-3 border ${feedback.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>

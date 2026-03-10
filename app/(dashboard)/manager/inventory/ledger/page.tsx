@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { BookOpen, Search } from 'lucide-react';
 import type { InventoryTransactionDoc, ProductDoc } from '@/types/inventory';
 import type { CounterDoc } from '@/types';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 const TYPE_LABEL: Record<string, string> = {
     IMPORT_CENTRAL: 'Nhập kho TT',
@@ -124,24 +125,29 @@ export default function LedgerPage() {
 
     return (
         <div className="space-y-6 mx-auto">
-            <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent flex items-center gap-2">
-                    <BookOpen className="w-7 h-7 text-amber-600" />
-                    Thẻ kho (Sổ giao dịch)
-                </h1>
-                <p className="text-slate-500 mt-1">Lịch sử giao dịch xuất nhập kho cửa hàng.</p>
-            </div>
+            {/* ... (in the render body) */}
+
+            <DashboardHeader
+                warehouses={locationOptions as any[]} // Treat locations as warehouses for dropdown
+                selectedWarehouseId={filterLocationId}
+                onWarehouseChange={setFilterLocationId}
+                type="warehouse"
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <BookOpen className="w-7 h-7 text-amber-600" />
+                                Thẻ kho (Sổ giao dịch)
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">Lịch sử giao dịch xuất nhập kho cửa hàng.</p>
+                        </div>
+                    </div>
+                }
+            />
 
             {/* Filters */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                    <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Vị trí</label>
-                        <select value={filterLocationId} onChange={e => setFilterLocationId(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none">
-                            {locationOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                        </select>
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div>
                         <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Sản phẩm</label>
                         <select value={filterProductId} onChange={e => setFilterProductId(e.target.value)}

@@ -6,6 +6,7 @@ import { useCounterAssignment } from '@/hooks/useCounterAssignment';
 import { ScanBarcode, Lock, CheckCircle2, AlertCircle, Package, Send, Minus, Plus, Camera } from 'lucide-react';
 import type { ProductDoc } from '@/types/inventory';
 import dynamic from 'next/dynamic';
+import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 const BarcodeScanner = dynamic(() => import('@/components/inventory/BarcodeScanner'), { ssr: false });
 
@@ -136,15 +137,22 @@ export default function EmployeeUsagePage() {
     // ── Authorized state ──
     return (
         <div className="space-y-6 mx-auto">
-            <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
-                    <ScanBarcode className="w-7 h-7 text-indigo-600" />
-                    Quét mã vạch — Sử dụng hàng
-                </h1>
-                <p className="text-slate-500 mt-1">
-                    Đang trực tại <strong className="text-indigo-600">{assignment.counterName}</strong> — {assignment.shiftId}
-                </p>
-            </div>
+            <DashboardHeader
+                showSelect={false}
+                titleChildren={
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                        <div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <ScanBarcode className="w-7 h-7 text-indigo-600" />
+                                Quét mã vạch — Sử dụng hàng
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-sm">
+                                Đang trực tại <strong className="text-indigo-600">{assignment.counterName}</strong> — {assignment.shiftId}
+                            </p>
+                        </div>
+                    </div>
+                }
+            />
 
             {/* Status indicator */}
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-sm text-emerald-700 flex items-center gap-2">
