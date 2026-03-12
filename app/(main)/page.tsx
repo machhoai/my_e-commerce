@@ -160,6 +160,58 @@ export default function BioPage() {
                     to { opacity: 1; transform: scale(1); }
                 }
             `}</style>
+            {/* === GLOBAL STYLES === */}
+            <style jsx global>{`
+                @keyframes slideUp {
+                    from {
+                        opacity: 0;
+                        transform: translateY(20px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+
+                @keyframes float-up {
+                    0% {
+                        transform: translateY(0) translateX(0);
+                        opacity: 0;
+                    }
+                    10% {
+                        opacity: var(--tw-opacity, 0.4);
+                    }
+                    90% {
+                        opacity: var(--tw-opacity, 0.4);
+                    }
+                    100% {
+                        transform: translateY(-110vh) translateX(20px);
+                        opacity: 0;
+                    }
+                }
+
+                .animate-float-up {
+                    animation: float-up 10s linear infinite;
+                }
+
+                .animate-zoom-in {
+                    animation: zoomIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                }
+
+                @keyframes zoomIn {
+                    from { opacity: 0; transform: scale(0.85); }
+                    to { opacity: 1; transform: scale(1); }
+                }
+
+                .animate-pulse-slow {
+                    animation: pulseSlow 4s ease-in-out infinite;
+                }
+
+                @keyframes pulseSlow {
+                    0%, 100% { opacity: 0.15; transform: scale(1); }
+                    50% { opacity: 0.3; transform: scale(1.05); }
+                }
+            `}</style>
         </div>
     );
 }

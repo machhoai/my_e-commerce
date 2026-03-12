@@ -23,7 +23,7 @@ export function DashboardHeader({ warehouses = [], selectedWarehouseId = '', onW
     const isStore = type === 'store';
     return (
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
+            <div className="space-y-1 flex-1">
                 {titleChildren}
             </div>
 

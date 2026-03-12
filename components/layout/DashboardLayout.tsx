@@ -214,6 +214,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             matchPrefix: '/office/inventory',
             group: 'Văn phòng',
         },
+        {
+            label: 'Doanh thu',
+            href: '/office/revenue',
+            icon: BarChart3,
+            show: isAdmin || isSuperAdmin || isOfficeContext || hasPermission('approve_office_order'),
+            group: 'Văn phòng',
+        },
 
         // ── Hệ thống (Admin + Super Admin) ──
         {
