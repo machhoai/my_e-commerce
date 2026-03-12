@@ -218,7 +218,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             label: 'Doanh thu',
             href: '/office/revenue',
             icon: BarChart3,
-            show: isAdmin || isSuperAdmin || isOfficeContext || hasPermission('approve_office_order'),
+            show: isAdmin || isSuperAdmin || hasPermission('view_revenue'),
             group: 'Văn phòng',
         },
 

@@ -47,6 +47,81 @@ export interface SellCategory {
     cancelMoney: number;
 }
 
+// ── Daily Panel Types (single-day view) ─────────────────
+export interface ShopSummary {
+    shopId: number;
+    totalMoney: number;
+    shopMoney: number;
+    shopRealMoney: number;     // Doanh thu thực tế (quan trọng nhất)
+    thirdPartyMoney: number;
+    refundMoney: number;       // Tổng tiền hủy
+    preDepositPayMoney: number;
+    preDepositRefundMoney: number;
+    preDepositPayRealMoney: number;
+    otherMoney: number;
+    lastRefreshTime: string;
+}
+
+export interface PaymentStat {
+    shopId: number;
+    forDate: string;
+    paymentCategory: number;
+    paymentCategoryName: string;
+    totalQty: number;
+    totalMoney: number;
+    totalCancelQty: number;
+    totalCancelMoney: number;
+    totalRealQty: number;
+    totalRealMoney: number;
+    sellRatio: number;
+    sellRatioDisplay: string;
+}
+
+export interface GoodsItem {
+    shopId: number;
+    forDate: string;
+    goodsTypeId: string;
+    goodsTypeName: string;
+    goodsId: string;
+    goodsName: string;
+    totalQty: number;
+    totalMoney: number;
+    totalCost: number;
+    cancelQty: number;
+    cancelMoney: number;
+    cancelCost: number;
+    realQty: number;
+    realMoney: number;
+    realCost: number;
+    sellRatio: number;
+    sellRatioDisplay: string;
+}
+
+export interface GoodsTypeStats {
+    shopId: number;
+    forDate: string;
+    goodsTypeId: string;
+    goodsTypeName: string;
+    goodsItems: GoodsItem[];
+    totalQty: number;
+    totalMoney: number;
+    cancelQty: number;
+    cancelMoney: number;
+    totalRealQty: number;
+    totalRealMoney: number;
+    realCost: number;
+    sellRatio: number;
+    sellRatioDisplay: string;
+}
+
+export interface DailyPanel {
+    forDate: string;
+    shopSummary: ShopSummary | null;
+    paymentStats: PaymentStat[];
+    goodsTypeStats: GoodsTypeStats[];
+    updatedAt: string;
+}
+
 // ── Firestore Cache Document ────────────────────────────
 export interface RevenueCache {
     startDate: string;
@@ -55,4 +130,5 @@ export interface RevenueCache {
     sellData: SellCategory[];
     updatedAt: string; // ISO string
     syncSource: 'cron' | 'manual';
+    dailyPanel?: DailyPanel; // Only present when startDate === endDate
 }

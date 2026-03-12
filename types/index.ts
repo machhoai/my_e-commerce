@@ -32,10 +32,11 @@ export type AppPermission =
     | 'view_all_kpi'          // Xem thống kê KPI tất cả NV
     | 'export_kpi'            // Xuất báo cáo KPI
     | 'manage_central_warehouse' // Quản lý kho tổng
-    // ── System ──
     | 'manage_locations' // Quản lý địa điểm (chi nhánh, VP, kho)
     | 'manage_roles'     // Quản lý phân quyền
-    | 'manage_users';    // Quản lý tài khoản người dùng
+    | 'manage_users'     // Quản lý tài khoản người dùng
+    // ── Doanh thu ──
+    | 'view_revenue';    // Xem trang phân tích doanh thu
 
 export const ALL_PERMISSIONS: { key: AppPermission; label: string; description: string; group: string }[] = [
     // Kho hàng
@@ -67,6 +68,8 @@ export const ALL_PERMISSIONS: { key: AppPermission; label: string; description: 
     { key: 'manage_locations', label: 'Quản lý Địa điểm', description: 'Tạo, sửa, bật/tắt cửa hàng, văn phòng, kho', group: 'Hệ thống' },
     { key: 'manage_roles', label: 'Quản lý Phân quyền', description: 'Tạo, sửa, xóa vai trò tùy chỉnh', group: 'Hệ thống' },
     { key: 'manage_users', label: 'Quản lý Người dùng', description: 'Tạo, sửa, khóa tài khoản người dùng', group: 'Hệ thống' },
+    // Doanh thu
+    { key: 'view_revenue', label: 'Xem Doanh thu', description: 'Truy cập trang phân tích doanh thu Joyworld', group: 'Doanh thu' },
 ];
 
 export interface CustomRoleDoc {
