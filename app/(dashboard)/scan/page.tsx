@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -66,20 +66,20 @@ export default function ProductScanPage() {
         <div className="space-y-5 mx-auto max-w-lg pb-24">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
-                    <ScanBarcode className="w-7 h-7 text-violet-600" />
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-accent-600 to-accent-600 bg-clip-text text-transparent flex items-center gap-2">
+                    <ScanBarcode className="w-7 h-7 text-accent-600" />
                     Tra cứu sản phẩm
                 </h1>
-                <p className="text-slate-500 mt-1 text-sm">
+                <p className="text-surface-500 mt-1 text-sm">
                     Quét mã vạch hoặc QR để xem thông tin sản phẩm.
                 </p>
             </div>
 
             {/* Scan Input */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+            <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-4 space-y-3">
                 <div className="flex gap-2">
                     <div className="flex-1 relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-surface-400" />
                         <input
                             type="text"
                             value={barcode}
@@ -87,12 +87,12 @@ export default function ProductScanPage() {
                             onKeyDown={handleKeyDown}
                             placeholder="Quét hoặc nhập mã vạch / QR..."
                             autoFocus
-                            className="w-full pl-10 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-300 transition-all"
+                            className="w-full pl-10 pr-4 py-3.5 bg-surface-50 border border-surface-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent-300 transition-all"
                         />
                     </div>
                     <button
                         onClick={() => setShowScanner(true)}
-                        className="px-4 bg-gradient-to-br from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl transition-all shadow-md shadow-amber-500/20 active:scale-95"
+                        className="px-4 bg-gradient-to-br from-warning-500 to-orange-500 hover:from-warning-600 hover:to-orange-600 text-white rounded-xl transition-all shadow-md shadow-warning-500/20 active:scale-95"
                         title="Quét bằng camera"
                     >
                         <Camera className="w-5 h-5" />
@@ -103,7 +103,7 @@ export default function ProductScanPage() {
                 <button
                     onClick={() => lookupBarcode(barcode)}
                     disabled={loading || !barcode.trim()}
-                    className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:from-slate-300 disabled:to-slate-400 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-violet-500/20"
+                    className="w-full bg-gradient-to-r from-accent-600 to-accent-600 hover:from-accent-700 hover:to-accent-700 disabled:from-surface-300 disabled:to-surface-400 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-accent-500/20"
                 >
                     {loading ? (
                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -115,17 +115,17 @@ export default function ProductScanPage() {
 
             {/* Error */}
             {error && (
-                <div className="p-3 rounded-xl flex items-center gap-2 border text-sm font-medium bg-red-50 text-red-700 border-red-200">
+                <div className="p-3 rounded-xl flex items-center gap-2 border text-sm font-medium bg-danger-50 text-danger-700 border-danger-200">
                     <AlertCircle className="w-4 h-4 shrink-0" /> {error}
                 </div>
             )}
 
             {/* Product Info Card */}
             {product && (
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden animate-in fade-in slide-in-from-bottom-3 duration-300">
+                <div className="bg-white rounded-2xl border border-surface-200 shadow-lg overflow-hidden animate-in fade-in slide-in-from-bottom-3 duration-300">
                     {/* Product image banner */}
                     {product.image && (
-                        <div className="w-full h-48 bg-slate-100 overflow-hidden">
+                        <div className="w-full h-48 bg-surface-100 overflow-hidden">
                             <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
                         </div>
                     )}
@@ -133,9 +133,9 @@ export default function ProductScanPage() {
                     <div className="p-5 space-y-4">
                         {/* Name & category */}
                         <div>
-                            <h2 className="text-xl font-black text-slate-800">{product.name}</h2>
+                            <h2 className="text-xl font-black text-surface-800">{product.name}</h2>
                             {product.category && (
-                                <span className="inline-flex items-center gap-1 text-xs font-bold text-violet-600 bg-violet-50 border border-violet-200 px-2 py-0.5 rounded-full mt-1">
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-accent-600 bg-accent-50 border border-accent-200 px-2 py-0.5 rounded-full mt-1">
                                     <Layers className="w-3 h-3" /> {product.category}
                                 </span>
                             )}
@@ -144,33 +144,33 @@ export default function ProductScanPage() {
                         {/* Info grid */}
                         <div className="grid grid-cols-2 gap-3">
                             {product.barcode && (
-                                <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                                    <p className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+                                <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
+                                    <p className="text-[10px] uppercase font-bold text-surface-400 flex items-center gap-1">
                                         <ScanBarcode className="w-3 h-3" /> Mã vạch
                                     </p>
-                                    <p className="text-sm font-black text-slate-800 mt-0.5 font-mono">{product.barcode}</p>
+                                    <p className="text-sm font-black text-surface-800 mt-0.5 font-mono">{product.barcode}</p>
                                 </div>
                             )}
                             {product.companyCode && (
-                                <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                                    <p className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+                                <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
+                                    <p className="text-[10px] uppercase font-bold text-surface-400 flex items-center gap-1">
                                         <Hash className="w-3 h-3" /> Mã nội bộ
                                     </p>
-                                    <p className="text-sm font-black text-indigo-700 mt-0.5 font-mono">{product.companyCode}</p>
+                                    <p className="text-sm font-black text-accent-700 mt-0.5 font-mono">{product.companyCode}</p>
                                 </div>
                             )}
-                            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                                <p className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+                            <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
+                                <p className="text-[10px] uppercase font-bold text-surface-400 flex items-center gap-1">
                                     <Scale className="w-3 h-3" /> Đơn vị tính
                                 </p>
-                                <p className="text-sm font-bold text-slate-800 mt-0.5">{product.unit || '—'}</p>
+                                <p className="text-sm font-bold text-surface-800 mt-0.5">{product.unit || '—'}</p>
                             </div>
                             {product.actualPrice != null && (
-                                <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                                    <p className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+                                <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
+                                    <p className="text-[10px] uppercase font-bold text-surface-400 flex items-center gap-1">
                                         <Tag className="w-3 h-3" /> Giá bán
                                     </p>
-                                    <p className="text-sm font-black text-emerald-700 mt-0.5">
+                                    <p className="text-sm font-black text-success-700 mt-0.5">
                                         {product.actualPrice.toLocaleString('vi-VN')}đ
                                     </p>
                                 </div>
@@ -179,8 +179,8 @@ export default function ProductScanPage() {
 
                         {/* Description */}
                         {product.origin && (
-                            <div className="bg-amber-50 rounded-xl p-3 border border-amber-100">
-                                <p className="text-xs text-amber-800"><strong>Xuất xứ:</strong> {product.origin}</p>
+                            <div className="bg-warning-50 rounded-xl p-3 border border-warning-100">
+                                <p className="text-xs text-warning-800"><strong>Xuất xứ:</strong> {product.origin}</p>
                             </div>
                         )}
                     </div>
@@ -190,23 +190,23 @@ export default function ProductScanPage() {
             {/* Scan History */}
             {scanHistory.length > 0 && !product && (
                 <div className="space-y-2">
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Đã quét gần đây</h3>
+                    <h3 className="text-xs font-bold text-surface-400 uppercase tracking-wider">Đã quét gần đây</h3>
                     {scanHistory.map(p => (
                         <button
                             key={p.id}
                             onClick={() => { setProduct(p); setBarcode(p.barcode || p.companyCode || ''); }}
-                            className="w-full bg-white rounded-xl border border-slate-200 p-3 flex items-center gap-3 hover:bg-slate-50 transition-colors text-left"
+                            className="w-full bg-white rounded-xl border border-surface-200 p-3 flex items-center gap-3 hover:bg-surface-50 transition-colors text-left"
                         >
                             {p.image ? (
-                                <img src={p.image} alt="" className="w-10 h-10 rounded-lg object-cover border border-slate-200" />
+                                <img src={p.image} alt="" className="w-10 h-10 rounded-lg object-cover border border-surface-200" />
                             ) : (
-                                <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                                    <Package className="w-4 h-4 text-slate-400" />
+                                <div className="w-10 h-10 rounded-lg bg-surface-100 flex items-center justify-center shrink-0">
+                                    <Package className="w-4 h-4 text-surface-400" />
                                 </div>
                             )}
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-slate-800 truncate">{p.name}</p>
-                                <p className="text-[11px] text-slate-400 font-mono">{p.companyCode || p.barcode}</p>
+                                <p className="text-sm font-bold text-surface-800 truncate">{p.name}</p>
+                                <p className="text-[11px] text-surface-400 font-mono">{p.companyCode || p.barcode}</p>
                             </div>
                         </button>
                     ))}

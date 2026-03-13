@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Warehouse } from 'lucide-react';
 import {
@@ -29,7 +29,7 @@ export function DashboardHeader({ warehouses = [], selectedWarehouseId = '', onW
 
             {showSelect && (
                 <Select value={selectedWarehouseId} onValueChange={onWarehouseChange}>
-                    <SelectTrigger className="w-fit bg-white border-slate-200">
+                    <SelectTrigger className="w-fit bg-white border-surface-200">
                         <SelectValue placeholder={isStore ? 'Chọn cửa hàng' : 'Chọn kho'} />
                     </SelectTrigger>
                     <SelectContent>

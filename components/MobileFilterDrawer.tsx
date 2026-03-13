@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { X, SlidersHorizontal } from 'lucide-react';
@@ -106,18 +106,18 @@ export default function MobileFilterDrawer({
                     )}
                 >
                     {/* Header */}
-                    <div className="flex flex-col items-center sticky top-0 justify-between bg-white px-5 py-1 border-b border-slate-100">
+                    <div className="flex flex-col items-center sticky top-0 justify-between bg-white px-5 py-1 border-b border-surface-100">
                         <div className="flex justify-center pt-3 pb-1">
-                            <div className="w-10 h-1 rounded-full bg-slate-300" />
+                            <div className="w-10 h-1 rounded-full bg-surface-300" />
                         </div>
                         <div className='flex w-full justify-between py-2'>
                             <div className="flex items-center gap-2">
-                                <SlidersHorizontal className="w-5 h-5 text-indigo-600" />
-                                <h3 className="text-lg font-bold text-slate-800">Lọc & Sắp xếp</h3>
+                                <SlidersHorizontal className="w-5 h-5 text-accent-600" />
+                                <h3 className="text-lg font-bold text-surface-800">Lọc & Sắp xếp</h3>
                             </div>
                             <button
                                 onClick={onClose}
-                                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors"
+                                className="p-1.5 rounded-lg hover:bg-surface-100 text-surface-400 transition-colors"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -129,7 +129,7 @@ export default function MobileFilterDrawer({
                         {/* Filters */}
                         {filters.map((filter) => (
                             <div key={filter.key}>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                <label className="block text-sm font-semibold text-surface-700 mb-2">
                                     {filter.label}
                                 </label>
                                 <div className="flex flex-wrap gap-2">
@@ -142,8 +142,8 @@ export default function MobileFilterDrawer({
                                         className={cn(
                                             'px-3 py-1.5 rounded-lg text-sm font-medium border transition-all',
                                             !localValues[filter.key]
-                                                ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm'
-                                                : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                                                ? 'bg-accent-50 text-accent-700 border-accent-200 shadow-sm'
+                                                : 'bg-white text-surface-500 border-surface-200 hover:bg-surface-50'
                                         )}
                                     >
                                         Tất cả
@@ -155,8 +155,8 @@ export default function MobileFilterDrawer({
                                             className={cn(
                                                 'px-3 py-1.5 rounded-lg text-sm font-medium border transition-all',
                                                 localValues[filter.key] === opt.value
-                                                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm'
-                                                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                                                    ? 'bg-accent-50 text-accent-700 border-accent-200 shadow-sm'
+                                                    : 'bg-white text-surface-500 border-surface-200 hover:bg-surface-50'
                                             )}
                                         >
                                             {opt.label}
@@ -169,7 +169,7 @@ export default function MobileFilterDrawer({
                         {/* Sort Options */}
                         {sortOptions.length > 0 && (
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                <label className="block text-sm font-semibold text-surface-700 mb-2">
                                     Sắp xếp theo
                                 </label>
                                 <div className="space-y-2">
@@ -179,8 +179,8 @@ export default function MobileFilterDrawer({
                                             className={cn(
                                                 'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all',
                                                 localSort === opt.value
-                                                    ? 'bg-indigo-50 border-indigo-200'
-                                                    : 'bg-white border-slate-200 hover:bg-slate-50'
+                                                    ? 'bg-accent-50 border-accent-200'
+                                                    : 'bg-white border-surface-200 hover:bg-surface-50'
                                             )}
                                         >
                                             <input
@@ -188,9 +188,9 @@ export default function MobileFilterDrawer({
                                                 name="sort"
                                                 checked={localSort === opt.value}
                                                 onChange={() => setLocalSort(opt.value)}
-                                                className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                                                className="w-4 h-4 text-accent-600 focus:ring-accent-500"
                                             />
-                                            <span className="text-sm font-medium text-slate-700">{opt.label}</span>
+                                            <span className="text-sm font-medium text-surface-700">{opt.label}</span>
                                         </label>
                                     ))}
                                 </div>
@@ -203,8 +203,8 @@ export default function MobileFilterDrawer({
                                             className={cn(
                                                 'flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-all',
                                                 localOrder === 'asc'
-                                                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                                                    : 'bg-white text-slate-500 border-slate-200'
+                                                    ? 'bg-accent-50 text-accent-700 border-accent-200'
+                                                    : 'bg-white text-surface-500 border-surface-200'
                                             )}
                                         >
                                             ↑ Tăng dần
@@ -214,8 +214,8 @@ export default function MobileFilterDrawer({
                                             className={cn(
                                                 'flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-all',
                                                 localOrder === 'desc'
-                                                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                                                    : 'bg-white text-slate-500 border-slate-200'
+                                                    ? 'bg-accent-50 text-accent-700 border-accent-200'
+                                                    : 'bg-white text-surface-500 border-surface-200'
                                             )}
                                         >
                                             ↓ Giảm dần
@@ -227,16 +227,16 @@ export default function MobileFilterDrawer({
                     </div>
 
                     {/* Action buttons */}
-                    <div className="sticky bottom-0 bg-white border-t border-slate-100 px-5 py-4 flex gap-3">
+                    <div className="sticky bottom-0 bg-white border-t border-surface-100 px-5 py-4 flex gap-3">
                         <button
                             onClick={handleClear}
-                            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+                            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-surface-600 bg-surface-100 hover:bg-surface-200 transition-colors"
                         >
                             Xóa bộ lọc
                         </button>
                         <button
                             onClick={handleApply}
-                            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-sm"
+                            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-accent-600 hover:bg-accent-700 transition-colors shadow-sm"
                         >
                             Áp dụng
                         </button>

@@ -1,4 +1,15 @@
 /** @type {import('tailwindcss').Config} */
+
+// Helper to generate a shade map from CSS variable prefix
+const tokenShades = (prefix) => {
+    const shades = {};
+    [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].forEach(s => {
+        shades[s] = `hsl(var(--t-${prefix}-${s}) / <alpha-value>)`;
+    });
+    shades.DEFAULT = `hsl(var(--t-${prefix}-600) / <alpha-value>)`;
+    return shades;
+};
+
 module.exports = {
     darkMode: ["class"],
     content: [
@@ -14,9 +25,16 @@ module.exports = {
                 sm: 'calc(var(--radius) - 4px)'
             },
             colors: {
-                primary: '#1b51a3',
-                accent: '#F6F6F6',
-                secondary: '#727272',
+                // ── Design Tokens ──────────────────────────────
+                // Usage: bg-primary-600, text-accent-500, border-success-200, etc.
+                primary: tokenShades('primary'),
+                accent: tokenShades('accent'),
+                success: tokenShades('success'),
+                warning: tokenShades('warning'),
+                danger: tokenShades('danger'),
+                surface: tokenShades('surface'),
+
+                // ── shadcn/ui tokens (keep existing) ───────────
                 background: 'hsl(var(--background))',
                 foreground: 'hsl(var(--foreground))',
                 card: {
@@ -27,7 +45,6 @@ module.exports = {
                     DEFAULT: 'hsl(var(--popover))',
                     foreground: 'hsl(var(--popover-foreground))'
                 },
-
                 muted: {
                     DEFAULT: 'hsl(var(--muted))',
                     foreground: 'hsl(var(--muted-foreground))'
@@ -48,22 +65,17 @@ module.exports = {
                 }
             },
             keyframes: {
-                // Ghi đè lên tên 'pulse' mặc định của Tailwind
                 pulse: {
                     '0%, 100%': {
                         opacity: '1',
-                        // XÓA BỎ DÒNG NÀY: transform: scale(1)
                     },
                     '50%': {
-                        opacity: '0.4', // Giảm độ mờ xuống 0.4 (bạn có thể chỉnh con số này tùy thích, VD: 0.5)
-                        // XÓA BỎ DÒNG NÀY: transform: scale(1.05) hoặc bất kỳ scale nào
+                        opacity: '0.4',
                     },
                 },
             },
             animation: {
-                // Tên class vẫn là animate-pulse để không phải sửa code ở các file khác
                 pulse: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                // Bạn có thể chỉnh 2s thành nhanh hơn (VD: 1.5s) hoặc cubic-bezier khác để mượt hơn
             },
         }
     },

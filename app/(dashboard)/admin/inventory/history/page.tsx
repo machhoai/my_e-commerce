@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,15 +15,15 @@ import { QRCodeSVG } from 'qrcode.react';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
-    PENDING_OFFICE: { label: 'Chờ VP duyệt', badge: 'bg-amber-100 text-amber-700 border-amber-200' },
+    PENDING_OFFICE: { label: 'Chờ VP duyệt', badge: 'bg-warning-100 text-warning-700 border-warning-200' },
     APPROVED_BY_OFFICE: { label: 'Chờ kho chấp nhận', badge: 'bg-sky-100 text-sky-700 border-sky-200' },
     PACKING: { label: 'Đang đóng gói', badge: 'bg-orange-100 text-orange-700 border-orange-200' },
-    IN_TRANSIT: { label: 'Đang vận chuyển', badge: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
-    COMPLETED: { label: 'Hoàn tất', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-    REJECTED: { label: 'Từ chối', badge: 'bg-red-100 text-red-700 border-red-200' },
-    CANCELED: { label: 'Đã hủy', badge: 'bg-slate-100 text-slate-500 border-slate-200' },
-    PENDING: { label: 'Chờ duyệt', badge: 'bg-amber-100 text-amber-700 border-amber-200' },
-    DISPATCHED: { label: 'Đã xuất', badge: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
+    IN_TRANSIT: { label: 'Đang vận chuyển', badge: 'bg-accent-100 text-accent-700 border-accent-200' },
+    COMPLETED: { label: 'Hoàn tất', badge: 'bg-success-100 text-success-700 border-success-200' },
+    REJECTED: { label: 'Từ chối', badge: 'bg-danger-100 text-danger-700 border-danger-200' },
+    CANCELED: { label: 'Đã hủy', badge: 'bg-surface-100 text-surface-500 border-surface-200' },
+    PENDING: { label: 'Chờ duyệt', badge: 'bg-warning-100 text-warning-700 border-warning-200' },
+    DISPATCHED: { label: 'Đã xuất', badge: 'bg-accent-100 text-accent-700 border-accent-200' },
 };
 
 export default function WarehouseHistoryPage() {
@@ -82,7 +82,7 @@ export default function WarehouseHistoryPage() {
 
     // Guard
     if (userDoc && userDoc.role !== 'admin' && !userDoc.customRoleId) {
-        return <div className="flex items-center justify-center h-64 text-red-500 font-bold">Không có quyền truy cập.</div>;
+        return <div className="flex items-center justify-center h-64 text-danger-500 font-bold">Không có quyền truy cập.</div>;
     }
 
     // Filtering
@@ -141,14 +141,14 @@ export default function WarehouseHistoryPage() {
                 titleChildren={
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
                         <div>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
-                                <ClipboardList className="w-7 h-7 text-violet-600" />
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-accent-600 to-accent-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <ClipboardList className="w-7 h-7 text-accent-600" />
                                 Lịch sử đơn hàng
                             </h1>
-                            <p className="text-slate-500 mt-1 text-sm">Xem tất cả đơn hàng, phiếu xuất kho, và thông tin duyệt.</p>
+                            <p className="text-surface-500 mt-1 text-sm">Xem tất cả đơn hàng, phiếu xuất kho, và thông tin duyệt.</p>
                         </div>
                         <button onClick={fetchOrders}
-                            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-sm shrink-0">
+                            className="flex items-center gap-2 px-4 py-2 bg-white border border-surface-200 rounded-xl text-sm font-medium text-surface-600 hover:bg-surface-50 transition-colors shadow-sm shrink-0">
                             <RefreshCw className="w-4 h-4" /> Làm mới
                         </button>
                     </div>
@@ -156,37 +156,37 @@ export default function WarehouseHistoryPage() {
             />
 
             {/* Toolbar */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+            <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-4 space-y-3">
                 <div className="flex items-center gap-3">
                     <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
                         <input value={search} onChange={e => setSearch(e.target.value)}
                             placeholder="Tìm theo cửa hàng, người đặt, mã đơn, sản phẩm..."
-                            className="w-full pl-9 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-violet-300" />
+                            className="w-full pl-9 bg-surface-50 border border-surface-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-accent-300" />
                     </div>
                     <button onClick={() => setShowFilters(v => !v)}
-                        className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${showFilters ? 'bg-violet-600 text-white border-violet-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-violet-300'}`}>
+                        className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${showFilters ? 'bg-accent-600 text-white border-accent-600' : 'bg-surface-50 text-surface-600 border-surface-200 hover:border-accent-300'}`}>
                         <Filter className="w-4 h-4" />
                         <span className="hidden sm:inline">Bộ lọc</span>
                     </button>
                 </div>
 
                 {showFilters && (
-                    <div className="flex flex-wrap gap-3 pt-3 border-t border-slate-100">
+                    <div className="flex flex-wrap gap-3 pt-3 border-t border-surface-100">
                         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                            className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-sm outline-none focus:ring-2 focus:ring-violet-300">
+                            className="bg-surface-50 border border-surface-200 rounded-xl p-2 text-sm outline-none focus:ring-2 focus:ring-accent-300">
                             <option value="">Tất cả trạng thái</option>
                             {Object.entries(STATUS_CONFIG).map(([k, v]) => (
                                 <option key={k} value={k}>{v.label}</option>
                             ))}
                         </select>
                         <select value={filterStoreId} onChange={e => setFilterStoreId(e.target.value)}
-                            className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-sm outline-none focus:ring-2 focus:ring-violet-300">
+                            className="bg-surface-50 border border-surface-200 rounded-xl p-2 text-sm outline-none focus:ring-2 focus:ring-accent-300">
                             <option value="">Tất cả cửa hàng</option>
                             {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                         <select value={filterWarehouseId} onChange={e => setFilterWarehouseId(e.target.value)}
-                            className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-sm outline-none focus:ring-2 focus:ring-violet-300">
+                            className="bg-surface-50 border border-surface-200 rounded-xl p-2 text-sm outline-none focus:ring-2 focus:ring-accent-300">
                             <option value="">Tất cả kho</option>
                             {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                         </select>
@@ -197,13 +197,13 @@ export default function WarehouseHistoryPage() {
             {/* Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
-                    { label: 'Tổng đơn', value: filtered.length, color: 'text-slate-800' },
-                    { label: 'Hoàn tất', value: filtered.filter(o => o.status === 'COMPLETED').length, color: 'text-emerald-600' },
-                    { label: 'Đang xử lý', value: filtered.filter(o => ['PENDING_OFFICE', 'APPROVED_BY_OFFICE', 'IN_TRANSIT'].includes(o.status)).length, color: 'text-indigo-600' },
-                    { label: 'Từ chối/Hủy', value: filtered.filter(o => ['REJECTED', 'CANCELED'].includes(o.status)).length, color: 'text-red-500' },
+                    { label: 'Tổng đơn', value: filtered.length, color: 'text-surface-800' },
+                    { label: 'Hoàn tất', value: filtered.filter(o => o.status === 'COMPLETED').length, color: 'text-success-600' },
+                    { label: 'Đang xử lý', value: filtered.filter(o => ['PENDING_OFFICE', 'APPROVED_BY_OFFICE', 'IN_TRANSIT'].includes(o.status)).length, color: 'text-accent-600' },
+                    { label: 'Từ chối/Hủy', value: filtered.filter(o => ['REJECTED', 'CANCELED'].includes(o.status)).length, color: 'text-danger-500' },
                 ].map(card => (
-                    <div key={card.label} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 text-center">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{card.label}</p>
+                    <div key={card.label} className="bg-white rounded-2xl border border-surface-200 shadow-sm p-4 text-center">
+                        <p className="text-[10px] font-bold text-surface-500 uppercase tracking-wide">{card.label}</p>
                         <p className={`text-2xl font-black mt-1 ${card.color}`}>{card.value}</p>
                     </div>
                 ))}
@@ -212,30 +212,30 @@ export default function WarehouseHistoryPage() {
             {/* Orders List */}
             {loading ? (
                 <div className="flex justify-center py-16">
-                    <div className="w-8 h-8 border-4 border-slate-200 border-t-violet-500 rounded-full animate-spin" />
+                    <div className="w-8 h-8 border-4 border-surface-200 border-t-accent-500 rounded-full animate-spin" />
                 </div>
             ) : filtered.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm text-center py-16">
-                    <ClipboardList className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-                    <p className="text-slate-500 font-medium">Không tìm thấy đơn hàng</p>
+                <div className="bg-white rounded-2xl border border-surface-200 shadow-sm text-center py-16">
+                    <ClipboardList className="w-12 h-12 text-surface-200 mx-auto mb-3" />
+                    <p className="text-surface-500 font-medium">Không tìm thấy đơn hàng</p>
                 </div>
             ) : (
                 <div className="space-y-3">
-                    <p className="text-xs text-slate-400 font-medium">Hiển thị {filtered.length} đơn hàng</p>
+                    <p className="text-xs text-surface-400 font-medium">Hiển thị {filtered.length} đơn hàng</p>
                     {filtered.map(order => {
-                        const status = STATUS_CONFIG[order.status] || { label: order.status, badge: 'bg-slate-100 text-slate-500 border-slate-200' };
+                        const status = STATUS_CONFIG[order.status] || { label: order.status, badge: 'bg-surface-100 text-surface-500 border-surface-200' };
 
                         return (
                             <div key={order.id}
-                                className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                                className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
                                 onClick={() => setSelectedOrder(order)}>
                                 <div className="px-5 py-4 flex items-start gap-4">
-                                    <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
-                                        <Package className="w-5 h-5 text-violet-600" />
+                                    <div className="w-10 h-10 rounded-xl bg-accent-50 flex items-center justify-center shrink-0">
+                                        <Package className="w-5 h-5 text-accent-600" />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
-                                            <h3 className="font-bold text-slate-800">{order.storeName || '—'}</h3>
+                                            <h3 className="font-bold text-surface-800">{order.storeName || '—'}</h3>
                                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${status.badge}`}>
                                                 {status.label}
                                             </span>
@@ -245,10 +245,10 @@ export default function WarehouseHistoryPage() {
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
+                                        <div className="flex items-center gap-3 mt-1 text-xs text-surface-500 flex-wrap">
                                             <span className="flex items-center gap-1"><User className="w-3 h-3" /> {order.createdByName}</span>
                                             <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(order.timestamp).toLocaleString('vi-VN')}</span>
-                                            <span className="font-medium text-slate-600">{order.items.length} SP · {order.items.reduce((s, i) => s + i.requestedQty, 0)} đơn vị</span>
+                                            <span className="font-medium text-surface-600">{order.items.length} SP · {order.items.reduce((s, i) => s + i.requestedQty, 0)} đơn vị</span>
                                         </div>
                                         {/* Approver info */}
                                         <div className="flex items-center gap-3 mt-1 text-[10px] flex-wrap">
@@ -258,7 +258,7 @@ export default function WarehouseHistoryPage() {
                                                 </span>
                                             )}
                                             {(order.warehouseDispatchedByName || order.approvedByName) && (
-                                                <span className="text-emerald-600 flex items-center gap-1">
+                                                <span className="text-success-600 flex items-center gap-1">
                                                     <Truck className="w-3 h-3" /> Kho: {order.warehouseDispatchedByName || order.approvedByName}
                                                 </span>
                                             )}
@@ -270,14 +270,14 @@ export default function WarehouseHistoryPage() {
                                         {order.attachmentUrl && (
                                             <a href={order.attachmentUrl} target="_blank" rel="noopener noreferrer"
                                                 onClick={e => e.stopPropagation()}
-                                                className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800">
+                                                className="inline-flex items-center gap-1 text-[10px] font-bold text-accent-600 hover:text-accent-800">
                                                 <FileText className="w-3 h-3" /> Đề xuất <ExternalLink className="w-2.5 h-2.5" />
                                             </a>
                                         )}
                                         {order.officeExportSlipUrl && (
                                             <a href={order.officeExportSlipUrl} target="_blank" rel="noopener noreferrer"
                                                 onClick={e => e.stopPropagation()}
-                                                className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-800">
+                                                className="inline-flex items-center gap-1 text-[10px] font-bold text-success-600 hover:text-success-800">
                                                 <FileText className="w-3 h-3" /> Phiếu xuất <ExternalLink className="w-2.5 h-2.5" />
                                             </a>
                                         )}
@@ -287,15 +287,15 @@ export default function WarehouseHistoryPage() {
                                 {/* Items preview */}
                                 <div className="px-5 pb-3 flex flex-wrap gap-1.5">
                                     {order.items.slice(0, 5).map((item, i) => (
-                                        <span key={i} className="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg">
+                                        <span key={i} className="text-[11px] bg-surface-100 text-surface-600 px-2 py-0.5 rounded-lg">
                                             {item.productCode && <span className="font-mono font-bold mr-1">{item.productCode}</span>}
                                             ×{item.requestedQty}
                                             {item.dispatchedQty != null && item.dispatchedQty !== item.requestedQty && (
-                                                <span className="text-amber-600 ml-1">(xuất {item.dispatchedQty})</span>
+                                                <span className="text-warning-600 ml-1">(xuất {item.dispatchedQty})</span>
                                             )}
                                         </span>
                                     ))}
-                                    {order.items.length > 5 && <span className="text-[11px] text-slate-400">+{order.items.length - 5}</span>}
+                                    {order.items.length > 5 && <span className="text-[11px] text-surface-400">+{order.items.length - 5}</span>}
                                 </div>
                             </div>
                         );
@@ -309,18 +309,18 @@ export default function WarehouseHistoryPage() {
                     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                             {/* Modal Header */}
-                            <div className="p-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10 rounded-t-2xl">
+                            <div className="p-5 border-b border-surface-100 flex items-center justify-between sticky top-0 bg-white z-10 rounded-t-2xl">
                                 <div className="flex items-center gap-2">
-                                    <ClipboardList className="w-5 h-5 text-violet-600" />
-                                    <h2 className="text-lg font-bold text-slate-800">Chi tiết đơn hàng</h2>
+                                    <ClipboardList className="w-5 h-5 text-accent-600" />
+                                    <h2 className="text-lg font-bold text-surface-800">Chi tiết đơn hàng</h2>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button onClick={handlePrint}
-                                        className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                                        className="flex items-center gap-1.5 bg-accent-600 hover:bg-accent-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
                                         <Printer className="w-4 h-4" /> In đơn hàng
                                     </button>
                                     <button onClick={() => setSelectedOrder(null)}
-                                        className="text-slate-400 hover:text-slate-700 p-1">
+                                        className="text-surface-400 hover:text-surface-700 p-1">
                                         <X className="w-5 h-5" />
                                     </button>
                                 </div>
@@ -332,35 +332,35 @@ export default function WarehouseHistoryPage() {
 
                                 {/* Meta info */}
                                 <div style={{ fontSize: '13px', color: '#64748b' }} className="space-y-0.5">
-                                    <p>Mã đơn: <strong className="text-slate-800">{selectedOrder.id}</strong></p>
-                                    <p>Cửa hàng: <strong className="text-slate-800">{selectedOrder.storeName || selectedOrder.storeId}</strong></p>
-                                    {selectedOrder.warehouseName && <p>Kho: <strong className="text-slate-800">{selectedOrder.warehouseName}</strong></p>}
-                                    <p>Trạng thái: <strong className="text-slate-800">{STATUS_CONFIG[selectedOrder.status]?.label || selectedOrder.status}</strong></p>
+                                    <p>Mã đơn: <strong className="text-surface-800">{selectedOrder.id}</strong></p>
+                                    <p>Cửa hàng: <strong className="text-surface-800">{selectedOrder.storeName || selectedOrder.storeId}</strong></p>
+                                    {selectedOrder.warehouseName && <p>Kho: <strong className="text-surface-800">{selectedOrder.warehouseName}</strong></p>}
+                                    <p>Trạng thái: <strong className="text-surface-800">{STATUS_CONFIG[selectedOrder.status]?.label || selectedOrder.status}</strong></p>
                                 </div>
 
                                 {/* People */}
-                                <div className="bg-slate-50 rounded-xl p-4 space-y-2">
-                                    <h2 className="text-sm font-bold text-slate-700 flex items-center gap-1.5" style={{ fontSize: '14px' }}>
+                                <div className="bg-surface-50 rounded-xl p-4 space-y-2">
+                                    <h2 className="text-sm font-bold text-surface-700 flex items-center gap-1.5" style={{ fontSize: '14px' }}>
                                         <User className="w-4 h-4" /> Thông tin nhân sự
                                     </h2>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                                        <div className="bg-white rounded-lg p-3 border border-slate-200">
-                                            <p className="text-slate-400 mb-0.5">Người đặt</p>
-                                            <p className="font-bold text-slate-800">{selectedOrder.createdByName || '—'}</p>
-                                            <p className="text-slate-400 mt-0.5">{new Date(selectedOrder.timestamp).toLocaleString('vi-VN')}</p>
+                                        <div className="bg-white rounded-lg p-3 border border-surface-200">
+                                            <p className="text-surface-400 mb-0.5">Người đặt</p>
+                                            <p className="font-bold text-surface-800">{selectedOrder.createdByName || '—'}</p>
+                                            <p className="text-surface-400 mt-0.5">{new Date(selectedOrder.timestamp).toLocaleString('vi-VN')}</p>
                                         </div>
-                                        <div className="bg-white rounded-lg p-3 border border-slate-200">
-                                            <p className="text-slate-400 mb-0.5">VP duyệt</p>
+                                        <div className="bg-white rounded-lg p-3 border border-surface-200">
+                                            <p className="text-surface-400 mb-0.5">VP duyệt</p>
                                             <p className="font-bold text-sky-700">{selectedOrder.officeApprovedByName || '—'}</p>
                                             {selectedOrder.officeApprovedAt && (
-                                                <p className="text-slate-400 mt-0.5">{new Date(selectedOrder.officeApprovedAt).toLocaleString('vi-VN')}</p>
+                                                <p className="text-surface-400 mt-0.5">{new Date(selectedOrder.officeApprovedAt).toLocaleString('vi-VN')}</p>
                                             )}
                                         </div>
-                                        <div className="bg-white rounded-lg p-3 border border-slate-200">
-                                            <p className="text-slate-400 mb-0.5">Kho duyệt xuất</p>
-                                            <p className="font-bold text-emerald-700">{selectedOrder.warehouseDispatchedByName || selectedOrder.approvedByName || '—'}</p>
+                                        <div className="bg-white rounded-lg p-3 border border-surface-200">
+                                            <p className="text-surface-400 mb-0.5">Kho duyệt xuất</p>
+                                            <p className="font-bold text-success-700">{selectedOrder.warehouseDispatchedByName || selectedOrder.approvedByName || '—'}</p>
                                             {selectedOrder.dispatchedAt && (
-                                                <p className="text-slate-400 mt-0.5">{new Date(selectedOrder.dispatchedAt).toLocaleString('vi-VN')}</p>
+                                                <p className="text-surface-400 mt-0.5">{new Date(selectedOrder.dispatchedAt).toLocaleString('vi-VN')}</p>
                                             )}
                                         </div>
                                     </div>
@@ -368,21 +368,21 @@ export default function WarehouseHistoryPage() {
 
                                 {/* Attachments */}
                                 {(selectedOrder.attachmentUrl || selectedOrder.officeExportSlipUrl) && (
-                                    <div className="bg-slate-50 rounded-xl p-4 space-y-2">
-                                        <h2 className="text-sm font-bold text-slate-700 flex items-center gap-1.5" style={{ fontSize: '14px' }}>
+                                    <div className="bg-surface-50 rounded-xl p-4 space-y-2">
+                                        <h2 className="text-sm font-bold text-surface-700 flex items-center gap-1.5" style={{ fontSize: '14px' }}>
                                             <FileText className="w-4 h-4" /> Tài liệu đính kèm
                                         </h2>
                                         <div className="flex flex-wrap gap-2">
                                             {selectedOrder.attachmentUrl && (
                                                 <a href={selectedOrder.attachmentUrl} target="_blank" rel="noopener noreferrer"
-                                                    className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 border border-indigo-200 hover:border-indigo-400 px-3 py-2 rounded-xl transition-colors bg-white">
+                                                    className="flex items-center gap-1.5 text-xs font-bold text-accent-600 hover:text-accent-800 border border-accent-200 hover:border-accent-400 px-3 py-2 rounded-xl transition-colors bg-white">
                                                     <FileText className="w-4 h-4" /> File đề xuất cơ cấu
                                                     <ExternalLink className="w-3 h-3" />
                                                 </a>
                                             )}
                                             {selectedOrder.officeExportSlipUrl && (
                                                 <a href={selectedOrder.officeExportSlipUrl} target="_blank" rel="noopener noreferrer"
-                                                    className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-800 border border-emerald-200 hover:border-emerald-400 px-3 py-2 rounded-xl transition-colors bg-white">
+                                                    className="flex items-center gap-1.5 text-xs font-bold text-success-600 hover:text-success-800 border border-success-200 hover:border-success-400 px-3 py-2 rounded-xl transition-colors bg-white">
                                                     <FileText className="w-4 h-4" /> Phiếu xuất kho (VP)
                                                     <ExternalLink className="w-3 h-3" />
                                                 </a>
@@ -393,7 +393,7 @@ export default function WarehouseHistoryPage() {
 
                                 {/* Items table */}
                                 <div>
-                                    <h2 className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-1.5" style={{ fontSize: '14px' }}>
+                                    <h2 className="text-sm font-bold text-surface-700 mb-2 flex items-center gap-1.5" style={{ fontSize: '14px' }}>
                                         <Package className="w-4 h-4" /> Sản phẩm ({selectedOrder.items.length})
                                     </h2>
                                     <table style={{ width: '100%', borderCollapse: 'collapse' }} className="text-sm">
@@ -433,18 +433,18 @@ export default function WarehouseHistoryPage() {
 
                                 {/* Notes */}
                                 {selectedOrder.note && (
-                                    <div className="bg-amber-50 rounded-xl p-3 border border-amber-200">
-                                        <p className="text-xs text-amber-700"><strong>Ghi chú:</strong> {selectedOrder.note}</p>
+                                    <div className="bg-warning-50 rounded-xl p-3 border border-warning-200">
+                                        <p className="text-xs text-warning-700"><strong>Ghi chú:</strong> {selectedOrder.note}</p>
                                     </div>
                                 )}
                                 {selectedOrder.rejectReason && (
-                                    <div className="bg-red-50 rounded-xl p-3 border border-red-200">
-                                        <p className="text-xs text-red-700"><strong>Lý do từ chối:</strong> {selectedOrder.rejectReason}</p>
+                                    <div className="bg-danger-50 rounded-xl p-3 border border-danger-200">
+                                        <p className="text-xs text-danger-700"><strong>Lý do từ chối:</strong> {selectedOrder.rejectReason}</p>
                                     </div>
                                 )}
                                 {selectedOrder.cancelReason && (
-                                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
-                                        <p className="text-xs text-slate-600"><strong>Lý do hủy:</strong> {selectedOrder.cancelReason}</p>
+                                    <div className="bg-surface-50 rounded-xl p-3 border border-surface-200">
+                                        <p className="text-xs text-surface-600"><strong>Lý do hủy:</strong> {selectedOrder.cancelReason}</p>
                                     </div>
                                 )}
 

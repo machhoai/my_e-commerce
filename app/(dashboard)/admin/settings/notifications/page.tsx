@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
@@ -164,14 +164,14 @@ export default function NotificationTemplatesPage() {
                 titleChildren={
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
                         <div>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent flex items-center gap-2">
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-600 to-cyan-600 bg-clip-text text-transparent flex items-center gap-2">
                                 Mẫu Thông Báo
                             </h1>
-                            <p className="text-slate-500 mt-1 text-sm">Quản lý và soạn mãu nội dung gửi đẩy tự động</p>
+                            <p className="text-surface-500 mt-1 text-sm">Quản lý và soạn mãu nội dung gửi đẩy tự động</p>
                         </div>
                         <button
                             onClick={() => handleOpenForm()}
-                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-blue-500/20 transition-all shrink-0"
+                            className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-primary-500/20 transition-all shrink-0"
                         >
                             <Plus className="w-4 h-4" />
                             Tạo mẫu mới
@@ -181,7 +181,7 @@ export default function NotificationTemplatesPage() {
             />
 
             {feedback && (
-                <div className={`p-4 rounded-xl flex items-start gap-3 border ${feedback.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                <div className={`p-4 rounded-xl flex items-start gap-3 border ${feedback.type === 'error' ? 'bg-danger-50 text-danger-700 border-danger-200' : 'bg-success-50 text-success-700 border-success-200'}`}>
                     {feedback.type === 'error' ? <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" /> : <CheckCircle2 className="w-5 h-5 mt-0.5 shrink-0" />}
                     <div className="text-sm font-medium">{feedback.text}</div>
                 </div>
@@ -189,41 +189,41 @@ export default function NotificationTemplatesPage() {
 
             {loading ? (
                 <div className="py-12 flex justify-center">
-                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
                 </div>
             ) : templates.length === 0 ? (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-                    <Info className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <h3 className="text-lg font-medium text-slate-900">Chưa có mẫu nào</h3>
-                    <p className="text-slate-500 mt-1">Hãy tạo mẫu thông báo đầu tiên của bạn</p>
+                <div className="bg-white rounded-xl shadow-sm border border-surface-200 p-12 text-center">
+                    <Info className="w-12 h-12 text-surface-300 mx-auto mb-3" />
+                    <h3 className="text-lg font-medium text-surface-900">Chưa có mẫu nào</h3>
+                    <p className="text-surface-500 mt-1">Hãy tạo mẫu thông báo đầu tiên của bạn</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {templates.map(template => (
-                        <div key={template.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col h-full hover:shadow-md transition-shadow relative overflow-hidden group">
+                        <div key={template.id} className="bg-white rounded-xl shadow-sm border border-surface-200 p-5 flex flex-col h-full hover:shadow-md transition-shadow relative overflow-hidden group">
                             {template.isSystemEvent && (
-                                <span className="absolute top-0 right-0 bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-1 rounded-bl-lg">
+                                <span className="absolute top-0 right-0 bg-warning-100 text-warning-700 text-[10px] font-bold px-2 py-1 rounded-bl-lg">
                                     Hệ thống
                                 </span>
                             )}
-                            <h3 className="font-semibold text-slate-800 text-lg pr-16">{template.name}</h3>
-                            <div className="mt-3 bg-slate-50 p-3 rounded-lg flex-1 border border-slate-100">
-                                <p className="text-sm font-medium text-slate-900 line-clamp-1">{template.titleTemplate}</p>
-                                <p className="text-xs text-slate-500 mt-1 line-clamp-3">{template.bodyTemplate}</p>
+                            <h3 className="font-semibold text-surface-800 text-lg pr-16">{template.name}</h3>
+                            <div className="mt-3 bg-surface-50 p-3 rounded-lg flex-1 border border-surface-100">
+                                <p className="text-sm font-medium text-surface-900 line-clamp-1">{template.titleTemplate}</p>
+                                <p className="text-xs text-surface-500 mt-1 line-clamp-3">{template.bodyTemplate}</p>
                             </div>
 
-                            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-surface-100 pt-3">
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => handleOpenForm(template)}
-                                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                                        className="p-1.5 text-surface-400 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-colors"
                                         title="Chỉnh sửa"
                                     >
                                         <Edit2 className="w-4 h-4" />
                                     </button>
                                     <button
                                         onClick={() => handleDelete(template.id)}
-                                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                        className="p-1.5 text-surface-400 hover:text-danger-600 hover:bg-danger-50 rounded-md transition-colors"
                                         title="Xóa mẫu"
                                     >
                                         <Trash2 className="w-4 h-4" />
@@ -232,7 +232,7 @@ export default function NotificationTemplatesPage() {
                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                         onClick={() => { setBroadcastTemplate(template); setBroadcastAudience('all'); }}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md text-xs font-medium transition-colors"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-success-50 hover:bg-success-100 text-success-700 rounded-md text-xs font-medium transition-colors"
                                         title="Gửi ngay cho nhóm người dùng"
                                     >
                                         <Send className="w-3.5 h-3.5" />
@@ -248,17 +248,17 @@ export default function NotificationTemplatesPage() {
             {/* Modal Form */}
             {isFormOpen && (
                 <Portal>
-                    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-surface-900/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
                         <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                                <h2 className="text-xl font-bold text-slate-800">
+                            <div className="px-6 py-4 border-b border-surface-100 bg-surface-50/50 flex justify-between items-center">
+                                <h2 className="text-xl font-bold text-surface-800">
                                     {editingTemplate ? 'Chỉnh sửa Mẫu' : 'Tạo Mẫu Tự Động'}
                                 </h2>
                             </div>
 
                             <form onSubmit={handleSave} className="p-6 space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                                    <label className="block text-sm font-medium text-surface-700 mb-1">
                                         Tên Mẫu (Dùng để nhận diện)
                                     </label>
                                     <input
@@ -266,23 +266,23 @@ export default function NotificationTemplatesPage() {
                                         required
                                         value={formData.name}
                                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                        className="w-full px-3 py-2 border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
                                         placeholder="Ví dụ: Lịch thay đổi đột xuất"
                                     />
                                 </div>
 
-                                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3">
-                                    <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
-                                    <div className="text-sm text-blue-800">
+                                <div className="bg-primary-50 border border-primary-100 rounded-xl p-4 flex gap-3">
+                                    <Info className="w-5 h-5 text-primary-500 shrink-0 mt-0.5" />
+                                    <div className="text-sm text-primary-800">
                                         <strong className="block mb-1">Cú pháp Hỗ trợ Biến:</strong>
-                                        Bao bọc TỪ_KHÓA bằng dấu ngoặc nhọn <code className="bg-white px-1 py-0.5 rounded text-blue-600 mx-0.5">{'{'} {'}'}</code>.
+                                        Bao bọc TỪ_KHÓA bằng dấu ngoặc nhọn <code className="bg-white px-1 py-0.5 rounded text-primary-600 mx-0.5">{'{'} {'}'}</code>.
                                         Hệ thống sẽ tự nhận diện và thay thế bằng dữ liệu thực.<br />
-                                        <strong>Ví dụ: </strong><code className="bg-white px-1 py-0.5 rounded text-blue-600">{' {name} '}</code>, <code className="bg-white px-1 py-0.5 rounded text-blue-600">{' {storeName} '}</code>, <code className="bg-white px-1 py-0.5 rounded text-blue-600">{' {shiftDate} '}</code>.
+                                        <strong>Ví dụ: </strong><code className="bg-white px-1 py-0.5 rounded text-primary-600">{' {name} '}</code>, <code className="bg-white px-1 py-0.5 rounded text-primary-600">{' {storeName} '}</code>, <code className="bg-white px-1 py-0.5 rounded text-primary-600">{' {shiftDate} '}</code>.
                                     </div>
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                                    <label className="block text-sm font-medium text-surface-700 mb-1">
                                         Tiêu đề Thông báo push
                                     </label>
                                     <input
@@ -290,13 +290,13 @@ export default function NotificationTemplatesPage() {
                                         required
                                         value={formData.titleTemplate}
                                         onChange={(e) => setFormData({ ...formData, titleTemplate: e.target.value })}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                        className="w-full px-3 py-2 border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
                                         placeholder="Chào {name}, ca làm ngày {shiftDate}..."
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                                    <label className="block text-sm font-medium text-surface-700 mb-1">
                                         Nội dung thân thông báo
                                     </label>
                                     <textarea
@@ -304,7 +304,7 @@ export default function NotificationTemplatesPage() {
                                         rows={4}
                                         value={formData.bodyTemplate}
                                         onChange={(e) => setFormData({ ...formData, bodyTemplate: e.target.value })}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
+                                        className="w-full px-3 py-2 border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm resize-none"
                                         placeholder="Bạn vừa được phân công thay cho {managerName}..."
                                     />
                                 </div>
@@ -315,25 +315,25 @@ export default function NotificationTemplatesPage() {
                                         id="isSystem"
                                         checked={formData.isSystemEvent}
                                         onChange={(e) => setFormData({ ...formData, isSystemEvent: e.target.checked })}
-                                        className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                                        className="w-4 h-4 text-primary-600 rounded border-surface-300 focus:ring-primary-500"
                                     />
-                                    <label htmlFor="isSystem" className="text-sm text-slate-700">
+                                    <label htmlFor="isSystem" className="text-sm text-surface-700">
                                         Đánh dấu là Mẫu Sự kiện gốc (Hệ thống)
                                     </label>
                                 </div>
 
-                                <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                                <div className="flex justify-end gap-3 pt-4 border-t border-surface-100">
                                     <button
                                         type="button"
                                         onClick={handleCloseForm}
-                                        className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                                        className="px-4 py-2 text-sm font-medium text-surface-600 hover:text-surface-800 hover:bg-surface-100 rounded-lg transition-colors"
                                     >
                                         Hủy bỏ
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={isSaving}
-                                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2"
+                                        className="px-6 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white text-sm font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2"
                                     >
                                         {isSaving ? (
                                             <>
@@ -354,29 +354,29 @@ export default function NotificationTemplatesPage() {
             {/* Broadcast Modal */}
             {broadcastTemplate && (
                 <Portal>
-                    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-surface-900/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
                         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                            <div className="px-6 py-4 border-b border-slate-100 bg-emerald-50/50">
-                                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                    <Send className="w-5 h-5 text-emerald-600" />
+                            <div className="px-6 py-4 border-b border-surface-100 bg-success-50/50">
+                                <h2 className="text-lg font-bold text-surface-800 flex items-center gap-2">
+                                    <Send className="w-5 h-5 text-success-600" />
                                     Gửi thông báo: {broadcastTemplate.name}
                                 </h2>
                             </div>
 
                             <div className="p-6 space-y-4">
-                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                    <p className="text-sm font-medium text-slate-900">{broadcastTemplate.titleTemplate}</p>
-                                    <p className="text-xs text-slate-500 mt-1">{broadcastTemplate.bodyTemplate}</p>
+                                <div className="bg-surface-50 p-3 rounded-lg border border-surface-100">
+                                    <p className="text-sm font-medium text-surface-900">{broadcastTemplate.titleTemplate}</p>
+                                    <p className="text-xs text-surface-500 mt-1">{broadcastTemplate.bodyTemplate}</p>
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                    <label className="block text-sm font-medium text-surface-700 mb-2">
                                         Đối tượng nhận thông báo
                                     </label>
                                     <select
                                         value={broadcastAudience}
                                         onChange={e => setBroadcastAudience(e.target.value)}
-                                        className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                                        className="w-full px-3 py-2.5 border border-surface-300 rounded-lg focus:ring-2 focus:ring-success-500 focus:border-success-500 text-sm"
                                     >
                                         <option value="all">🌐 Tất cả nhân viên</option>
                                         {stores.map(s => (
@@ -388,18 +388,18 @@ export default function NotificationTemplatesPage() {
                                     </select>
                                 </div>
 
-                                <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
+                                <div className="flex justify-end gap-3 pt-2 border-t border-surface-100">
                                     <button
                                         onClick={() => setBroadcastTemplate(null)}
                                         disabled={isBroadcasting}
-                                        className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                                        className="px-4 py-2 text-sm font-medium text-surface-600 hover:text-surface-800 hover:bg-surface-100 rounded-lg transition-colors"
                                     >
                                         Hủy bỏ
                                     </button>
                                     <button
                                         onClick={handleBroadcast}
                                         disabled={isBroadcasting}
-                                        className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-sm font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2"
+                                        className="px-6 py-2 bg-success-600 hover:bg-success-700 disabled:bg-success-400 text-white text-sm font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2"
                                     >
                                         {isBroadcasting ? (
                                             <>

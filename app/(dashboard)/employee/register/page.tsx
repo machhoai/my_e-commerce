@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -388,7 +388,7 @@ export default function EmployeeRegisterPage() {
     if (loading) {
         return (
             <div className="flex justify-center items-center h-64">
-                <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
             </div>
         );
     }
@@ -404,27 +404,27 @@ export default function EmployeeRegisterPage() {
                 titleChildren={
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
                         <div>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
-                                <CalendarIcon className="w-7 h-7 text-blue-600" />
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-600 to-accent-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <CalendarIcon className="w-7 h-7 text-primary-600" />
                                 Đăng ký Lịch làm
                             </h1>
-                            <p className="text-slate-500 mt-1 flex items-center gap-2 text-sm">
+                            <p className="text-surface-500 mt-1 flex items-center gap-2 text-sm">
                                 Chọn thời gian bạn có thể làm việc cho tuần tới.
-                                <span className="bg-slate-100 text-center text-slate-700 px-2 py-0.5 rounded text-xs font-bold border border-slate-200 uppercase">
+                                <span className="bg-surface-100 text-center text-surface-700 px-2 py-0.5 rounded text-xs font-bold border border-surface-200 uppercase">
                                     Nhân viên {isFT ? 'Toàn thời gian' : 'Bán thời gian'}
                                 </span>
                             </p>
                         </div>
 
                         {/* Week Navigation */}
-                        <div className="flex items-center justify-center gap-4 bg-white p-2 rounded-xl shadow-sm border border-slate-200 shrink-0">
-                            <button onClick={handlePreviousWeek} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
+                        <div className="flex items-center justify-center gap-4 bg-white p-2 rounded-xl shadow-sm border border-surface-200 shrink-0">
+                            <button onClick={handlePreviousWeek} className="p-2 hover:bg-surface-100 rounded-lg transition-colors text-surface-600">
                                 <ChevronLeft className="w-5 h-5" />
                             </button>
-                            <div className="flex-1 text-sm font-semibold text-slate-700 min-w-[140px] text-center">
+                            <div className="flex-1 text-sm font-semibold text-surface-700 min-w-[140px] text-center">
                                 {formatDate(weekDays[0])} - {formatDate(weekDays[6])}
                             </div>
-                            <button onClick={handleNextWeek} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
+                            <button onClick={handleNextWeek} className="p-2 hover:bg-surface-100 rounded-lg transition-colors text-surface-600">
                                 <ChevronRight className="w-5 h-5" />
                             </button>
                         </div>
@@ -434,10 +434,10 @@ export default function EmployeeRegisterPage() {
 
             {/* ★ REAL-TIME LOCK BANNER — appears instantly when admin closes registration or viewing old week */}
             {isClosed && (
-                <div className="bg-amber-50 border border-amber-300 text-amber-800 p-4 rounded-xl flex items-start gap-3 shadow-sm animate-in fade-in slide-in-from-top-2">
-                    <Lock className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
+                <div className="bg-warning-50 border border-warning-300 text-warning-800 p-4 rounded-xl flex items-start gap-3 shadow-sm animate-in fade-in slide-in-from-top-2">
+                    <Lock className="w-5 h-5 shrink-0 mt-0.5 text-warning-600" />
                     <div>
-                        <h3 className="font-bold text-amber-900">Không thể chỉnh sửa đăng ký</h3>
+                        <h3 className="font-bold text-warning-900">Không thể chỉnh sửa đăng ký</h3>
                         <p className="text-sm mt-1">
                             {!isWeekEditable
                                 ? 'Bạn chỉ có thể đăng ký lịch cho Tuần tiếp theo. Các tuần khác đã bị khóa hoặc chưa mở đăng ký.'
@@ -448,21 +448,21 @@ export default function EmployeeRegisterPage() {
             )}
 
             {/* Info Panel */}
-            <div className="bg-blue-50/50 border border-blue-100 p-4 rounded-xl flex items-start gap-3 text-blue-800 text-sm">
-                <Info className="w-5 h-5 shrink-0 text-blue-500 mt-0.5" />
+            <div className="bg-primary-50/50 border border-primary-100 p-4 rounded-xl flex items-start gap-3 text-primary-800 text-sm">
+                <Info className="w-5 h-5 shrink-0 text-primary-500 mt-0.5" />
                 <div>
-                    <strong className="block mb-1 text-blue-900">
+                    <strong className="block mb-1 text-primary-900">
                         Quy tắc đăng ký cho {userDoc?.role === 'manager' ? 'Quản lý' : `nhân viên ${isFT ? 'Toàn thời gian' : 'Bán thời gian'}`}:
                     </strong>
                     {userDoc?.role === 'manager' || isFT ? (
-                        <ul className="list-disc pl-5 space-y-0.5 marker:text-blue-400 text-blue-700">
+                        <ul className="list-disc pl-5 space-y-0.5 marker:text-primary-400 text-primary-700">
                             <li>Bạn phải chọn <strong>đúng 1 ca</strong> cho mỗi ngày đi làm.</li>
                             <li>Bạn được phép nghỉ <strong>tối đa 1 ngày</strong> mỗi tuần (có thể làm cả 7 ngày).</li>
                             <li>Không được chọn ngày nghỉ vào <strong>Thứ 7 hoặc Chủ nhật</strong>.</li>
                             {userDoc?.role === 'manager' && <li>Hệ thống sẽ cảnh báo nếu bạn nghỉ trùng ngày với quản lý khác.</li>}
                         </ul>
                     ) : (
-                        <ul className="list-disc pl-5 space-y-0.5 marker:text-blue-400 text-blue-700">
+                        <ul className="list-disc pl-5 space-y-0.5 marker:text-primary-400 text-primary-700">
                             <li>Bạn chỉ chọn <strong>tối đa 1 ca</strong> mỗi ngày.</li>
                             <li>Không bắt buộc ngày nghỉ, nhưng có thể nghỉ nhiều ngày nếu muốn.</li>
                         </ul>
@@ -472,21 +472,21 @@ export default function EmployeeRegisterPage() {
 
             {/* Error & Success Messages */}
             {error && (
-                <div className="bg-red-50 text-red-600 p-4 rounded-xl flex items-center gap-3 border border-red-100 animate-in fade-in slide-in-from-top-2">
+                <div className="bg-danger-50 text-danger-600 p-4 rounded-xl flex items-center gap-3 border border-danger-100 animate-in fade-in slide-in-from-top-2">
                     <AlertCircle className="w-5 h-5 shrink-0" />
                     <p className="text-sm font-medium">{error}</p>
                 </div>
             )}
             {success && (
-                <div className="bg-emerald-50 text-emerald-700 p-4 rounded-xl flex items-center gap-3 border border-emerald-200 animate-in fade-in slide-in-from-top-2">
-                    <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-500" />
+                <div className="bg-success-50 text-success-700 p-4 rounded-xl flex items-center gap-3 border border-success-200 animate-in fade-in slide-in-from-top-2">
+                    <CheckCircle2 className="w-5 h-5 shrink-0 text-success-500" />
                     <p className="text-sm font-medium">{success}</p>
                 </div>
             )}
 
             {/* Calendar Grid */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="flex flex-col lg:grid lg:grid-cols-7 lg:divide-x divide-slate-100 divide-y lg:divide-y-0">
+            <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
+                <div className="flex flex-col lg:grid lg:grid-cols-7 lg:divide-x divide-surface-100 divide-y lg:divide-y-0">
                     {weekDays.map((dateStr, i) => {
                         const dateObj = new Date(dateStr + 'T00:00:00');
                         const isToday = new Date().toDateString() === dateObj.toDateString();
@@ -498,17 +498,17 @@ export default function EmployeeRegisterPage() {
                             <div key={dateStr} className="flex flex-col sm:flex-row lg:flex-col lg:min-h-[300px]">
                                 {/* Day Header */}
                                 <div className={cn(
-                                    'p-3 sm:p-4 sm:w-32 lg:w-auto shrink-0 flex flex-row sm:flex-col items-center sm:justify-start justify-between border-b sm:border-b-0 sm:border-r lg:border-r-0 lg:border-b border-slate-100',
-                                    isToday ? 'bg-blue-50/50' : 'bg-slate-50/50'
+                                    'p-3 sm:p-4 sm:w-32 lg:w-auto shrink-0 flex flex-row sm:flex-col items-center sm:justify-start justify-between border-b sm:border-b-0 sm:border-r lg:border-r-0 lg:border-b border-surface-100',
+                                    isToday ? 'bg-primary-50/50' : 'bg-surface-50/50'
                                 )}>
-                                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{dayName}</div>
+                                    <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider">{dayName}</div>
                                     <div className={cn(
                                         'truncate flex-1 font-bold sm:mt-1 inline-flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full',
-                                        isToday ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'text-slate-800'
+                                        isToday ? 'bg-primary-600 text-white shadow-md shadow-primary-500/20' : 'text-surface-800'
                                     )}>
                                         {dayNum}
                                     </div>
-                                    <div className="text-xs text-slate-400 mt-1 sm:mt-0.5">{monthName}</div>
+                                    <div className="text-xs text-surface-400 mt-1 sm:mt-0.5">{monthName}</div>
                                 </div>
 
                                 {/* Shift Buttons */}
@@ -530,27 +530,27 @@ export default function EmployeeRegisterPage() {
                                                 className={cn(
                                                     'flex-1 sm:flex-none sm:w-full min-w-[70px] px-2 py-3 h-20 sm:px-3 sm:py-3 text-xs sm:text-sm font-semibold rounded-xl border-2 text-center transition-all duration-200',
                                                     isSelected
-                                                        ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
-                                                        : 'border-slate-100 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50',
-                                                    isClosed && !isSelected && 'opacity-50 cursor-not-allowed hover:border-slate-100 hover:bg-white',
+                                                        ? 'border-primary-500 bg-primary-50 text-primary-700 shadow-sm'
+                                                        : 'border-surface-100 bg-white text-surface-500 hover:border-surface-300 hover:bg-surface-50',
+                                                    isClosed && !isSelected && 'opacity-50 cursor-not-allowed hover:border-surface-100 hover:bg-white',
                                                     isClosed && isSelected && 'cursor-not-allowed',
-                                                    isFull && !isClosed && 'opacity-50 cursor-not-allowed hover:bg-slate-50 border-red-100 text-red-400 bg-red-50/30',
+                                                    isFull && !isClosed && 'opacity-50 cursor-not-allowed hover:bg-surface-50 border-danger-100 text-danger-400 bg-danger-50/30',
                                                 )}
                                             >
                                                 <div className="flex flex-col items-center">
                                                     <span>{shiftId}</span>
                                                     <span className={cn(
                                                         'text-[10px] font-bold',
-                                                        currentCount >= maxCount ? 'text-red-500' : isSelected ? 'text-blue-500/80' : 'text-slate-400'
+                                                        currentCount >= maxCount ? 'text-danger-500' : isSelected ? 'text-primary-500/80' : 'text-surface-400'
                                                     )}>NV: {currentCount}/{maxCount}</span>
                                                     {isBackup && !isSelected && (
-                                                        <span className="text-[9px] font-semibold text-blue-500/80 flex items-center gap-0.5">
+                                                        <span className="text-[9px] font-semibold text-primary-500/80 flex items-center gap-0.5">
                                                             <Users2 className="w-3 h-3" />
                                                             Có thể đăng ký
                                                         </span>
                                                     )}
                                                     {isFull && (
-                                                        <span className="text-[9px] font-semibold text-red-500 flex items-center gap-0.5">
+                                                        <span className="text-[9px] font-semibold text-danger-500 flex items-center gap-0.5">
                                                             <Users2 className="w-3 h-3" />
                                                             Đã đủ nhân sự
                                                         </span>
@@ -561,7 +561,7 @@ export default function EmployeeRegisterPage() {
                                     })}
 
                                     {settings?.shiftTimes.length === 0 && (
-                                        <div className="w-full text-xs text-slate-400 text-center mt-2 sm:mt-4">Không có ca</div>
+                                        <div className="w-full text-xs text-surface-400 text-center mt-2 sm:mt-4">Không có ca</div>
                                     )}
 
                                     {/* Manager Off Display */}
@@ -578,10 +578,10 @@ export default function EmployeeRegisterPage() {
             </div>
 
             {/* Footer Actions */}
-            <div className="flex flex-col gap-2 md:flex-row items-center justify-between pt-2 border-t border-slate-200">
-                <div className="text-sm text-slate-500">
+            <div className="flex flex-col gap-2 md:flex-row items-center justify-between pt-2 border-t border-surface-200">
+                <div className="text-sm text-surface-500">
                     {existingRegId ? (
-                        <span className="flex items-center gap-1.5 text-emerald-600 font-medium">
+                        <span className="flex items-center gap-1.5 text-success-600 font-medium">
                             <CheckCircle2 className="w-4 h-4" /> Đã lưu đăng ký cho tuần này
                         </span>
                     ) : (
@@ -593,7 +593,7 @@ export default function EmployeeRegisterPage() {
                         <button
                             onClick={handleDeleteRegistration}
                             disabled={saving || isClosed}
-                            className="flex items-center justify-center gap-2 flex-1 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:ring-4 focus:ring-red-500/30 border border-red-200"
+                            className="flex items-center justify-center gap-2 flex-1 bg-danger-50 hover:bg-danger-100 text-danger-600 px-4 py-2.5 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:ring-4 focus:ring-danger-500/30 border border-danger-200"
                         >
                             <Trash2 className="w-5 h-5" />
                             <span className="inline">Xóa đăng ký</span>
@@ -602,7 +602,7 @@ export default function EmployeeRegisterPage() {
                     <button
                         onClick={handleSave}
                         disabled={saving || isClosed}
-                        className="flex flex-1 items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed focus:ring-4 focus:ring-blue-500/30"
+                        className="flex flex-1 items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-6 py-2.5 rounded-lg font-medium transition-all shadow-lg shadow-primary-600/20 disabled:opacity-50 disabled:cursor-not-allowed focus:ring-4 focus:ring-primary-500/30"
                     >
                         {saving ? (
                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

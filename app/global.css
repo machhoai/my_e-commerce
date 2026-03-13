@@ -57,7 +57,86 @@
 
         --chart-5: 27 87% 67%;
 
-        --radius: 0.5rem
+        --radius: 0.5rem;
+
+        /* ── Design Tokens ─────────────────────────────────── */
+        /* Primary: Main CTA, links, headers, focus rings    */
+        --t-primary-50:  214 100% 97%;
+        --t-primary-100: 214 95% 93%;
+        --t-primary-200: 213 97% 87%;
+        --t-primary-300: 212 96% 78%;
+        --t-primary-400: 213 94% 68%;
+        --t-primary-500: 217 91% 60%;
+        --t-primary-600: 221 83% 53%;
+        --t-primary-700: 224 76% 48%;
+        --t-primary-800: 226 71% 40%;
+        --t-primary-900: 224 64% 33%;
+        --t-primary-950: 226 57% 21%;
+
+        /* Accent: Secondary actions, tags, highlights       */
+        --t-accent-50:  226 100% 97%;
+        --t-accent-100: 226 100% 94%;
+        --t-accent-200: 228 96% 89%;
+        --t-accent-300: 230 94% 82%;
+        --t-accent-400: 234 89% 74%;
+        --t-accent-500: 239 84% 67%;
+        --t-accent-600: 243 75% 59%;
+        --t-accent-700: 245 58% 51%;
+        --t-accent-800: 244 55% 41%;
+        --t-accent-900: 242 47% 34%;
+        --t-accent-950: 244 47% 20%;
+
+        /* Success: Active, confirmed, positive states       */
+        --t-success-50:  152 81% 96%;
+        --t-success-100: 149 80% 90%;
+        --t-success-200: 152 76% 80%;
+        --t-success-300: 156 72% 67%;
+        --t-success-400: 158 64% 52%;
+        --t-success-500: 160 84% 39%;
+        --t-success-600: 161 94% 30%;
+        --t-success-700: 163 94% 24%;
+        --t-success-800: 163 88% 20%;
+        --t-success-900: 164 86% 16%;
+        --t-success-950: 166 91% 9%;
+
+        /* Warning: Alerts, low stock, caution               */
+        --t-warning-50:  48 100% 96%;
+        --t-warning-100: 48 96% 89%;
+        --t-warning-200: 48 97% 77%;
+        --t-warning-300: 46 97% 65%;
+        --t-warning-400: 43 96% 56%;
+        --t-warning-500: 38 92% 50%;
+        --t-warning-600: 32 95% 44%;
+        --t-warning-700: 26 90% 37%;
+        --t-warning-800: 23 83% 31%;
+        --t-warning-900: 22 78% 26%;
+        --t-warning-950: 21 92% 14%;
+
+        /* Danger: Errors, destructive actions               */
+        --t-danger-50:  0 86% 97%;
+        --t-danger-100: 0 93% 94%;
+        --t-danger-200: 0 96% 89%;
+        --t-danger-300: 0 94% 82%;
+        --t-danger-400: 0 91% 71%;
+        --t-danger-500: 0 84% 60%;
+        --t-danger-600: 0 72% 51%;
+        --t-danger-700: 0 74% 42%;
+        --t-danger-800: 0 70% 35%;
+        --t-danger-900: 0 63% 31%;
+        --t-danger-950: 0 75% 15%;
+
+        /* Surface: Sidebar, dark backgrounds                */
+        --t-surface-50:  210 40% 98%;
+        --t-surface-100: 210 40% 96%;
+        --t-surface-200: 214 32% 91%;
+        --t-surface-300: 213 27% 84%;
+        --t-surface-400: 215 20% 65%;
+        --t-surface-500: 215 16% 47%;
+        --t-surface-600: 215 19% 35%;
+        --t-surface-700: 215 25% 27%;
+        --t-surface-800: 217 33% 17%;
+        --t-surface-900: 222 47% 11%;
+        --t-surface-950: 229 84% 5%;
     }
 
     .dark {

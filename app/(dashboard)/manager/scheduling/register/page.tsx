@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { StoreSettings, WeeklyRegistration, StoreDoc } from '@/types';
+import { StoreSettings, WeeklyRegistration, StoreDoc, UserRole, EmployeeType } from '@/types';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { getWeekStart, getWeekDays, formatDate, toLocalDateString, cn } from '@/lib/utils';
@@ -11,11 +11,35 @@ import {
 } from 'lucide-react';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
-/** Shorten Vietnamese full name to middle + first name */
+/** Shorten Vietnamese full name to middle + first name (e.g. "Nguyễn Văn An" → "Văn An") */
 function shortenName(fullName: string): string {
     const parts = fullName.trim().split(/\s+/);
     if (parts.length <= 2) return fullName;
     return parts.slice(1).join(' ');
+}
+
+interface UserInfo { name: string; role: UserRole; type: EmployeeType; }
+
+/** Get display color classes based on role/type */
+function getRoleColor(info: UserInfo): string {
+    if (info.role === 'store_manager') return 'text-danger-600';
+    if (info.role === 'manager') return 'text-warning-600';
+    if (info.type === 'FT') return 'text-primary-600';
+    return 'text-success-600'; // PT
+}
+
+function getRoleDotColor(info: UserInfo): string {
+    if (info.role === 'store_manager') return 'bg-danger-500';
+    if (info.role === 'manager') return 'bg-warning-500';
+    if (info.type === 'FT') return 'bg-primary-500';
+    return 'bg-success-500';
+}
+
+function getRoleBadgeColor(info: UserInfo): string {
+    if (info.role === 'store_manager') return 'bg-danger-100 text-danger-700 border-danger-200/50';
+    if (info.role === 'manager') return 'bg-warning-100 text-warning-700 border-warning-200/50';
+    if (info.type === 'FT') return 'bg-primary-100 text-primary-700 border-primary-200/50';
+    return 'bg-success-100 text-success-700 border-success-200/50';
 }
 
 export default function ManagerRegistrationOverviewPage() {
@@ -32,7 +56,7 @@ export default function ManagerRegistrationOverviewPage() {
     const weekDays = getWeekDays(currentWeekStart);
 
     const [allRegistrations, setAllRegistrations] = useState<WeeklyRegistration[]>([]);
-    const [userNameMap, setUserNameMap] = useState<Map<string, string>>(new Map());
+    const [userInfoMap, setUserInfoMap] = useState<Map<string, UserInfo>>(new Map());
     const [loading, setLoading] = useState(true);
 
     // ─── Admin store selector (same pattern as overview page) ─────────────────
@@ -100,17 +124,18 @@ export default function ManagerRegistrationOverviewPage() {
                 allRegsSnap.forEach(d => regs.push(d.data() as WeeklyRegistration));
                 setAllRegistrations(regs);
 
-                // 3. Build uid → name map
+                // 3. Build uid → user info map (active users only)
                 const usersQuery = query(collection(db, 'users'), where('storeId', '==', effectiveStoreId));
                 const usersSnap = await getDocs(usersQuery);
-                const nameMap = new Map<string, string>();
+                const infoMap = new Map<string, UserInfo>();
                 usersSnap.forEach(d => {
                     const data = d.data();
-                    if (data.uid && data.name && data.active !== false) {
-                        nameMap.set(data.uid, data.name);
+                    console.log(data);
+                    if (data.uid && data.name && data.isActive !== false && data.role !== 'admin' && data.role !== 'super_admin') {
+                        infoMap.set(data.uid, { name: data.name, role: data.role, type: data.type ?? 'PT' });
                     }
                 });
-                setUserNameMap(nameMap);
+                setUserInfoMap(infoMap);
             } catch (err) {
                 console.error('Lỗi khi tải dữ liệu:', err);
             } finally {
@@ -143,15 +168,22 @@ export default function ManagerRegistrationOverviewPage() {
         return count;
     };
 
-    const getRegisteredNames = (dateStr: string, shiftId: string): string[] => {
-        const names: string[] = [];
+    const getRegisteredUsers = (dateStr: string, shiftId: string): { name: string; info: UserInfo }[] => {
+        const result: { name: string; info: UserInfo }[] = [];
         allRegistrations.forEach(reg => {
             if (reg.shifts.some(s => s.date === dateStr && s.shiftId === shiftId)) {
-                const name = userNameMap.get(reg.userId);
-                if (name) names.push(shortenName(name));
+                const info = userInfoMap.get(reg.userId);
+                if (info) result.push({ name: shortenName(info.name), info });
             }
         });
-        return names.sort((a, b) => a.localeCompare(b, 'vi'));
+        // Sort: store_manager first, then manager, then employees
+        const roleOrder: Record<string, number> = { store_manager: 0, manager: 1 };
+        return result.sort((a, b) => {
+            const oa = roleOrder[a.info.role] ?? 2;
+            const ob = roleOrder[b.info.role] ?? 2;
+            if (oa !== ob) return oa - ob;
+            return a.name.localeCompare(b.name, 'vi');
+        });
     };
 
     // ─── Week Navigation ─────────────────────────────────────────────────────
@@ -178,8 +210,8 @@ export default function ManagerRegistrationOverviewPage() {
 
     if (!canAccess) {
         return (
-            <div className="flex flex-col items-center justify-center h-64 gap-3 text-slate-500">
-                <ClipboardList className="w-10 h-10 text-slate-300" />
+            <div className="flex flex-col items-center justify-center h-64 gap-3 text-surface-500">
+                <ClipboardList className="w-10 h-10 text-surface-300" />
                 <p className="font-medium">Bạn không có quyền xem trang này.</p>
                 <p className="text-sm">Yêu cầu quyền <strong>Quản lý Nhân sự</strong> từ quản trị viên.</p>
             </div>
@@ -188,21 +220,21 @@ export default function ManagerRegistrationOverviewPage() {
 
     // Count total registrations for this week
     const totalRegistered = new Set(allRegistrations.map(r => r.userId)).size;
-    const totalUsers = userNameMap.size;
+    const totalUsers = userInfoMap.size;
 
     return (
         <div className="space-y-6 mx-auto">
             {/* Admin Store Selector */}
             {isAdmin && (
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <div className="bg-white rounded-xl border border-surface-200 shadow-sm p-3 flex flex-col sm:flex-row items-start sm:items-center gap-3">
                     <div className="flex items-center gap-2 shrink-0">
-                        <Building2 className="w-4 h-4 text-indigo-500" />
-                        <span className="text-sm font-semibold text-slate-700">Cửa hàng:</span>
+                        <Building2 className="w-4 h-4 text-accent-500" />
+                        <span className="text-sm font-semibold text-surface-700">Cửa hàng:</span>
                     </div>
                     <select
                         value={selectedAdminStoreId}
                         onChange={e => setSelectedAdminStoreId(e.target.value)}
-                        className="flex-1 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-slate-50 font-medium"
+                        className="flex-1 border border-surface-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-accent-300 bg-surface-50 font-medium"
                     >
                         <option value="">-- Chọn cửa hàng --</option>
                         {stores.map(s => <option key={s.id} value={s.id}>🏪 {s.name}</option>)}
@@ -212,9 +244,9 @@ export default function ManagerRegistrationOverviewPage() {
 
             {/* Prompt admin to select a store */}
             {isAdmin && !effectiveStoreId && (
-                <div className="bg-slate-50 border border-slate-200 p-8 rounded-xl text-center">
-                    <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 font-medium">Vui lòng chọn một cửa hàng để xem đăng ký ca.</p>
+                <div className="bg-surface-50 border border-surface-200 p-8 rounded-xl text-center">
+                    <Building2 className="w-10 h-10 text-surface-300 mx-auto mb-3" />
+                    <p className="text-surface-500 font-medium">Vui lòng chọn một cửa hàng để xem đăng ký ca.</p>
                 </div>
             )}
 
@@ -227,27 +259,27 @@ export default function ManagerRegistrationOverviewPage() {
                         titleChildren={
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
                                 <div>
-                                    <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
-                                        <ClipboardList className="w-7 h-7 text-indigo-600" />
+                                    <h1 className="text-2xl font-bold bg-gradient-to-r from-accent-600 to-accent-600 bg-clip-text text-transparent flex items-center gap-2">
+                                        <ClipboardList className="w-7 h-7 text-accent-600" />
                                         Đăng ký ca làm
                                     </h1>
-                                    <p className="text-slate-500 mt-1 text-sm flex items-center gap-2">
+                                    <p className="text-surface-500 mt-1 text-sm flex items-center gap-2">
                                         Xem nhân viên đã đăng ký ca nào trong tuần.
-                                        <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold border border-indigo-200">
+                                        <span className="bg-accent-50 text-accent-700 px-2 py-0.5 rounded text-xs font-bold border border-accent-200">
                                             {totalRegistered}/{totalUsers} đã đăng ký
                                         </span>
                                     </p>
                                 </div>
 
                                 {/* Week Navigation */}
-                                <div className="flex items-center justify-center gap-4 bg-white p-2 rounded-xl shadow-sm border border-slate-200 shrink-0">
-                                    <button onClick={handlePreviousWeek} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
+                                <div className="flex items-center justify-center gap-4 bg-white p-2 rounded-xl shadow-sm border border-surface-200 shrink-0">
+                                    <button onClick={handlePreviousWeek} className="p-2 hover:bg-surface-100 rounded-lg transition-colors text-surface-600">
                                         <ChevronLeft className="w-5 h-5" />
                                     </button>
-                                    <div className="flex-1 text-sm font-semibold text-slate-700 min-w-[140px] text-center">
+                                    <div className="flex-1 text-sm font-semibold text-surface-700 min-w-[140px] text-center">
                                         {formatDate(weekDays[0])} - {formatDate(weekDays[6])}
                                     </div>
-                                    <button onClick={handleNextWeek} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
+                                    <button onClick={handleNextWeek} className="p-2 hover:bg-surface-100 rounded-lg transition-colors text-surface-600">
                                         <ChevronRight className="w-5 h-5" />
                                     </button>
                                 </div>
@@ -257,13 +289,13 @@ export default function ManagerRegistrationOverviewPage() {
 
                     {loading ? (
                         <div className="flex justify-center items-center h-64">
-                            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                            <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
                         </div>
                     ) : (
                         <>
                             {/* Calendar Grid */}
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="flex flex-col lg:grid lg:grid-cols-7 lg:divide-x divide-slate-100 divide-y lg:divide-y-0">
+                            <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
+                                <div className="flex flex-col lg:grid lg:grid-cols-7 lg:divide-x divide-surface-100 divide-y lg:divide-y-0">
                                     {weekDays.map((dateStr) => {
                                         const dateObj = new Date(dateStr + 'T00:00:00');
                                         const isToday = new Date().toDateString() === dateObj.toDateString();
@@ -275,17 +307,17 @@ export default function ManagerRegistrationOverviewPage() {
                                             <div key={dateStr} className="flex flex-col">
                                                 {/* Day Header */}
                                                 <div className={cn(
-                                                    'p-3 flex flex-row lg:flex-col items-center justify-between lg:justify-start border-b border-slate-100',
-                                                    isToday ? 'bg-blue-50/50' : 'bg-slate-50/50'
+                                                    'p-3 flex flex-row lg:flex-col items-center justify-between lg:justify-start border-b border-surface-100',
+                                                    isToday ? 'bg-primary-50/50' : 'bg-surface-50/50'
                                                 )}>
-                                                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{dayName}</div>
+                                                    <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider">{dayName}</div>
                                                     <div className={cn(
                                                         'font-bold inline-flex items-center justify-center w-8 h-8 lg:w-10 lg:h-10 rounded-full lg:mt-1',
-                                                        isToday ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'text-slate-800'
+                                                        isToday ? 'bg-primary-600 text-white shadow-md shadow-primary-500/20' : 'text-surface-800'
                                                     )}>
                                                         {dayNum}
                                                     </div>
-                                                    <div className="text-xs text-slate-400 lg:mt-0.5">{monthName}</div>
+                                                    <div className="text-xs text-surface-400 lg:mt-0.5">{monthName}</div>
                                                 </div>
 
                                                 {/* Shifts */}
@@ -293,7 +325,7 @@ export default function ManagerRegistrationOverviewPage() {
                                                     {settings?.shiftTimes.map(shiftId => {
                                                         const currentCount = getShiftCount(dateStr, shiftId);
                                                         const maxCount = getShiftQuota(dateStr, shiftId);
-                                                        const names = getRegisteredNames(dateStr, shiftId);
+                                                        const registeredUsers = getRegisteredUsers(dateStr, shiftId);
                                                         const isFull = currentCount >= maxCount;
 
                                                         return (
@@ -302,49 +334,46 @@ export default function ManagerRegistrationOverviewPage() {
                                                                 className={cn(
                                                                     'rounded-xl border-2 p-2.5 transition-all',
                                                                     isFull
-                                                                        ? 'border-emerald-200 bg-emerald-50/50'
+                                                                        ? 'border-success-200 bg-success-50/50'
                                                                         : currentCount > 0
-                                                                            ? 'border-blue-200 bg-blue-50/30'
-                                                                            : 'border-slate-100 bg-slate-50/30'
+                                                                            ? 'border-primary-200 bg-primary-50/30'
+                                                                            : 'border-surface-100 bg-surface-50/30'
                                                                 )}
                                                             >
                                                                 {/* Shift header */}
                                                                 <div className="flex items-center justify-between mb-1">
-                                                                    <span className="text-xs font-bold text-slate-700">{shiftId}</span>
+                                                                    <span className="text-xs font-bold text-surface-700">{shiftId}</span>
                                                                     <span className={cn(
                                                                         'text-[10px] font-bold px-1.5 py-0.5 rounded-full',
                                                                         isFull
-                                                                            ? 'bg-emerald-100 text-emerald-700'
+                                                                            ? 'bg-success-100 text-success-700'
                                                                             : currentCount > 0
-                                                                                ? 'bg-blue-100 text-blue-600'
-                                                                                : 'bg-slate-100 text-slate-400'
+                                                                                ? 'bg-primary-100 text-primary-600'
+                                                                                : 'bg-surface-100 text-surface-400'
                                                                     )}>
                                                                         {currentCount}/{maxCount}
                                                                     </span>
                                                                 </div>
 
-                                                                {/* Registrant names */}
-                                                                {names.length > 0 ? (
+                                                                {/* Registrant names — color coded by role */}
+                                                                {registeredUsers.length > 0 ? (
                                                                     <div className="space-y-0.5">
-                                                                        {names.map((name, idx) => (
-                                                                            <div key={idx} className="text-[11px] text-slate-600 font-medium truncate flex items-center gap-1">
-                                                                                <span className={cn(
-                                                                                    'w-1.5 h-1.5 rounded-full shrink-0',
-                                                                                    isFull ? 'bg-emerald-400' : 'bg-blue-400'
-                                                                                )} />
-                                                                                {name}
+                                                                        {registeredUsers.map((u, idx) => (
+                                                                            <div key={idx} className={cn('text-[11px] font-medium truncate flex items-center gap-1', getRoleColor(u.info))}>
+                                                                                <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', getRoleDotColor(u.info))} />
+                                                                                {u.name}
                                                                             </div>
                                                                         ))}
                                                                     </div>
                                                                 ) : (
-                                                                    <p className="text-[10px] text-slate-300 italic">Chưa có ai</p>
+                                                                    <p className="text-[10px] text-surface-300 italic">Chưa có ai</p>
                                                                 )}
                                                             </div>
                                                         );
                                                     })}
 
                                                     {settings?.shiftTimes.length === 0 && (
-                                                        <div className="text-xs text-slate-400 text-center mt-4">Không có ca</div>
+                                                        <div className="text-xs text-surface-400 text-center mt-4">Không có ca</div>
                                                     )}
                                                 </div>
                                             </div>
@@ -353,34 +382,42 @@ export default function ManagerRegistrationOverviewPage() {
                                 </div>
                             </div>
 
-                            {/* Summary: Who hasn't registered */}
+                            {/* Color Legend */}
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-xs font-medium">
+                                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-danger-500"></span><span className="text-surface-500">Cửa hàng trưởng</span></span>
+                                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-warning-500"></span><span className="text-surface-500">Quản lý</span></span>
+                                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-primary-500"></span><span className="text-surface-500">Full-time</span></span>
+                                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-success-500"></span><span className="text-surface-500">Part-time</span></span>
+                            </div>
+
+                            {/* Summary: Who hasn't registered (active users only) */}
                             {(() => {
                                 const registeredUids = new Set(allRegistrations.map(r => r.userId));
-                                const unregistered = Array.from(userNameMap.entries())
+                                const unregistered = Array.from(userInfoMap.entries())
                                     .filter(([uid]) => !registeredUids.has(uid))
-                                    .map(([, name]) => shortenName(name))
-                                    .sort((a, b) => a.localeCompare(b, 'vi'));
+                                    .map(([, info]) => ({ name: shortenName(info.name), info }))
+                                    .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
 
                                 return unregistered.length > 0 ? (
-                                    <div className="bg-amber-50/80 border border-amber-200 p-4 rounded-xl">
+                                    <div className="bg-warning-50/80 border border-warning-200 p-4 rounded-xl">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <Users2 className="w-4 h-4 text-amber-600" />
-                                            <h3 className="text-sm font-bold text-amber-800">
+                                            <Users2 className="w-4 h-4 text-warning-600" />
+                                            <h3 className="text-sm font-bold text-warning-800">
                                                 Chưa đăng ký ({unregistered.length} người)
                                             </h3>
                                         </div>
                                         <div className="flex flex-wrap gap-1.5">
-                                            {unregistered.map((name, idx) => (
-                                                <span key={idx} className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium border border-amber-200/50">
-                                                    {name}
+                                            {unregistered.map((u, idx) => (
+                                                <span key={idx} className={cn('text-xs px-2 py-0.5 rounded-full font-medium border', getRoleBadgeColor(u.info))}>
+                                                    {u.name}
                                                 </span>
                                             ))}
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="bg-emerald-50/80 border border-emerald-200 p-4 rounded-xl flex items-center gap-2">
-                                        <Users2 className="w-4 h-4 text-emerald-600" />
-                                        <span className="text-sm font-medium text-emerald-700">Tất cả nhân viên đã đăng ký ca cho tuần này! 🎉</span>
+                                    <div className="bg-success-50/80 border border-success-200 p-4 rounded-xl flex items-center gap-2">
+                                        <Users2 className="w-4 h-4 text-success-600" />
+                                        <span className="text-sm font-medium text-success-700">Tất cả nhân viên đã đăng ký ca cho tuần này! 🎉</span>
                                     </div>
                                 );
                             })()}

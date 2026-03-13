@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -206,7 +206,7 @@ export default function ManagerKpiScoringPage() {
     };
 
     if (!userDoc || (userDoc.role !== 'admin' && userDoc.role !== 'store_manager' && !hasPermission('score_employees'))) {
-        return <div className="p-8 text-center text-red-500 font-bold">Không có quyền truy cập.</div>;
+        return <div className="p-8 text-center text-danger-500 font-bold">Không có quyền truy cập.</div>;
     }
 
     return (
@@ -217,23 +217,23 @@ export default function ManagerKpiScoringPage() {
                 titleChildren={
                     <div className="flex items-center justify-between w-full">
                         <div>
-                            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                                <ClipboardCheck className="w-7 h-7 text-indigo-600" />
+                            <h1 className="text-2xl font-bold text-surface-800 flex items-center gap-2">
+                                <ClipboardCheck className="w-7 h-7 text-accent-600" />
                                 Chấm điểm ca trực
                             </h1>
-                            <p className="text-slate-500 mt-1 text-sm">Chấm điểm KPI chính thức cho nhân viên theo ca.</p>
+                            <p className="text-surface-500 mt-1 text-sm">Chấm điểm KPI chính thức cho nhân viên theo ca.</p>
                         </div>
-                        <button onClick={loadData} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"><RefreshCw className="w-4 h-4" /></button>
+                        <button onClick={loadData} className="p-2 rounded-lg hover:bg-surface-100 text-surface-500 transition-colors"><RefreshCw className="w-4 h-4" /></button>
                     </div>
                 }
             />
 
             {/* Admin Store Selector */}
             {userDoc.role === 'admin' && (
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex items-center gap-3">
-                    <Building2 className="w-4 h-4 text-indigo-500" />
+                <div className="bg-white rounded-xl border border-surface-200 shadow-sm p-3 flex items-center gap-3">
+                    <Building2 className="w-4 h-4 text-accent-500" />
                     <select value={selectedStoreId} onChange={e => setSelectedStoreId(e.target.value)}
-                        className="flex-1 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                        className="flex-1 border border-surface-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-accent-300">
                         <option value="">-- Chọn cửa hàng --</option>
                         {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
                     </select>
@@ -242,38 +242,38 @@ export default function ManagerKpiScoringPage() {
 
             {/* Controls */}
             <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative bg-white p-2 rounded-xl shadow-sm border border-slate-200 flex-1">
-                    <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <div className="relative bg-white p-2 rounded-xl shadow-sm border border-surface-200 flex-1">
+                    <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
                     <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-                        className="pl-9 pr-3 py-2 w-full text-sm outline-none font-medium text-slate-700" />
+                        className="pl-9 pr-3 py-2 w-full text-sm outline-none font-medium text-surface-700" />
                 </div>
 
-                <div className="relative bg-white p-2 rounded-xl shadow-sm border border-slate-200 min-w-[180px]">
-                    <Clock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <div className="relative bg-white p-2 rounded-xl shadow-sm border border-surface-200 min-w-[180px]">
+                    <Clock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
                     <select value={selectedShiftId} onChange={e => setSelectedShiftId(e.target.value)}
-                        className="pl-9 pr-8 py-2 w-full text-sm outline-none font-medium text-slate-700 appearance-none cursor-pointer">
+                        className="pl-9 pr-8 py-2 w-full text-sm outline-none font-medium text-surface-700 appearance-none cursor-pointer">
                         {shiftTimes.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
-                    <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 pointer-events-none" />
                 </div>
             </div>
 
             {/* Alerts */}
-            {error && <div className="bg-red-50 text-red-600 p-3 rounded-xl flex items-center gap-2 border border-red-100">
+            {error && <div className="bg-danger-50 text-danger-600 p-3 rounded-xl flex items-center gap-2 border border-danger-100">
                 <AlertCircle className="w-4 h-4 shrink-0" /><span className="text-sm flex-1">{error}</span>
                 <button onClick={() => setError('')}><X className="w-4 h-4" /></button>
             </div>}
-            {success && <div className="bg-emerald-50 text-emerald-700 p-3 rounded-xl flex items-center gap-2 border border-emerald-100">
+            {success && <div className="bg-success-50 text-success-700 p-3 rounded-xl flex items-center gap-2 border border-success-100">
                 <CheckCircle2 className="w-4 h-4 shrink-0" /><span className="text-sm flex-1">{success}</span>
                 <button onClick={() => setSuccess('')}><X className="w-4 h-4" /></button>
             </div>}
 
             {/* Employee list */}
             {loading ? (
-                <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
+                <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-accent-500 border-t-transparent rounded-full animate-spin" /></div>
             ) : employees.length === 0 ? (
-                <div className="bg-white border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center text-slate-400">
-                    <User className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+                <div className="bg-white border-2 border-dashed border-surface-300 rounded-2xl p-12 text-center text-surface-400">
+                    <User className="w-10 h-10 mx-auto mb-3 text-surface-300" />
                     <p className="font-semibold">Không có nhân viên nào trong ca này</p>
                 </div>
             ) : (
@@ -287,22 +287,22 @@ export default function ManagerKpiScoringPage() {
                         const template = getTemplateForCounter(counterId);
 
                         return (
-                            <div key={emp.uid} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                            <div key={emp.uid} className="bg-white border border-surface-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
                                 <div className="flex items-start justify-between mb-3">
                                     <div className="min-w-0">
-                                        <p className="font-bold text-slate-800 truncate">{emp.name}</p>
-                                        <p className="text-xs text-slate-400">{counterName} · {selectedShiftId}</p>
+                                        <p className="font-bold text-surface-800 truncate">{emp.name}</p>
+                                        <p className="text-xs text-surface-400">{counterName} · {selectedShiftId}</p>
                                     </div>
                                     {record?.status === 'OFFICIAL' ? (
-                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 shrink-0">
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-success-100 text-success-700 border border-success-200 shrink-0">
                                             ✓ Đã chấm
                                         </span>
                                     ) : record?.status === 'SELF_SCORED' ? (
-                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 shrink-0">
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 border border-primary-200 shrink-0">
                                             NV đã chấm
                                         </span>
                                     ) : (
-                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 shrink-0">
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface-100 text-surface-500 border border-surface-200 shrink-0">
                                             Chưa chấm
                                         </span>
                                     )}
@@ -310,14 +310,14 @@ export default function ManagerKpiScoringPage() {
 
                                 {record && (
                                     <div className="flex items-center gap-3 mb-3 text-xs">
-                                        <div className="bg-blue-50 text-blue-700 px-2 py-1 rounded-lg font-bold border border-blue-100">
+                                        <div className="bg-primary-50 text-primary-700 px-2 py-1 rounded-lg font-bold border border-primary-100">
                                             Tự chấm: {record.selfTotal}
                                         </div>
                                         {record.status === 'OFFICIAL' && (
                                             <div className={cn('px-2 py-1 rounded-lg font-bold border',
-                                                record.officialTotal >= 80 ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                                                    record.officialTotal >= 50 ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                                                        'bg-red-50 text-red-700 border-red-100'
+                                                record.officialTotal >= 80 ? 'bg-success-50 text-success-700 border-success-100' :
+                                                    record.officialTotal >= 50 ? 'bg-warning-50 text-warning-700 border-warning-100' :
+                                                        'bg-danger-50 text-danger-700 border-danger-100'
                                             )}>
                                                 Chính thức: {record.officialTotal}
                                             </div>
@@ -331,15 +331,15 @@ export default function ManagerKpiScoringPage() {
                                     className={cn(
                                         'w-full py-2 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-colors',
                                         record?.status === 'OFFICIAL'
-                                            ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
-                                            : 'bg-indigo-600 text-white hover:bg-indigo-700',
+                                            ? 'bg-success-50 text-success-700 hover:bg-success-100 border border-success-200'
+                                            : 'bg-accent-600 text-white hover:bg-accent-700',
                                         !template && 'opacity-50 cursor-not-allowed'
                                     )}
                                 >
                                     <ClipboardCheck className="w-4 h-4" />
                                     {record?.status === 'OFFICIAL' ? 'Sửa điểm' : 'Chấm điểm'}
                                 </button>
-                                {!template && <p className="text-[10px] text-amber-500 mt-1 text-center">Chưa có mẫu KPI cho quầy này</p>}
+                                {!template && <p className="text-[10px] text-warning-500 mt-1 text-center">Chưa có mẫu KPI cho quầy này</p>}
                             </div>
                         );
                     })}

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Package, TrendingUp, AlertTriangle, XCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -66,19 +66,19 @@ function KPICard({ title, value, icon: Icon, variant = "default", smallValue }: 
             value: "text-foreground",
         },
         success: {
-            card: "bg-emerald-50/50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/50",
-            icon: "text-emerald-600 bg-emerald-100 dark:bg-emerald-900/50 dark:text-emerald-400",
-            value: "text-emerald-700 dark:text-emerald-400",
+            card: "bg-success-50/50 border-success-200 dark:bg-success-950/20 dark:border-success-900/50",
+            icon: "text-success-600 bg-success-100 dark:bg-success-900/50 dark:text-success-400",
+            value: "text-success-700 dark:text-success-400",
         },
         warning: {
-            card: "bg-amber-50/50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/50",
-            icon: "text-amber-600 bg-amber-100 dark:bg-amber-900/50 dark:text-amber-400",
-            value: "text-amber-700 dark:text-amber-400",
+            card: "bg-warning-50/50 border-warning-200 dark:bg-warning-950/20 dark:border-warning-900/50",
+            icon: "text-warning-600 bg-warning-100 dark:bg-warning-900/50 dark:text-warning-400",
+            value: "text-warning-700 dark:text-warning-400",
         },
         danger: {
-            card: "bg-red-50/50 border-red-200 dark:bg-red-950/20 dark:border-red-900/50",
-            icon: "text-red-600 bg-red-100 dark:bg-red-900/50 dark:text-red-400",
-            value: "text-red-700 dark:text-red-400",
+            card: "bg-danger-50/50 border-danger-200 dark:bg-danger-950/20 dark:border-danger-900/50",
+            icon: "text-danger-600 bg-danger-100 dark:bg-danger-900/50 dark:text-danger-400",
+            value: "text-danger-700 dark:text-danger-400",
         },
     }
 

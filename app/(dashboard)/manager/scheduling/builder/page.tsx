@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { db } from '@/lib/firebase';
@@ -495,7 +495,7 @@ export default function ManagerSchedulePage() {
     if (loadingConfig) {
         return (
             <div className="flex justify-center items-center h-64">
-                <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
             </div>
         );
     }
@@ -503,9 +503,9 @@ export default function ManagerSchedulePage() {
     if (!userDoc || (userDoc.role !== 'admin' && userDoc.role !== 'store_manager' && !userDoc.canManageHR)) {
         return (
             <div className="flex flex-col items-center justify-center h-64 space-y-4">
-                <AlertCircle className="w-12 h-12 text-red-500" />
-                <h2 className="text-xl font-bold text-slate-800">Không có quyền truy cập</h2>
-                <p className="text-slate-500">Bạn không được cấp quyền để xếp lịch nhân viên.</p>
+                <AlertCircle className="w-12 h-12 text-danger-500" />
+                <h2 className="text-xl font-bold text-surface-800">Không có quyền truy cập</h2>
+                <p className="text-surface-500">Bạn không được cấp quyền để xếp lịch nhân viên.</p>
             </div>
         );
     }
@@ -516,31 +516,31 @@ export default function ManagerSchedulePage() {
         <div className="h-full flex flex-col gap-4">
             {/* Admin Store Selector Banner */}
             {userDoc?.role === 'admin' && (
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <div className="bg-white rounded-xl border border-surface-200 shadow-sm p-3 flex flex-col sm:flex-row items-start sm:items-center gap-3">
                     <div className="flex items-center gap-2 shrink-0">
-                        <Building2 className="w-4 h-4 text-indigo-500" />
-                        <span className="text-sm font-semibold text-slate-700">Cửa hàng:</span>
+                        <Building2 className="w-4 h-4 text-accent-500" />
+                        <span className="text-sm font-semibold text-surface-700">Cửa hàng:</span>
                     </div>
                     <select
                         value={selectedAdminStoreId}
                         onChange={e => setSelectedAdminStoreId(e.target.value)}
-                        className="flex-1 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 bg-slate-50 font-medium"
+                        className="flex-1 border border-surface-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-accent-300 focus:border-accent-400 bg-surface-50 font-medium"
                     >
                         <option value="">-- Chọn cửa hàng để xem lịch --</option>
                         {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
                     </select>
                     {!effectiveStoreId && (
-                        <p className="text-xs text-amber-600 font-medium shrink-0">⚠️ Chọn cửa hàng để tiếp tục</p>
+                        <p className="text-xs text-warning-600 font-medium shrink-0">⚠️ Chọn cửa hàng để tiếp tục</p>
                     )}
                 </div>
             )}
 
             {/* Show empty state for admin who hasn't picked a store */}
             {userDoc?.role === 'admin' && !effectiveStoreId ? (
-                <div className="flex-1 flex flex-col items-center justify-center bg-white rounded-2xl border border-dashed border-slate-300 p-16 text-center">
-                    <Building2 className="w-14 h-14 mx-auto mb-4 text-slate-300" />
-                    <h3 className="text-lg font-semibold text-slate-600 mb-2">Vui lòng chọn cửa hàng</h3>
-                    <p className="text-slate-400 text-sm max-w-sm mx-auto">
+                <div className="flex-1 flex flex-col items-center justify-center bg-white rounded-2xl border border-dashed border-surface-300 p-16 text-center">
+                    <Building2 className="w-14 h-14 mx-auto mb-4 text-surface-300" />
+                    <h3 className="text-lg font-semibold text-surface-600 mb-2">Vui lòng chọn cửa hàng</h3>
+                    <p className="text-surface-400 text-sm max-w-sm mx-auto">
                         Chọn một cửa hàng từ thanh trên để xem và phân công lịch làm việc.
                     </p>
                 </div>
@@ -552,39 +552,39 @@ export default function ManagerSchedulePage() {
                         titleChildren={
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
                                 <div>
-                                    <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
-                                        <Calendar className="w-7 h-7 text-blue-600" />
+                                    <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-600 to-accent-600 bg-clip-text text-transparent flex items-center gap-2">
+                                        <Calendar className="w-7 h-7 text-primary-600" />
                                         Quản lý Lịch làm việc
                                     </h1>
-                                    <p className="text-slate-500 mt-1 text-sm">Kéo hoặc nhấn chọn nhân viên rồi nhấn vào quầy để phân công ca làm.</p>
+                                    <p className="text-surface-500 mt-1 text-sm">Kéo hoặc nhấn chọn nhân viên rồi nhấn vào quầy để phân công ca làm.</p>
                                 </div>
 
                                 <div className="flex items-stretch flex-col md:flex-row gap-4 shrink-0">
-                                    <div className="flex items-center justify-center w-full gap-2 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-                                        <button onClick={handlePreviousWeek} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
+                                    <div className="flex items-center justify-center w-full gap-2 bg-white p-2 rounded-xl shadow-sm border border-surface-200">
+                                        <button onClick={handlePreviousWeek} className="p-1.5 hover:bg-surface-100 rounded-lg transition-colors text-surface-600">
                                             <ChevronLeft className="w-5 h-5" />
                                         </button>
-                                        <div className="text-sm font-semibold text-slate-700 min-w-[140px] text-center flex-1 truncate">
+                                        <div className="text-sm font-semibold text-surface-700 min-w-[140px] text-center flex-1 truncate">
                                             {formatDate(weekDays[0])} - {formatDate(weekDays[6])}
                                         </div>
-                                        <button onClick={handleNextWeek} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
+                                        <button onClick={handleNextWeek} className="p-1.5 hover:bg-surface-100 rounded-lg transition-colors text-surface-600">
                                             <ChevronRight className="w-5 h-5" />
                                         </button>
                                     </div>
 
-                                    <div className="w-px items-stretch bg-slate-200 hidden md:block" />
+                                    <div className="w-px items-stretch bg-surface-200 hidden md:block" />
 
-                                    <div className="relative w-full h-full bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-                                        <Clock className="size-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                    <div className="relative w-full h-full bg-white p-2 rounded-xl shadow-sm border border-surface-200">
+                                        <Clock className="size-5 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
                                         <select
                                             value={selectedShiftId}
                                             onChange={e => setSelectedShiftId(e.target.value)}
-                                            className="pl-10 pr-8 py-2 w-full h-full text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer min-w-[140px]"
+                                            className="pl-10 pr-8 py-2 w-full h-full text-sm font-medium text-surface-700 outline-none focus:ring-2 focus:ring-primary-500 appearance-none cursor-pointer min-w-[140px]"
                                         >
                                             {shiftTimes.length === 0 && <option value="">Không có ca làm nào</option>}
                                             {shiftTimes.map(shift => <option key={shift} value={shift}>{shift}</option>)}
                                         </select>
-                                        <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                        <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 pointer-events-none" />
                                     </div>
                                 </div>
                             </div>
@@ -592,7 +592,7 @@ export default function ManagerSchedulePage() {
                     />
 
                     {/* 7-Day Date Picker */}
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-2 overflow-x-auto">
+                    <div className="bg-white rounded-xl shadow-sm border border-surface-200 p-2 overflow-x-auto">
                         <div className="flex gap-2 min-w-max">
                             {weekDays.map(dateStr => {
                                 const d = new Date(dateStr + 'T00:00:00');
@@ -607,19 +607,19 @@ export default function ManagerSchedulePage() {
                                         key={dateStr}
                                         onClick={() => setSelectedDate(dateStr)}
                                         className={`relative flex flex-col items-center justify-center flex-1 p-2 rounded-lg border-2 transition-all ${isSelected
-                                            ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
-                                            : 'border-transparent hover:border-slate-200 hover:bg-slate-50 text-slate-500'
+                                            ? 'border-primary-500 bg-primary-50 text-primary-700 shadow-sm'
+                                            : 'border-transparent hover:border-surface-200 hover:bg-surface-50 text-surface-500'
                                             }`}
                                     >
-                                        <span className={`text-xs font-semibold uppercase ${isSelected ? 'text-blue-600' : 'text-slate-400'}`}>{dayName}</span>
-                                        <span className={`text-lg font-bold mt-0.5 truncate ${isSelected ? 'text-blue-800' : 'text-slate-700'}`}>{dateNum}</span>
-                                        {isToday && !isSelected && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1"></span>}
+                                        <span className={`text-xs font-semibold uppercase ${isSelected ? 'text-primary-600' : 'text-surface-400'}`}>{dayName}</span>
+                                        <span className={`text-lg font-bold mt-0.5 truncate ${isSelected ? 'text-primary-800' : 'text-surface-700'}`}>{dateNum}</span>
+                                        {isToday && !isSelected && <span className="w-1.5 h-1.5 rounded-full bg-primary-500 mt-1"></span>}
                                         {/* Draft indicator dot */}
                                         {hasDraftForDay && !isSelected && (
-                                            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 border border-white" title="Có thay đổi chưa lưu" />
+                                            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-warning-400 border border-white" title="Có thay đổi chưa lưu" />
                                         )}
                                         {hasDraftForDay && isSelected && (
-                                            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 border border-blue-200" title="Có thay đổi chưa lưu" />
+                                            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-warning-400 border border-primary-200" title="Có thay đổi chưa lưu" />
                                         )}
                                     </button>
                                 );
@@ -628,18 +628,18 @@ export default function ManagerSchedulePage() {
                     </div>
 
                     {error && (
-                        <div className="bg-red-50 text-red-600 p-4 rounded-xl flex items-center gap-3 border border-red-100 shadow-sm">
+                        <div className="bg-danger-50 text-danger-600 p-4 rounded-xl flex items-center gap-3 border border-danger-100 shadow-sm">
                             <AlertCircle className="w-5 h-5 shrink-0" />
                             <p className="text-sm font-medium">{error}</p>
                         </div>
                     )}
 
                     {success && (
-                        <div className="bg-emerald-50 text-emerald-700 p-4 rounded-xl flex items-center gap-3 border border-emerald-200 shadow-sm">
-                            <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-500" />
+                        <div className="bg-success-50 text-success-700 p-4 rounded-xl flex items-center gap-3 border border-success-200 shadow-sm">
+                            <CheckCircle2 className="w-5 h-5 shrink-0 text-success-500" />
                             <div className="flex-1 flex items-center justify-between">
                                 <p className="text-sm font-medium">{success}</p>
-                                <button onClick={() => setSuccess('')} className="text-emerald-600 hover:text-emerald-800 text-xs font-semibold px-2 py-1 bg-emerald-100/50 rounded-md">Đóng</button>
+                                <button onClick={() => setSuccess('')} className="text-success-600 hover:text-success-800 text-xs font-semibold px-2 py-1 bg-success-100/50 rounded-md">Đóng</button>
                             </div>
                         </div>
                     )}
@@ -670,23 +670,23 @@ export default function ManagerSchedulePage() {
                     {/* Draft Action Bar */}
                     {showDraftBar && (
                         <div className="sticky bottom-2 z-30 mt-4">
-                            <div className="bg-white/95 backdrop-blur-md border-2 border-amber-300 rounded-2xl shadow-xl shadow-amber-500/10 p-4">
+                            <div className="bg-white/95 backdrop-blur-md border-2 border-warning-300 rounded-2xl shadow-xl shadow-warning-500/10 p-4">
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
-                                            <FileWarning className="w-5 h-5 text-amber-600" />
+                                        <div className="w-10 h-10 bg-warning-100 rounded-xl flex items-center justify-center shrink-0">
+                                            <FileWarning className="w-5 h-5 text-warning-600" />
                                         </div>
                                         <div>
-                                            <p className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                            <p className="text-sm font-bold text-surface-800 flex items-center gap-2">
                                                 Có thay đổi chưa lưu
                                                 {totalDraftSlots > 1 && (
-                                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full border border-amber-200">
+                                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 bg-warning-100 text-warning-700 rounded-full border border-warning-200">
                                                         <Layers className="w-3 h-3" />
                                                         {totalDraftSlots} ca
                                                     </span>
                                                 )}
                                             </p>
-                                            <p className="text-xs text-slate-500">
+                                            <p className="text-xs text-surface-500">
                                                 {totalDraftSlots > 1
                                                     ? `${totalDraftSlots} ca làm trên nhiều ngày chưa được lưu. Nhấn "Lưu và Công khai" để lưu tất cả.`
                                                     : draftLoaded
@@ -700,7 +700,7 @@ export default function ManagerSchedulePage() {
                                         <button
                                             onClick={handleDiscardDraft}
                                             disabled={saving || !hasDraftChanges}
-                                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-surface-200 text-surface-600 hover:bg-surface-50 hover:border-surface-300 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                             title="Hủy bản nháp ca hiện tại"
                                         >
                                             <Undo2 className="w-4 h-4" />
@@ -711,7 +711,7 @@ export default function ManagerSchedulePage() {
                                             <button
                                                 onClick={handleDiscardAllDrafts}
                                                 disabled={saving}
-                                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-danger-200 text-danger-600 hover:bg-danger-50 hover:border-danger-300 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                                 title="Hủy tất cả bản nháp cả tuần"
                                             >
                                                 <Trash2 className="w-4 h-4" />
@@ -722,7 +722,7 @@ export default function ManagerSchedulePage() {
                                         <button
                                             onClick={handleSaveAndPublish}
                                             disabled={saving || loadingData}
-                                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-primary-600 to-accent-600 hover:from-primary-700 hover:to-accent-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg shadow-primary-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
                                             {totalDraftSlots > 1 ? `Lưu ${totalDraftSlots} ca` : 'Lưu và Công khai'}

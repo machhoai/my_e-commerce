@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
@@ -48,14 +48,14 @@ function KPICard({ title, value, sub, icon, accent, badge, hero }: {
 }) {
     if (hero) {
         return (
-            <div className="relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-200 hover:shadow-xl hover:shadow-emerald-200 transition-all duration-200">
+            <div className="relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-success-500 to-success-600 shadow-lg shadow-success-200 hover:shadow-xl hover:shadow-success-200 transition-all duration-200">
                 {/* Subtle pattern overlay */}
                 <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
                 <div className="relative flex items-center justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-100">{title}</p>
+                        <p className="text-[11px] font-bold uppercase tracking-widest text-success-100">{title}</p>
                         <p className="mt-2 text-2xl sm:text-3xl font-extrabold text-white leading-tight break-words drop-shadow-sm">{value}</p>
-                        <p className="mt-1.5 text-xs text-emerald-100 break-words leading-tight">{sub}</p>
+                        <p className="mt-1.5 text-xs text-success-100 break-words leading-tight">{sub}</p>
                     </div>
                     <div className="shrink-0 w-11 h-11 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/30">
                         {icon}
@@ -66,20 +66,20 @@ function KPICard({ title, value, sub, icon, accent, badge, hero }: {
         );
     }
     return (
-        <div className={`relative h-full flex items-center overflow-hidden rounded-2xl p-4 bg-white border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200 group`}>
+        <div className={`relative h-full flex items-center overflow-hidden rounded-2xl p-4 bg-white border border-surface-100 shadow-sm hover:shadow-md transition-all duration-200 group`}>
             <div className={`absolute inset-0 opacity-[0.04] ${accent} rounded-2xl`} />
             <div className="absolute top-0 left-0 w-1 h-full rounded-l-2xl" style={{ background: `var(--kpi-accent)` }} />
             <div className="flex items-start justify-between w-full gap-2">
                 <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 leading-tight">{title}</p>
-                    <p className="mt-1.5 text-base sm:text-lg font-bold text-slate-800 leading-tight break-words">{value}</p>
-                    <p className="mt-1 text-[11px] text-slate-400 break-words leading-tight">{sub}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-surface-400 leading-tight">{title}</p>
+                    <p className="mt-1.5 text-base sm:text-lg font-bold text-surface-800 leading-tight break-words">{value}</p>
+                    <p className="mt-1 text-[11px] text-surface-400 break-words leading-tight">{sub}</p>
                 </div>
                 <div className={`shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center ${accent} bg-opacity-10`}>
                     {icon}
                 </div>
             </div>
-            {badge && <div className="absolute top-2 right-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{badge}</div>}
+            {badge && <div className="absolute top-2 right-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-success-100 text-success-700">{badge}</div>}
         </div>
     );
 }
@@ -89,15 +89,15 @@ function KPICard({ title, value, sub, icon, accent, badge, hero }: {
 function ChartTooltip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
     return (
-        <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-slate-100 px-4 py-3 min-w-[180px]">
-            <p className="text-[11px] font-semibold text-slate-400 mb-2 uppercase tracking-wide">{label}</p>
+        <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-surface-100 px-4 py-3 min-w-[180px]">
+            <p className="text-[11px] font-semibold text-surface-400 mb-2 uppercase tracking-wide">{label}</p>
             {payload.map((e: { name: string; value: number; color: string }, i: number) => (
                 <div key={i} className="flex items-center justify-between gap-4 py-0.5">
                     <div className="flex items-center gap-1.5">
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: e.color }} />
-                        <span className="text-xs text-slate-600">{e.name}</span>
+                        <span className="text-xs text-surface-600">{e.name}</span>
                     </div>
-                    <span className="text-xs font-bold text-slate-900">{fmtShort(e.value)}</span>
+                    <span className="text-xs font-bold text-surface-900">{fmtShort(e.value)}</span>
                 </div>
             ))}
         </div>
@@ -122,12 +122,12 @@ function PieLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) 
 function SectionHeader({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle?: string }) {
     return (
         <div className="flex items-center gap-3 py-1">
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">{icon}</div>
+            <div className="w-8 h-8 rounded-lg bg-accent-50 flex items-center justify-center shrink-0">{icon}</div>
             <div>
-                <h2 className="text-sm font-bold text-slate-700">{title}</h2>
-                {subtitle && <p className="text-xs text-slate-400">{subtitle}</p>}
+                <h2 className="text-sm font-bold text-surface-700">{title}</h2>
+                {subtitle && <p className="text-xs text-surface-400">{subtitle}</p>}
             </div>
-            <div className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent ml-2" />
+            <div className="flex-1 h-px bg-gradient-to-r from-surface-200 to-transparent ml-2" />
         </div>
     );
 }
@@ -253,24 +253,24 @@ export default function RevenueClient() {
     // ── Style helpers ──────────────────────────────────────────────────────────
     const pillBtn = (active: boolean) =>
         `flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${active
-            ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`;
+            ? 'bg-accent-600 text-white shadow-sm shadow-accent-200' : 'text-surface-500 hover:text-surface-700 hover:bg-surface-100'}`;
     const tabBtn = (active: boolean) =>
         `flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${active
-            ? 'bg-white text-indigo-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'}`;
-    const inputCls = "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all";
+            ? 'bg-white text-accent-600 shadow-sm border border-surface-200' : 'text-surface-500 hover:text-surface-700 hover:bg-white/60'}`;
+    const inputCls = "rounded-xl border border-surface-200 bg-white px-3 py-2 text-sm text-surface-700 focus:border-accent-400 focus:ring-2 focus:ring-accent-100 outline-none transition-all";
 
     // ── Permission guard (placed AFTER all hooks — Rules of Hooks compliant) ──
     const isAdminOrSuper = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
     if (userDoc && !isAdminOrSuper && !hasPermission('view_revenue')) {
         return (
-            <div className="flex flex-col items-center justify-center py-24 gap-5 bg-white rounded-3xl border border-slate-100">
-                <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center">
-                    <AlertTriangle className="size-8 text-red-400" />
+            <div className="flex flex-col items-center justify-center py-24 gap-5 bg-white rounded-3xl border border-surface-100">
+                <div className="w-16 h-16 rounded-2xl bg-danger-50 flex items-center justify-center">
+                    <AlertTriangle className="size-8 text-danger-400" />
                 </div>
                 <div className="text-center">
-                    <h2 className="text-base font-bold text-slate-700">Không có quyền truy cập</h2>
-                    <p className="text-sm text-slate-400 mt-1 max-w-xs">Bạn cần quyền <code className="bg-slate-100 px-1.5 py-0.5 rounded text-xs font-mono text-indigo-600">view_revenue</code> để xem trang này.</p>
-                    <p className="text-xs text-slate-400 mt-1">Liên hệ Admin để được cấp quyền qua trang <strong>Quản lý Phân quyền</strong>.</p>
+                    <h2 className="text-base font-bold text-surface-700">Không có quyền truy cập</h2>
+                    <p className="text-sm text-surface-400 mt-1 max-w-xs">Bạn cần quyền <code className="bg-surface-100 px-1.5 py-0.5 rounded text-xs font-mono text-accent-600">view_revenue</code> để xem trang này.</p>
+                    <p className="text-xs text-surface-400 mt-1">Liên hệ Admin để được cấp quyền qua trang <strong>Quản lý Phân quyền</strong>.</p>
                 </div>
             </div>
         );
@@ -285,28 +285,28 @@ export default function RevenueClient() {
                     {/* Title */}
                     <div>
                         <div className="flex items-center gap-2.5">
-                            <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200">
+                            <div className="w-9 h-9 rounded-xl bg-accent-600 flex items-center justify-center shadow-lg shadow-accent-200">
                                 <BarChart3 className="size-5 text-white" />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold text-slate-800 tracking-tight">Quản lý Doanh thu</h1>
+                                <h1 className="text-xl font-bold text-surface-800 tracking-tight">Quản lý Doanh thu</h1>
                                 <div className="flex items-center gap-2 mt-0.5">
                                     {activeRange && (
-                                        <span className="text-xs text-slate-400 flex items-center gap-1">
+                                        <span className="text-xs text-surface-400 flex items-center gap-1">
                                             <CalendarDays className="size-3" />{activeRange}
                                         </span>
                                     )}
                                     {updatedAt && (
-                                        <span className="text-xs text-slate-300 flex items-center gap-1">
+                                        <span className="text-xs text-surface-300 flex items-center gap-1">
                                             <Clock className="size-3" />{fmtTime(updatedAt)}
                                         </span>
                                     )}
                                     {isListening ? (
-                                        <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                                        <span className="flex items-center gap-1 text-[10px] font-semibold text-success-500 bg-success-50 px-1.5 py-0.5 rounded-full">
                                             <Wifi className="size-2.5" />Live
                                         </span>
-                                    ) : <WifiOff className="size-3 text-slate-300" />}
-                                    {(loading || syncing) && <Loader2 className="size-3 animate-spin text-indigo-400" />}
+                                    ) : <WifiOff className="size-3 text-surface-300" />}
+                                    {(loading || syncing) && <Loader2 className="size-3 animate-spin text-accent-400" />}
                                 </div>
                             </div>
                         </div>
@@ -315,12 +315,12 @@ export default function RevenueClient() {
                     {/* Controls */}
                     <div className="flex items-center gap-2 shrink-0">
                         <button onClick={handleSync} disabled={syncing || loading}
-                            className="flex items-center gap-1.5 h-full px-3 py-2 rounded-xl text-sm font-medium text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 transition-all disabled:opacity-40"
+                            className="flex items-center gap-1.5 h-full px-3 py-2 rounded-xl text-sm font-medium text-surface-500 hover:text-accent-600 hover:bg-accent-50 border border-surface-200 transition-all disabled:opacity-40"
                             title="Đồng bộ từ Joyworld">
                             <RefreshCw className={`size-4 ${syncing ? 'animate-spin' : ''}`} />
                             <span className="hidden sm:inline">{syncing ? 'Đang sync...' : 'Sync'}</span>
                         </button>
-                        <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+                        <div className="flex items-center gap-1 bg-surface-100 rounded-xl p-1">
                             <button onClick={() => setViewTab('overview')} className={tabBtn(viewTab === 'overview')}>
                                 <BarChart3 className="size-3.5" />Tổng quan
                             </button>
@@ -332,8 +332,8 @@ export default function RevenueClient() {
                 </div>
 
                 {/* Filter Bar */}
-                <div className="flex flex-wrap items-center gap-3 bg-white rounded-2xl p-3 border border-slate-100 shadow-sm">
-                    <div className="flex items-center gap-1 bg-slate-50 rounded-xl p-1 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-3 bg-white rounded-2xl p-3 border border-surface-100 shadow-sm">
+                    <div className="flex items-center gap-1 bg-surface-50 rounded-xl p-1 w-full sm:w-auto">
                         <button onClick={() => setFilterMode('day')} className={pillBtn(filterMode === 'day') + ' flex-1 flex justify-center items-center sm:flex-none'}>
                             <Calendar className="size-3" />Ngày
                         </button>
@@ -354,10 +354,10 @@ export default function RevenueClient() {
                         {filterMode === 'custom' && (
                             <>
                                 <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className={inputCls} />
-                                <span className="text-slate-300 font-medium">→</span>
+                                <span className="text-surface-300 font-medium">→</span>
                                 <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className={inputCls} />
                                 <button onClick={handleSync} disabled={syncing || loading}
-                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow-sm shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98] transition-all disabled:opacity-60">
+                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-600 text-white text-sm font-semibold shadow-sm shadow-accent-200 hover:bg-accent-700 active:scale-[0.98] transition-all disabled:opacity-60">
                                     {syncing ? <Loader2 className="size-3.5 animate-spin" /> : <BarChart3 className="size-3.5" />}Xem
                                 </button>
                             </>
@@ -368,25 +368,25 @@ export default function RevenueClient() {
 
             {/* Error Banner */}
             {error && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 flex items-start gap-3">
-                    <AlertTriangle className="size-5 text-red-500 shrink-0 mt-0.5" />
+                <div className="rounded-2xl border border-danger-200 bg-danger-50 p-4 flex items-start gap-3">
+                    <AlertTriangle className="size-5 text-danger-500 shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-red-800">Lỗi khi tải dữ liệu</p>
-                        <p className="text-xs text-red-600 mt-0.5 truncate">{error}</p>
+                        <p className="text-sm font-semibold text-danger-800">Lỗi khi tải dữ liệu</p>
+                        <p className="text-xs text-danger-600 mt-0.5 truncate">{error}</p>
                     </div>
                 </div>
             )}
 
             {/* Loading Skeleton */}
             {loading && !hasFetched && (
-                <div className="flex flex-col items-center justify-center py-24 gap-4 bg-white rounded-3xl border border-slate-100">
+                <div className="flex flex-col items-center justify-center py-24 gap-4 bg-white rounded-3xl border border-surface-100">
                     <div className="relative">
-                        <div className="w-12 h-12 rounded-full border-4 border-indigo-100" />
-                        <div className="w-12 h-12 rounded-full border-4 border-indigo-500 border-t-transparent absolute inset-0 animate-spin" />
+                        <div className="w-12 h-12 rounded-full border-4 border-accent-100" />
+                        <div className="w-12 h-12 rounded-full border-4 border-accent-500 border-t-transparent absolute inset-0 animate-spin" />
                     </div>
                     <div className="text-center">
-                        <p className="text-sm font-semibold text-slate-600">Đang tải dữ liệu</p>
-                        <p className="text-xs text-slate-400 mt-0.5">Kết nối tới Joyworld...</p>
+                        <p className="text-sm font-semibold text-surface-600">Đang tải dữ liệu</p>
+                        <p className="text-xs text-surface-400 mt-0.5">Kết nối tới Joyworld...</p>
                     </div>
                 </div>
             )}
@@ -402,22 +402,22 @@ export default function RevenueClient() {
                         <div className="col-span-2 sm:col-span-1">
                             <KPICard hero title="Thực thu" value={fmtVND(kpis.totalReal)}
                                 sub={kpis.totalSys > 0 ? `Phải thu: ${fmtShort(kpis.totalSys)}` : 'Không có chênh lệch'}
-                                icon={<DollarSign className="size-5 text-white" />} accent="bg-emerald-500" />
+                                icon={<DollarSign className="size-5 text-white" />} accent="bg-success-500" />
                         </div>
                         <div style={{ '--kpi-accent': '#3b82f6' } as React.CSSProperties}>
                             <KPICard title="Tiền mặt" value={fmtVND(kpis.totalCash)}
                                 sub={`${kpis.totalReal > 0 ? ((kpis.totalCash / kpis.totalReal) * 100).toFixed(0) : 0}% tổng thu`}
-                                icon={<Banknote className="size-5 text-blue-600" />} accent="bg-blue-500" />
+                                icon={<Banknote className="size-5 text-primary-600" />} accent="bg-primary-500" />
                         </div>
                         <div style={{ '--kpi-accent': '#8b5cf6' } as React.CSSProperties}>
                             <KPICard title="Chuyển khoản" value={fmtVND(kpis.totalTransfer)}
                                 sub={`${kpis.totalReal > 0 ? ((kpis.totalTransfer / kpis.totalReal) * 100).toFixed(0) : 0}% tổng thu`}
-                                icon={<ArrowUpDown className="size-5 text-violet-600" />} accent="bg-violet-500" />
+                                icon={<ArrowUpDown className="size-5 text-accent-600" />} accent="bg-accent-500" />
                         </div>
                         <div style={{ '--kpi-accent': '#f59e0b' } as React.CSSProperties}>
                             <KPICard title="Xu bán" value={fmt(kpis.totalCoins)}
                                 sub={`Đơn giá: ${fmtVND(data[0]?.sellCoinPrice || 0)}`}
-                                icon={<Coins className="size-5 text-amber-600" />} accent="bg-amber-500" />
+                                icon={<Coins className="size-5 text-warning-600" />} accent="bg-warning-500" />
                         </div>
                         {isMultiDay ? (
                             <div style={{ '--kpi-accent': '#ec4899' } as React.CSSProperties}>
@@ -429,7 +429,7 @@ export default function RevenueClient() {
                             <div style={{ '--kpi-accent': '#ef4444' } as React.CSSProperties}>
                                 <KPICard title="Đã hủy" value={fmtVND(kpis.totalRefund)}
                                     sub={kpis.totalRefund > 0 ? 'Giao dịch bị hủy' : 'Không có hủy đơn'}
-                                    icon={<XCircle className="size-5 text-red-500" />} accent="bg-red-500" />
+                                    icon={<XCircle className="size-5 text-danger-500" />} accent="bg-danger-500" />
                             </div>
                         )}
                     </div>
@@ -441,15 +441,15 @@ export default function RevenueClient() {
                             <div className="grid gap-4 lg:grid-cols-3">
                                 {isMultiDay ? (
                                     /* Multi-day area chart */
-                                    <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                                    <div className="lg:col-span-2 bg-white rounded-2xl border border-surface-100 shadow-sm p-5">
                                         <div className="flex items-start justify-between mb-4">
                                             <div>
-                                                <h3 className="text-sm font-bold text-slate-700">Doanh thu theo ngày</h3>
-                                                <p className="text-xs text-slate-400 mt-0.5">Thực thu, tiền mặt và chuyển khoản</p>
+                                                <h3 className="text-sm font-bold text-surface-700">Doanh thu theo ngày</h3>
+                                                <p className="text-xs text-surface-400 mt-0.5">Thực thu, tiền mặt và chuyển khoản</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-2xl font-bold text-slate-800">{fmtShort(kpis.totalReal)}</p>
-                                                <p className="text-[10px] text-slate-400 uppercase tracking-wider">{data.length} ngày</p>
+                                                <p className="text-2xl font-bold text-surface-800">{fmtShort(kpis.totalReal)}</p>
+                                                <p className="text-[10px] text-surface-400 uppercase tracking-wider">{data.length} ngày</p>
                                             </div>
                                         </div>
                                         <div className="h-[260px]">
@@ -483,32 +483,32 @@ export default function RevenueClient() {
                                     </div>
                                 ) : (
                                     /* Single-day summary */
-                                    <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                                    <div className="lg:col-span-2 bg-white rounded-2xl border border-surface-100 shadow-sm p-5">
                                         <div className="flex items-center justify-between mb-4">
                                             <div>
-                                                <h3 className="text-sm font-bold text-slate-700">
+                                                <h3 className="text-sm font-bold text-surface-700">
                                                     Tổng kết ngày {data[0]?.forDate ?? dayDate}
                                                 </h3>
                                                 {dailyPanel?.shopSummary?.lastRefreshTime && (
-                                                    <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[280px]">{dailyPanel.shopSummary.lastRefreshTime}</p>
+                                                    <p className="text-xs text-surface-400 mt-0.5 truncate max-w-[280px]">{dailyPanel.shopSummary.lastRefreshTime}</p>
                                                 )}
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-2xl font-bold text-emerald-600">{fmtShort(dailyPanel?.shopSummary?.shopRealMoney ?? kpis.totalReal)}</p>
-                                                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Doanh thu thực</p>
+                                                <p className="text-2xl font-bold text-success-600">{fmtShort(dailyPanel?.shopSummary?.shopRealMoney ?? kpis.totalReal)}</p>
+                                                <p className="text-[10px] text-surface-400 uppercase tracking-wider">Doanh thu thực</p>
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                                             {[
-                                                { l: 'Tổng hoá đơn', v: fmtVND(dailyPanel?.shopSummary?.shopMoney ?? 0), c: 'text-slate-700', bg: 'bg-slate-50' },
-                                                { l: 'Thực thu', v: fmtVND(dailyPanel?.shopSummary?.shopRealMoney ?? kpis.totalReal), c: 'text-emerald-700', bg: 'bg-emerald-50' },
-                                                { l: 'Đã hủy', v: fmtVND(dailyPanel?.shopSummary?.refundMoney ?? 0), c: 'text-red-600', bg: 'bg-red-50' },
-                                                { l: 'Tiền mặt', v: fmtVND(kpis.totalCash), c: 'text-blue-700', bg: 'bg-blue-50' },
-                                                { l: 'Chuyển khoản', v: fmtVND(kpis.totalTransfer), c: 'text-violet-700', bg: 'bg-violet-50' },
-                                                { l: 'Xu bán', v: fmt(kpis.totalCoins), c: 'text-amber-700', bg: 'bg-amber-50' },
+                                                { l: 'Tổng hoá đơn', v: fmtVND(dailyPanel?.shopSummary?.shopMoney ?? 0), c: 'text-surface-700', bg: 'bg-surface-50' },
+                                                { l: 'Thực thu', v: fmtVND(dailyPanel?.shopSummary?.shopRealMoney ?? kpis.totalReal), c: 'text-success-700', bg: 'bg-success-50' },
+                                                { l: 'Đã hủy', v: fmtVND(dailyPanel?.shopSummary?.refundMoney ?? 0), c: 'text-danger-600', bg: 'bg-danger-50' },
+                                                { l: 'Tiền mặt', v: fmtVND(kpis.totalCash), c: 'text-primary-700', bg: 'bg-primary-50' },
+                                                { l: 'Chuyển khoản', v: fmtVND(kpis.totalTransfer), c: 'text-accent-700', bg: 'bg-accent-50' },
+                                                { l: 'Xu bán', v: fmt(kpis.totalCoins), c: 'text-warning-700', bg: 'bg-warning-50' },
                                             ].map(item => (
                                                 <div key={item.l} className={`${item.bg} rounded-xl p-2.5`}>
-                                                    <p className="text-[10px] uppercase tracking-widest text-slate-400 font-semibold leading-tight">{item.l}</p>
+                                                    <p className="text-[10px] uppercase tracking-widest text-surface-400 font-semibold leading-tight">{item.l}</p>
                                                     <p className={`text-xs sm:text-sm font-bold mt-1 break-words leading-snug ${item.c}`}>{item.v}</p>
                                                 </div>
                                             ))}
@@ -517,9 +517,9 @@ export default function RevenueClient() {
                                 )}
 
                                 {/* Payment Pie */}
-                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-                                    <h3 className="text-sm font-bold text-slate-700 mb-1">Phương thức thanh toán</h3>
-                                    <p className="text-xs text-slate-400 mb-3">Tỉ lệ phân bổ doanh thu</p>
+                                <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-5">
+                                    <h3 className="text-sm font-bold text-surface-700 mb-1">Phương thức thanh toán</h3>
+                                    <p className="text-xs text-surface-400 mb-3">Tỉ lệ phân bổ doanh thu</p>
                                     <div className="h-[160px]">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <PieChart>
@@ -540,12 +540,12 @@ export default function RevenueClient() {
                                                 <div key={item.name} className="flex items-center justify-between group">
                                                     <div className="flex items-center gap-2">
                                                         <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: PALETTE[i % PALETTE.length] }} />
-                                                        <span className="text-xs text-slate-600">{item.name}</span>
-                                                        {stat && <span className="text-[10px] text-slate-400">{stat.totalRealQty} GD</span>}
+                                                        <span className="text-xs text-surface-600">{item.name}</span>
+                                                        {stat && <span className="text-[10px] text-surface-400">{stat.totalRealQty} GD</span>}
                                                     </div>
                                                     <div className="text-right">
-                                                        <span className="text-xs font-bold text-slate-800">{fmtShort(item.value)}</span>
-                                                        <span className="ml-1 text-[10px] text-slate-400">{pct}%</span>
+                                                        <span className="text-xs font-bold text-surface-800">{fmtShort(item.value)}</span>
+                                                        <span className="ml-1 text-[10px] text-surface-400">{pct}%</span>
                                                     </div>
                                                 </div>
                                             );
@@ -553,9 +553,9 @@ export default function RevenueClient() {
                                     </div>
                                     {/* Payment detail for daily panel */}
                                     {!isMultiDay && dailyPanel?.paymentStats && dailyPanel.paymentStats.some(p => p.totalCancelMoney > 0) && (
-                                        <div className="mt-3 pt-3 border-t border-slate-100">
+                                        <div className="mt-3 pt-3 border-t border-surface-100">
                                             {dailyPanel.paymentStats.filter(p => p.totalCancelMoney > 0).map(p => (
-                                                <div key={p.paymentCategory} className="flex items-center justify-between text-[11px] text-red-400 mt-1">
+                                                <div key={p.paymentCategory} className="flex items-center justify-between text-[11px] text-danger-400 mt-1">
                                                     <span>{p.paymentCategoryName}: hủy</span>
                                                     <span className="font-semibold">-{fmtShort(p.totalCancelMoney)}</span>
                                                 </div>
@@ -567,15 +567,15 @@ export default function RevenueClient() {
 
                             {/* Xu chart (multi-day only) */}
                             {isMultiDay && coinChartData.some(d => d['Xu bán'] > 0) && (
-                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                                <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-5">
                                     <div className="flex items-start justify-between mb-4">
                                         <div>
-                                            <h3 className="text-sm font-bold text-slate-700">Xu bán theo ngày</h3>
-                                            <p className="text-xs text-slate-400 mt-0.5">Số lượng xu bán ra từng ngày</p>
+                                            <h3 className="text-sm font-bold text-surface-700">Xu bán theo ngày</h3>
+                                            <p className="text-xs text-surface-400 mt-0.5">Số lượng xu bán ra từng ngày</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-2xl font-bold text-amber-600">{fmt(kpis.totalCoins)}</p>
-                                            <p className="text-[10px] text-slate-400 uppercase tracking-wider">Tổng xu</p>
+                                            <p className="text-2xl font-bold text-warning-600">{fmt(kpis.totalCoins)}</p>
+                                            <p className="text-[10px] text-surface-400 uppercase tracking-wider">Tổng xu</p>
                                         </div>
                                     </div>
                                     <div className="h-[180px]">
@@ -596,16 +596,16 @@ export default function RevenueClient() {
                             {(sellData.length > 0 || (dailyPanel?.goodsTypeStats && dailyPanel.goodsTypeStats.length > 0)) && (
                                 <div className="space-y-4">
                                     <SectionHeader
-                                        icon={<ShoppingBag className="size-4 text-indigo-600" />}
+                                        icon={<ShoppingBag className="size-4 text-accent-600" />}
                                         title="Phân tích sản phẩm"
                                         subtitle={isMultiDay ? 'Danh mục & sản phẩm bán chạy' : 'Hàng hóa trong ngày'} />
 
                                     {/* Pie + Top products bar */}
                                     <div className="grid gap-4 lg:grid-cols-2">
                                         {/* Goods type pie */}
-                                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-                                            <h3 className="text-sm font-bold text-slate-700 mb-1">Doanh thu theo danh mục</h3>
-                                            <p className="text-xs text-slate-400 mb-3">Phân bổ doanh thu giữa các nhóm</p>
+                                        <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-5">
+                                            <h3 className="text-sm font-bold text-surface-700 mb-1">Doanh thu theo danh mục</h3>
+                                            <p className="text-xs text-surface-400 mb-3">Phân bổ doanh thu giữa các nhóm</p>
                                             <div className="h-[180px]">
                                                 <ResponsiveContainer width="100%" height="100%">
                                                     <PieChart>
@@ -624,11 +624,11 @@ export default function RevenueClient() {
                                                         <div key={item.name} className="flex items-center justify-between">
                                                             <div className="flex items-center gap-2">
                                                                 <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PALETTE[i % PALETTE.length] }} />
-                                                                <span className="text-xs text-slate-600 truncate max-w-[140px]">{item.name}</span>
+                                                                <span className="text-xs text-surface-600 truncate max-w-[140px]">{item.name}</span>
                                                             </div>
                                                             <div className="text-right">
-                                                                <span className="text-xs font-bold text-slate-800">{fmtShort(item.value)}</span>
-                                                                <span className="ml-1 text-[10px] text-slate-400">{total > 0 ? ((item.value / total) * 100).toFixed(0) : 0}%</span>
+                                                                <span className="text-xs font-bold text-surface-800">{fmtShort(item.value)}</span>
+                                                                <span className="ml-1 text-[10px] text-surface-400">{total > 0 ? ((item.value / total) * 100).toFixed(0) : 0}%</span>
                                                             </div>
                                                         </div>
                                                     );
@@ -637,9 +637,9 @@ export default function RevenueClient() {
                                         </div>
 
                                         {/* Top products horizontal bar */}
-                                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-                                            <h3 className="text-sm font-bold text-slate-700 mb-1">Top sản phẩm doanh thu cao</h3>
-                                            <p className="text-xs text-slate-400 mb-3">10 sản phẩm dẫn đầu</p>
+                                        <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-5">
+                                            <h3 className="text-sm font-bold text-surface-700 mb-1">Top sản phẩm doanh thu cao</h3>
+                                            <p className="text-xs text-surface-400 mb-3">10 sản phẩm dẫn đầu</p>
                                             <div className="h-[310px]">
                                                 <ResponsiveContainer width="100%" height="100%">
                                                     <BarChart
@@ -670,34 +670,34 @@ export default function RevenueClient() {
                                         return (
                                             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                                                 {cats.map((cat, ci) => (
-                                                    <div key={cat.goodsTypeName} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                                                    <div key={cat.goodsTypeName} className="bg-white rounded-2xl border border-surface-100 shadow-sm overflow-hidden">
                                                         <div className="flex items-center gap-3 px-4 pt-4 pb-3">
                                                             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: PALETTE[ci % PALETTE.length] + '20' }}>
                                                                 <Package className="size-4" style={{ color: PALETTE[ci % PALETTE.length] }} />
                                                             </div>
                                                             <div className="min-w-0 flex-1">
-                                                                <p className="text-sm font-bold text-slate-700 truncate">{cat.goodsTypeName}</p>
-                                                                <p className="text-[11px] text-slate-400">
+                                                                <p className="text-sm font-bold text-surface-700 truncate">{cat.goodsTypeName}</p>
+                                                                <p className="text-[11px] text-surface-400">
                                                                     {cat.totalRealQty} SP · {fmtVND(cat.totalRealMoney)}
-                                                                    {cat.cancelQty > 0 && <span className="ml-1 text-red-400">· Hủy: {cat.cancelQty}</span>}
+                                                                    {cat.cancelQty > 0 && <span className="ml-1 text-danger-400">· Hủy: {cat.cancelQty}</span>}
                                                                 </p>
                                                             </div>
                                                         </div>
-                                                        <div className="border-t border-slate-50">
+                                                        <div className="border-t border-surface-50">
                                                             {cat.goodsItems.filter(it => it.realMoney > 0).sort((a, b) => b.realMoney - a.realMoney).slice(0, 5).map(item => (
-                                                                <div key={item.goodsName} className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50/60 transition-colors">
+                                                                <div key={item.goodsName} className="flex items-center justify-between px-4 py-2.5 hover:bg-surface-50/60 transition-colors">
                                                                     <div className="min-w-0 flex-1 pr-3">
-                                                                        <p className="text-xs font-medium text-slate-700 truncate">{item.goodsName}</p>
-                                                                        <p className="text-[10px] text-slate-400">SL: {item.realQty}{item.sellRatio > 0 ? ` · ${(item.sellRatio * 100).toFixed(1)}%` : ''}</p>
+                                                                        <p className="text-xs font-medium text-surface-700 truncate">{item.goodsName}</p>
+                                                                        <p className="text-[10px] text-surface-400">SL: {item.realQty}{item.sellRatio > 0 ? ` · ${(item.sellRatio * 100).toFixed(1)}%` : ''}</p>
                                                                     </div>
                                                                     <div className="text-right shrink-0">
-                                                                        <p className="text-xs font-bold text-slate-800">{fmtShort(item.realMoney)}</p>
-                                                                        {item.cancelQty > 0 && <p className="text-[10px] text-red-400">-{item.cancelQty}</p>}
+                                                                        <p className="text-xs font-bold text-surface-800">{fmtShort(item.realMoney)}</p>
+                                                                        {item.cancelQty > 0 && <p className="text-[10px] text-danger-400">-{item.cancelQty}</p>}
                                                                     </div>
                                                                 </div>
                                                             ))}
                                                             {cat.goodsItems.filter(i => i.realMoney > 0).length > 5 && (
-                                                                <p className="text-center text-[10px] text-slate-400 py-2">+{cat.goodsItems.filter(i => i.realMoney > 0).length - 5} sản phẩm khác</p>
+                                                                <p className="text-center text-[10px] text-surface-400 py-2">+{cat.goodsItems.filter(i => i.realMoney > 0).length - 5} sản phẩm khác</p>
                                                             )}
                                                         </div>
                                                     </div>
@@ -712,55 +712,55 @@ export default function RevenueClient() {
 
                     {/* ═══ TABLE TAB ═══ */}
                     {viewTab === 'table' && (
-                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                        <div className="bg-white rounded-2xl border border-surface-100 shadow-sm overflow-hidden">
+                            <div className="px-5 py-4 border-b border-surface-100 flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-sm font-bold text-slate-700">Chi tiết doanh thu</h3>
-                                    <p className="text-xs text-slate-400 mt-0.5">{data.length} bản ghi · {activeRange}</p>
+                                    <h3 className="text-sm font-bold text-surface-700">Chi tiết doanh thu</h3>
+                                    <p className="text-xs text-surface-400 mt-0.5">{data.length} bản ghi · {activeRange}</p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-lg font-bold text-slate-800">{fmtShort(kpis.totalReal)}</p>
-                                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Tổng thực thu</p>
+                                    <p className="text-lg font-bold text-surface-800">{fmtShort(kpis.totalReal)}</p>
+                                    <p className="text-[10px] text-surface-400 uppercase tracking-wider">Tổng thực thu</p>
                                 </div>
                             </div>
                             <div className="overflow-x-auto -mx-0 scrollbar-thin">
-                                <p className="text-[10px] text-slate-400 sm:hidden px-5 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center gap-1">
+                                <p className="text-[10px] text-surface-400 sm:hidden px-5 py-1.5 bg-surface-50 border-b border-surface-100 flex items-center gap-1">
                                     ← Vuốt ngang để xem thêm →
                                 </p>
                                 <table className="w-full text-sm">
                                     <thead>
-                                        <tr className="bg-slate-50">
+                                        <tr className="bg-surface-50">
                                             {['Ngày', 'Thực thu', 'Phải thu', 'Bán hàng', 'Tiền mặt', 'Lỗi TM', 'Chuyển khoản', 'Xu bán'].map((h, i) => (
-                                                <th key={h} className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap ${i === 0 ? 'text-left sticky left-0 bg-slate-50 z-10' : 'text-right'}`}>{h}</th>
+                                                <th key={h} className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-surface-500 whitespace-nowrap ${i === 0 ? 'text-left sticky left-0 bg-surface-50 z-10' : 'text-right'}`}>{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-50">
+                                    <tbody className="divide-y divide-surface-50">
                                         {[...data].sort((a, b) => b.forDate.localeCompare(a.forDate)).map((row, idx) => (
-                                            <tr key={row.forDate} className={`hover:bg-indigo-50/30 transition-colors ${idx % 2 === 0 ? '' : 'bg-slate-50/30'}`}>
-                                                <td className="px-4 py-3 font-semibold text-slate-700 whitespace-nowrap sticky left-0 bg-white z-10">{row.forDate}</td>
-                                                <td className="px-4 py-3 text-right font-bold text-emerald-700 whitespace-nowrap">{fmtVND(row.realMoney)}</td>
-                                                <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">{fmtVND(row.sysMoney)}</td>
-                                                <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">{fmtVND(row.saleSubMoney)}</td>
-                                                <td className="px-4 py-3 text-right text-blue-700 whitespace-nowrap">{fmtVND(row.cashRealMoney)}</td>
-                                                <td className={`px-4 py-3 text-right whitespace-nowrap font-medium ${row.cashErrorMoney !== 0 ? 'text-amber-600' : 'text-slate-300'}`}>
+                                            <tr key={row.forDate} className={`hover:bg-accent-50/30 transition-colors ${idx % 2 === 0 ? '' : 'bg-surface-50/30'}`}>
+                                                <td className="px-4 py-3 font-semibold text-surface-700 whitespace-nowrap sticky left-0 bg-white z-10">{row.forDate}</td>
+                                                <td className="px-4 py-3 text-right font-bold text-success-700 whitespace-nowrap">{fmtVND(row.realMoney)}</td>
+                                                <td className="px-4 py-3 text-right text-surface-600 whitespace-nowrap">{fmtVND(row.sysMoney)}</td>
+                                                <td className="px-4 py-3 text-right text-surface-600 whitespace-nowrap">{fmtVND(row.saleSubMoney)}</td>
+                                                <td className="px-4 py-3 text-right text-primary-700 whitespace-nowrap">{fmtVND(row.cashRealMoney)}</td>
+                                                <td className={`px-4 py-3 text-right whitespace-nowrap font-medium ${row.cashErrorMoney !== 0 ? 'text-warning-600' : 'text-surface-300'}`}>
                                                     {row.cashErrorMoney !== 0 ? fmtVND(row.cashErrorMoney) : '—'}
                                                 </td>
-                                                <td className="px-4 py-3 text-right text-violet-700 whitespace-nowrap">{fmtVND(row.transferRealMoney)}</td>
-                                                <td className="px-4 py-3 text-right text-amber-700 whitespace-nowrap">{fmt(row.sellCoinAmount)}</td>
+                                                <td className="px-4 py-3 text-right text-accent-700 whitespace-nowrap">{fmtVND(row.transferRealMoney)}</td>
+                                                <td className="px-4 py-3 text-right text-warning-700 whitespace-nowrap">{fmt(row.sellCoinAmount)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                     <tfoot>
-                                        <tr className="border-t-2 border-slate-200 bg-indigo-50/30">
-                                            <td className="px-4 py-3 font-bold text-slate-700 sticky left-0 bg-indigo-50/30 z-10 text-xs uppercase tracking-wider">Tổng cộng</td>
-                                            <td className="px-4 py-3 text-right font-bold text-emerald-700">{fmtVND(kpis.totalReal)}</td>
-                                            <td className="px-4 py-3 text-right font-bold text-slate-700">{fmtVND(kpis.totalSys)}</td>
-                                            <td className="px-4 py-3 text-right font-bold text-slate-700">{fmtVND(data.reduce((s, d) => s + d.saleSubMoney, 0))}</td>
-                                            <td className="px-4 py-3 text-right font-bold text-blue-700">{fmtVND(kpis.totalCash)}</td>
-                                            <td className="px-4 py-3 text-right font-bold text-amber-600">{fmtVND(data.reduce((s, d) => s + d.cashErrorMoney, 0))}</td>
-                                            <td className="px-4 py-3 text-right font-bold text-violet-700">{fmtVND(kpis.totalTransfer)}</td>
-                                            <td className="px-4 py-3 text-right font-bold text-amber-700">{fmt(kpis.totalCoins)}</td>
+                                        <tr className="border-t-2 border-surface-200 bg-accent-50/30">
+                                            <td className="px-4 py-3 font-bold text-surface-700 sticky left-0 bg-accent-50/30 z-10 text-xs uppercase tracking-wider">Tổng cộng</td>
+                                            <td className="px-4 py-3 text-right font-bold text-success-700">{fmtVND(kpis.totalReal)}</td>
+                                            <td className="px-4 py-3 text-right font-bold text-surface-700">{fmtVND(kpis.totalSys)}</td>
+                                            <td className="px-4 py-3 text-right font-bold text-surface-700">{fmtVND(data.reduce((s, d) => s + d.saleSubMoney, 0))}</td>
+                                            <td className="px-4 py-3 text-right font-bold text-primary-700">{fmtVND(kpis.totalCash)}</td>
+                                            <td className="px-4 py-3 text-right font-bold text-warning-600">{fmtVND(data.reduce((s, d) => s + d.cashErrorMoney, 0))}</td>
+                                            <td className="px-4 py-3 text-right font-bold text-accent-700">{fmtVND(kpis.totalTransfer)}</td>
+                                            <td className="px-4 py-3 text-right font-bold text-warning-700">{fmt(kpis.totalCoins)}</td>
                                         </tr>
                                     </tfoot>
                                 </table>
@@ -772,16 +772,16 @@ export default function RevenueClient() {
 
             {/* Empty state */}
             {!loading && hasFetched && !error && data.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-20 gap-4 bg-white rounded-3xl border border-slate-100">
-                    <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center">
-                        <BarChart3 className="size-8 text-slate-300" />
+                <div className="flex flex-col items-center justify-center py-20 gap-4 bg-white rounded-3xl border border-surface-100">
+                    <div className="w-16 h-16 rounded-2xl bg-surface-100 flex items-center justify-center">
+                        <BarChart3 className="size-8 text-surface-300" />
                     </div>
                     <div className="text-center">
-                        <p className="text-sm font-semibold text-slate-600">Không có dữ liệu</p>
-                        <p className="text-xs text-slate-400 mt-1">Nhấn <strong>Sync</strong> để tải dữ liệu từ Joyworld.</p>
+                        <p className="text-sm font-semibold text-surface-600">Không có dữ liệu</p>
+                        <p className="text-xs text-surface-400 mt-1">Nhấn <strong>Sync</strong> để tải dữ liệu từ Joyworld.</p>
                     </div>
                     <button onClick={handleSync} disabled={syncing}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-50">
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent-600 text-white text-sm font-semibold shadow-sm hover:bg-accent-700 transition-all disabled:opacity-50">
                         <RefreshCw className={`size-4 ${syncing ? 'animate-spin' : ''}`} />
                         {syncing ? 'Đang tải...' : 'Đồng bộ ngay'}
                     </button>

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo } from 'react';
 import {
@@ -20,8 +20,8 @@ export function InventoryCharts({ merged }: InventoryChartsProps) {
         const out = merged.filter(d => d.stockStatus === 'out').length;
         return [
             { name: 'Khỏe mạnh', value: safe, color: '#10b981' }, // emarald-500
-            { name: 'Sắp hết', value: low, color: '#f59e0b' }, // amber-500
-            { name: 'Hết hàng', value: out, color: '#ef4444' }, // red-500
+            { name: 'Sắp hết', value: low, color: '#f59e0b' }, // warning-500
+            { name: 'Hết hàng', value: out, color: '#ef4444' }, // danger-500
         ].filter(d => d.value > 0);
     }, [merged]);
 
@@ -81,11 +81,11 @@ export function InventoryCharts({ merged }: InventoryChartsProps) {
                                             className="size-3 rounded-full"
                                             style={{ backgroundColor: item.color }}
                                         />
-                                        <span className="text-sm font-medium text-slate-600">
+                                        <span className="text-sm font-medium text-surface-600">
                                             {item.name}
                                         </span>
                                     </div>
-                                    <span className="text-sm font-bold text-slate-900">
+                                    <span className="text-sm font-bold text-surface-900">
                                         {item.value}
                                     </span>
                                 </div>

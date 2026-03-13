@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,10 +23,10 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const ROLE_BADGE_CLASS: Record<string, string> = {
-    admin: 'bg-red-50 text-red-700 border-red-100',
-    store_manager: 'bg-purple-50 text-purple-700 border-purple-100',
-    manager: 'bg-amber-50 text-amber-700 border-amber-100',
-    employee: 'bg-blue-50 text-blue-700 border-blue-100',
+    admin: 'bg-danger-50 text-danger-700 border-danger-100',
+    store_manager: 'bg-accent-50 text-accent-700 border-accent-100',
+    manager: 'bg-warning-50 text-warning-700 border-warning-100',
+    employee: 'bg-primary-50 text-primary-700 border-primary-100',
     office: 'bg-teal-50 text-teal-700 border-teal-100',
 };
 
@@ -338,15 +338,15 @@ function AdminUsersPageContent() {
                 titleChildren={
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full mt-4">
                         <div>
-                            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                                <Users className="w-7 h-7 text-slate-700" />
+                            <h1 className="text-2xl font-bold text-surface-800 flex items-center gap-2">
+                                <Users className="w-7 h-7 text-surface-700" />
                                 Quản lý Người dùng
                             </h1>
-                            <p className="text-slate-500 mt-1">Xem và quản lý nhân sự theo từng cửa hàng.</p>
+                            <p className="text-surface-500 mt-1">Xem và quản lý nhân sự theo từng cửa hàng.</p>
                         </div>
                         <button
                             onClick={openCreateModal}
-                            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors shrink-0"
+                            className="flex items-center gap-2 bg-surface-800 hover:bg-surface-900 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors shrink-0"
                         >
                             <Plus className="w-4 h-4" /> Thêm nhân viên
                         </button>
@@ -355,15 +355,15 @@ function AdminUsersPageContent() {
             />
 
             {/* Store Selector */}
-            <div className="bg-white items-center rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-4">
+            <div className="bg-white items-center rounded-2xl border border-surface-200 shadow-sm p-4 flex flex-col gap-4">
                 <div className='flex gap-2 items-center justify-start w-full'>
                     <div className="flex items-center gap-2 shrink-0">
-                        <Building2 className="w-5 h-5 text-indigo-500" />
+                        <Building2 className="w-5 h-5 text-accent-500" />
                     </div>
                     <select
                         value={selectedStoreId}
                         onChange={e => { setSelectedStoreId(e.target.value); clearAll(); }}
-                        className="flex-1 border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 bg-white font-medium min-w-[200px]"
+                        className="flex-1 border border-surface-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-accent-300 focus:border-accent-400 bg-white font-medium min-w-[200px]"
                     >
                         <option value="">-- Tất cả cửa hàng --</option>
                         {stores.map(s => (
@@ -371,9 +371,9 @@ function AdminUsersPageContent() {
                         ))}
                     </select>
                 </div>
-                <span className="text-sm text-slate-500 shrink-0">
+                <span className="text-sm text-surface-500 shrink-0">
                     {selectedStoreId
-                        ? <><strong className="text-indigo-700">{stores.find(s => s.id === selectedStoreId)?.name}</strong> &middot; {users.length} người</>
+                        ? <><strong className="text-accent-700">{stores.find(s => s.id === selectedStoreId)?.name}</strong> &middot; {users.length} người</>
                         : <>{users.length} người (tất cả)</>
                     }
                 </span>
@@ -383,7 +383,7 @@ function AdminUsersPageContent() {
             {actionMessage.text && (
                 <div className={cn(
                     'p-4 rounded-xl flex items-center gap-3 text-sm font-medium animate-in fade-in',
-                    actionMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-600 border border-red-100'
+                    actionMessage.type === 'success' ? 'bg-success-50 text-success-700 border border-success-200' : 'bg-danger-50 text-danger-600 border border-danger-100'
                 )}>
                     {actionMessage.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
                     {actionMessage.text}
@@ -411,22 +411,22 @@ function AdminUsersPageContent() {
                             onMobileApply={(values) => setParams(values)}
                         />
 
-                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="bg-white rounded-2xl shadow-sm border border-surface-200 overflow-hidden">
 
                             {loading ? (
-                                <div className="p-12 text-center text-slate-400">
-                                    <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                                <div className="p-12 text-center text-surface-400">
+                                    <div className="w-8 h-8 border-4 border-accent-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
                                     Đang tải nhân sự...
                                 </div>
                             ) : filtered.length === 0 ? (
-                                <div className="p-12 text-center text-slate-400">
+                                <div className="p-12 text-center text-surface-400">
                                     <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
                                     <p className="font-medium">{params.q || activeFilterCount > 0 ? 'Không tìm thấy kết quả' : 'Không có nhân sự nào'}</p>
                                 </div>
                             ) : (
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm text-left">
-                                        <thead className="text-xs text-slate-500 bg-slate-50/80 border-b border-slate-100">
+                                        <thead className="text-xs text-surface-500 bg-surface-50/80 border-b border-surface-100">
                                             <tr>
                                                 <SortableHeader label="Họ tên" field="name" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-5" />
                                                 <SortableHeader label="SĐT" field="phone" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} />
@@ -437,25 +437,25 @@ function AdminUsersPageContent() {
                                                 <th className="px-4 py-3.5 font-semibold text-right">Thao tác</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-slate-100">
+                                        <tbody className="divide-y divide-surface-100">
                                             {paginatedUsers.map(u => (
-                                                <tr key={u.uid} className={cn('hover:bg-slate-50/60 transition-colors group', !u.isActive && 'opacity-50')}>
-                                                    <td className="px-5 py-3.5 font-medium text-slate-800">
+                                                <tr key={u.uid} className={cn('hover:bg-surface-50/60 transition-colors group', !u.isActive && 'opacity-50')}>
+                                                    <td className="px-5 py-3.5 font-medium text-surface-800">
                                                         {u.name}
-                                                        {u.canManageHR && <span title="Có quyền quản lý HR"><ShieldCheck className="w-3.5 h-3.5 inline ml-1.5 text-indigo-500" /></span>}
+                                                        {u.canManageHR && <span title="Có quyền quản lý HR"><ShieldCheck className="w-3.5 h-3.5 inline ml-1.5 text-accent-500" /></span>}
                                                     </td>
-                                                    <td className="px-4 py-3.5 text-slate-500 font-mono text-xs">{u.phone}</td>
+                                                    <td className="px-4 py-3.5 text-surface-500 font-mono text-xs">{u.phone}</td>
                                                     <td className="px-4 py-3.5 text-center">
                                                         {(() => {
                                                             const colorMap: Record<string, string> = {
-                                                                red: 'bg-red-50 text-red-700 border-red-100',
-                                                                purple: 'bg-purple-50 text-purple-700 border-purple-100',
-                                                                amber: 'bg-amber-50 text-amber-700 border-amber-100',
-                                                                blue: 'bg-blue-50 text-blue-700 border-blue-100',
-                                                                emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-                                                                indigo: 'bg-indigo-50 text-indigo-700 border-indigo-100',
+                                                                red: 'bg-danger-50 text-danger-700 border-danger-100',
+                                                                purple: 'bg-accent-50 text-accent-700 border-accent-100',
+                                                                amber: 'bg-warning-50 text-warning-700 border-warning-100',
+                                                                blue: 'bg-primary-50 text-primary-700 border-primary-100',
+                                                                emerald: 'bg-success-50 text-success-700 border-success-100',
+                                                                indigo: 'bg-accent-50 text-accent-700 border-accent-100',
                                                                 pink: 'bg-pink-50 text-pink-700 border-pink-100',
-                                                                slate: 'bg-slate-100 text-slate-600 border-slate-200',
+                                                                slate: 'bg-surface-100 text-surface-600 border-surface-200',
                                                             };
                                                             // Check custom role first
                                                             if (u.customRoleId) {
@@ -471,7 +471,7 @@ function AdminUsersPageContent() {
                                                             // Fallback: find system role
                                                             const sysRole = customRoles.find(r => r.isSystem && r.id === u.role);
                                                             return (
-                                                                <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border', sysRole ? colorMap[sysRole.color || 'slate'] : (ROLE_BADGE_CLASS[u.role] ?? 'bg-slate-100 text-slate-600'))}>
+                                                                <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border', sysRole ? colorMap[sysRole.color || 'slate'] : (ROLE_BADGE_CLASS[u.role] ?? 'bg-surface-100 text-surface-600'))}>
                                                                     {sysRole?.name ?? ROLE_LABELS[u.role] ?? u.role}
                                                                 </span>
                                                             );
@@ -479,14 +479,14 @@ function AdminUsersPageContent() {
                                                     </td>
                                                     <td className="px-4 py-3.5 text-center">
                                                         <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border',
-                                                            u.type === 'FT' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-purple-50 text-purple-700 border-purple-100'
+                                                            u.type === 'FT' ? 'bg-primary-50 text-primary-700 border-primary-100' : 'bg-accent-50 text-accent-700 border-accent-100'
                                                         )}>
                                                             {u.type === 'FT' ? 'Toàn thời gian' : 'Bán thời gian'}
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-3.5">
-                                                        <span className="text-xs font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600">
-                                                            {getLocationLabel(u) ?? <span className="italic text-slate-400">— Admin —</span>}
+                                                        <span className="text-xs font-medium px-2 py-0.5 rounded bg-surface-100 text-surface-600">
+                                                            {getLocationLabel(u) ?? <span className="italic text-surface-400">— Admin —</span>}
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-3.5 text-center">
@@ -495,7 +495,7 @@ function AdminUsersPageContent() {
                                                             disabled={actionLoading}
                                                             className={cn(
                                                                 'text-[11px] font-bold px-2 py-0.5 rounded border cursor-pointer transition-opacity hover:opacity-70 disabled:cursor-not-allowed',
-                                                                u.isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'
+                                                                u.isActive ? 'bg-success-50 text-success-700 border-success-200' : 'bg-surface-100 text-surface-500 border-surface-200'
                                                             )}
                                                         >
                                                             {u.isActive ? 'Đang làm' : 'Đã nghỉ'}
@@ -505,7 +505,7 @@ function AdminUsersPageContent() {
                                                         <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                                             <button
                                                                 onClick={() => openEditModal(u)}
-                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 transition-colors"
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary-50 text-primary-600 hover:bg-primary-100 border border-primary-200 transition-colors"
                                                             >
                                                                 Sửa
                                                             </button>
@@ -541,15 +541,15 @@ function AdminUsersPageContent() {
             {/* Create / Edit Modal */}
             {isCreateModalOpen && (
                 <Portal>
-                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-surface-900/50 backdrop-blur-sm">
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-                            <div className="p-6 border-b border-slate-100 flex items-center gap-3 sticky top-0 bg-white z-10">
-                                <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center">
+                            <div className="p-6 border-b border-surface-100 flex items-center gap-3 sticky top-0 bg-white z-10">
+                                <div className="w-10 h-10 rounded-full bg-surface-100 text-surface-600 flex items-center justify-center">
                                     <MailPlus className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-bold text-slate-900">{editUid ? 'Cập nhật Người dùng' : 'Tạo Người dùng mới'}</h3>
-                                    <p className="text-xs text-slate-500">Tài khoản Firebase Auth sẽ được tạo tự động khi thêm mới.</p>
+                                    <h3 className="text-lg font-bold text-surface-900">{editUid ? 'Cập nhật Người dùng' : 'Tạo Người dùng mới'}</h3>
+                                    <p className="text-xs text-surface-500">Tài khoản Firebase Auth sẽ được tạo tự động khi thêm mới.</p>
                                 </div>
                             </div>
 
@@ -557,31 +557,31 @@ function AdminUsersPageContent() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     {/* Left col - Basic info */}
                                     <div className="space-y-4">
-                                        <h4 className="font-semibold text-slate-800 text-sm border-b pb-2">Thông tin cơ bản</h4>
+                                        <h4 className="font-semibold text-surface-800 text-sm border-b pb-2">Thông tin cơ bản</h4>
                                         {[
                                             { label: 'Họ và Tên *', value: newName, setter: setNewName, placeholder: 'Nguyễn Văn A', required: true },
                                             { label: 'Số điện thoại *', value: newPhone, setter: setNewPhone, placeholder: '0901234567', required: true, disabled: !!editUid },
                                         ].map(f => (
                                             <div key={f.label} className="space-y-1.5">
-                                                <label className="text-sm font-medium text-slate-700">{f.label}</label>
+                                                <label className="text-sm font-medium text-surface-700">{f.label}</label>
                                                 <input
                                                     required={f.required} disabled={f.disabled} placeholder={f.placeholder}
                                                     value={f.value} onChange={e => f.setter(e.target.value)}
-                                                    className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5 disabled:bg-slate-100 disabled:text-slate-400"
+                                                    className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5 disabled:bg-surface-100 disabled:text-surface-400"
                                                 />
                                             </div>
                                         ))}
                                         <div className="space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-700">Loại hợp đồng *</label>
+                                            <label className="text-sm font-medium text-surface-700">Loại hợp đồng *</label>
                                             <select value={newType} onChange={e => setNewType(e.target.value as EmployeeType)}
-                                                className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5">
+                                                className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5">
                                                 <option value="PT">Bán thời gian (PT)</option>
                                                 <option value="FT">Toàn thời gian (FT)</option>
                                             </select>
                                         </div>
                                         <div className="space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-                                                <Shield className="w-3.5 h-3.5 text-violet-500" />
+                                            <label className="text-sm font-medium text-surface-700 flex items-center gap-1.5">
+                                                <Shield className="w-3.5 h-3.5 text-accent-500" />
                                                 Vai trò *
                                             </label>
                                             <select
@@ -596,7 +596,7 @@ function AdminUsersPageContent() {
                                                         setNewCustomRoleId('');
                                                     }
                                                 }}
-                                                className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5"
+                                                className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5"
                                             >
                                                 {/* Roles shown based on location context */}
                                                 {selectedLocationType === 'OFFICE' ? (
@@ -635,7 +635,7 @@ function AdminUsersPageContent() {
                                             </select>
                                         </div>
                                         <div className="space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-700">Loại nơi làm việc</label>
+                                            <label className="text-sm font-medium text-surface-700">Loại nơi làm việc</label>
                                             <div className="flex gap-2">
                                                 {(['STORE', 'OFFICE', 'CENTRAL'] as const).map(wt => (
                                                     <button
@@ -651,10 +651,10 @@ function AdminUsersPageContent() {
                                                         className={cn(
                                                             'flex-1 py-2 rounded-lg text-sm font-semibold border transition-all',
                                                             newWorkplaceType === wt
-                                                                ? wt === 'STORE' ? 'bg-indigo-600 text-white border-indigo-600'
+                                                                ? wt === 'STORE' ? 'bg-accent-600 text-white border-accent-600'
                                                                     : wt === 'OFFICE' ? 'bg-teal-600 text-white border-teal-600'
                                                                         : 'bg-orange-600 text-white border-orange-600'
-                                                                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                                                : 'bg-surface-50 text-surface-600 border-surface-200 hover:bg-surface-100'
                                                         )}
                                                     >
                                                         {wt === 'STORE' ? '🏥 Cửa hàng' : wt === 'OFFICE' ? '🏢 Văn phòng' : '🏭 Kho tổng'}
@@ -663,26 +663,26 @@ function AdminUsersPageContent() {
                                             </div>
                                         </div>
                                         <div className="space-y-1.5">
-                                            <label className="text-sm font-medium text-slate-700">
+                                            <label className="text-sm font-medium text-surface-700">
                                                 {newWorkplaceType === 'STORE' ? '🏥 Chọn Cửa hàng' : newWorkplaceType === 'OFFICE' ? '🏢 Chọn Văn phòng' : '🏭 Chọn Kho tổng'}
                                             </label>
                                             {newWorkplaceType === 'STORE' && (
                                                 <select value={newStoreId} onChange={e => setNewStoreId(e.target.value)}
-                                                    className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5">
+                                                    className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5">
                                                     <option value="">(Không thuộc cửa hàng nào)</option>
                                                     {stores.map(s => <option key={s.id} value={s.id}>{s.name}{!s.isActive ? ' (Đã tắt)' : ''}</option>)}
                                                 </select>
                                             )}
                                             {newWorkplaceType === 'OFFICE' && (
                                                 <select value={newOfficeId} onChange={e => setNewOfficeId(e.target.value)}
-                                                    className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-teal-500 focus:border-teal-400 block p-2.5">
+                                                    className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-teal-500 focus:border-teal-400 block p-2.5">
                                                     <option value="">(Không thuộc văn phòng nào)</option>
                                                     {offices.map(o => <option key={o.id} value={o.id}>{o.name}{!o.isActive ? ' (Đã tắt)' : ''}</option>)}
                                                 </select>
                                             )}
                                             {newWorkplaceType === 'CENTRAL' && (
                                                 <select value={newWarehouseId} onChange={e => setNewWarehouseId(e.target.value)}
-                                                    className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-orange-500 focus:border-orange-400 block p-2.5">
+                                                    className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-orange-500 focus:border-orange-400 block p-2.5">
                                                     <option value="">(Không thuộc kho nào)</option>
                                                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}{!w.isActive ? ' (Đã tắt)' : ''}</option>)}
                                                 </select>
@@ -690,12 +690,12 @@ function AdminUsersPageContent() {
                                         </div>
                                         {/* canManageHR is STORE-specific */}
                                         {newRole !== 'admin' && newWorkplaceType === 'STORE' && (
-                                            <label className="flex items-center gap-2 cursor-pointer p-3 border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
+                                            <label className="flex items-center gap-2 cursor-pointer p-3 border border-surface-200 rounded-lg bg-surface-50 hover:bg-surface-100 transition-colors">
                                                 <input type="checkbox" checked={newCanManageHR} onChange={e => setNewCanManageHR(e.target.checked)}
-                                                    className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer" />
+                                                    className="w-4 h-4 text-accent-600 rounded focus:ring-accent-500 cursor-pointer" />
                                                 <div>
-                                                    <span className="text-sm font-semibold text-slate-800">Quyền Quản lý Nhân sự &amp; Xếp lịch</span>
-                                                    <p className="text-[10px] text-slate-500 mt-0.5">Cho phép thêm, sửa, tắt hoạt động nhân viên và phân ca.</p>
+                                                    <span className="text-sm font-semibold text-surface-800">Quyền Quản lý Nhân sự &amp; Xếp lịch</span>
+                                                    <p className="text-[10px] text-surface-500 mt-0.5">Cho phép thêm, sửa, tắt hoạt động nhân viên và phân ca.</p>
                                                 </div>
                                             </label>
                                         )}
@@ -704,7 +704,7 @@ function AdminUsersPageContent() {
 
                                     {/* Right col - Extended details */}
                                     <div className="space-y-4">
-                                        <h4 className="font-semibold text-slate-800 text-sm border-b pb-2">Thông tin bổ sung</h4>
+                                        <h4 className="font-semibold text-surface-800 text-sm border-b pb-2">Thông tin bổ sung</h4>
                                         {[
                                             { label: 'Ngày sinh', value: newDob, setter: setNewDob, type: 'date' },
                                             { label: 'Chức danh', value: newJobTitle, setter: setNewJobTitle, placeholder: 'VD: Nhân viên phục vụ' },
@@ -714,11 +714,11 @@ function AdminUsersPageContent() {
                                             { label: 'Học vấn', value: newEducation, setter: setNewEducation, placeholder: 'Đại học, Cao đẳng...' },
                                         ].map(f => (
                                             <div key={f.label} className="space-y-1.5">
-                                                <label className="text-sm font-medium text-slate-700">{f.label}</label>
+                                                <label className="text-sm font-medium text-surface-700">{f.label}</label>
                                                 <input
                                                     type={f.type || 'text'} placeholder={f.placeholder}
                                                     value={f.value} onChange={e => f.setter(e.target.value)}
-                                                    className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-400 block p-2.5"
+                                                    className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5"
                                                 />
                                             </div>
                                         ))}
@@ -726,16 +726,16 @@ function AdminUsersPageContent() {
                                 </div>
 
                                 {actionMessage.text && isCreateModalOpen && (
-                                    <div className={cn('p-3 rounded-lg text-sm', actionMessage.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700')}>
+                                    <div className={cn('p-3 rounded-lg text-sm', actionMessage.type === 'error' ? 'bg-danger-50 text-danger-600' : 'bg-success-50 text-success-700')}>
                                         {actionMessage.text}
                                     </div>
                                 )}
 
                                 <div className="flex gap-3 pt-2">
                                     <button type="button" onClick={resetForm}
-                                        className="flex-1 border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl font-medium text-sm">Hủy</button>
+                                        className="flex-1 border border-surface-200 hover:bg-surface-50 text-surface-700 px-4 py-2.5 rounded-xl font-medium text-sm">Hủy</button>
                                     <button type="submit" disabled={actionLoading}
-                                        className="flex-1 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-xl font-medium text-sm disabled:opacity-50">
+                                        className="flex-1 bg-surface-800 hover:bg-surface-900 text-white px-4 py-2.5 rounded-xl font-medium text-sm disabled:opacity-50">
                                         {actionLoading ? 'Đang lưu...' : (editUid ? 'Cập nhật' : 'Tạo mới')}
                                     </button>
                                 </div>
@@ -752,7 +752,7 @@ export default function AdminUsersPage() {
     return (
         <Suspense fallback={
             <div className="flex justify-center py-12">
-                <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-4 border-accent-500 border-t-transparent rounded-full animate-spin" />
             </div>
         }>
             <AdminUsersPageContent />

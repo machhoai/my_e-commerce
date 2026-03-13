@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useRef, useState, useCallback } from 'react';
 import { Camera, X, SwitchCamera, ImagePlus, AlertTriangle, ShieldAlert, Loader2 } from 'lucide-react';
@@ -122,16 +122,16 @@ export default function BarcodeScanner({ onScanSuccess, onClose }: BarcodeScanne
             <div className="fixed inset-0 z-[110] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
                     {/* Header */}
-                    <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
-                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Camera className="w-5 h-5 text-indigo-600" />
+                    <div className="flex items-center justify-between px-5 py-3 border-b border-surface-200">
+                        <h3 className="font-bold text-surface-800 flex items-center gap-2">
+                            <Camera className="w-5 h-5 text-accent-600" />
                             Quét mã vạch
                         </h3>
                         <div className="flex items-center gap-1">
                             {cameraActive && (
                                 <button
                                     onClick={handleSwitchCamera}
-                                    className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+                                    className="p-2 rounded-lg hover:bg-surface-100 text-surface-500 transition-colors"
                                     title="Đổi camera"
                                 >
                                     <SwitchCamera className="w-5 h-5" />
@@ -139,7 +139,7 @@ export default function BarcodeScanner({ onScanSuccess, onClose }: BarcodeScanne
                             )}
                             <button
                                 onClick={handleClose}
-                                className="p-2 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-600 transition-colors"
+                                className="p-2 rounded-lg hover:bg-danger-50 text-surface-500 hover:text-danger-600 transition-colors"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -152,13 +152,13 @@ export default function BarcodeScanner({ onScanSuccess, onClose }: BarcodeScanne
 
                         {/* Rule 1: Manual start button — shown when camera is NOT active */}
                         {!cameraActive && !cameraLoading && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 gap-4 p-6">
-                                <div className="w-20 h-20 rounded-full bg-indigo-600/20 flex items-center justify-center">
-                                    <Camera className="w-10 h-10 text-indigo-400" />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface-900 gap-4 p-6">
+                                <div className="w-20 h-20 rounded-full bg-accent-600/20 flex items-center justify-center">
+                                    <Camera className="w-10 h-10 text-accent-400" />
                                 </div>
                                 <button
                                     onClick={() => startCamera(facingMode)}
-                                    className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-600/30 active:scale-95 flex items-center gap-2"
+                                    className="px-6 py-3 bg-accent-600 hover:bg-accent-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-accent-600/30 active:scale-95 flex items-center gap-2"
                                 >
                                     <Camera className="w-4 h-4" />
                                     Bật Camera Quét Mã
@@ -171,8 +171,8 @@ export default function BarcodeScanner({ onScanSuccess, onClose }: BarcodeScanne
 
                         {/* Loading state */}
                         {cameraLoading && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 gap-3">
-                                <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface-900 gap-3">
+                                <Loader2 className="w-8 h-8 text-accent-400 animate-spin" />
                                 <p className="text-white/60 text-sm">Đang khởi động camera...</p>
                             </div>
                         )}
@@ -188,15 +188,15 @@ export default function BarcodeScanner({ onScanSuccess, onClose }: BarcodeScanne
                     {/* Error display */}
                     {scanError && (
                         <div className="px-5 py-4">
-                            <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700 flex items-start gap-3">
-                                <ShieldAlert className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                            <div className="bg-danger-50 border border-danger-200 rounded-xl p-4 text-sm text-danger-700 flex items-start gap-3">
+                                <ShieldAlert className="w-5 h-5 text-danger-500 shrink-0 mt-0.5" />
                                 <div>
                                     <p className="font-bold mb-1">Không thể truy cập Camera</p>
-                                    <p className="text-red-600">{scanError}</p>
+                                    <p className="text-danger-600">{scanError}</p>
                                     {cameraActive === false && (
                                         <button
                                             onClick={() => { setScanError(''); startCamera(facingMode); }}
-                                            className="mt-2 text-xs font-bold text-indigo-600 hover:text-indigo-800 underline"
+                                            className="mt-2 text-xs font-bold text-accent-600 hover:text-accent-800 underline"
                                         >
                                             Thử lại
                                         </button>
@@ -207,8 +207,8 @@ export default function BarcodeScanner({ onScanSuccess, onClose }: BarcodeScanne
                     )}
 
                     {/* Rule 3: Image file fallback (critical for iOS PWA) */}
-                    <div className="px-5 py-4 border-t border-slate-100">
-                        <p className="text-xs text-slate-400 text-center mb-2 flex items-center justify-center gap-1.5">
+                    <div className="px-5 py-4 border-t border-surface-100">
+                        <p className="text-xs text-surface-400 text-center mb-2 flex items-center justify-center gap-1.5">
                             <AlertTriangle className="w-3 h-3" />
                             Camera không hoạt động? Chụp ảnh mã vạch trực tiếp:
                         </p>
@@ -234,10 +234,10 @@ export default function BarcodeScanner({ onScanSuccess, onClose }: BarcodeScanne
                     <div id="file-scan-region" className="hidden" />
 
                     {/* Footer */}
-                    <div className="px-5 py-3 border-t border-slate-200">
+                    <div className="px-5 py-3 border-t border-surface-200">
                         <button
                             onClick={handleClose}
-                            className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm transition-colors"
+                            className="w-full py-2.5 rounded-xl bg-surface-100 hover:bg-surface-200 text-surface-700 font-semibold text-sm transition-colors"
                         >
                             Đóng
                         </button>

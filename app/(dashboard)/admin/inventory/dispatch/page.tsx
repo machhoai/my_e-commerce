@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,7 +39,7 @@ export default function AdminDispatchPage() {
 
     if (userDoc && userDoc.role !== 'admin') {
         return (
-            <div className="flex flex-col items-center justify-center h-64 text-red-500">
+            <div className="flex flex-col items-center justify-center h-64 text-danger-500">
                 <AlertCircle className="w-12 h-12 mb-2" />
                 <p className="font-bold">Chỉ quản trị viên mới có quyền truy cập.</p>
             </div>
@@ -205,22 +205,22 @@ export default function AdminDispatchPage() {
                 titleChildren={
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
                         <div>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
-                                <Truck className="w-7 h-7 text-emerald-600" />
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-success-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <Truck className="w-7 h-7 text-success-600" />
                                 Duyệt xuất kho
                             </h1>
-                            <p className="text-slate-500 mt-1 text-sm">Xem và duyệt các đơn đặt hàng từ cửa hàng. Hàng sẽ được trừ khỏi kho tổng và tạo mã QR để cửa hàng xác nhận nhận hàng.</p>
+                            <p className="text-surface-500 mt-1 text-sm">Xem và duyệt các đơn đặt hàng từ cửa hàng. Hàng sẽ được trừ khỏi kho tổng và tạo mã QR để cửa hàng xác nhận nhận hàng.</p>
                         </div>
                     </div>
                 }
             />
 
             {/* Store filter */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="bg-white rounded-xl border border-surface-200 shadow-sm p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <div className="flex items-center gap-3 flex-1">
-                    <Package className="w-5 h-5 text-indigo-500 shrink-0" />
+                    <Package className="w-5 h-5 text-accent-500 shrink-0" />
                     <select value={selectedStoreId} onChange={e => setSelectedStoreId(e.target.value)}
-                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                        className="flex-1 bg-surface-50 border border-surface-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-accent-300">
                         <option value="">Tất cả cửa hàng</option>
                         {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
                     </select>
@@ -228,7 +228,7 @@ export default function AdminDispatchPage() {
                 <div className="flex items-center gap-3 flex-1">
                     <Warehouse className="w-5 h-5 text-orange-500 shrink-0" />
                     <select value={selectedWarehouseId} onChange={e => setSelectedWarehouseId(e.target.value)}
-                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-orange-300">
+                        className="flex-1 bg-surface-50 border border-surface-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-orange-300">
                         <option value="">📊 Tất cả các kho</option>
                         {warehouses.map(w => <option key={w.id} value={w.id}>🏭 {w.name}</option>)}
                     </select>
@@ -236,7 +236,7 @@ export default function AdminDispatchPage() {
             </div>
 
             {message.text && (
-                <div className={`p-3 rounded-xl flex items-center gap-2 border text-sm font-medium ${message.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                <div className={`p-3 rounded-xl flex items-center gap-2 border text-sm font-medium ${message.type === 'error' ? 'bg-danger-50 text-danger-700 border-danger-200' : 'bg-success-50 text-success-700 border-success-200'}`}>
                     {message.type === 'error' ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                     {message.text}
                 </div>
@@ -244,19 +244,19 @@ export default function AdminDispatchPage() {
 
             {/* Dispatch Result with QR Code */}
             {dispatchResult && (
-                <div className="bg-white rounded-2xl border-2 border-emerald-200 shadow-sm overflow-hidden">
-                    <div className="bg-emerald-50 p-4 border-b border-emerald-100 flex items-center justify-between">
+                <div className="bg-white rounded-2xl border-2 border-success-200 shadow-sm overflow-hidden">
+                    <div className="bg-success-50 p-4 border-b border-success-100 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <QrCode className="w-5 h-5 text-emerald-600" />
-                            <h2 className="text-lg font-bold text-emerald-800">Phiếu xuất kho & Mã QR nhận hàng</h2>
+                            <QrCode className="w-5 h-5 text-success-600" />
+                            <h2 className="text-lg font-bold text-success-800">Phiếu xuất kho & Mã QR nhận hàng</h2>
                         </div>
                         <div className="flex items-center gap-2">
                             <button onClick={handlePrint}
-                                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                                className="flex items-center gap-1.5 bg-success-600 hover:bg-success-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
                                 <Printer className="w-4 h-4" /> In phiếu
                             </button>
                             <button onClick={() => setDispatchResult(null)}
-                                className="text-slate-400 hover:text-slate-700 p-1.5">
+                                className="text-surface-400 hover:text-surface-700 p-1.5">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
@@ -308,19 +308,19 @@ export default function AdminDispatchPage() {
             )}
 
             {/* Orders Table */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
                 {loading ? (
-                    <div className="flex justify-center py-12"><div className="w-6 h-6 border-4 border-slate-300 border-t-slate-700 rounded-full animate-spin" /></div>
+                    <div className="flex justify-center py-12"><div className="w-6 h-6 border-4 border-surface-300 border-t-surface-700 rounded-full animate-spin" /></div>
                 ) : orders.length === 0 ? (
                     <div className="text-center py-12 space-y-2">
-                        <Truck className="w-8 h-8 text-slate-300 mx-auto" />
-                        <p className="text-sm text-slate-400">Không có đơn hàng nào đang chờ duyệt</p>
+                        <Truck className="w-8 h-8 text-surface-300 mx-auto" />
+                        <p className="text-sm text-surface-400">Không có đơn hàng nào đang chờ duyệt</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="text-left text-xs text-slate-500 uppercase bg-slate-50 border-b">
+                                <tr className="text-left text-xs text-surface-500 uppercase bg-surface-50 border-b">
                                     <th className="px-6 py-3">Cửa hàng</th>
                                     <th className="px-6 py-3">Người đặt</th>
                                     <th className="px-6 py-3">Tài liệu</th>
@@ -331,9 +331,9 @@ export default function AdminDispatchPage() {
                             </thead>
                             <tbody>
                                 {orders.map(order => (
-                                    <tr key={order.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                                    <tr key={order.id} className="border-b border-surface-100 hover:bg-surface-50/50">
                                         <td className="px-6 py-3">
-                                            <p className="font-medium text-slate-700">{stores.find(s => s.id === order.storeId)?.name || order.storeId}</p>
+                                            <p className="font-medium text-surface-700">{stores.find(s => s.id === order.storeId)?.name || order.storeId}</p>
                                             {order.status === 'PACKING' ? (
                                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200 mt-0.5">
                                                     <PackageCheck className="w-3 h-3" /> Đang đóng gói
@@ -350,56 +350,56 @@ export default function AdminDispatchPage() {
                                             )}
                                         </td>
                                         <td className="px-6 py-3">
-                                            <p className="text-slate-600">{order.createdByName}</p>
+                                            <p className="text-surface-600">{order.createdByName}</p>
                                         </td>
                                         <td className="px-6 py-3">
                                             <div className="flex flex-col gap-1">
                                                 {order.attachmentUrl && (
                                                     <a href={order.attachmentUrl} target="_blank" rel="noopener noreferrer"
-                                                        className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800">
+                                                        className="inline-flex items-center gap-1 text-[10px] font-bold text-accent-600 hover:text-accent-800">
                                                         <FileText className="w-3 h-3" /> File đề xuất
                                                         <ExternalLink className="w-2.5 h-2.5" />
                                                     </a>
                                                 )}
                                                 {order.officeExportSlipUrl && (
                                                     <a href={order.officeExportSlipUrl} target="_blank" rel="noopener noreferrer"
-                                                        className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-800">
+                                                        className="inline-flex items-center gap-1 text-[10px] font-bold text-success-600 hover:text-success-800">
                                                         <FileText className="w-3 h-3" /> Phiếu xuất kho
                                                         <ExternalLink className="w-2.5 h-2.5" />
                                                     </a>
                                                 )}
                                                 {!order.attachmentUrl && !order.officeExportSlipUrl && (
-                                                    <span className="text-[10px] text-slate-300 italic">Không có file</span>
+                                                    <span className="text-[10px] text-surface-300 italic">Không có file</span>
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-3 text-slate-600">
+                                        <td className="px-6 py-3 text-surface-600">
                                             <div className="space-y-0.5">
                                                 {order.items.map((item, i) => (
                                                     <div key={i} className="text-xs flex items-center gap-1.5">
-                                                        <span className="font-mono font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-[11px] shrink-0">
+                                                        <span className="font-mono font-bold text-surface-800 bg-surface-100 px-1.5 py-0.5 rounded text-[11px] shrink-0">
                                                             {item.productCode || '—'}
                                                         </span>
-                                                        <span className="text-slate-400">×{item.requestedQty} {item.unit}</span>
+                                                        <span className="text-surface-400">×{item.requestedQty} {item.unit}</span>
                                                     </div>
                                                 ))}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-3 text-slate-500 whitespace-nowrap">{new Date(order.timestamp).toLocaleString('vi-VN')}</td>
+                                        <td className="px-6 py-3 text-surface-500 whitespace-nowrap">{new Date(order.timestamp).toLocaleString('vi-VN')}</td>
                                         <td className="px-6 py-3 text-right">
                                             <div className="flex items-center gap-2 justify-end">
                                                 <button onClick={() => openRejectModal(order.id)}
-                                                    className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
+                                                    className="bg-danger-50 hover:bg-danger-100 text-danger-600 border border-danger-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
                                                     <XCircle className="w-3.5 h-3.5" /> Từ chối
                                                 </button>
                                                 {order.status === 'PACKING' ? (
                                                     <button onClick={() => openDispatchModal(order)}
-                                                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
+                                                        className="bg-accent-600 hover:bg-accent-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
                                                         <Truck className="w-3.5 h-3.5" /> Xác nhận xuất kho
                                                     </button>
                                                 ) : (
                                                     <button onClick={() => handleWarehouseApprove(order.id)}
-                                                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
+                                                        className="bg-success-600 hover:bg-success-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
                                                         <PackageCheck className="w-3.5 h-3.5" /> Chấp nhận đóng gói
                                                     </button>
                                                 )}
@@ -418,40 +418,40 @@ export default function AdminDispatchPage() {
                 <Portal>
                     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-                            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                            <div className="p-6 border-b border-surface-100 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <XCircle className="w-5 h-5 text-red-500" />
-                                    <h2 className="text-lg font-bold text-slate-800">Từ chối đơn hàng</h2>
+                                    <XCircle className="w-5 h-5 text-danger-500" />
+                                    <h2 className="text-lg font-bold text-surface-800">Từ chối đơn hàng</h2>
                                 </div>
-                                <button onClick={() => setRejectingId(null)} className="text-slate-400 hover:text-slate-700 p-1">
+                                <button onClick={() => setRejectingId(null)} className="text-surface-400 hover:text-surface-700 p-1">
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
                             <div className="p-6 space-y-4">
-                                <p className="text-sm text-slate-600">Vui lòng nhập lý do từ chối để cửa hàng biết và đặt lại đơn phù hợp.</p>
+                                <p className="text-sm text-surface-600">Vui lòng nhập lý do từ chối để cửa hàng biết và đặt lại đơn phù hợp.</p>
                                 <div>
-                                    <label className="text-xs font-bold text-slate-600 block mb-1">
-                                        Lý do từ chối <span className="text-red-500">*</span>
+                                    <label className="text-xs font-bold text-surface-600 block mb-1">
+                                        Lý do từ chối <span className="text-danger-500">*</span>
                                     </label>
                                     <textarea
                                         value={rejectReason}
                                         onChange={e => setRejectReason(e.target.value)}
                                         rows={3}
                                         placeholder="VD: Hết hàng, đặt sai số lượng, mã sản phẩm không tồn tại..."
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-red-300 resize-none"
+                                        className="w-full bg-surface-50 border border-surface-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-danger-300 resize-none"
                                     />
                                 </div>
                             </div>
-                            <div className="p-6 border-t border-slate-100 flex gap-3">
+                            <div className="p-6 border-t border-surface-100 flex gap-3">
                                 <button
                                     onClick={() => setRejectingId(null)}
-                                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl font-medium text-sm transition-colors">
+                                    className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 py-2.5 rounded-xl font-medium text-sm transition-colors">
                                     Huỷ
                                 </button>
                                 <button
                                     onClick={handleReject}
                                     disabled={isRejecting || !rejectReason.trim()}
-                                    className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all">
+                                    className="flex-1 bg-danger-600 hover:bg-danger-700 disabled:opacity-40 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all">
                                     {isRejecting
                                         ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Đang xử lý...</>
                                         : <><XCircle className="w-4 h-4" /> Từ chối đơn</>}
@@ -467,40 +467,40 @@ export default function AdminDispatchPage() {
                 <Portal>
                     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
-                            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                                <h2 className="text-lg font-bold text-slate-800">Duyệt và điều chỉnh số lượng thực xuất</h2>
-                                <button onClick={() => setDispatchingId(null)} className="text-slate-400 hover:text-slate-700 p-1">
+                            <div className="p-6 border-b border-surface-100 flex items-center justify-between">
+                                <h2 className="text-lg font-bold text-surface-800">Duyệt và điều chỉnh số lượng thực xuất</h2>
+                                <button onClick={() => setDispatchingId(null)} className="text-surface-400 hover:text-surface-700 p-1">
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
                             <div className="p-6 space-y-4">
                                 {modalItems.map((item, idx) => (
-                                    <div key={item.productId} className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <div key={item.productId} className="flex items-center gap-4 p-3 bg-surface-50 rounded-xl border border-surface-100">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="font-mono font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-xs">
+                                                <span className="font-mono font-bold text-surface-800 bg-surface-100 px-1.5 py-0.5 rounded text-xs">
                                                     {item.productCode || '—'}
                                                 </span>
-                                                <span className="text-slate-500 text-xs truncate">{item.productName}</span>
+                                                <span className="text-surface-500 text-xs truncate">{item.productName}</span>
                                             </div>
-                                            <p className="text-xs text-slate-400 mt-0.5">Yêu cầu: {item.requestedQty} {item.unit}</p>
+                                            <p className="text-xs text-surface-400 mt-0.5">Yêu cầu: {item.requestedQty} {item.unit}</p>
                                         </div>
                                         <div className="flex flex-col items-center">
-                                            <span className="text-[10px] text-slate-400 mb-1">Thực xuất</span>
+                                            <span className="text-[10px] text-surface-400 mb-1">Thực xuất</span>
                                             <input type="number" min={0} value={item.approvedQty}
                                                 onChange={e => {
                                                     const updated = [...modalItems];
                                                     updated[idx] = { ...updated[idx], approvedQty: Number(e.target.value) || 0 };
                                                     setModalItems(updated);
                                                 }}
-                                                className="w-20 bg-white border border-slate-200 rounded-lg p-2 text-sm text-center font-bold outline-none focus:ring-2 focus:ring-emerald-300" />
+                                                className="w-20 bg-white border border-surface-200 rounded-lg p-2 text-sm text-center font-bold outline-none focus:ring-2 focus:ring-success-300" />
                                         </div>
                                     </div>
                                 ))}
                             </div>
-                            <div className="p-6 border-t border-slate-100">
+                            <div className="p-6 border-t border-surface-100">
                                 <button onClick={handleDispatch}
-                                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md">
+                                    className="w-full bg-gradient-to-r from-success-600 to-teal-600 hover:from-success-700 hover:to-teal-700 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md">
                                     <Truck className="w-4 h-4" /> Xác nhận xuất kho & Tạo mã QR
                                 </button>
                             </div>

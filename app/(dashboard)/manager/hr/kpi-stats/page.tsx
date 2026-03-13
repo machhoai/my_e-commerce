@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, Suspense, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -291,7 +291,7 @@ function ManagerKpiStatsPageContent() {
     const paginatedEmployees = processedEmployees.slice((currentPage - 1) * currentPageSize, currentPage * currentPageSize);
 
     if (!userDoc || (userDoc.role !== 'admin' && userDoc.role !== 'store_manager' && !hasPermission('view_all_kpi'))) {
-        return <div className="p-8 text-center text-red-500 font-bold">Không có quyền truy cập.</div>;
+        return <div className="p-8 text-center text-danger-500 font-bold">Không có quyền truy cập.</div>;
     }
 
     const totalRecords = filteredRecords.length;
@@ -313,27 +313,27 @@ function ManagerKpiStatsPageContent() {
                 titleChildren={
                     <div className="flex items-center justify-between w-full gap-4 flex-wrap">
                         <div>
-                            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                                <BarChart3 className="w-7 h-7 text-indigo-600" />
+                            <h1 className="text-2xl font-bold text-surface-800 flex items-center gap-2">
+                                <BarChart3 className="w-7 h-7 text-accent-600" />
                                 Thống kê KPI
                             </h1>
-                            <p className="text-slate-500 mt-1 text-sm">Lịch sử chấm điểm và thống kê KPI nhân viên theo tháng.</p>
+                            <p className="text-surface-500 mt-1 text-sm">Lịch sử chấm điểm và thống kê KPI nhân viên theo tháng.</p>
                         </div>
                         {/* Export buttons */}
                         {hasPermission('export_kpi') && (
                             <div className="flex items-center gap-2">
                                 <button onClick={handleExportPdf} disabled={!!exporting || !filteredRecords.length}
-                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-semibold text-xs disabled:opacity-50 transition-colors">
-                                    {exporting === 'pdf' ? <div className="w-3.5 h-3.5 border-2 border-red-500 border-t-transparent rounded-full animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-danger-50 text-danger-700 border border-danger-200 hover:bg-danger-100 font-semibold text-xs disabled:opacity-50 transition-colors">
+                                    {exporting === 'pdf' ? <div className="w-3.5 h-3.5 border-2 border-danger-500 border-t-transparent rounded-full animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
                                     PDF
                                 </button>
                                 <button onClick={handleExportExcel} disabled={!!exporting || !filteredRecords.length}
-                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-semibold text-xs disabled:opacity-50 transition-colors">
-                                    {exporting === 'excel' ? <div className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-success-50 text-success-700 border border-success-200 hover:bg-success-100 font-semibold text-xs disabled:opacity-50 transition-colors">
+                                    {exporting === 'excel' ? <div className="w-3.5 h-3.5 border-2 border-success-500 border-t-transparent rounded-full animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
                                     Excel
                                 </button>
                                 <button onClick={handleOpenExportDialog}
-                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 font-semibold text-xs transition-colors">
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent-50 text-accent-700 border border-accent-200 hover:bg-accent-100 font-semibold text-xs transition-colors">
                                     <Download className="w-3.5 h-3.5" />
                                     Xuất chi tiết
                                 </button>
@@ -346,24 +346,24 @@ function ManagerKpiStatsPageContent() {
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-3">
                 {userDoc.role === 'admin' && (
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-2 flex items-center gap-2 flex-1">
-                        <Building2 className="w-4 h-4 text-indigo-500 ml-1" />
+                    <div className="bg-white rounded-xl border border-surface-200 shadow-sm p-2 flex items-center gap-2 flex-1">
+                        <Building2 className="w-4 h-4 text-accent-500 ml-1" />
                         <select value={selectedStoreId} onChange={e => setSelectedStoreId(e.target.value)}
-                            className="flex-1 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                            className="flex-1 border border-surface-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-accent-300">
                             <option value="">-- Chọn cửa hàng --</option>
                             {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
                         </select>
                     </div>
                 )}
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-2 flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-indigo-500 ml-1" />
+                <div className="bg-white rounded-xl border border-surface-200 shadow-sm p-2 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-accent-500 ml-1" />
                     <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
-                        className="border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 font-medium" />
+                        className="border border-surface-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-accent-300 font-medium" />
                 </div>
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-2 flex items-center gap-2">
-                    <Filter className="w-4 h-4 text-indigo-500 ml-1" />
+                <div className="bg-white rounded-xl border border-surface-200 shadow-sm p-2 flex items-center gap-2">
+                    <Filter className="w-4 h-4 text-accent-500 ml-1" />
                     <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as '' | 'SELF_SCORED' | 'OFFICIAL')}
-                        className="border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 font-medium">
+                        className="border border-surface-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-accent-300 font-medium">
                         <option value="">Tất cả trạng thái</option>
                         <option value="SELF_SCORED">Tự chấm</option>
                         <option value="OFFICIAL">Chính thức</option>
@@ -373,17 +373,17 @@ function ManagerKpiStatsPageContent() {
 
             {/* Summary */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl border border-indigo-100 p-4 shadow-sm">
-                    <p className="text-xs text-indigo-600 font-medium uppercase tracking-wider mb-1 flex items-center gap-1"><Users className="w-3.5 h-3.5" /> Nhân viên</p>
-                    <p className="text-3xl font-black text-indigo-800">{allEmployees.length}</p>
+                <div className="bg-gradient-to-br from-accent-50 to-primary-50 rounded-xl border border-accent-100 p-4 shadow-sm">
+                    <p className="text-xs text-accent-600 font-medium uppercase tracking-wider mb-1 flex items-center gap-1"><Users className="w-3.5 h-3.5" /> Nhân viên</p>
+                    <p className="text-3xl font-black text-accent-800">{allEmployees.length}</p>
                 </div>
-                <div className="bg-gradient-to-br from-teal-50 to-emerald-50 rounded-xl border border-teal-100 p-4 shadow-sm">
+                <div className="bg-gradient-to-br from-teal-50 to-success-50 rounded-xl border border-teal-100 p-4 shadow-sm">
                     <p className="text-xs text-teal-600 font-medium uppercase tracking-wider mb-1 flex items-center gap-1"><Award className="w-3.5 h-3.5" /> Tổng lượt chấm</p>
                     <p className="text-3xl font-black text-teal-800">{totalRecords}</p>
                 </div>
-                <div className="bg-gradient-to-br from-purple-50 to-fuchsia-50 rounded-xl border border-purple-100 p-4 shadow-sm">
-                    <p className="text-xs text-purple-600 font-medium uppercase tracking-wider mb-1 flex items-center gap-1"><TrendingUp className="w-3.5 h-3.5" /> TB Chính thức</p>
-                    <p className={cn('text-3xl font-black', avgAll >= 80 ? 'text-emerald-700' : avgAll >= 50 ? 'text-amber-700' : 'text-red-700')}>
+                <div className="bg-gradient-to-br from-accent-50 to-fuchsia-50 rounded-xl border border-accent-100 p-4 shadow-sm">
+                    <p className="text-xs text-accent-600 font-medium uppercase tracking-wider mb-1 flex items-center gap-1"><TrendingUp className="w-3.5 h-3.5" /> TB Chính thức</p>
+                    <p className={cn('text-3xl font-black', avgAll >= 80 ? 'text-success-700' : avgAll >= 50 ? 'text-warning-700' : 'text-danger-700')}>
                         {avgAll || '—'}
                     </p>
                 </div>
@@ -391,16 +391,16 @@ function ManagerKpiStatsPageContent() {
 
             {/* Employee Table */}
             {loading ? (
-                <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
+                <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-accent-500 border-t-transparent rounded-full animate-spin" /></div>
             ) : error ? (
-                <div className="bg-red-50 border-2 border-dashed border-red-300 rounded-2xl p-12 text-center text-red-500">
-                    <Users className="w-10 h-10 mx-auto mb-3 text-red-300" />
+                <div className="bg-danger-50 border-2 border-dashed border-danger-300 rounded-2xl p-12 text-center text-danger-500">
+                    <Users className="w-10 h-10 mx-auto mb-3 text-danger-300" />
                     <p className="font-semibold">{error}</p>
-                    <p className="text-xs mt-2 text-red-400">Kiểm tra console để xem chi tiết lỗi.</p>
+                    <p className="text-xs mt-2 text-danger-400">Kiểm tra console để xem chi tiết lỗi.</p>
                 </div>
             ) : allEmployees.length === 0 ? (
-                <div className="bg-white border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center text-slate-400">
-                    <Users className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+                <div className="bg-white border-2 border-dashed border-surface-300 rounded-2xl p-12 text-center text-surface-400">
+                    <Users className="w-10 h-10 mx-auto mb-3 text-surface-300" />
                     <p className="font-semibold">Không có nhân viên</p>
                     <p className="text-xs mt-2">Cửa hàng chưa có nhân viên nào.</p>
                 </div>
@@ -422,21 +422,21 @@ function ManagerKpiStatsPageContent() {
                         onMobileApply={(values) => setParams(values)}
                     />
 
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="bg-white rounded-xl border border-surface-200 shadow-sm overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200">
+                                <thead className="bg-surface-50 border-b border-surface-200">
                                     <tr>
-                                        <th className="text-left p-3 font-semibold text-slate-600 w-8"></th>
-                                        <th className="text-left p-3 font-semibold text-slate-600">#</th>
+                                        <th className="text-left p-3 font-semibold text-surface-600 w-8"></th>
+                                        <th className="text-left p-3 font-semibold text-surface-600">#</th>
                                         <SortableHeader label="Nhân viên" field="name" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="text-left" />
-                                        <th className="text-center p-3 font-semibold text-slate-600">Số lượt</th>
-                                        <th className="text-center p-3 font-semibold text-slate-600">TB Tự chấm</th>
-                                        <th className="text-center p-3 font-semibold text-slate-600">TB Chính thức</th>
-                                        <th className="text-center p-3 font-semibold text-slate-600">Chênh lệch</th>
+                                        <th className="text-center p-3 font-semibold text-surface-600">Số lượt</th>
+                                        <th className="text-center p-3 font-semibold text-surface-600">TB Tự chấm</th>
+                                        <th className="text-center p-3 font-semibold text-surface-600">TB Chính thức</th>
+                                        <th className="text-center p-3 font-semibold text-surface-600">Chênh lệch</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100">
+                                <tbody className="divide-y divide-surface-100">
                                     {paginatedEmployees.map((emp, i) => {
                                         const stats = getEmpStats(emp.uid);
                                         const hasRecords = stats.count > 0;
@@ -450,43 +450,43 @@ function ManagerKpiStatsPageContent() {
                                             <>
                                                 <tr
                                                     key={emp.uid}
-                                                    className={cn('hover:bg-slate-50/50 cursor-pointer transition-colors', isExpanded && 'bg-indigo-50/30')}
+                                                    className={cn('hover:bg-surface-50/50 cursor-pointer transition-colors', isExpanded && 'bg-accent-50/30')}
                                                     onClick={() => hasRecords && setExpandedUid(isExpanded ? null : emp.uid)}
                                                 >
-                                                    <td className="p-3 text-slate-400">
+                                                    <td className="p-3 text-surface-400">
                                                         {hasRecords ? (
-                                                            isExpanded ? <ChevronDown className="w-4 h-4 text-indigo-500" /> : <ChevronRight className="w-4 h-4" />
+                                                            isExpanded ? <ChevronDown className="w-4 h-4 text-accent-500" /> : <ChevronRight className="w-4 h-4" />
                                                         ) : null}
                                                     </td>
-                                                    <td className="p-3 text-slate-400 font-bold">{(currentPage - 1) * currentPageSize + i + 1}</td>
-                                                    <td className="p-3 font-medium text-slate-800">{emp.name}</td>
+                                                    <td className="p-3 text-surface-400 font-bold">{(currentPage - 1) * currentPageSize + i + 1}</td>
+                                                    <td className="p-3 font-medium text-surface-800">{emp.name}</td>
                                                     {hasRecords ? (
                                                         <>
-                                                            <td className="p-3 text-center font-bold text-slate-600">{stats.count}</td>
+                                                            <td className="p-3 text-center font-bold text-surface-600">{stats.count}</td>
                                                             <td className="p-3 text-center">
-                                                                <span className={cn('font-bold', stats.avgSelf >= 80 ? 'text-emerald-600' : stats.avgSelf >= 50 ? 'text-amber-600' : 'text-red-600')}>
+                                                                <span className={cn('font-bold', stats.avgSelf >= 80 ? 'text-success-600' : stats.avgSelf >= 50 ? 'text-warning-600' : 'text-danger-600')}>
                                                                     {stats.avgSelf}
                                                                 </span>
                                                             </td>
                                                             <td className="p-3 text-center">
-                                                                <span className={cn('font-bold', stats.avgOfficial >= 80 ? 'text-emerald-600' : stats.avgOfficial >= 50 ? 'text-amber-600' : 'text-red-600')}>
+                                                                <span className={cn('font-bold', stats.avgOfficial >= 80 ? 'text-success-600' : stats.avgOfficial >= 50 ? 'text-warning-600' : 'text-danger-600')}>
                                                                     {stats.avgOfficial || '—'}
                                                                 </span>
                                                             </td>
                                                             <td className="p-3 text-center">
                                                                 {stats.officialCount > 0 ? (
                                                                     <span className={cn('text-xs font-bold flex items-center justify-center gap-0.5',
-                                                                        diff > 0 ? 'text-emerald-500' : diff < 0 ? 'text-red-500' : 'text-slate-400'
+                                                                        diff > 0 ? 'text-success-500' : diff < 0 ? 'text-danger-500' : 'text-surface-400'
                                                                     )}>
                                                                         {diff > 0 ? <TrendingUp className="w-3 h-3" /> : diff < 0 ? <TrendingDown className="w-3 h-3" /> : null}
                                                                         {diff > 0 ? '+' : ''}{diff}
                                                                     </span>
-                                                                ) : <span className="text-slate-300">—</span>}
+                                                                ) : <span className="text-surface-300">—</span>}
                                                             </td>
                                                         </>
                                                     ) : (
                                                         <td colSpan={4} className="p-3 text-center">
-                                                            <span className="text-slate-400 text-xs italic bg-slate-50 px-3 py-1 rounded-full">Chưa có điểm</span>
+                                                            <span className="text-surface-400 text-xs italic bg-surface-50 px-3 py-1 rounded-full">Chưa có điểm</span>
                                                         </td>
                                                     )}
                                                 </tr>
@@ -495,61 +495,61 @@ function ManagerKpiStatsPageContent() {
                                                 {isExpanded && hasRecords && (
                                                     <tr key={`${emp.uid}-detail`}>
                                                         <td colSpan={7} className="p-0">
-                                                            <div className="bg-slate-50/80 border-t border-b border-slate-200">
+                                                            <div className="bg-surface-50/80 border-t border-b border-surface-200">
                                                                 <div className="px-6 py-3">
-                                                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                                                                    <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">
                                                                         Lịch sử chấm điểm — {emp.name}
                                                                     </p>
                                                                     {empRecords.length === 0 ? (
-                                                                        <p className="text-sm text-slate-400 py-2">Không có bản ghi nào.</p>
+                                                                        <p className="text-sm text-surface-400 py-2">Không có bản ghi nào.</p>
                                                                     ) : (
                                                                         <div className="space-y-1.5">
                                                                             {empRecords.map((rec) => (
                                                                                 <div
                                                                                     key={rec.id}
-                                                                                    className="flex items-center gap-3 px-3 py-2 bg-white rounded-lg border border-slate-100 text-xs"
+                                                                                    className="flex items-center gap-3 px-3 py-2 bg-white rounded-lg border border-surface-100 text-xs"
                                                                                 >
                                                                                     {/* Status icon */}
                                                                                     {rec.status === 'OFFICIAL' ? (
-                                                                                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                                                                                        <CheckCircle2 className="w-4 h-4 text-success-500 shrink-0" />
                                                                                     ) : (
-                                                                                        <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                                                                                        <Clock className="w-4 h-4 text-warning-500 shrink-0" />
                                                                                     )}
 
                                                                                     {/* Date */}
-                                                                                    <span className="font-semibold text-slate-700 min-w-[70px]">
+                                                                                    <span className="font-semibold text-surface-700 min-w-[70px]">
                                                                                         {formatDate(rec.date)}
                                                                                     </span>
 
                                                                                     {/* Shift */}
-                                                                                    <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded font-medium truncate max-w-[80px]">
+                                                                                    <span className="px-1.5 py-0.5 bg-accent-50 text-accent-600 rounded font-medium truncate max-w-[80px]">
                                                                                         {rec.shiftId}
                                                                                     </span>
 
                                                                                     {/* Self score */}
                                                                                     <div className="flex items-center gap-1 ml-auto">
-                                                                                        <span className="text-slate-400">Tự:</span>
-                                                                                        <span className={cn('font-bold', rec.selfTotal >= 80 ? 'text-emerald-600' : rec.selfTotal >= 50 ? 'text-amber-600' : 'text-red-600')}>
+                                                                                        <span className="text-surface-400">Tự:</span>
+                                                                                        <span className={cn('font-bold', rec.selfTotal >= 80 ? 'text-success-600' : rec.selfTotal >= 50 ? 'text-warning-600' : 'text-danger-600')}>
                                                                                             {rec.selfTotal}
                                                                                         </span>
                                                                                     </div>
 
                                                                                     {/* Official score */}
                                                                                     <div className="flex items-center gap-1">
-                                                                                        <span className="text-slate-400">CT:</span>
+                                                                                        <span className="text-surface-400">CT:</span>
                                                                                         {rec.status === 'OFFICIAL' ? (
-                                                                                            <span className={cn('font-bold', rec.officialTotal >= 80 ? 'text-emerald-600' : rec.officialTotal >= 50 ? 'text-amber-600' : 'text-red-600')}>
+                                                                                            <span className={cn('font-bold', rec.officialTotal >= 80 ? 'text-success-600' : rec.officialTotal >= 50 ? 'text-warning-600' : 'text-danger-600')}>
                                                                                                 {rec.officialTotal}
                                                                                             </span>
                                                                                         ) : (
-                                                                                            <span className="text-slate-300">—</span>
+                                                                                            <span className="text-surface-300">—</span>
                                                                                         )}
                                                                                     </div>
 
                                                                                     {/* Status badge */}
                                                                                     <span className={cn(
                                                                                         'px-1.5 py-0.5 rounded text-[10px] font-bold uppercase shrink-0',
-                                                                                        rec.status === 'OFFICIAL' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                                                                        rec.status === 'OFFICIAL' ? 'bg-success-100 text-success-700' : 'bg-warning-100 text-warning-700'
                                                                                     )}>
                                                                                         {rec.status === 'OFFICIAL' ? 'Chính thức' : 'Tự chấm'}
                                                                                     </span>
@@ -585,25 +585,25 @@ function ManagerKpiStatsPageContent() {
                     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowExportDialog(false)}>
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
                             {/* Header */}
-                            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                    <Download className="w-5 h-5 text-indigo-600" />
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-surface-200">
+                                <h3 className="text-lg font-bold text-surface-800 flex items-center gap-2">
+                                    <Download className="w-5 h-5 text-accent-600" />
                                     Xuất Excel chi tiết
                                 </h3>
-                                <button onClick={() => setShowExportDialog(false)} className="p-1 rounded-lg hover:bg-slate-100 transition-colors">
-                                    <X className="w-5 h-5 text-slate-400" />
+                                <button onClick={() => setShowExportDialog(false)} className="p-1 rounded-lg hover:bg-surface-100 transition-colors">
+                                    <X className="w-5 h-5 text-surface-400" />
                                 </button>
                             </div>
 
                             <div className="px-6 py-4 space-y-5 overflow-y-auto max-h-[calc(85vh-130px)]">
                                 {/* Date Mode */}
                                 <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Phạm vi thời gian</label>
+                                    <label className="text-xs font-bold text-surface-500 uppercase tracking-wider mb-2 block">Phạm vi thời gian</label>
                                     <div className="flex gap-2 mb-3">
                                         <button
                                             onClick={() => setExportDateMode('month')}
                                             className={cn('flex-1 px-3 py-2 rounded-lg text-sm font-semibold border transition-colors',
-                                                exportDateMode === 'month' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                                exportDateMode === 'month' ? 'bg-accent-50 border-accent-300 text-accent-700' : 'bg-white border-surface-200 text-surface-600 hover:bg-surface-50'
                                             )}
                                         >
                                             <Calendar className="w-4 h-4 inline mr-1" />Theo tháng
@@ -611,7 +611,7 @@ function ManagerKpiStatsPageContent() {
                                         <button
                                             onClick={() => setExportDateMode('range')}
                                             className={cn('flex-1 px-3 py-2 rounded-lg text-sm font-semibold border transition-colors',
-                                                exportDateMode === 'range' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                                exportDateMode === 'range' ? 'bg-accent-50 border-accent-300 text-accent-700' : 'bg-white border-surface-200 text-surface-600 hover:bg-surface-50'
                                             )}
                                         >
                                             <Calendar className="w-4 h-4 inline mr-1" />Tùy chỉnh
@@ -619,18 +619,18 @@ function ManagerKpiStatsPageContent() {
                                     </div>
                                     {exportDateMode === 'month' ? (
                                         <input type="month" value={exportMonth} onChange={e => setExportMonth(e.target.value)}
-                                            className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-300" />
+                                            className="w-full border border-surface-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-accent-300" />
                                     ) : (
                                         <div className="flex gap-2">
                                             <div className="flex-1">
-                                                <label className="text-[10px] text-slate-400 font-medium">Từ ngày</label>
+                                                <label className="text-[10px] text-surface-400 font-medium">Từ ngày</label>
                                                 <input type="date" value={exportDateFrom} onChange={e => setExportDateFrom(e.target.value)}
-                                                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-300" />
+                                                    className="w-full border border-surface-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-accent-300" />
                                             </div>
                                             <div className="flex-1">
-                                                <label className="text-[10px] text-slate-400 font-medium">Đến ngày</label>
+                                                <label className="text-[10px] text-surface-400 font-medium">Đến ngày</label>
                                                 <input type="date" value={exportDateTo} onChange={e => setExportDateTo(e.target.value)}
-                                                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-300" />
+                                                    className="w-full border border-surface-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-accent-300" />
                                             </div>
                                         </div>
                                     )}
@@ -639,48 +639,48 @@ function ManagerKpiStatsPageContent() {
                                 {/* Employee Selection */}
                                 <div>
                                     <div className="flex items-center justify-between mb-2">
-                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Chọn nhân viên</label>
+                                        <label className="text-xs font-bold text-surface-500 uppercase tracking-wider">Chọn nhân viên</label>
                                         <button onClick={handleToggleSelectAll}
-                                            className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                                            className="text-xs font-semibold text-accent-600 hover:text-accent-800 flex items-center gap-1">
                                             <UserCheck className="w-3.5 h-3.5" />
                                             {exportSelectAll ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
                                         </button>
                                     </div>
-                                    <div className="border border-slate-200 rounded-xl max-h-[200px] overflow-y-auto divide-y divide-slate-100">
+                                    <div className="border border-surface-200 rounded-xl max-h-[200px] overflow-y-auto divide-y divide-surface-100">
                                         {allEmployees.map(emp => (
-                                            <label key={emp.uid} className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer transition-colors">
+                                            <label key={emp.uid} className="flex items-center gap-3 px-3 py-2.5 hover:bg-surface-50 cursor-pointer transition-colors">
                                                 <input
                                                     type="checkbox"
                                                     checked={exportSelectedUids.has(emp.uid)}
                                                     onChange={() => handleToggleEmployee(emp.uid)}
-                                                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                    className="w-4 h-4 rounded border-surface-300 text-accent-600 focus:ring-accent-500"
                                                 />
-                                                <span className="text-sm font-medium text-slate-700">{emp.name}</span>
+                                                <span className="text-sm font-medium text-surface-700">{emp.name}</span>
                                             </label>
                                         ))}
                                     </div>
-                                    <p className="text-[10px] text-slate-400 mt-1.5">
+                                    <p className="text-[10px] text-surface-400 mt-1.5">
                                         Đã chọn {exportSelectedUids.size}/{allEmployees.length} nhân viên
                                     </p>
                                 </div>
 
                                 {/* Info */}
-                                <div className="bg-indigo-50 rounded-lg p-3 text-xs text-indigo-700">
+                                <div className="bg-accent-50 rounded-lg p-3 text-xs text-accent-700">
                                     <p className="font-semibold mb-0.5">Lưu ý:</p>
                                     <p>Chỉ xuất các bản ghi đã chấm <strong>chính thức</strong>. Mỗi dòng là một lượt chấm điểm với từng cột tiêu chí và người chấm.</p>
                                 </div>
                             </div>
 
                             {/* Footer */}
-                            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-2">
+                            <div className="px-6 py-4 border-t border-surface-200 flex justify-end gap-2">
                                 <button onClick={() => setShowExportDialog(false)}
-                                    className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">
+                                    className="px-4 py-2 rounded-lg text-sm font-semibold text-surface-600 hover:bg-surface-100 transition-colors">
                                     Hủy
                                 </button>
                                 <button
                                     onClick={handleDetailedExport}
                                     disabled={exportLoading || exportSelectedUids.size === 0}
-                                    className="px-4 py-2 rounded-lg text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-1.5"
+                                    className="px-4 py-2 rounded-lg text-sm font-bold bg-accent-600 text-white hover:bg-accent-700 disabled:opacity-50 transition-colors flex items-center gap-1.5"
                                 >
                                     {exportLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
                                     Xuất Excel
@@ -698,7 +698,7 @@ export default function ManagerKpiStatsPage() {
     return (
         <Suspense fallback={
             <div className="flex justify-center py-12">
-                <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-4 border-accent-500 border-t-transparent rounded-full animate-spin" />
             </div>
         }>
             <ManagerKpiStatsPageContent />

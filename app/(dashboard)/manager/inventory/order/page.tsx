@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
@@ -73,7 +73,7 @@ function CartDrawer({
             {/* Drawer */}
             <div className={`fixed inset-y-0 top-0 right-0 w-full max-w-md bg-white shadow-2xl z-[110] flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : 'translate-x-full'}`}>
                 {/* Header */}
-                <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-indigo-600 to-blue-600 text-white">
+                <div className="p-5 border-b border-surface-100 flex items-center justify-between bg-gradient-to-r from-accent-600 to-primary-600 text-white">
                     <div className="flex items-center gap-2">
                         <ShoppingCart className="w-5 h-5" />
                         <h2 className="font-bold text-lg">Giỏ hàng</h2>
@@ -87,52 +87,52 @@ function CartDrawer({
                 {/* Items */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {cart.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full space-y-3 text-slate-400">
+                        <div className="flex flex-col items-center justify-center h-full space-y-3 text-surface-400">
                             <ShoppingCart className="w-12 h-12 opacity-20" />
                             <p className="text-sm">Giỏ hàng trống</p>
                         </div>
                     ) : (
                         cart.map(item => (
-                            <div key={item.productId} className="bg-slate-50 rounded-2xl p-3 border border-slate-200 flex items-center gap-3">
+                            <div key={item.productId} className="bg-surface-50 rounded-2xl p-3 border border-surface-200 flex items-center gap-3">
                                 {/* Image */}
-                                <div className="w-12 h-12 rounded-xl bg-slate-200 overflow-hidden shrink-0">
+                                <div className="w-12 h-12 rounded-xl bg-surface-200 overflow-hidden shrink-0">
                                     {item.image ? (
                                         <img src={item.image} alt="" className="w-full h-full object-cover" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center">
-                                            <Package className="w-5 h-5 text-slate-400" />
+                                            <Package className="w-5 h-5 text-surface-400" />
                                         </div>
                                     )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     {item.productCode && (
-                                        <p className="text-xs font-bold text-slate-800">{item.productCode}</p>
+                                        <p className="text-xs font-bold text-surface-800">{item.productCode}</p>
                                     )}
-                                    <p className="font-semibold text-slate-800 text-sm truncate">{item.productName}</p>
-                                    <p className="text-xs text-slate-400">{item.unit}</p>
+                                    <p className="font-semibold text-surface-800 text-sm truncate">{item.productName}</p>
+                                    <p className="text-xs text-surface-400">{item.unit}</p>
                                 </div>
                                 {/* Qty stepper */}
                                 <div className="flex items-center gap-1.5 shrink-0">
                                     <button
                                         onClick={() => onUpdateQty(item.productId, item.requestedQty - 1)}
-                                        className="w-7 h-7 rounded-lg bg-slate-200 hover:bg-slate-300 flex items-center justify-center transition-colors"
+                                        className="w-7 h-7 rounded-lg bg-surface-200 hover:bg-surface-300 flex items-center justify-center transition-colors"
                                     >
-                                        <Minus className="w-3 h-3 text-slate-600" />
+                                        <Minus className="w-3 h-3 text-surface-600" />
                                     </button>
                                     <input
                                         type="number" min={1}
                                         value={item.requestedQty}
                                         onChange={e => onUpdateQty(item.productId, Number(e.target.value) || 1)}
-                                        className="w-10 text-center text-sm font-bold bg-white border border-slate-200 rounded-lg py-1 outline-none"
+                                        className="w-10 text-center text-sm font-bold bg-white border border-surface-200 rounded-lg py-1 outline-none"
                                     />
                                     <button
                                         onClick={() => onUpdateQty(item.productId, item.requestedQty + 1)}
-                                        className="w-7 h-7 rounded-lg bg-indigo-100 hover:bg-indigo-200 flex items-center justify-center transition-colors"
+                                        className="w-7 h-7 rounded-lg bg-accent-100 hover:bg-accent-200 flex items-center justify-center transition-colors"
                                     >
-                                        <Plus className="w-3 h-3 text-indigo-600" />
+                                        <Plus className="w-3 h-3 text-accent-600" />
                                     </button>
-                                    <button onClick={() => onRemove(item.productId)} className="w-7 h-7 rounded-lg hover:bg-red-100 flex items-center justify-center transition-colors ml-1">
-                                        <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-red-500" />
+                                    <button onClick={() => onRemove(item.productId)} className="w-7 h-7 rounded-lg hover:bg-danger-100 flex items-center justify-center transition-colors ml-1">
+                                        <Trash2 className="w-3.5 h-3.5 text-surface-400 hover:text-danger-500" />
                                     </button>
                                 </div>
                             </div>
@@ -142,9 +142,9 @@ function CartDrawer({
 
                 {/* Footer */}
                 {cart.length > 0 && (
-                    <div className="p-4 border-t border-slate-100 space-y-3 bg-slate-50">
+                    <div className="p-4 border-t border-surface-100 space-y-3 bg-surface-50">
                         {message.text && (
-                            <div className={`p-3 rounded-xl flex items-center gap-2 border text-sm font-medium ${message.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                            <div className={`p-3 rounded-xl flex items-center gap-2 border text-sm font-medium ${message.type === 'error' ? 'bg-danger-50 text-danger-700 border-danger-200' : 'bg-success-50 text-success-700 border-success-200'}`}>
                                 {message.type === 'error' ? <AlertCircle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
                                 {message.text}
                             </div>
@@ -152,27 +152,27 @@ function CartDrawer({
 
                         {/* Warehouse selector */}
                         <div className="space-y-1.5">
-                            <p className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                            <p className="text-xs font-bold text-surface-600 flex items-center gap-1.5">
                                 <Warehouse className="w-3.5 h-3.5 text-orange-500" />
-                                Đặt hàng từ kho <span className="text-red-500">*</span>
+                                Đặt hàng từ kho <span className="text-danger-500">*</span>
                             </p>
                             <select value={selectedWarehouseId} onChange={e => onWarehouseChange(e.target.value)}
-                                className={`w-full bg-white border rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-orange-300 ${!selectedWarehouseId ? 'border-red-300 text-slate-400' : 'border-slate-200 text-slate-800'}`}>
+                                className={`w-full bg-white border rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-orange-300 ${!selectedWarehouseId ? 'border-danger-300 text-surface-400' : 'border-surface-200 text-surface-800'}`}>
                                 <option value="">-- Chọn kho đặt hàng --</option>
                                 {warehouses.map(w => <option key={w.id} value={w.id}>🏭 {w.name}</option>)}
                             </select>
                             {!selectedWarehouseId && (
-                                <p className="text-[11px] text-red-500 font-medium">Vui lòng chọn kho trước khi đặt hàng</p>
+                                <p className="text-[11px] text-danger-500 font-medium">Vui lòng chọn kho trước khi đặt hàng</p>
                             )}
                         </div>
 
                         {/* File Attachment */}
                         <div className="space-y-1.5">
-                            <p className="text-xs font-bold text-slate-600">
+                            <p className="text-xs font-bold text-surface-600">
                                 Đính kèm file đề xuất cơ cấu
-                                <span className="text-slate-400 font-normal ml-1">(PDF, Excel, Word)</span>
+                                <span className="text-surface-400 font-normal ml-1">(PDF, Excel, Word)</span>
                             </p>
-                            <label className="flex items-center gap-2 cursor-pointer bg-white border-2 border-dashed border-slate-200 hover:border-indigo-300 rounded-xl px-3 py-2.5 transition-colors group">
+                            <label className="flex items-center gap-2 cursor-pointer bg-white border-2 border-dashed border-surface-200 hover:border-accent-300 rounded-xl px-3 py-2.5 transition-colors group">
                                 <input
                                     type="file"
                                     accept=".pdf,.xlsx,.xls,.doc,.docx"
@@ -181,20 +181,20 @@ function CartDrawer({
                                 />
                                 {attachmentFile ? (
                                     <>
-                                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                                        <span className="text-xs text-emerald-700 font-medium truncate flex-1">{attachmentFile.name}</span>
+                                        <CheckCircle2 className="w-4 h-4 text-success-500 shrink-0" />
+                                        <span className="text-xs text-success-700 font-medium truncate flex-1">{attachmentFile.name}</span>
                                         <button
                                             type="button"
                                             onClick={e => { e.preventDefault(); setAttachmentFile(null); }}
-                                            className="text-slate-400 hover:text-red-500 shrink-0"
+                                            className="text-surface-400 hover:text-danger-500 shrink-0"
                                         >
                                             <X className="w-3.5 h-3.5" />
                                         </button>
                                     </>
                                 ) : (
                                     <>
-                                        <Send className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 shrink-0" />
-                                        <span className="text-xs text-slate-400 group-hover:text-indigo-600">Chọn file đính kèm...</span>
+                                        <Send className="w-4 h-4 text-surface-400 group-hover:text-accent-500 shrink-0" />
+                                        <span className="text-xs text-surface-400 group-hover:text-accent-600">Chọn file đính kèm...</span>
                                     </>
                                 )}
                             </label>
@@ -205,16 +205,16 @@ function CartDrawer({
                             onChange={e => setNote(e.target.value)}
                             rows={2}
                             placeholder="Ghi chú (tùy chọn)..."
-                            className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
+                            className="w-full bg-white border border-surface-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-accent-300 resize-none"
                         />
-                        <div className="flex items-center justify-between text-sm text-slate-500 mb-1">
+                        <div className="flex items-center justify-between text-sm text-surface-500 mb-1">
                             <span>{cart.length} loại sản phẩm</span>
-                            <span className="font-bold text-slate-700">{cart.reduce((s, i) => s + i.requestedQty, 0)} đơn vị</span>
+                            <span className="font-bold text-surface-700">{cart.reduce((s, i) => s + i.requestedQty, 0)} đơn vị</span>
                         </div>
                         <button
                             onClick={() => onSubmit(note, attachmentFile)}
                             disabled={submitting || !selectedWarehouseId}
-                            className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-md shadow-indigo-500/20"
+                            className="w-full bg-gradient-to-r from-accent-600 to-primary-600 hover:from-accent-700 hover:to-primary-700 text-white py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-md shadow-accent-500/20"
                         >
                             {submitting
                                 ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -234,14 +234,14 @@ function CartDrawer({
 
 // ── Status badges ─────────────────────────────────────────────────
 const STATUS_BADGE: Record<string, string> = {
-    PENDING_OFFICE: 'bg-amber-100 text-amber-700 border-amber-200',
+    PENDING_OFFICE: 'bg-warning-100 text-warning-700 border-warning-200',
     APPROVED_BY_OFFICE: 'bg-sky-100 text-sky-700 border-sky-200',
-    IN_TRANSIT: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-    COMPLETED: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    REJECTED: 'bg-red-100 text-red-700 border-red-200',
-    CANCELED: 'bg-slate-100 text-slate-500 border-slate-200',
-    PENDING: 'bg-amber-100 text-amber-700 border-amber-200',
-    DISPATCHED: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    IN_TRANSIT: 'bg-accent-100 text-accent-700 border-accent-200',
+    COMPLETED: 'bg-success-100 text-success-700 border-success-200',
+    REJECTED: 'bg-danger-100 text-danger-700 border-danger-200',
+    CANCELED: 'bg-surface-100 text-surface-500 border-surface-200',
+    PENDING: 'bg-warning-100 text-warning-700 border-warning-200',
+    DISPATCHED: 'bg-success-100 text-success-700 border-success-200',
 };
 const STATUS_LABEL: Record<string, string> = {
     PENDING_OFFICE: 'Ch\u1edd VP duy\u1ec7t',
@@ -515,11 +515,11 @@ export default function StoreInventoryDashboard() {
     const title = (
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
             <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
-                    <LayoutGrid className="w-7 h-7 text-indigo-600" />
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-accent-600 to-primary-600 bg-clip-text text-transparent flex items-center gap-2">
+                    <LayoutGrid className="w-7 h-7 text-accent-600" />
                     Kho hàng cửa hàng
                 </h1>
-                <p className="text-slate-500 mt-1 text-sm">Theo dõi tồn kho và đặt hàng từ kho trung tâm.</p>
+                <p className="text-surface-500 mt-1 text-sm">Theo dõi tồn kho và đặt hàng từ kho trung tâm.</p>
             </div>
         </div>
     )
@@ -537,13 +537,13 @@ export default function StoreInventoryDashboard() {
             />
 
             {/* Tabs */}
-            <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+            <div className="flex gap-1 bg-surface-100 rounded-xl p-1 w-fit">
                 <button onClick={() => setActiveTab('order')}
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'order' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'order' ? 'bg-white text-accent-700 shadow-sm' : 'text-surface-500 hover:text-surface-700'}`}>
                     <LayoutGrid className="w-4 h-4" /> Hàng hoá
                 </button>
                 <button onClick={() => setActiveTab('history')}
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'history' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'history' ? 'bg-white text-accent-700 shadow-sm' : 'text-surface-500 hover:text-surface-700'}`}>
                     <ClipboardList className="w-4 h-4" /> Lịch sử đặt hàng
                 </button>
             </div>
@@ -554,7 +554,7 @@ export default function StoreInventoryDashboard() {
                     <>
                         {/* Alerts */}
                         {(outCount > 0 || lowCount > 0) && effectiveStoreId && (
-                            <div className={`p-3 rounded-xl text-sm flex items-center gap-2 border ${outCount > 0 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                            <div className={`p-3 rounded-xl text-sm flex items-center gap-2 border ${outCount > 0 ? 'bg-danger-50 text-danger-700 border-danger-200' : 'bg-warning-50 text-warning-700 border-warning-200'}`}>
                                 <AlertTriangle className="w-4 h-4 shrink-0" />
                                 <span>
                                     {outCount > 0 && <><strong>{outCount}</strong> sản phẩm hết hàng. </>}
@@ -586,7 +586,7 @@ export default function StoreInventoryDashboard() {
 
                         {/* No store */}
                         {!effectiveStoreId && !isAdmin && !loading && (
-                            <div className="text-center py-16 text-slate-400 text-sm">Tài khoản chưa được gán cửa hàng</div>
+                            <div className="text-center py-16 text-surface-400 text-sm">Tài khoản chưa được gán cửa hàng</div>
                         )}
                     </>
                 )
@@ -597,14 +597,14 @@ export default function StoreInventoryDashboard() {
                 activeTab === 'history' && (
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                            <h2 className="font-bold text-slate-800 text-lg">Lịch sử đặt hàng</h2>
-                            <span className="text-xs text-slate-400">{orders.length} đơn</span>
+                            <h2 className="font-bold text-surface-800 text-lg">Lịch sử đặt hàng</h2>
+                            <span className="text-xs text-surface-400">{orders.length} đơn</span>
                         </div>
                         {loading ? (
-                            <div className="flex justify-center py-12"><div className="w-6 h-6 border-4 border-slate-300 border-t-indigo-600 rounded-full animate-spin" /></div>
+                            <div className="flex justify-center py-12"><div className="w-6 h-6 border-4 border-surface-300 border-t-accent-600 rounded-full animate-spin" /></div>
                         ) : orders.length === 0 ? (
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm text-center py-12">
-                                <p className="text-sm text-slate-400">Chưa có đơn đặt hàng nào</p>
+                            <div className="bg-white rounded-2xl border border-surface-200 shadow-sm text-center py-12">
+                                <p className="text-sm text-surface-400">Chưa có đơn đặt hàng nào</p>
                             </div>
                         ) : (
                             orders.map(order => {
@@ -613,26 +613,26 @@ export default function StoreInventoryDashboard() {
                                 const totalQty = order.items.reduce((s, i) => s + i.requestedQty, 0);
 
                                 return (
-                                    <div key={order.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                    <div key={order.id} className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
                                         {/* Collapsible header */}
                                         <button
                                             onClick={() => toggleHistoryOrder(order.id)}
-                                            className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50/80 transition-colors"
+                                            className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-surface-50/80 transition-colors"
                                         >
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_BADGE[order.status] || ''}`}>
                                                         {STATUS_LABEL[order.status] || order.status}
                                                     </span>
-                                                    <span className="text-xs text-slate-400">
+                                                    <span className="text-xs text-surface-400">
                                                         {new Date(order.timestamp).toLocaleString('vi-VN')}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-2 mt-1">
-                                                    <p className="text-sm text-slate-600">
-                                                        <span className="font-bold text-slate-800">{totalItems}</span> sản phẩm · <span className="font-bold text-slate-800">{totalQty}</span> đơn vị
+                                                    <p className="text-sm text-surface-600">
+                                                        <span className="font-bold text-surface-800">{totalItems}</span> sản phẩm · <span className="font-bold text-surface-800">{totalQty}</span> đơn vị
                                                     </p>
-                                                    <span className="text-xs text-slate-400">· {order.createdByName}</span>
+                                                    <span className="text-xs text-surface-400">· {order.createdByName}</span>
                                                 </div>
                                             </div>
 
@@ -640,35 +640,35 @@ export default function StoreInventoryDashboard() {
                                             {(order.status === 'PENDING_OFFICE' || order.status === 'PENDING') && (
                                                 <button
                                                     onClick={e => { e.stopPropagation(); setCancelingId(order.id); setCancelReason(''); }}
-                                                    className="flex items-center gap-1 text-xs font-bold text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2.5 py-1.5 rounded-xl transition-colors whitespace-nowrap shrink-0"
+                                                    className="flex items-center gap-1 text-xs font-bold text-danger-500 hover:text-danger-700 border border-danger-200 hover:border-danger-400 px-2.5 py-1.5 rounded-xl transition-colors whitespace-nowrap shrink-0"
                                                 >
                                                     <XCircle className="w-3 h-3" /> Hủy đơn
                                                 </button>
                                             )}
 
                                             {isExpanded
-                                                ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
-                                                : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
+                                                ? <ChevronUp className="w-4 h-4 text-surface-400 shrink-0" />
+                                                : <ChevronDown className="w-4 h-4 text-surface-400 shrink-0" />}
                                         </button>
 
                                         {/* Collapsible item list */}
                                         {isExpanded && (
-                                            <div className="border-t border-slate-100 px-4 py-3 bg-slate-50/50">
+                                            <div className="border-t border-surface-100 px-4 py-3 bg-surface-50/50">
                                                 <div className="space-y-1.5">
                                                     {order.items.map((item, i) => (
                                                         <div key={i} className="flex items-center justify-between text-xs py-1">
                                                             <div className="flex items-center gap-2 min-w-0">
-                                                                <span className="font-mono font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">
+                                                                <span className="font-mono font-bold text-surface-800 bg-surface-100 px-1.5 py-0.5 rounded text-[11px]">
                                                                     {item.productCode || '—'}
                                                                 </span>
-                                                                <span className="text-slate-500 truncate">{item.productName}</span>
+                                                                <span className="text-surface-500 truncate">{item.productName}</span>
                                                             </div>
                                                             <div className="flex items-center gap-2 shrink-0 ml-2">
-                                                                <span className="text-slate-600 font-semibold whitespace-nowrap">
+                                                                <span className="text-surface-600 font-semibold whitespace-nowrap">
                                                                     ×{item.requestedQty} {item.unit}
                                                                 </span>
                                                                 {item.dispatchedQty !== undefined && item.dispatchedQty !== item.requestedQty && (
-                                                                    <span className="text-emerald-600 whitespace-nowrap">(xuất: {item.dispatchedQty})</span>
+                                                                    <span className="text-success-600 whitespace-nowrap">(xuất: {item.dispatchedQty})</span>
                                                                 )}
                                                             </div>
                                                         </div>
@@ -679,32 +679,32 @@ export default function StoreInventoryDashboard() {
                                                         href={order.attachmentUrl}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="flex items-center justify-between mt-3 p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl hover:bg-indigo-100 transition-colors group"
+                                                        className="flex items-center justify-between mt-3 p-2.5 bg-accent-50 border border-accent-100 rounded-xl hover:bg-accent-100 transition-colors group"
                                                     >
-                                                        <div className="flex items-center gap-2 text-xs text-indigo-700">
+                                                        <div className="flex items-center gap-2 text-xs text-accent-700">
                                                             <span className="text-sm">📎</span>
                                                             <span className="font-semibold">File đề xuất đính kèm</span>
                                                         </div>
-                                                        <span className="text-xs font-bold text-indigo-600 group-hover:underline">Xem / Tải xuống ↗️</span>
+                                                        <span className="text-xs font-bold text-accent-600 group-hover:underline">Xem / Tải xuống ↗️</span>
                                                     </a>
                                                 )}
                                                 {(order as any).officeApprovedBy && (
-                                                    <p className="text-xs text-sky-600 mt-2 pt-2 border-t border-slate-100 flex items-center gap-1">
+                                                    <p className="text-xs text-sky-600 mt-2 pt-2 border-t border-surface-100 flex items-center gap-1">
                                                         ✓ Văn phòng đã duyệt bởi <strong>{(order as any).officeApprovedByName || (order as any).officeApprovedBy}</strong>
                                                     </p>
                                                 )}
                                                 {(order as any).rejectReason && (
-                                                    <p className="text-xs text-red-500 mt-2 flex items-center gap-1 pt-2 border-t border-slate-100">
+                                                    <p className="text-xs text-danger-500 mt-2 flex items-center gap-1 pt-2 border-t border-surface-100">
                                                         <XCircle className="w-3 h-3 shrink-0" /> Lý do từ chối: {(order as any).rejectReason}
                                                     </p>
                                                 )}
                                                 {(order as any).cancelReason && (
-                                                    <p className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-100">
+                                                    <p className="text-xs text-surface-400 mt-2 pt-2 border-t border-surface-100">
                                                         Lý do hủy: {(order as any).cancelReason}
                                                     </p>
                                                 )}
                                                 {order.note && (
-                                                    <p className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-100">
+                                                    <p className="text-xs text-surface-400 mt-2 pt-2 border-t border-surface-100">
                                                         Ghi chú: {order.note}
                                                     </p>
                                                 )}
@@ -723,12 +723,12 @@ export default function StoreInventoryDashboard() {
                 activeTab === 'order' && effectiveStoreId && (
                     <button
                         onClick={() => setCartOpen(true)}
-                        className="fixed bottom-6 right-6 z-30 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-2xl px-5 py-3.5 shadow-xl shadow-indigo-500/30 flex items-center gap-3 hover:shadow-2xl hover:from-indigo-700 hover:to-blue-700 transition-all"
+                        className="fixed bottom-6 right-6 z-30 bg-gradient-to-r from-accent-600 to-primary-600 text-white rounded-2xl px-5 py-3.5 shadow-xl shadow-accent-500/30 flex items-center gap-3 hover:shadow-2xl hover:from-accent-700 hover:to-primary-700 transition-all"
                     >
                         <ShoppingCart className="w-5 h-5" />
                         <span className="font-bold text-sm">Giỏ hàng</span>
                         {cart.length > 0 && (
-                            <span className="bg-white text-indigo-700 font-black text-xs px-2 py-0.5 rounded-full min-w-[22px] text-center">
+                            <span className="bg-white text-accent-700 font-black text-xs px-2 py-0.5 rounded-full min-w-[22px] text-center">
                                 {cart.length}
                             </span>
                         )}
@@ -756,38 +756,38 @@ export default function StoreInventoryDashboard() {
                 cancelingId && typeof document !== 'undefined' && createPortal(
                     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-                            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                            <div className="p-6 border-b border-surface-100 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <XCircle className="w-5 h-5 text-red-500" />
-                                    <h2 className="text-lg font-bold text-slate-800">Hủy đơn hàng</h2>
+                                    <XCircle className="w-5 h-5 text-danger-500" />
+                                    <h2 className="text-lg font-bold text-surface-800">Hủy đơn hàng</h2>
                                 </div>
-                                <button onClick={() => setCancelingId(null)} className="text-slate-400 hover:text-slate-700 p-1">
+                                <button onClick={() => setCancelingId(null)} className="text-surface-400 hover:text-surface-700 p-1">
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
                             <div className="p-6 space-y-4">
-                                <p className="text-sm text-slate-600">Bạn có chắc muốn hủy đơn này? Đơn sẽ được lưu trong lịch sử với trạng thái <strong>Đã hủy</strong>.</p>
+                                <p className="text-sm text-surface-600">Bạn có chắc muốn hủy đơn này? Đơn sẽ được lưu trong lịch sử với trạng thái <strong>Đã hủy</strong>.</p>
                                 <div>
-                                    <label className="text-xs font-bold text-slate-600 block mb-1">Lý do hủy (tùy chọn)</label>
+                                    <label className="text-xs font-bold text-surface-600 block mb-1">Lý do hủy (tùy chọn)</label>
                                     <textarea
                                         value={cancelReason}
                                         onChange={e => setCancelReason(e.target.value)}
                                         rows={2}
                                         placeholder="VD: Đặt nhầm, không cần nữa..."
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-red-300 resize-none"
+                                        className="w-full bg-surface-50 border border-surface-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-danger-300 resize-none"
                                     />
                                 </div>
                             </div>
-                            <div className="p-6 border-t border-slate-100 flex gap-3">
+                            <div className="p-6 border-t border-surface-100 flex gap-3">
                                 <button
                                     onClick={() => setCancelingId(null)}
-                                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl font-medium text-sm transition-colors">
+                                    className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 py-2.5 rounded-xl font-medium text-sm transition-colors">
                                     Quay lại
                                 </button>
                                 <button
                                     onClick={handleCancel}
                                     disabled={isCanceling}
-                                    className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all">
+                                    className="flex-1 bg-danger-600 hover:bg-danger-700 disabled:opacity-40 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all">
                                     {isCanceling
                                         ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Đang hủy...</>
                                         : <><XCircle className="w-4 h-4" /> Xác nhận hủy</>}

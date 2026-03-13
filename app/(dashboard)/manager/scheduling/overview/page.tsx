@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -144,7 +144,7 @@ export default function GlobalOverviewPage() {
     }, [currentWeekStart, userDoc, selectedAdminStoreId]);
 
     if (!userDoc || (userDoc.role !== 'admin' && userDoc.role !== 'store_manager' && userDoc.role !== 'manager' && userDoc.canManageHR !== true)) {
-        return <div className="p-8 text-center text-red-500 font-bold">Không có quyền truy cập.</div>;
+        return <div className="p-8 text-center text-danger-500 font-bold">Không có quyền truy cập.</div>;
     }
 
 
@@ -638,15 +638,15 @@ export default function GlobalOverviewPage() {
         <div className="space-y-4 mx-auto">
             {/* Admin Store Selector Banner */}
             {userDoc?.role === 'admin' && (
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <div className="bg-white rounded-xl border border-surface-200 shadow-sm p-3 flex flex-col sm:flex-row items-start sm:items-center gap-3">
                     <div className="flex items-center gap-2 shrink-0">
-                        <Building2 className="w-4 h-4 text-indigo-500" />
-                        <span className="text-sm font-semibold text-slate-700">Cửa hàng:</span>
+                        <Building2 className="w-4 h-4 text-accent-500" />
+                        <span className="text-sm font-semibold text-surface-700">Cửa hàng:</span>
                     </div>
                     <select
                         value={selectedAdminStoreId}
                         onChange={e => setSelectedAdminStoreId(e.target.value)}
-                        className="flex-1 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-slate-50 font-medium"
+                        className="flex-1 border border-surface-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-accent-300 bg-surface-50 font-medium"
                     >
                         <option value="">-- Tất cả cửa hàng --</option>
                         {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
@@ -666,11 +666,11 @@ export default function GlobalOverviewPage() {
                             titleChildren={
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
                                     <div>
-                                        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                                            <Calendar className="w-7 h-7 text-indigo-600" />
+                                        <h1 className="text-2xl font-bold text-surface-800 flex items-center gap-2">
+                                            <Calendar className="w-7 h-7 text-accent-600" />
                                             Lịch tổng quan toàn hệ thống
                                         </h1>
-                                        <p className="text-slate-500 mt-1 text-sm">
+                                        <p className="text-surface-500 mt-1 text-sm">
                                             Xem chi tiết lịch làm việc và phân công vị trí của tất cả nhân viên.
                                         </p>
                                     </div>
@@ -679,14 +679,14 @@ export default function GlobalOverviewPage() {
                         />
 
                         {/* Controls */}
-                        <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="bg-white p-2 rounded-2xl shadow-sm border border-surface-200 flex flex-col md:flex-row items-center justify-between gap-4">
                             {/* View Toggles */}
-                            <div className="flex w-full items-center gap-2 p-1 bg-slate-100 rounded-lg shrink-0">
+                            <div className="flex w-full items-center gap-2 p-1 bg-surface-100 rounded-lg shrink-0">
                                 <button
                                     onClick={() => setViewMode('employee')}
                                     className={cn(
                                         "flex items-center justify-center flex-1 truncate gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all",
-                                        viewMode === 'employee' ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                                        viewMode === 'employee' ? "bg-white text-accent-700 shadow-sm" : "text-surface-600 hover:text-surface-900"
                                     )}
                                 >
                                     <Users className="w-4 h-4" />
@@ -696,7 +696,7 @@ export default function GlobalOverviewPage() {
                                     onClick={() => setViewMode('shift')}
                                     className={cn(
                                         "flex items-center justify-center flex-1 truncate gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all",
-                                        viewMode === 'shift' ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                                        viewMode === 'shift' ? "bg-white text-accent-700 shadow-sm" : "text-surface-600 hover:text-surface-900"
                                     )}
                                 >
                                     <Clock className="w-4 h-4" />
@@ -708,14 +708,14 @@ export default function GlobalOverviewPage() {
                         <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-full overflow-x-hidden pb-1 md:pb-0">
                             {/* Week Selector */}
                             <div className="flex flex-1 items-center gap-1.5 shrink-0 w-full">
-                                <button onClick={previousWeek} className="p-2.5 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 shadow-sm bg-white" title="Tuần trước">
-                                    <ChevronLeft className="size-5 text-slate-600" />
+                                <button onClick={previousWeek} className="p-2.5 hover:bg-surface-100 rounded-lg transition-colors border border-surface-200 shadow-sm bg-white" title="Tuần trước">
+                                    <ChevronLeft className="size-5 text-surface-600" />
                                 </button>
-                                <div className="font-bold text-slate-800 text-sm min-w-[170px] flex-1 text-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 shadow-inner">
+                                <div className="font-bold text-surface-800 text-sm min-w-[170px] flex-1 text-center bg-surface-50 p-2.5 rounded-lg border border-surface-200 shadow-inner">
                                     {weekDays.length > 0 && `${formatDateDisplay(weekDays[0])} - ${formatDateDisplay(weekDays[6])}`}
                                 </div>
-                                <button onClick={nextWeek} className="p-2.5 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 shadow-sm bg-white" title="Tuần sau">
-                                    <ChevronRight className="size-5 text-slate-600" />
+                                <button onClick={nextWeek} className="p-2.5 hover:bg-surface-100 rounded-lg transition-colors border border-surface-200 shadow-sm bg-white" title="Tuần sau">
+                                    <ChevronRight className="size-5 text-surface-600" />
                                 </button>
                             </div>
 
@@ -726,7 +726,7 @@ export default function GlobalOverviewPage() {
                                         <select
                                             value={selectedShift}
                                             onChange={(e) => setSelectedShift(e.target.value)}
-                                            className="bg-white w-full sm:w-fit border border-slate-200 text-slate-800 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2 outline-none font-medium h-[42px]"
+                                            className="bg-white w-full sm:w-fit border border-surface-200 text-surface-800 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-500 block p-2 outline-none font-medium h-[42px]"
                                         >
                                             {shifts.map(shift => (
                                                 <option key={shift} value={shift}>{shift}</option>
@@ -743,8 +743,8 @@ export default function GlobalOverviewPage() {
                                         className={cn(
                                             "flex items-center flex-1 sm:flex-none gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border transition-all shadow-sm",
                                             isExporting || loading
-                                                ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
-                                                : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 active:scale-95"
+                                                ? "bg-surface-100 text-surface-400 border-surface-200 cursor-not-allowed"
+                                                : "bg-success-50 text-success-700 border-success-200 hover:bg-success-100 hover:border-success-300 active:scale-95"
                                         )}
                                         title="Xuất ảnh PNG"
                                     >
@@ -757,8 +757,8 @@ export default function GlobalOverviewPage() {
                                         className={cn(
                                             "flex items-center flex-1 sm:flex-none gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border transition-all shadow-sm",
                                             isExporting || loading
-                                                ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
-                                                : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:border-blue-300 active:scale-95"
+                                                ? "bg-surface-100 text-surface-400 border-surface-200 cursor-not-allowed"
+                                                : "bg-primary-50 text-primary-700 border-primary-200 hover:bg-primary-100 hover:border-primary-300 active:scale-95"
                                         )}
                                         title="Xuất file PDF"
                                     >
@@ -771,34 +771,34 @@ export default function GlobalOverviewPage() {
 
                         {/* Color Legend */}
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-xs font-medium">
-                            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span><span className="text-slate-500">Full-time (FT)</span></span>
-                            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span><span className="text-slate-500">Part-time (PT)</span></span>
-                            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span><span className="text-slate-500">Quản lý (QL)</span></span>
-                            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500"></span><span className="text-slate-500">Cửa hàng trưởng (CTH)</span></span>
+                            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-primary-500"></span><span className="text-surface-500">Full-time (FT)</span></span>
+                            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-success-500"></span><span className="text-surface-500">Part-time (PT)</span></span>
+                            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-warning-500"></span><span className="text-surface-500">Quản lý (QL)</span></span>
+                            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-danger-500"></span><span className="text-surface-500">Cửa hàng trưởng (CTH)</span></span>
                         </div>
 
                         {/* Table */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="bg-white rounded-2xl shadow-sm border border-surface-200 overflow-hidden">
                             <div className="overflow-x-auto">
                                 {loading ? (
-                                    <div className="p-12 text-center text-slate-500 flex flex-col items-center">
-                                        <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                                    <div className="p-12 text-center text-surface-500 flex flex-col items-center">
+                                        <div className="w-8 h-8 border-4 border-accent-500 border-t-transparent rounded-full animate-spin mb-4"></div>
                                         Đang tải dữ liệu...
                                     </div>
                                 ) : (
                                     viewMode === 'employee' ? (
                                         <table className="w-full text-sm text-left border-collapse min-w-[1000px]">
-                                            <thead className="text-xs text-slate-500 bg-slate-50/80">
+                                            <thead className="text-xs text-surface-500 bg-surface-50/80">
                                                 <tr>
-                                                    <th className="p-4 border-b border-r border-slate-200 font-bold text-slate-700 sticky left-0 bg-slate-50/90 backdrop-blur-sm z-10 w-48 shadow-[1px_0_0_0_#e2e8f0]">
+                                                    <th className="p-4 border-b border-r border-surface-200 font-bold text-surface-700 sticky left-0 bg-surface-50/90 backdrop-blur-sm z-10 w-48 shadow-[1px_0_0_0_#e2e8f0]">
                                                         Nhân sự \ Ngày
                                                     </th>
                                                     {weekDays.map((date, i) => {
                                                         const isToday = toLocalDateString(new Date()) === toLocalDateString(date);
                                                         return (
                                                             <th key={i} className={cn(
-                                                                "p-3 border-b border-x border-slate-200 font-semibold text-center min-w-[140px]",
-                                                                isToday ? 'bg-indigo-50/50 text-indigo-700' : ''
+                                                                "p-3 border-b border-x border-surface-200 font-semibold text-center min-w-[140px]",
+                                                                isToday ? 'bg-accent-50/50 text-accent-700' : ''
                                                             )}>
                                                                 <div className="text-xs uppercase opacity-70 mb-0.5">
                                                                     {date.toLocaleDateString('vi-VN', { weekday: 'short' })}
@@ -813,22 +813,22 @@ export default function GlobalOverviewPage() {
                                             </thead>
                                             <tbody>
                                                 {users.map((u, userIdx) => (
-                                                    <tr key={u.uid} className={cn("hover:bg-slate-50/50 transition-colors group", u.isActive === false && 'opacity-70')}>
+                                                    <tr key={u.uid} className={cn("hover:bg-surface-50/50 transition-colors group", u.isActive === false && 'opacity-70')}>
                                                         {/* User Cell - Sticky */}
                                                         <td className={cn(
-                                                            "p-4 border-b border-r border-slate-200 sticky left-0 bg-white group-hover:bg-slate-50/50 z-10 shadow-[1px_0_0_0_#e2e8f0]",
+                                                            "p-4 border-b border-r border-surface-200 sticky left-0 bg-white group-hover:bg-surface-50/50 z-10 shadow-[1px_0_0_0_#e2e8f0]",
                                                             userIdx === users.length - 1 ? 'border-b-0' : ''
                                                         )}>
                                                             <div className="flex items-center gap-1.5">
                                                                 <span className={cn(
                                                                     'font-semibold truncate',
-                                                                    u.role === 'store_manager' ? 'text-red-600' : u.role === 'manager' ? 'text-amber-600' : u.type === 'FT' ? 'text-blue-600' : 'text-emerald-600'
+                                                                    u.role === 'store_manager' ? 'text-danger-600' : u.role === 'manager' ? 'text-warning-600' : u.type === 'FT' ? 'text-primary-600' : 'text-success-600'
                                                                 )} title={u.name}>{shortName(u.name)}</span>
-                                                                {u.isActive === false && <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 text-red-600 font-bold shrink-0">Vô hiệu</span>}
+                                                                {u.isActive === false && <span className="text-[9px] px-1 py-0.5 rounded bg-danger-100 text-danger-600 font-bold shrink-0">Vô hiệu</span>}
                                                             </div>
                                                             {isAdmin && u.storeId && (
                                                                 <div className="flex items-center gap-1.5 mt-1 text-[10px] font-bold flex-wrap">
-                                                                    <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600">
+                                                                    <span className="px-1.5 py-0.5 rounded bg-accent-50 text-accent-600">
                                                                         {storeMap.get(u.storeId) ?? u.storeId}
                                                                     </span>
                                                                 </div>
@@ -849,30 +849,30 @@ export default function GlobalOverviewPage() {
 
                                                             return (
                                                                 <td key={dayIdx} className={cn(
-                                                                    "p-2 border-b border-x border-slate-100 align-top",
-                                                                    isToday ? 'bg-indigo-50/20' : ''
+                                                                    "p-2 border-b border-x border-surface-100 align-top",
+                                                                    isToday ? 'bg-accent-50/20' : ''
                                                                 )}>
                                                                     <div className="space-y-1.5 flex flex-col h-full justify-start items-center relative">
                                                                         {dayAssignments.length > 0 ? (
                                                                             dayAssignments.map(({ shiftName, assignedCounter, isForceAssigned }) => (
                                                                                 <div key={shiftName} className={`text-[11px] w-full p-2 rounded-lg border shadow-sm leading-normal flex flex-col transition-all ${isForceAssigned
-                                                                                    ? 'bg-amber-50 border-amber-100 hover:bg-amber-100'
-                                                                                    : 'bg-indigo-50 border-indigo-100 hover:bg-indigo-100'
+                                                                                    ? 'bg-warning-50 border-warning-100 hover:bg-warning-100'
+                                                                                    : 'bg-accent-50 border-accent-100 hover:bg-accent-100'
                                                                                     }`}>
                                                                                     <div className="flex items-center gap-1 mb-0.5">
-                                                                                        <span className={`font-semibold ${isForceAssigned ? 'text-amber-700' : 'text-indigo-700'}`}>{shiftName}</span>
+                                                                                        <span className={`font-semibold ${isForceAssigned ? 'text-warning-700' : 'text-accent-700'}`}>{shiftName}</span>
                                                                                         {isForceAssigned && (
-                                                                                            <span title="Quản lý gán ca"><UserCog className="w-3 h-3 text-amber-500" /></span>
+                                                                                            <span title="Quản lý gán ca"><UserCog className="w-3 h-3 text-warning-500" /></span>
                                                                                         )}
                                                                                     </div>
-                                                                                    <span className={`flex items-center gap-1 font-medium bg-white px-1.5 py-0.5 rounded shadow-sm border ${isForceAssigned ? 'text-amber-700 border-amber-100' : 'text-slate-600 border-slate-100'}`}>
-                                                                                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isForceAssigned ? 'bg-amber-500' : 'bg-indigo-500'}`}></span>
+                                                                                    <span className={`flex items-center gap-1 font-medium bg-white px-1.5 py-0.5 rounded shadow-sm border ${isForceAssigned ? 'text-warning-700 border-warning-100' : 'text-surface-600 border-surface-100'}`}>
+                                                                                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isForceAssigned ? 'bg-warning-500' : 'bg-accent-500'}`}></span>
                                                                                         <span className="truncate">{assignedCounter}</span>
                                                                                     </span>
                                                                                 </div>
                                                                             ))
                                                                         ) : (
-                                                                            <div className="text-[11px] p-2 text-slate-400 font-medium italic text-center w-full h-full flex items-center justify-center min-h-[50px] rounded border border-transparent">
+                                                                            <div className="text-[11px] p-2 text-surface-400 font-medium italic text-center w-full h-full flex items-center justify-center min-h-[50px] rounded border border-transparent">
                                                                                 - Nghỉ -
                                                                             </div>
                                                                         )}
@@ -884,7 +884,7 @@ export default function GlobalOverviewPage() {
                                                 ))}
                                                 {users.length === 0 && !loading && (
                                                     <tr>
-                                                        <td colSpan={8} className="p-8 text-center text-slate-500">
+                                                        <td colSpan={8} className="p-8 text-center text-surface-500">
                                                             Chưa có dữ liệu nhân sự.
                                                         </td>
                                                     </tr>
@@ -893,17 +893,17 @@ export default function GlobalOverviewPage() {
                                         </table>
                                     ) : (
                                         <table className="w-full text-sm text-left border-collapse min-w-[1000px]">
-                                            <thead className="text-xs text-slate-500 bg-slate-50/80">
+                                            <thead className="text-xs text-surface-500 bg-surface-50/80">
                                                 <tr>
-                                                    <th className="p-4 border-b border-r border-slate-200 font-bold text-slate-700 text-center sticky left-0 bg-slate-50/90 backdrop-blur-sm z-10 w-48 shadow-[1px_0_0_0_#e2e8f0]">
+                                                    <th className="p-4 border-b border-r border-surface-200 font-bold text-surface-700 text-center sticky left-0 bg-surface-50/90 backdrop-blur-sm z-10 w-48 shadow-[1px_0_0_0_#e2e8f0]">
                                                         Quầy \ Ngày
                                                     </th>
                                                     {weekDays.map((date, i) => {
                                                         const isToday = toLocalDateString(new Date()) === toLocalDateString(date);
                                                         return (
                                                             <th key={i} className={cn(
-                                                                "p-3 border-b border-x border-slate-200 font-semibold text-center min-w-[140px]",
-                                                                isToday ? 'bg-indigo-50/50 text-indigo-700' : ''
+                                                                "p-3 border-b border-x border-surface-200 font-semibold text-center min-w-[140px]",
+                                                                isToday ? 'bg-accent-50/50 text-accent-700' : ''
                                                             )}>
                                                                 <div className="text-xs uppercase opacity-70 mb-0.5">
                                                                     {date.toLocaleDateString('vi-VN', { weekday: 'short' })}
@@ -918,13 +918,13 @@ export default function GlobalOverviewPage() {
                                             </thead>
                                             <tbody>
                                                 {counters.map((c, idx) => (
-                                                    <tr key={c.id} className="hover:bg-slate-50/50 transition-colors group">
+                                                    <tr key={c.id} className="hover:bg-surface-50/50 transition-colors group">
                                                         {/* Counter Cell - Sticky */}
                                                         <td className={cn(
-                                                            "p-2 border-b border-r border-slate-200 sticky left-0 bg-white group-hover:bg-slate-50 z-10 shadow-[1px_0_0_0_#e2e8f0]",
+                                                            "p-2 border-b border-r border-surface-200 sticky left-0 bg-white group-hover:bg-surface-50 z-10 shadow-[1px_0_0_0_#e2e8f0]",
                                                             idx === counters.length - 1 ? 'border-b-0' : ''
                                                         )}>
-                                                            <div className="font-semibold flex flex-col text-center text-slate-800 truncate items-center gap-2">
+                                                            <div className="font-semibold flex flex-col text-center text-surface-800 truncate items-center gap-2">
                                                                 {c.name}
                                                             </div>
                                                         </td>
@@ -947,8 +947,8 @@ export default function GlobalOverviewPage() {
 
                                                             return (
                                                                 <td key={dayIdx} className={cn(
-                                                                    "p-0 border-b border-x border-slate-100 align-top",
-                                                                    isToday ? 'bg-indigo-50/20' : ''
+                                                                    "p-0 border-b border-x border-surface-100 align-top",
+                                                                    isToday ? 'bg-accent-50/20' : ''
                                                                 )}>
                                                                     <div className="space-y-1.5 flex flex-col h-full justify-start items-center relative">
                                                                         {assignedUsersForCell.length > 0 ? (
@@ -956,23 +956,23 @@ export default function GlobalOverviewPage() {
                                                                                 const isUserForceAssigned = cellSchedule?.assignedByManagerUids?.includes(u.uid) ?? false;
                                                                                 return (
                                                                                     <div key={u.uid} className={`text-[12px] w-full p-2 py-1.5 rounded shadow-sm flex items-center gap-1.5 transition-all ${u.isActive === false
-                                                                                        ? 'bg-slate-50 border border-slate-200 opacity-70'
+                                                                                        ? 'bg-surface-50 border border-surface-200 opacity-70'
                                                                                         : isUserForceAssigned
-                                                                                            ? 'bg-amber-50 border border-amber-200 hover:bg-amber-100'
-                                                                                            : 'bg-white border border-slate-200 hover:bg-slate-50'
+                                                                                            ? 'bg-warning-50 border border-warning-200 hover:bg-warning-100'
+                                                                                            : 'bg-white border border-surface-200 hover:bg-surface-50'
                                                                                         }`}>
                                                                                         <span className={cn(
                                                                                             'font-semibold truncate',
-                                                                                            u.isActive === false ? 'text-slate-400' : u.role === 'store_manager' ? 'text-red-600' : u.role === 'manager' ? 'text-amber-600' : u.type === 'FT' ? 'text-blue-600' : 'text-emerald-600'
+                                                                                            u.isActive === false ? 'text-surface-400' : u.role === 'store_manager' ? 'text-danger-600' : u.role === 'manager' ? 'text-warning-600' : u.type === 'FT' ? 'text-primary-600' : 'text-success-600'
                                                                                         )} title={u.name}>{shortName(u.name)}</span>
                                                                                         {isUserForceAssigned && (
-                                                                                            <span title="Quản lý gán ca"><UserCog className="w-3 h-3 text-amber-500 shrink-0" /></span>
+                                                                                            <span title="Quản lý gán ca"><UserCog className="w-3 h-3 text-warning-500 shrink-0" /></span>
                                                                                         )}
                                                                                     </div>
                                                                                 );
                                                                             })
                                                                         ) : (
-                                                                            <div className="text-[11px] p-2 text-slate-400 font-medium italic text-center w-full h-full flex items-center justify-center min-h-[40px] rounded border border-transparent">
+                                                                            <div className="text-[11px] p-2 text-surface-400 font-medium italic text-center w-full h-full flex items-center justify-center min-h-[40px] rounded border border-transparent">
                                                                                 -
                                                                             </div>
                                                                         )}
@@ -984,20 +984,20 @@ export default function GlobalOverviewPage() {
                                                 ))}
                                                 {counters.length === 0 && !loading && (
                                                     <tr>
-                                                        <td colSpan={8} className="p-8 text-center text-slate-500">
+                                                        <td colSpan={8} className="p-8 text-center text-surface-500">
                                                             Chưa cấu hình Quầy/Vị trí.
                                                         </td>
                                                     </tr>
                                                 )}
                                                 {/* Summary row: total employees per day for selectedShift */}
                                                 {counters.length > 0 && (
-                                                    <tr className="bg-indigo-50/60 border-t-2 border-indigo-200">
-                                                        <td className="p-4 border-r border-indigo-200 sticky left-0 bg-indigo-50 z-10 shadow-[1px_0_0_0_#c7d2fe]">
-                                                            <div className="font-bold text-indigo-700 flex flex-col text-center items-center gap-2 text-sm">
+                                                    <tr className="bg-accent-50/60 border-t-2 border-accent-200">
+                                                        <td className="p-4 border-r border-accent-200 sticky left-0 bg-accent-50 z-10 shadow-[1px_0_0_0_#c7d2fe]">
+                                                            <div className="font-bold text-accent-700 flex flex-col text-center items-center gap-2 text-sm">
                                                                 <Users className="w-4 h-4" />
                                                                 Tổng
                                                             </div>
-                                                            <div className="text-[13px] text-center text-indigo-500 mt-0.5">{selectedShift}</div>
+                                                            <div className="text-[13px] text-center text-accent-500 mt-0.5">{selectedShift}</div>
                                                         </td>
                                                         {weekDays.map((date, dayIdx) => {
                                                             const dateStr = toLocalDateString(date);
@@ -1026,24 +1026,24 @@ export default function GlobalOverviewPage() {
 
                                                             return (
                                                                 <td key={dayIdx} className={cn(
-                                                                    "p-3 border-x border-indigo-100 text-center",
-                                                                    isToday ? 'bg-indigo-100/60' : ''
+                                                                    "p-3 border-x border-accent-100 text-center",
+                                                                    isToday ? 'bg-accent-100/60' : ''
                                                                 )}>
                                                                     {total > 0 ? (
                                                                         <div className="flex flex-col items-center gap-1.5">
-                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-600 text-white text-xs font-bold rounded-full shadow-sm" title="Tổng nhân viên">
+                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-accent-600 text-white text-xs font-bold rounded-full shadow-sm" title="Tổng nhân viên">
                                                                                 <Users className="w-3 h-3" />
                                                                                 {employeeCount} NV
                                                                             </span>
                                                                             {managerCount > 0 && (
-                                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500 text-white text-xs font-bold rounded-full shadow-sm" title="Quản lý">
+                                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-warning-500 text-white text-xs font-bold rounded-full shadow-sm" title="Quản lý">
                                                                                     <Users className="w-3 h-3" />
                                                                                     {managerCount} QL
                                                                                 </span>
                                                                             )}
                                                                         </div>
                                                                     ) : (
-                                                                        <span className="text-slate-400 text-xs font-medium">—</span>
+                                                                        <span className="text-surface-400 text-xs font-medium">—</span>
                                                                     )}
                                                                 </td>
                                                             );

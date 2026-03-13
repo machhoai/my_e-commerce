@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+﻿import { useState, useMemo } from 'react';
 import {
     DndContext,
     DragOverlay,
@@ -141,21 +141,21 @@ export default function DraggableSchedule({
 
                 {/* Left panel: Employee pool */}
                 <div className="lg:col-span-1 flex flex-col gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col">
-                        <h2 className="font-bold text-slate-800 text-lg">
+                    <div className="bg-white p-4 rounded-xl border border-surface-200 shadow-sm flex flex-col">
+                        <h2 className="font-bold text-surface-800 text-lg">
                             Nhân viên đã đăng ký ({employees.length})
                         </h2>
-                        <span className="text-xs text-slate-500 border-b border-slate-100 pb-3 mb-4">
+                        <span className="text-xs text-surface-500 border-b border-surface-100 pb-3 mb-4">
                             Nhấn vào một quầy để gán nhân viên, hoặc nhấn lại thẻ để hủy chọn. Hoặc có thể kéo nhân viên vào quầy.
                         </span>
 
                         {/* Active selection banner */}
                         {selectedEmployeeId && (
-                            <div className="mb-3 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-xs font-medium text-blue-700 flex items-center justify-between gap-2">
+                            <div className="mb-3 px-3 py-2 rounded-lg bg-primary-50 border border-primary-200 text-xs font-medium text-primary-700 flex items-center justify-between gap-2">
                                 <span>👆 Nhấn vào quầy để gán. Nhấn lại thẻ để hủy chọn.</span>
                                 <button
                                     onClick={() => setSelectedEmployeeId(null)}
-                                    className="text-blue-400 hover:text-blue-700 font-bold shrink-0"
+                                    className="text-primary-400 hover:text-primary-700 font-bold shrink-0"
                                 >
                                     Xong
                                 </button>
@@ -166,16 +166,16 @@ export default function DraggableSchedule({
                             {isLoading ? (
                                 <div className="flex flex-col gap-3">
                                     {[1, 2, 3, 4].map(i => (
-                                        <div key={i} className="h-14 bg-slate-100 rounded-lg animate-pulse" />
+                                        <div key={i} className="h-14 bg-surface-100 rounded-lg animate-pulse" />
                                     ))}
                                 </div>
                             ) : employees.length === 0 ? (
-                                <p className="text-sm text-slate-500 text-center py-8">Chưa có nhân viên nào đăng ký ca này.</p>
+                                <p className="text-sm text-surface-500 text-center py-8">Chưa có nhân viên nào đăng ký ca này.</p>
                             ) : (
                                 <>
                                     {/* Unassigned Group */}
                                     <div>
-                                        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                                        <h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-3">
                                             Chưa phân công ({unassignedEmployees.length})
                                         </h3>
                                         <div className="flex flex-col gap-2">
@@ -203,7 +203,7 @@ export default function DraggableSchedule({
                                     {/* FIX 2 + 4: Assigned employees — fully clickable + unassign-all button */}
                                     {assignedEmployees.length > 0 && (
                                         <div>
-                                            <h3 className="text-xs font-semibold text-emerald-600/70 uppercase tracking-wider mb-3 pt-4 border-t border-slate-100">
+                                            <h3 className="text-xs font-semibold text-success-600/70 uppercase tracking-wider mb-3 pt-4 border-t border-surface-100">
                                                 Đã phân công ({assignedEmployees.length})
                                             </h3>
                                             <div className="flex flex-col gap-2">
@@ -235,7 +235,7 @@ export default function DraggableSchedule({
                                 <button
                                     onClick={() => setShowForceAssignModal?.(true)}
                                     disabled={isLoading || !selectedShiftId}
-                                    className="flex items-center w-full justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold text-sm transition-all shadow-sm shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex items-center w-full justify-center gap-2 px-4 py-2.5 bg-warning-500 hover:bg-warning-600 text-white rounded-xl font-semibold text-sm transition-all shadow-sm shadow-warning-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <UserPlus className="w-4 h-4" />
                                     Đăng ký thêm nhân viên
@@ -274,7 +274,7 @@ export default function DraggableSchedule({
                         })}
 
                         {counters.length === 0 && (
-                            <div className="sm:col-span-2 xl:col-span-3 bg-white border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center text-slate-500">
+                            <div className="sm:col-span-2 xl:col-span-3 bg-white border-2 border-dashed border-surface-300 rounded-2xl p-12 text-center text-surface-500">
                                 Chưa có quầy nào được cấu hình. Vào Cài đặt hệ thống để thêm quầy.
                             </div>
                         )}

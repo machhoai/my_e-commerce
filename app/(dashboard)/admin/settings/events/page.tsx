@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
@@ -96,18 +96,18 @@ export default function EventSettingsPage() {
                 titleChildren={
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
                         <div>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent flex items-center gap-2">
-                                <Zap className="w-7 h-7 text-amber-500" />
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-warning-500 to-orange-500 bg-clip-text text-transparent flex items-center gap-2">
+                                <Zap className="w-7 h-7 text-warning-500" />
                                 Bản Đồ Sự Kiện
                             </h1>
-                            <p className="text-slate-500 mt-1 text-sm">Cấu hình các Mẫu Thông Báo ("Hệ thống") sẽ được tự động gửi đi khi xảy ra sự kiện.</p>
+                            <p className="text-surface-500 mt-1 text-sm">Cấu hình các Mẫu Thông Báo ("Hệ thống") sẽ được tự động gửi đi khi xảy ra sự kiện.</p>
                         </div>
                     </div>
                 }
             />
 
             {feedback && (
-                <div className={`p-4 rounded-xl flex items-start gap-3 border ${feedback.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                <div className={`p-4 rounded-xl flex items-start gap-3 border ${feedback.type === 'error' ? 'bg-danger-50 text-danger-700 border-danger-200' : 'bg-success-50 text-success-700 border-success-200'}`}>
                     {feedback.type === 'error' ? <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" /> : <CheckCircle2 className="w-5 h-5 mt-0.5 shrink-0" />}
                     <div className="text-sm font-medium">{feedback.text}</div>
                 </div>
@@ -115,40 +115,40 @@ export default function EventSettingsPage() {
 
             {loading ? (
                 <div className="py-12 flex justify-center">
-                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
                 </div>
             ) : (
-                <div className="bg-white border border-slate-200 shadow-sm rounded-2xl overflow-hidden">
-                    <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-                        <h2 className="font-semibold text-slate-800">Cấu hình Auto-Push</h2>
+                <div className="bg-white border border-surface-200 shadow-sm rounded-2xl overflow-hidden">
+                    <div className="px-6 py-4 border-b border-surface-100 bg-surface-50/50">
+                        <h2 className="font-semibold text-surface-800">Cấu hình Auto-Push</h2>
                     </div>
 
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-surface-100">
                         {SYSTEM_EVENTS.map(sysEvent => (
-                            <div key={sysEvent.key} className="p-6 sm:flex items-start justify-between gap-6 hover:bg-slate-50/50 transition-colors">
+                            <div key={sysEvent.key} className="p-6 sm:flex items-start justify-between gap-6 hover:bg-surface-50/50 transition-colors">
                                 <div className="flex-1 mb-4 sm:mb-0">
                                     <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-amber-400"></div>
-                                        <h3 className="font-medium text-slate-900">{sysEvent.label}</h3>
+                                        <div className="w-2 h-2 rounded-full bg-warning-400"></div>
+                                        <h3 className="font-medium text-surface-900">{sysEvent.label}</h3>
                                     </div>
-                                    <p className="text-sm text-slate-500 mt-1 pl-4 leading-relaxed">
+                                    <p className="text-sm text-surface-500 mt-1 pl-4 leading-relaxed">
                                         {sysEvent.description}
                                     </p>
                                     <div className="mt-2 pl-4">
-                                        <code className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200 font-mono">
+                                        <code className="text-[10px] bg-surface-100 text-surface-500 px-1.5 py-0.5 rounded border border-surface-200 font-mono">
                                             {sysEvent.key}
                                         </code>
                                     </div>
                                 </div>
 
                                 <div className="sm:w-64 shrink-0">
-                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                                    <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">
                                         Mẫu Thông Báo liên kết
                                     </label>
                                     <select
                                         value={eventMappings[sysEvent.key] || ''}
                                         onChange={(e) => handleMappingChange(sysEvent.key, e.target.value)}
-                                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-slate-700 shadow-sm"
+                                        className="w-full px-3 py-2 bg-white border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm font-medium text-surface-700 shadow-sm"
                                     >
                                         <option value="">-- Không gửi Tự động --</option>
                                         {templates.map(t => (
@@ -156,7 +156,7 @@ export default function EventSettingsPage() {
                                         ))}
                                     </select>
                                     {eventMappings[sysEvent.key] && !templates.find(t => t.id === eventMappings[sysEvent.key]) && (
-                                        <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                                        <p className="text-xs text-danger-500 mt-1 flex items-center gap-1">
                                             <AlertCircle className="w-3 h-3" />
                                             Mẫu này Đã bị xóa
                                         </p>
@@ -166,11 +166,11 @@ export default function EventSettingsPage() {
                         ))}
                     </div>
 
-                    <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                    <div className="px-6 py-4 bg-surface-50 border-t border-surface-100 flex justify-end">
                         <button
                             onClick={handleSave}
                             disabled={isSaving}
-                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-sm"
+                            className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-sm"
                         >
                             {isSaving ? (
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -183,8 +183,8 @@ export default function EventSettingsPage() {
                 </div>
             )}
 
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-                <span className="font-semibold text-amber-900 block mb-1">Gợi ý:</span>
+            <div className="bg-warning-50 border border-warning-200 rounded-xl p-4 text-sm text-warning-800">
+                <span className="font-semibold text-warning-900 block mb-1">Gợi ý:</span>
                 Chỉ những Mẫu thông báo được đánh dấu là <strong>"Mẫu Thiết lập Hệ thống"</strong> (isSystemEvent) mới xuất hiện trong danh sách để gắn kết với các Sự kiện này.
             </div>
         </div>

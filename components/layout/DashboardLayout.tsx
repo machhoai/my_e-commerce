@@ -64,10 +64,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-950">
+            <div className="min-h-screen flex items-center justify-center bg-surface-950">
                 <div className="flex flex-col items-center gap-3">
-                    <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-slate-400 text-sm">Đang tải...</p>
+                    <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-surface-400 text-sm">Đang tải...</p>
                 </div>
             </div>
         );
@@ -75,13 +75,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     if (!userDoc) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-950">
+            <div className="min-h-screen flex items-center justify-center bg-surface-950">
                 <div className="flex flex-col items-center gap-4 text-center px-4">
-                    <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-slate-300 text-sm">Đang kết nối...</p>
+                    <div className="w-10 h-10 border-4 border-danger-500 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-surface-300 text-sm">Đang kết nối...</p>
                     <button
                         onClick={logout}
-                        className="text-xs text-red-400 hover:text-red-300 underline mt-2"
+                        className="text-xs text-danger-400 hover:text-danger-300 underline mt-2"
                     >
                         Đăng xuất
                     </button>
@@ -280,10 +280,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     const roleBadgeClass: Record<string, string> = {
         super_admin: 'bg-yellow-500/20 text-yellow-500',
-        admin: 'bg-emerald-500/20 text-emerald-500',
-        store_manager: 'bg-purple-500/20 text-purple-400',
-        manager: 'bg-amber-500/20 text-amber-400',
-        employee: 'bg-blue-500/20 text-blue-400',
+        admin: 'bg-success-500/20 text-success-500',
+        store_manager: 'bg-accent-500/20 text-accent-400',
+        manager: 'bg-warning-500/20 text-warning-400',
+        employee: 'bg-primary-500/20 text-primary-400',
         office: 'bg-teal-500/20 text-teal-400',
     };
 
@@ -326,29 +326,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         };
 
         return (
-            <div className="flex flex-col h-full bg-slate-950 text-slate-100">
+            <div className="flex flex-col h-full bg-surface-950 text-surface-100">
                 {/* Header/Branding */}
-                <div className="border-slate-800 pt-2 shrink-0">
+                <div className="border-surface-800 pt-2 shrink-0">
                     <div className="flex items-center h-16 w-full gap-3">
                         <img src="/logo.png" alt="" className="h-full w-full object-contain" />
                     </div>
                 </div>
 
                 {/* User Profile */}
-                <div className="border-b border-slate-800 p-4 shrink-0">
+                <div className="border-b border-surface-800 p-4 shrink-0">
                     <div className="flex items-center gap-3">
-                        <Avatar className="size-10 border-2 border-slate-700">
+                        <Avatar className="size-10 border-2 border-surface-700">
                             <AvatarImage src="/placeholder-user.jpg" alt="User" />
-                            <AvatarFallback className="bg-slate-800 text-slate-300 text-sm font-semibold">{getInitials(userDoc.name)}</AvatarFallback>
+                            <AvatarFallback className="bg-surface-800 text-surface-300 text-sm font-semibold">{getInitials(userDoc.name)}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm text-slate-400">Xin chào,</p>
+                            <p className="text-sm text-surface-400">Xin chào,</p>
                             <p className="font-medium truncate">{userDoc.name || 'Người dùng'}</p>
                         </div>
                         <div className="space-y-0.5">
                             <button
                                 onClick={logout}
-                                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-red-400/90 hover:bg-red-950/30 hover:text-red-400 transition-colors"
+                                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-danger-400/90 hover:bg-danger-950/30 hover:text-danger-400 transition-colors"
                             >
                                 <LogOut className="size-5" />
                             </button>
@@ -357,18 +357,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <div className="mt-3 flex flex-wrap gap-2">
                         <span className={cn(
                             "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-                            roleBadgeClass[userDoc.role] ?? 'bg-slate-800 text-slate-300'
+                            roleBadgeClass[userDoc.role] ?? 'bg-surface-800 text-surface-300'
                         )}>
                             {roleLabelMap[userDoc.role] ?? userDoc.role}
                         </span>
                         {storeName && userDoc.role !== 'admin' && (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-slate-700 px-2.5 py-0.5 text-xs text-slate-300">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-surface-700 px-2.5 py-0.5 text-xs text-surface-300">
                                 <Building2 className="size-3" />
                                 <span className="max-w-[120px] truncate">{storeName}</span>
                             </span>
                         )}
                         {userDoc.type && (
-                            <span className="inline-flex items-center rounded-full bg-slate-800 px-2.5 py-0.5 text-xs text-slate-300 font-medium">
+                            <span className="inline-flex items-center rounded-full bg-surface-800 px-2.5 py-0.5 text-xs text-surface-300 font-medium">
                                 {userDoc.type}
                             </span>
                         )}
@@ -381,7 +381,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <div key={group.title} className="mb-2">
                             <button
                                 onClick={() => toggleGroup(group.title)}
-                                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs font-medium uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
+                                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs font-medium uppercase tracking-wider text-surface-500 hover:text-surface-300 transition-colors"
                             >
                                 {group.title}
                                 <ChevronDown
@@ -406,11 +406,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                                 className={cn(
                                                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                                                     isActive
-                                                        ? "bg-emerald-600/20 text-emerald-400 font-medium"
-                                                        : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                                                        ? "bg-success-600/20 text-success-400 font-medium"
+                                                        : "text-surface-400 hover:bg-surface-800/50 hover:text-surface-200"
                                                 )}
                                             >
-                                                <route.icon className={cn("size-4 shrink-0", isActive && "text-emerald-400")} />
+                                                <route.icon className={cn("size-4 shrink-0", isActive && "text-success-400")} />
                                                 <span>{route.label}</span>
                                             </Link>
                                         );
@@ -421,23 +421,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     ))}
 
                     {/* Notifications */}
-                    <div className="mt-2 border-t border-slate-800 pt-2">
+                    <div className="mt-2 border-t border-surface-800 pt-2">
                         <Link
                             href="/notifications"
                             onClick={() => setMobileOpen(false)}
                             className={cn(
                                 "flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors",
                                 isNotificationsActive
-                                    ? "bg-slate-800 text-white font-medium"
-                                    : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                                    ? "bg-surface-800 text-white font-medium"
+                                    : "text-surface-400 hover:bg-surface-800/50 hover:text-surface-200"
                             )}
                         >
                             <div className="flex items-center gap-3">
-                                <Bell className={cn("size-4", isNotificationsActive && "text-emerald-500")} />
+                                <Bell className={cn("size-4", isNotificationsActive && "text-success-500")} />
                                 <span>Thông báo</span>
                             </div>
                             {unreadCount > 0 && (
-                                <span className="flex size-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                                <span className="flex size-5 items-center justify-center rounded-full bg-danger-500 text-[10px] font-bold text-white">
                                     {unreadCount > 99 ? '99+' : unreadCount}
                                 </span>
                             )}
@@ -445,7 +445,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <Link
                             href="/change-password"
                             onClick={() => setMobileOpen(false)}
-                            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition-colors"
+                            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-surface-400 hover:bg-surface-800/50 hover:text-surface-200 transition-colors"
                         >
                             <KeyRound className="size-4" />
                             <span>Đổi mật khẩu</span>
@@ -455,7 +455,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                 {/* Footer */}
                 <div className="p-2 shrink-0">
-                    <p className="px-3 text-[10px] text-slate-500/70 text-center">
+                    <p className="px-3 text-[10px] text-surface-500/70 text-center">
                         Thiết kế & phát triển bởi Mạch Hoài
                     </p>
                 </div>
@@ -464,9 +464,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     };
 
     return (
-        <div className="flex bg-slate-50 h-screen">
+        <div className="flex bg-surface-50 h-screen">
             {/* Desktop Sidebar */}
-            <aside className="hidden md:flex w-64 bg-slate-950 border-r border-slate-800 text-slate-100 flex-col shrink-0">
+            <aside className="hidden md:flex w-64 bg-surface-950 border-r border-surface-800 text-surface-100 flex-col shrink-0">
                 <SidebarContent />
             </aside>
 
@@ -479,9 +479,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         onClick={() => setMobileOpen(false)}
                     />
                     {/* Drawer */}
-                    <aside className="relative z-50 w-72 bg-slate-950 text-slate-100 flex flex-col animate-in slide-in-from-left-4 duration-200 overflow-hidden">
+                    <aside className="relative z-50 w-72 bg-surface-950 text-surface-100 flex flex-col animate-in slide-in-from-left-4 duration-200 overflow-hidden">
                         <button
-                            className="absolute top-4 right-4 text-slate-400 hover:text-slate-100 p-1 z-50 rounded-lg bg-slate-800/50"
+                            className="absolute top-4 right-4 text-surface-400 hover:text-surface-100 p-1 z-50 rounded-lg bg-surface-800/50"
                             onClick={() => setMobileOpen(false)}
                             aria-label="Đóng menu"
                         >
@@ -493,40 +493,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
 
             {/* Main Content — full height, no header */}
-            <main className="flex-1 h-screen overflow-hidden flex flex-col bg-slate-50/50">
-                <div className="flex-1 overflow-y-auto w-full px-2 custom-scrollbar">
+            <main className="flex-1 h-screen overflow-hidden flex flex-col bg-surface-50/50">
+                <div className="flex-1 overflow-y-auto w-full p-4 custom-scrollbar">
                     {children}
                 </div>
             </main>
 
-            {/* Mobile Floating Hamburger Button */}
+            {/* Mobile Combined FAB Group — Scan (primary) + Menu (secondary) */}
             {!mobileOpen && (
-                <button
-                    className="md:hidden fixed bottom-5 left-5 z-30 w-12 h-12 bg-slate-950 text-white rounded-full shadow-lg shadow-slate-900/40 flex items-center justify-center hover:bg-slate-800 active:scale-95 transition-all outline-none"
-                    onClick={() => setMobileOpen(true)}
-                    aria-label="Mở menu"
-                >
-                    <Menu className="w-5 h-5" />
-                    {unreadCount > 0 && (
-                        <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white px-1 ring-2 ring-slate-50">
-                            {unreadCount > 99 ? '99+' : unreadCount}
-                        </span>
-                    )}
-                </button>
-            )}
+                <div className="md:hidden fixed bottom-5 right-5 z-30 flex flex-col items-center gap-2.5">
+                    {/* Secondary: Menu button (smaller, above scan) */}
+                    <button
+                        className="relative w-10 h-10 bg-surface-900/90 backdrop-blur-sm text-white rounded-full shadow-lg shadow-surface-900/30 flex items-center justify-center hover:bg-surface-800 active:scale-90 transition-all outline-none"
+                        onClick={() => setMobileOpen(true)}
+                        aria-label="Mở menu"
+                    >
+                        <Menu className="w-4 h-4" />
+                        {unreadCount > 0 && (
+                            <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-danger-500 text-[9px] font-bold text-white px-0.5 ring-2 ring-white">
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                        )}
+                    </button>
 
-            {/* Mobile Floating Scan Key Button (bottom-right, mirrors hamburger) */}
-            {!mobileOpen && (
-                <Link
-                    href="/scan"
-                    className={cn(
-                        "md:hidden fixed bottom-5 right-5 z-30 w-14 h-14 bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-full shadow-lg shadow-violet-600/40 flex items-center justify-center hover:from-violet-700 hover:to-indigo-700 active:scale-95 transition-all outline-none",
-                        pathname === '/scan' && "ring-3 ring-violet-300 ring-offset-2"
-                    )}
-                    aria-label="Quét mã sản phẩm"
-                >
-                    <ScanBarcode className="w-6 h-6" />
-                </Link>
+                    {/* Primary: Scan button (large, prominent) */}
+                    <Link
+                        href="/scan"
+                        className={cn(
+                            "w-14 h-14 bg-gradient-to-br from-accent-600 to-accent-700 text-white rounded-full shadow-xl shadow-accent-600/40 flex items-center justify-center hover:from-accent-700 hover:to-accent-800 active:scale-90 transition-all outline-none",
+                            pathname === '/scan' && "ring-3 ring-accent-300 ring-offset-2"
+                        )}
+                        aria-label="Quét mã sản phẩm"
+                    >
+                        <ScanBarcode className="w-6 h-6" />
+                    </Link>
+                </div>
             )}
         </div>
     );

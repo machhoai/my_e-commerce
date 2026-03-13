@@ -1,4 +1,4 @@
-import { useDraggable } from '@dnd-kit/core';
+﻿import { useDraggable } from '@dnd-kit/core';
 import { UserDoc } from '@/types';
 import { GripVertical, UserCog, X, MousePointerClick, Trash2 } from 'lucide-react';
 import { shortName } from '@/lib/utils';
@@ -44,13 +44,13 @@ export default function EmployeeCard({
             style={style}
             className={`
         flex items-center p-2 rounded-lg border text-sm select-none transition-all touch-none
-        ${isDragging ? 'opacity-50 z-50 shadow-xl border-blue-500 bg-blue-50 cursor-grabbing' : ''}
-        ${isClickSelected && !isDragging ? 'border-blue-500 bg-blue-50 shadow-md shadow-blue-500/20 ring-2 ring-blue-400 ring-offset-1 cursor-pointer' : ''}
-        ${!isClickSelected && isSelected && !isDragging && !isManagerAssigned ? 'border-emerald-500 bg-emerald-50' : ''}
-        ${!isClickSelected && isSelected && !isDragging && isManagerAssigned ? 'border-amber-500 bg-amber-50' : ''}
-        ${!isClickSelected && !isSelected && !isDragging && isManagerAssigned ? 'border-amber-300 bg-amber-50/50' : ''}
-        ${!isClickSelected && !isSelected && !isDragging && !isManagerAssigned ? 'border-slate-200 bg-white hover:border-slate-300' : ''}
-        ${disabled ? 'opacity-50 cursor-not-allowed bg-slate-50' : ''}
+        ${isDragging ? 'opacity-50 z-50 shadow-xl border-primary-500 bg-primary-50 cursor-grabbing' : ''}
+        ${isClickSelected && !isDragging ? 'border-primary-500 bg-primary-50 shadow-md shadow-primary-500/20 ring-2 ring-primary-400 ring-offset-1 cursor-pointer' : ''}
+        ${!isClickSelected && isSelected && !isDragging && !isManagerAssigned ? 'border-success-500 bg-success-50' : ''}
+        ${!isClickSelected && isSelected && !isDragging && isManagerAssigned ? 'border-warning-500 bg-warning-50' : ''}
+        ${!isClickSelected && !isSelected && !isDragging && isManagerAssigned ? 'border-warning-300 bg-warning-50/50' : ''}
+        ${!isClickSelected && !isSelected && !isDragging && !isManagerAssigned ? 'border-surface-200 bg-white hover:border-surface-300' : ''}
+        ${disabled ? 'opacity-50 cursor-not-allowed bg-surface-50' : ''}
         ${onClickSelect && !isDragging ? 'cursor-pointer' : !isDragging ? 'cursor-grab' : ''}
       `}
         >
@@ -68,27 +68,27 @@ export default function EmployeeCard({
                 className="flex items-center gap-2 flex-1 min-w-0"
             >
                 {isClickSelected
-                    ? <MousePointerClick className="w-4 h-4 text-blue-500 mr-2 shrink-0" />
-                    : <GripVertical className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
+                    ? <MousePointerClick className="w-4 h-4 text-primary-500 mr-2 shrink-0" />
+                    : <GripVertical className="w-4 h-4 text-surface-400 mr-2 shrink-0" />
                 }
                 <div className="flex-1 min-w-0">
-                    <p className={`font-medium truncate ${isClickSelected ? 'text-blue-700' : user.role === 'store_manager' ? 'text-red-600' : user.role === 'manager' ? 'text-amber-600' : user.type === 'FT' ? 'text-blue-600' : 'text-emerald-600'}`}>
+                    <p className={`font-medium truncate ${isClickSelected ? 'text-primary-700' : user.role === 'store_manager' ? 'text-danger-600' : user.role === 'manager' ? 'text-warning-600' : user.type === 'FT' ? 'text-primary-600' : 'text-success-600'}`}>
                         {shortName(user.name)}
                     </p>
                     <div className="flex items-center gap-1.5 mt-0.5">
                         {isClickSelected && (
-                            <span className="text-[10px] text-blue-600 font-bold flex items-center gap-0.5 animate-pulse">
+                            <span className="text-[10px] text-primary-600 font-bold flex items-center gap-0.5 animate-pulse">
                                 Đang chọn...
                             </span>
                         )}
                         {!isClickSelected && isManagerAssigned && (
-                            <span className="text-[10px] text-amber-600 font-bold flex items-center gap-0.5" title="Quản lý gán ca">
+                            <span className="text-[10px] text-warning-600 font-bold flex items-center gap-0.5" title="Quản lý gán ca">
                                 <UserCog className="w-3 h-3" />
                                 Gán ca
                             </span>
                         )}
                         {!isClickSelected && isSelected && !isManagerAssigned && (
-                            <span className="text-[10px] text-emerald-600 font-medium">Đã phân công</span>
+                            <span className="text-[10px] text-success-600 font-medium">Đã phân công</span>
                         )}
                     </div>
                 </div>
@@ -103,7 +103,7 @@ export default function EmployeeCard({
                         onClearAll();
                     }}
                     onPointerDown={(e) => e.stopPropagation()}
-                    className="ml-1 p-1.5 rounded-md text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
+                    className="ml-1 p-1.5 rounded-md text-surface-300 hover:text-danger-500 hover:bg-danger-50 transition-colors shrink-0"
                     title="Gỡ khỏi tất cả quầy"
                 >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -119,7 +119,7 @@ export default function EmployeeCard({
                         onRemove();
                     }}
                     onPointerDown={(e) => e.stopPropagation()}
-                    className="ml-1 p-1.5 rounded-md text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+                    className="ml-1 p-1.5 rounded-md text-danger-400 hover:text-danger-600 hover:bg-danger-50 transition-colors shrink-0"
                     title="Hủy gán ca"
                 >
                     <X className="w-4 h-4" />

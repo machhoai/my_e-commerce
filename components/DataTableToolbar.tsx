@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { Search, SlidersHorizontal, ChevronUp, ChevronDown, ChevronsUpDown, X } from 'lucide-react';
@@ -58,30 +58,30 @@ export default function DataTableToolbar({
 
     return (
         <>
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-xl border border-surface-200 shadow-sm overflow-hidden">
                 {/* Desktop View */}
                 <div className="hidden md:flex items-center gap-3 p-3">
                     {/* Search */}
                     <div className="relative flex-1 max-w-sm">
-                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
                         <input
                             type="text"
                             value={localSearch}
                             onChange={(e) => handleSearchInput(e.target.value)}
                             placeholder={searchPlaceholder}
-                            className="w-full pl-9 pr-8 py-2 text-sm outline-none bg-slate-50 rounded-lg border border-slate-200 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 transition-all text-slate-700 placeholder-slate-400"
+                            className="w-full pl-9 pr-8 py-2 text-sm outline-none bg-surface-50 rounded-lg border border-surface-200 focus:border-accent-300 focus:ring-2 focus:ring-accent-100 transition-all text-surface-700 placeholder-surface-400"
                         />
                         {localSearch && (
                             <button
                                 onClick={() => { setLocalSearch(''); onSearchChange(''); }}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-slate-200 text-slate-400 transition-colors"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-surface-200 text-surface-400 transition-colors"
                             >
                                 <X className="w-3.5 h-3.5" />
                             </button>
                         )}
                     </div>
 
-                    <div className="h-6 w-px bg-slate-200" />
+                    <div className="h-6 w-px bg-surface-200" />
 
                     {/* Filter Dropdowns */}
                     {filters.map((filter) => (
@@ -92,8 +92,8 @@ export default function DataTableToolbar({
                             className={cn(
                                 'text-sm flex-1 px-3 py-2 rounded-lg border outline-none cursor-pointer transition-all appearance-none bg-no-repeat bg-[length:16px] bg-[right_8px_center]',
                                 filterValues[filter.key]
-                                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold'
-                                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                                    ? 'bg-accent-50 text-accent-700 border-accent-200 font-semibold'
+                                    : 'bg-white text-surface-600 border-surface-200 hover:border-surface-300'
                             )}
                             style={{
                             }}
@@ -121,8 +121,8 @@ export default function DataTableToolbar({
                             className={cn(
                                 ' flex flex-1 justify-center items-center text-sm px-3 py-2 rounded-lg border outline-none cursor-pointer transition-all appearance-none bg-no-repeat bg-[length:16px] bg-[right_8px_center]',
                                 currentSort
-                                    ? 'bg-violet-50 text-violet-700 border-violet-200 font-semibold'
-                                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                                    ? 'bg-accent-50 text-accent-700 border-accent-200 font-semibold'
+                                    : 'bg-white text-surface-600 border-surface-200 hover:border-surface-300'
                             )}
                             style={{
                             }}
@@ -138,7 +138,7 @@ export default function DataTableToolbar({
                     {totalActiveCount > 0 && (
                         <button
                             onClick={onClearAll}
-                            className="text-xs text-slate-500 hover:text-red-500 px-2 py-1 rounded-md hover:bg-red-50 transition-colors whitespace-nowrap"
+                            className="text-xs text-surface-500 hover:text-danger-500 px-2 py-1 rounded-md hover:bg-danger-50 transition-colors whitespace-nowrap"
                         >
                             Xóa lọc ({totalActiveCount})
                         </button>
@@ -149,18 +149,18 @@ export default function DataTableToolbar({
                 <div className="flex md:hidden items-center gap-2 p-3">
                     {/* Search */}
                     <div className="relative flex-1">
-                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
                         <input
                             type="text"
                             value={localSearch}
                             onChange={(e) => handleSearchInput(e.target.value)}
                             placeholder={searchPlaceholder}
-                            className="w-full pl-9 pr-8 py-2.5 text-sm outline-none bg-slate-50 rounded-lg border border-slate-200 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 transition-all text-slate-700 placeholder-slate-400"
+                            className="w-full pl-9 pr-8 py-2.5 text-sm outline-none bg-surface-50 rounded-lg border border-surface-200 focus:border-accent-300 focus:ring-2 focus:ring-accent-100 transition-all text-surface-700 placeholder-surface-400"
                         />
                         {localSearch && (
                             <button
                                 onClick={() => { setLocalSearch(''); onSearchChange(''); }}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-slate-200 text-slate-400"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-surface-200 text-surface-400"
                             >
                                 <X className="w-3.5 h-3.5" />
                             </button>
@@ -173,14 +173,14 @@ export default function DataTableToolbar({
                         className={cn(
                             'relative flex items-center gap-1.5 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all shrink-0',
                             totalActiveCount > 0
-                                ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                ? 'bg-accent-50 text-accent-700 border-accent-200'
+                                : 'bg-white text-surface-600 border-surface-200 hover:bg-surface-50'
                         )}
                     >
                         <SlidersHorizontal className="w-4 h-4" />
                         <span className="hidden sm:inline">Lọc</span>
                         {totalActiveCount > 0 && (
-                            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-indigo-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
+                            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-accent-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
                                 {totalActiveCount}
                             </span>
                         )}
@@ -229,8 +229,8 @@ export function SortableHeader({
     return (
         <th
             className={cn(
-                'px-4 py-3.5 font-semibold cursor-pointer select-none group hover:text-indigo-600 transition-colors',
-                isActive && 'text-indigo-700',
+                'px-4 py-3.5 font-semibold cursor-pointer select-none group hover:text-accent-600 transition-colors',
+                isActive && 'text-accent-700',
                 className
             )}
             onClick={() => onSort(field)}
@@ -240,12 +240,12 @@ export function SortableHeader({
                 <span className="inline-flex">
                     {isActive ? (
                         currentOrder === 'asc' ? (
-                            <ChevronUp className="w-3.5 h-3.5 text-indigo-600" />
+                            <ChevronUp className="w-3.5 h-3.5 text-accent-600" />
                         ) : (
-                            <ChevronDown className="w-3.5 h-3.5 text-indigo-600" />
+                            <ChevronDown className="w-3.5 h-3.5 text-accent-600" />
                         )
                     ) : (
-                        <ChevronsUpDown className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-400" />
+                        <ChevronsUpDown className="w-3.5 h-3.5 text-surface-300 group-hover:text-surface-400" />
                     )}
                 </span>
             </div>

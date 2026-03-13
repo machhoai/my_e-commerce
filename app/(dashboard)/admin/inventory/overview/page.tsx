@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -116,17 +116,17 @@ export default function CentralOverviewPage() {
     const outCount = merged.filter(p => p.stockStatus === 'out').length;
 
     if (userDoc && userDoc.role !== 'admin' && !userDoc.customRoleId) {
-        return <div className="flex items-center justify-center h-64 text-red-500 font-bold">Không có quyền truy cập.</div>;
+        return <div className="flex items-center justify-center h-64 text-danger-500 font-bold">Không có quyền truy cập.</div>;
     }
 
     const titleChildren = (
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
             <div>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-800 flex items-center gap-2">
-                    <Warehouse className="size-6 text-emerald-600" />
+                <h1 className="text-2xl font-bold tracking-tight text-surface-800 flex items-center gap-2">
+                    <Warehouse className="size-6 text-success-600" />
                     Tổng quan Kho tổng
                 </h1>
-                <p className="text-slate-500 mt-1 text-sm">Theo dõi tồn kho tổng hợp trên hệ thống.</p>
+                <p className="text-surface-500 mt-1 text-sm">Theo dõi tồn kho tổng hợp trên hệ thống.</p>
             </div>
         </div>
     );
@@ -142,9 +142,9 @@ export default function CentralOverviewPage() {
             />
 
             {loading ? (
-                <div className="flex flex-col items-center justify-center py-20 gap-3 bg-white rounded-2xl border border-slate-200">
-                    <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-slate-400 text-sm">Đang tải dữ liệu tổng quan...</p>
+                <div className="flex flex-col items-center justify-center py-20 gap-3 bg-white rounded-2xl border border-surface-200">
+                    <div className="w-8 h-8 border-4 border-success-500 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-surface-400 text-sm">Đang tải dữ liệu tổng quan...</p>
                 </div>
             ) : (
                 <>

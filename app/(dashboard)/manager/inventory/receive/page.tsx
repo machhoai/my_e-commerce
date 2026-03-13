@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,11 +8,11 @@ import Link from 'next/link';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 const STATUS_BADGE: Record<string, string> = {
-    PENDING: 'bg-amber-100 text-amber-700 border-amber-200',
-    IN_TRANSIT: 'bg-blue-100 text-blue-700 border-blue-200',
-    COMPLETED: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    DISPATCHED: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    REJECTED: 'bg-red-100 text-red-700 border-red-200',
+    PENDING: 'bg-warning-100 text-warning-700 border-warning-200',
+    IN_TRANSIT: 'bg-primary-100 text-primary-700 border-primary-200',
+    COMPLETED: 'bg-success-100 text-success-700 border-success-200',
+    DISPATCHED: 'bg-success-100 text-success-700 border-success-200',
+    REJECTED: 'bg-danger-100 text-danger-700 border-danger-200',
 };
 const STATUS_LABEL: Record<string, string> = {
     PENDING: 'Chờ duyệt',
@@ -64,11 +64,11 @@ function ReceiveIndexContent() {
                 titleChildren={
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
                         <div>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
-                                <PackageCheck className="w-7 h-7 text-blue-600" />
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-600 to-accent-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <PackageCheck className="w-7 h-7 text-primary-600" />
                                 Nhận hàng
                             </h1>
-                            <p className="text-slate-500 mt-1 text-sm">Xác nhận nhận hàng từ kho trung tâm. Quét mã QR trên phiếu xuất kho hoặc chọn đơn từ danh sách bên dưới.</p>
+                            <p className="text-surface-500 mt-1 text-sm">Xác nhận nhận hàng từ kho trung tâm. Quét mã QR trên phiếu xuất kho hoặc chọn đơn từ danh sách bên dưới.</p>
                         </div>
                     </div>
                 }
@@ -76,12 +76,12 @@ function ReceiveIndexContent() {
 
             {loading ? (
                 <div className="flex justify-center py-12">
-                    <div className="w-6 h-6 border-4 border-slate-300 border-t-slate-700 rounded-full animate-spin" />
+                    <div className="w-6 h-6 border-4 border-surface-300 border-t-surface-700 rounded-full animate-spin" />
                 </div>
             ) : orders.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm text-center py-12 space-y-2">
-                    <Truck className="w-8 h-8 text-slate-300 mx-auto" />
-                    <p className="text-sm text-slate-400">Chưa có đơn hàng nào đang vận chuyển</p>
+                <div className="bg-white rounded-2xl border border-surface-200 shadow-sm text-center py-12 space-y-2">
+                    <Truck className="w-8 h-8 text-surface-300 mx-auto" />
+                    <p className="text-sm text-surface-400">Chưa có đơn hàng nào đang vận chuyển</p>
                 </div>
             ) : (
                 <div className="space-y-3">
@@ -91,23 +91,23 @@ function ReceiveIndexContent() {
                         const totalQty = order.items.reduce((s, i) => s + (i.dispatchedQty ?? i.approvedQty ?? i.requestedQty), 0);
 
                         return (
-                            <div key={order.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div key={order.id} className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
                                 {/* Collapsible header */}
                                 <button
                                     onClick={() => toggleOrder(order.id)}
-                                    className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50/80 transition-colors"
+                                    className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-surface-50/80 transition-colors"
                                 >
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_BADGE[order.status] || ''}`}>
                                                 {STATUS_LABEL[order.status] || order.status}
                                             </span>
-                                            <span className="text-xs text-slate-400">
+                                            <span className="text-xs text-surface-400">
                                                 {order.dispatchedAt ? new Date(order.dispatchedAt).toLocaleString('vi-VN') : '—'}
                                             </span>
                                         </div>
-                                        <p className="text-sm text-slate-600 mt-1">
-                                            <span className="font-bold text-slate-800">{totalItems}</span> sản phẩm · <span className="font-bold text-slate-800">{totalQty}</span> đơn vị
+                                        <p className="text-sm text-surface-600 mt-1">
+                                            <span className="font-bold text-surface-800">{totalItems}</span> sản phẩm · <span className="font-bold text-surface-800">{totalQty}</span> đơn vị
                                         </p>
                                     </div>
 
@@ -116,34 +116,34 @@ function ReceiveIndexContent() {
                                         <Link
                                             href={`/manager/inventory/receive/${order.id}?token=${order.qrCodeToken}`}
                                             onClick={e => e.stopPropagation()}
-                                            className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors shrink-0"
+                                            className="inline-flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors shrink-0"
                                         >
                                             <PackageCheck className="w-3.5 h-3.5" /> Nhận hàng
                                         </Link>
                                     ) : (
-                                        <span className="text-xs text-emerald-600 flex items-center gap-1 shrink-0">
+                                        <span className="text-xs text-success-600 flex items-center gap-1 shrink-0">
                                             <CheckCircle2 className="w-3.5 h-3.5" /> Đã nhận
                                         </span>
                                     )}
 
                                     {isExpanded
-                                        ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
-                                        : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
+                                        ? <ChevronUp className="w-4 h-4 text-surface-400 shrink-0" />
+                                        : <ChevronDown className="w-4 h-4 text-surface-400 shrink-0" />}
                                 </button>
 
                                 {/* Collapsible item list */}
                                 {isExpanded && (
-                                    <div className="border-t border-slate-100 px-4 py-3 bg-slate-50/50">
+                                    <div className="border-t border-surface-100 px-4 py-3 bg-surface-50/50">
                                         <div className="space-y-1.5">
                                             {order.items.map((item, i) => (
                                                 <div key={i} className="flex items-center justify-between text-xs py-1">
                                                     <div className="flex items-center gap-2 min-w-0">
-                                                        <span className="font-mono font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">
+                                                        <span className="font-mono font-bold text-surface-800 bg-surface-100 px-1.5 py-0.5 rounded text-[11px]">
                                                             {item.productCode || '—'}
                                                         </span>
-                                                        <span className="text-slate-500 truncate">{item.productName}</span>
+                                                        <span className="text-surface-500 truncate">{item.productName}</span>
                                                     </div>
-                                                    <span className="text-slate-600 font-semibold whitespace-nowrap ml-2">
+                                                    <span className="text-surface-600 font-semibold whitespace-nowrap ml-2">
                                                         ×{item.dispatchedQty ?? item.approvedQty ?? item.requestedQty} {item.unit}
                                                     </span>
                                                 </div>
@@ -164,7 +164,7 @@ export default function ReceiveIndexPage() {
     return (
         <Suspense fallback={
             <div className="flex justify-center py-12">
-                <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-4 border-accent-500 border-t-transparent rounded-full animate-spin" />
             </div>
         }>
             <ReceiveIndexContent />

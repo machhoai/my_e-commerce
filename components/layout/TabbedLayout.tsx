@@ -20,15 +20,16 @@ export default function TabbedLayout({ tabs, children }: TabbedLayoutProps) {
     const pathname = usePathname();
 
     return (
-        <div className="space-y-0">
-            {/* Tab Navigation Bar */}
-            <div className="bg-white border-b border-slate-200 -mx-4 md:-mx-8 px-2 overflow-x-auto md:px-8 sticky top-0 z-50">
+        <div className="relative">
+            {/* Tab Navigation Bar — fixed, glass-morphism style */}
+            <div className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-lg border-b border-surface-200/80 md:left-64">
                 <nav
-                    className="flex gap-1 overflow-x-auto no-scrollbar py-1"
+                    className="flex items-center gap-1 px-2 py-1.5 overflow-x-auto no-scrollbar"
                     role="tablist"
                 >
                     {tabs.map((tab) => {
                         const isActive = pathname === tab.href || pathname.startsWith(tab.href + '/');
+                        const Icon = tab.icon;
                         return (
                             <Link
                                 key={tab.href}
@@ -36,13 +37,18 @@ export default function TabbedLayout({ tabs, children }: TabbedLayoutProps) {
                                 role="tab"
                                 aria-selected={isActive}
                                 className={cn(
-                                    'flex flex-1 md:flex-none px-0 md:px-4 items-center gap-2 justify-center py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-all duration-200 shrink-0',
+                                    'flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-lg whitespace-nowrap transition-all duration-200 shrink-0',
                                     isActive
-                                        ? 'bg-slate-900 text-white shadow-sm'
-                                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                                        ? 'bg-surface-900 text-white shadow-md shadow-surface-900/20'
+                                        : 'text-surface-500 hover:text-surface-800 hover:bg-surface-100/80'
                                 )}
                             >
-                                {tab.icon && <tab.icon className="w-4 h-4 shrink-0" />}
+                                {Icon && (
+                                    <Icon className={cn(
+                                        'w-4 h-4 shrink-0',
+                                        isActive ? 'text-white' : 'text-surface-400'
+                                    )} />
+                                )}
                                 {tab.label}
                             </Link>
                         );
@@ -50,8 +56,8 @@ export default function TabbedLayout({ tabs, children }: TabbedLayoutProps) {
                 </nav>
             </div>
 
-            {/* Page Content */}
-            <div className="pt-4">
+            {/* Page Content — offset for fixed tab bar */}
+            <div className="pt-12">
                 {children}
             </div>
         </div>

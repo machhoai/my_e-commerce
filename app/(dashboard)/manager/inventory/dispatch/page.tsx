@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,7 +33,7 @@ export default function DispatchPage() {
     // Guard: admin only
     if (userDoc && userDoc.role !== 'admin') {
         return (
-            <div className="flex flex-col items-center justify-center h-64 text-red-500">
+            <div className="flex flex-col items-center justify-center h-64 text-danger-500">
                 <AlertCircle className="w-12 h-12 mb-2" />
                 <p className="font-bold">Chỉ quản trị viên mới có quyền truy cập.</p>
             </div>
@@ -137,18 +137,18 @@ export default function DispatchPage() {
                 titleChildren={
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
                         <div>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
-                                <Truck className="w-7 h-7 text-emerald-600" />
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-success-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <Truck className="w-7 h-7 text-success-600" />
                                 Duyệt xuất kho
                             </h1>
-                            <p className="text-slate-500 mt-1 text-sm">Xem và duyệt các đơn đặt hàng từ cửa hàng.</p>
+                            <p className="text-surface-500 mt-1 text-sm">Xem và duyệt các đơn đặt hàng từ cửa hàng.</p>
                         </div>
                     </div>
                 }
             />
 
             {message.text && (
-                <div className={`p-3 rounded-xl flex items-center gap-2 border text-sm font-medium ${message.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                <div className={`p-3 rounded-xl flex items-center gap-2 border text-sm font-medium ${message.type === 'error' ? 'bg-danger-50 text-danger-700 border-danger-200' : 'bg-success-50 text-success-700 border-success-200'}`}>
                     {message.type === 'error' ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                     {message.text}
                 </div>
@@ -156,18 +156,18 @@ export default function DispatchPage() {
 
             {/* Dispatch Result with QR */}
             {dispatchResult && (
-                <div className="bg-white rounded-2xl border-2 border-emerald-200 shadow-sm overflow-hidden">
-                    <div className="bg-emerald-50 p-4 border-b border-emerald-100 flex items-center justify-between">
+                <div className="bg-white rounded-2xl border-2 border-success-200 shadow-sm overflow-hidden">
+                    <div className="bg-success-50 p-4 border-b border-success-100 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <QrCode className="w-5 h-5 text-emerald-600" />
-                            <h2 className="text-lg font-bold text-emerald-800">Phiếu xuất kho & Mã QR</h2>
+                            <QrCode className="w-5 h-5 text-success-600" />
+                            <h2 className="text-lg font-bold text-success-800">Phiếu xuất kho & Mã QR</h2>
                         </div>
                         <div className="flex items-center gap-2">
                             <button onClick={handlePrint}
-                                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                                className="flex items-center gap-1.5 bg-success-600 hover:bg-success-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
                                 <Printer className="w-4 h-4" /> In phiếu
                             </button>
-                            <button onClick={() => setDispatchResult(null)} className="text-slate-400 hover:text-slate-700 p-1.5">
+                            <button onClick={() => setDispatchResult(null)} className="text-surface-400 hover:text-surface-700 p-1.5">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
@@ -213,16 +213,16 @@ export default function DispatchPage() {
             )}
 
             {/* Orders Table */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
                 {loading ? (
-                    <div className="flex justify-center py-12"><div className="w-6 h-6 border-4 border-slate-300 border-t-slate-700 rounded-full animate-spin" /></div>
+                    <div className="flex justify-center py-12"><div className="w-6 h-6 border-4 border-surface-300 border-t-surface-700 rounded-full animate-spin" /></div>
                 ) : orders.length === 0 ? (
-                    <p className="text-sm text-slate-400 text-center py-12">Không có đơn hàng nào đang chờ duyệt</p>
+                    <p className="text-sm text-surface-400 text-center py-12">Không có đơn hàng nào đang chờ duyệt</p>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="text-left text-xs text-slate-500 uppercase bg-slate-50 border-b">
+                                <tr className="text-left text-xs text-surface-500 uppercase bg-surface-50 border-b">
                                     <th className="px-6 py-3">Cửa hàng</th>
                                     <th className="px-6 py-3">Người đặt</th>
                                     <th className="px-6 py-3">Sản phẩm</th>
@@ -232,14 +232,14 @@ export default function DispatchPage() {
                             </thead>
                             <tbody>
                                 {orders.map(order => (
-                                    <tr key={order.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                                        <td className="px-6 py-3 font-medium text-slate-700">{order.storeName || order.storeId}</td>
-                                        <td className="px-6 py-3 text-slate-600">{order.createdByName}</td>
-                                        <td className="px-6 py-3 text-slate-600">{order.items.length} mục</td>
-                                        <td className="px-6 py-3 text-slate-500 whitespace-nowrap">{new Date(order.timestamp).toLocaleString('vi-VN')}</td>
+                                    <tr key={order.id} className="border-b border-surface-100 hover:bg-surface-50/50">
+                                        <td className="px-6 py-3 font-medium text-surface-700">{order.storeName || order.storeId}</td>
+                                        <td className="px-6 py-3 text-surface-600">{order.createdByName}</td>
+                                        <td className="px-6 py-3 text-surface-600">{order.items.length} mục</td>
+                                        <td className="px-6 py-3 text-surface-500 whitespace-nowrap">{new Date(order.timestamp).toLocaleString('vi-VN')}</td>
                                         <td className="px-6 py-3 text-right">
                                             <button onClick={() => openDispatchModal(order)}
-                                                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                                                className="bg-success-600 hover:bg-success-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors">
                                                 Duyệt xuất kho
                                             </button>
                                         </td>
@@ -256,35 +256,35 @@ export default function DispatchPage() {
                 <Portal>
                     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
-                            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                                <h2 className="text-lg font-bold text-slate-800">Duyệt và điều chỉnh số lượng thực xuất</h2>
-                                <button onClick={() => setDispatchingId(null)} className="text-slate-400 hover:text-slate-700 p-1">
+                            <div className="p-6 border-b border-surface-100 flex items-center justify-between">
+                                <h2 className="text-lg font-bold text-surface-800">Duyệt và điều chỉnh số lượng thực xuất</h2>
+                                <button onClick={() => setDispatchingId(null)} className="text-surface-400 hover:text-surface-700 p-1">
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
                             <div className="p-6 space-y-4">
                                 {modalItems.map((item, idx) => (
-                                    <div key={item.productId} className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <div key={item.productId} className="flex items-center gap-4 p-3 bg-surface-50 rounded-xl border border-surface-100">
                                         <div className="flex-1 min-w-0">
-                                            <p className="font-semibold text-slate-700 text-sm truncate">{item.productName}</p>
-                                            <p className="text-xs text-slate-400">Yêu cầu: {item.requestedQty} {item.unit}</p>
+                                            <p className="font-semibold text-surface-700 text-sm truncate">{item.productName}</p>
+                                            <p className="text-xs text-surface-400">Yêu cầu: {item.requestedQty} {item.unit}</p>
                                         </div>
                                         <div className="flex flex-col items-center">
-                                            <span className="text-[10px] text-slate-400 mb-1">Thực xuất</span>
+                                            <span className="text-[10px] text-surface-400 mb-1">Thực xuất</span>
                                             <input type="number" min={0} value={item.approvedQty}
                                                 onChange={e => {
                                                     const updated = [...modalItems];
                                                     updated[idx] = { ...updated[idx], approvedQty: Number(e.target.value) || 0 };
                                                     setModalItems(updated);
                                                 }}
-                                                className="w-20 bg-white border border-slate-200 rounded-lg p-2 text-sm text-center font-bold outline-none focus:ring-2 focus:ring-emerald-300" />
+                                                className="w-20 bg-white border border-surface-200 rounded-lg p-2 text-sm text-center font-bold outline-none focus:ring-2 focus:ring-success-300" />
                                         </div>
                                     </div>
                                 ))}
                             </div>
-                            <div className="p-6 border-t border-slate-100">
+                            <div className="p-6 border-t border-surface-100">
                                 <button onClick={handleDispatch}
-                                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md">
+                                    className="w-full bg-gradient-to-r from-success-600 to-teal-600 hover:from-success-700 hover:to-teal-700 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md">
                                     <Truck className="w-4 h-4" /> Xác nhận xuất kho & Tạo mã QR
                                 </button>
                             </div>

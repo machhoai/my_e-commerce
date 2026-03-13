@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,12 +11,12 @@ import { storage } from '@/lib/firebase';
 import type { PurchaseOrderDoc } from '@/types/inventory';
 
 const STATUS_BADGE: Record<string, string> = {
-    PENDING_OFFICE: 'bg-amber-100 text-amber-700 border-amber-200',
+    PENDING_OFFICE: 'bg-warning-100 text-warning-700 border-warning-200',
     APPROVED_BY_OFFICE: 'bg-sky-100 text-sky-700 border-sky-200',
-    IN_TRANSIT: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-    COMPLETED: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    REJECTED: 'bg-red-100 text-red-700 border-red-200',
-    CANCELED: 'bg-slate-100 text-slate-500 border-slate-200',
+    IN_TRANSIT: 'bg-accent-100 text-accent-700 border-accent-200',
+    COMPLETED: 'bg-success-100 text-success-700 border-success-200',
+    REJECTED: 'bg-danger-100 text-danger-700 border-danger-200',
+    CANCELED: 'bg-surface-100 text-surface-500 border-surface-200',
 };
 
 export default function OfficeApprovalsPage() {
@@ -59,7 +59,7 @@ export default function OfficeApprovalsPage() {
     // Guard: only office or admin
     if (userDoc && userDoc.role !== 'office' && userDoc.role !== 'admin') {
         return (
-            <div className="flex items-center justify-center h-[60vh] text-slate-400">
+            <div className="flex items-center justify-center h-[60vh] text-surface-400">
                 <p>Bạn không có quyền truy cập trang này.</p>
             </div>
         );
@@ -126,17 +126,17 @@ export default function OfficeApprovalsPage() {
             {/* Header */}
             <div className="flex items-start justify-between flex-wrap gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent flex items-center gap-2">
-                        <ClipboardCheck className="w-7 h-7 text-amber-600" />
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-warning-600 to-orange-600 bg-clip-text text-transparent flex items-center gap-2">
+                        <ClipboardCheck className="w-7 h-7 text-warning-600" />
                         Duyệt lệnh đặt hàng — Văn phòng
                     </h1>
-                    <p className="text-sm text-slate-500 mt-1">
+                    <p className="text-sm text-surface-500 mt-1">
                         Xem xét và phê duyệt các lệnh đặt hàng từ cửa hàng trước khi chuyển kho xuất.
                     </p>
                 </div>
                 <button
                     onClick={fetchOrders}
-                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-surface-200 rounded-xl text-sm font-medium text-surface-600 hover:bg-surface-50 transition-colors shadow-sm"
                 >
                     <RefreshCw className="w-4 h-4" /> Làm mới
                 </button>
@@ -144,61 +144,61 @@ export default function OfficeApprovalsPage() {
 
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white rounded-2xl border border-amber-100 p-5 shadow-sm flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center">
-                        <Clock className="w-6 h-6 text-amber-600" />
+                <div className="bg-white rounded-2xl border border-warning-100 p-5 shadow-sm flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-warning-50 flex items-center justify-center">
+                        <Clock className="w-6 h-6 text-warning-600" />
                     </div>
                     <div>
-                        <p className="text-2xl font-bold text-slate-800">{orders.length}</p>
-                        <p className="text-xs text-slate-500">Đơn chờ duyệt</p>
+                        <p className="text-2xl font-bold text-surface-800">{orders.length}</p>
+                        <p className="text-xs text-surface-500">Đơn chờ duyệt</p>
                     </div>
                 </div>
-                <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center">
-                        <Store className="w-6 h-6 text-slate-500" />
+                <div className="bg-white rounded-2xl border border-surface-100 p-5 shadow-sm flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-surface-50 flex items-center justify-center">
+                        <Store className="w-6 h-6 text-surface-500" />
                     </div>
                     <div>
-                        <p className="text-2xl font-bold text-slate-800">
+                        <p className="text-2xl font-bold text-surface-800">
                             {new Set(orders.map(o => o.storeId)).size}
                         </p>
-                        <p className="text-xs text-slate-500">Cửa hàng gửi đơn</p>
+                        <p className="text-xs text-surface-500">Cửa hàng gửi đơn</p>
                     </div>
                 </div>
-                <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center">
-                        <Package className="w-6 h-6 text-slate-500" />
+                <div className="bg-white rounded-2xl border border-surface-100 p-5 shadow-sm flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-surface-50 flex items-center justify-center">
+                        <Package className="w-6 h-6 text-surface-500" />
                     </div>
                     <div>
-                        <p className="text-2xl font-bold text-slate-800">
+                        <p className="text-2xl font-bold text-surface-800">
                             {orders.reduce((s, o) => s + o.items.length, 0)}
                         </p>
-                        <p className="text-xs text-slate-500">Tổng mặt hàng</p>
+                        <p className="text-xs text-surface-500">Tổng mặt hàng</p>
                     </div>
                 </div>
             </div>
 
             {/* Search */}
             <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
                 <input
                     type="text"
                     placeholder="Tìm theo cửa hàng, người tạo, mã đơn..."
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-300 shadow-sm"
+                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-surface-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-warning-300 shadow-sm"
                 />
             </div>
 
             {/* Orders list */}
             {loading ? (
                 <div className="flex justify-center py-16">
-                    <div className="w-8 h-8 border-4 border-slate-200 border-t-amber-500 rounded-full animate-spin" />
+                    <div className="w-8 h-8 border-4 border-surface-200 border-t-warning-500 rounded-full animate-spin" />
                 </div>
             ) : filteredOrders.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm text-center py-16">
-                    <ClipboardCheck className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-                    <p className="text-slate-500 font-medium">Không có đơn nào chờ duyệt</p>
-                    <p className="text-sm text-slate-400 mt-1">Cửa hàng chưa gửi đơn hoặc đã được xử lý hết</p>
+                <div className="bg-white rounded-2xl border border-surface-200 shadow-sm text-center py-16">
+                    <ClipboardCheck className="w-12 h-12 text-surface-200 mx-auto mb-3" />
+                    <p className="text-surface-500 font-medium">Không có đơn nào chờ duyệt</p>
+                    <p className="text-sm text-surface-400 mt-1">Cửa hàng chưa gửi đơn hoặc đã được xử lý hết</p>
                 </div>
             ) : (
                 <div className="space-y-3">
@@ -209,24 +209,24 @@ export default function OfficeApprovalsPage() {
                         return (
                             <div
                                 key={order.id}
-                                className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                                className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
                             >
                                 {/* Card Header */}
                                 <div className="px-5 py-4 flex items-start gap-4">
-                                    <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
-                                        <Store className="w-5 h-5 text-amber-600" />
+                                    <div className="w-10 h-10 rounded-xl bg-warning-50 flex items-center justify-center shrink-0">
+                                        <Store className="w-5 h-5 text-warning-600" />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
-                                            <h3 className="font-bold text-slate-800">{order.storeName || '—'}</h3>
+                                            <h3 className="font-bold text-surface-800">{order.storeName || '—'}</h3>
                                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_BADGE['PENDING_OFFICE']}`}>
                                                 Chờ VP duyệt
                                             </span>
                                         </div>
-                                        <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
-                                            <span>Người tạo: <strong className="text-slate-700">{order.createdByName}</strong></span>
+                                        <div className="flex items-center gap-3 mt-1 text-xs text-surface-500 flex-wrap">
+                                            <span>Người tạo: <strong className="text-surface-700">{order.createdByName}</strong></span>
                                             <span>{createdAt.toLocaleString('vi-VN')}</span>
-                                            <span className="font-medium text-slate-600">{order.items.length} SP · {totalQty} đơn vị</span>
+                                            <span className="font-medium text-surface-600">{order.items.length} SP · {totalQty} đơn vị</span>
                                         </div>
                                     </div>
 
@@ -237,26 +237,26 @@ export default function OfficeApprovalsPage() {
                                                 href={order.attachmentUrl}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 border border-indigo-200 hover:border-indigo-400 px-2.5 py-1.5 rounded-xl transition-colors"
+                                                className="flex items-center gap-1.5 text-xs font-bold text-accent-600 hover:text-accent-800 border border-accent-200 hover:border-accent-400 px-2.5 py-1.5 rounded-xl transition-colors"
                                             >
                                                 <FileText className="w-3.5 h-3.5" />
                                                 Xem file
                                                 <ExternalLink className="w-3 h-3" />
                                             </a>
                                         ) : (
-                                            <span className="text-xs text-slate-300 italic px-2.5 py-1.5 border border-dashed border-slate-200 rounded-xl">
+                                            <span className="text-xs text-surface-300 italic px-2.5 py-1.5 border border-dashed border-surface-200 rounded-xl">
                                                 Không có file
                                             </span>
                                         )}
                                         <button
                                             onClick={() => setApprovingId(order.id)}
-                                            className="flex items-center gap-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-xl transition-colors shadow-sm"
+                                            className="flex items-center gap-1.5 text-xs font-bold text-white bg-success-600 hover:bg-success-700 px-3 py-1.5 rounded-xl transition-colors shadow-sm"
                                         >
                                             <CheckCircle2 className="w-3.5 h-3.5" /> Duyệt
                                         </button>
                                         <button
                                             onClick={() => { setRejectingId(order.id); setRejectReason(''); }}
-                                            className="flex items-center gap-1.5 text-xs font-bold text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-xl transition-colors shadow-sm"
+                                            className="flex items-center gap-1.5 text-xs font-bold text-white bg-danger-500 hover:bg-danger-600 px-3 py-1.5 rounded-xl transition-colors shadow-sm"
                                         >
                                             <XCircle className="w-3.5 h-3.5" /> Từ chối
                                         </button>
@@ -266,19 +266,19 @@ export default function OfficeApprovalsPage() {
                                 {/* Items preview */}
                                 <div className="px-5 pb-4 flex flex-wrap gap-2">
                                     {order.items.slice(0, 5).map((item, i) => (
-                                        <span key={i} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg">
+                                        <span key={i} className="text-xs bg-surface-100 text-surface-600 px-2 py-0.5 rounded-lg">
                                             {item.productCode && <span className="font-mono font-bold mr-1">{item.productCode}</span>}
                                             {item.productName} × {item.requestedQty}
                                         </span>
                                     ))}
                                     {order.items.length > 5 && (
-                                        <span className="text-xs text-slate-400">+{order.items.length - 5} mặt hàng nữa</span>
+                                        <span className="text-xs text-surface-400">+{order.items.length - 5} mặt hàng nữa</span>
                                     )}
                                 </div>
 
                                 {order.note && (
                                     <div className="px-5 pb-4">
-                                        <p className="text-xs text-slate-400 italic">Ghi chú: {order.note}</p>
+                                        <p className="text-xs text-surface-400 italic">Ghi chú: {order.note}</p>
                                     </div>
                                 )}
                             </div>
@@ -292,23 +292,23 @@ export default function OfficeApprovalsPage() {
                 <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
                         <div className="p-6 text-center">
-                            <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <CheckCircle2 className="w-7 h-7 text-emerald-600" />
+                            <div className="w-14 h-14 bg-success-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <CheckCircle2 className="w-7 h-7 text-success-600" />
                             </div>
-                            <h2 className="text-lg font-bold text-slate-800">Xác nhận duyệt lệnh</h2>
-                            <p className="text-sm text-slate-500 mt-2">
+                            <h2 className="text-lg font-bold text-surface-800">Xác nhận duyệt lệnh</h2>
+                            <p className="text-sm text-surface-500 mt-2">
                                 Đơn hàng sẽ được chuyển sang kho để xuất hàng.
                             </p>
                         </div>
 
                         {/* Export slip file upload */}
                         <div className="px-6 pb-4 space-y-1.5">
-                            <p className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                                <Upload className="w-3.5 h-3.5 text-emerald-500" />
+                            <p className="text-xs font-bold text-surface-600 flex items-center gap-1.5">
+                                <Upload className="w-3.5 h-3.5 text-success-500" />
                                 Đính kèm phiếu xuất kho
-                                <span className="text-slate-400 font-normal">(tùy chọn)</span>
+                                <span className="text-surface-400 font-normal">(tùy chọn)</span>
                             </p>
-                            <label className="flex items-center gap-2 cursor-pointer bg-slate-50 border-2 border-dashed border-slate-200 hover:border-emerald-300 rounded-xl px-3 py-2.5 transition-colors group">
+                            <label className="flex items-center gap-2 cursor-pointer bg-surface-50 border-2 border-dashed border-surface-200 hover:border-success-300 rounded-xl px-3 py-2.5 transition-colors group">
                                 <input
                                     type="file"
                                     accept=".pdf,.xlsx,.xls,.doc,.docx,.png,.jpg,.jpeg"
@@ -317,36 +317,36 @@ export default function OfficeApprovalsPage() {
                                 />
                                 {exportSlipFile ? (
                                     <>
-                                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                                        <span className="text-xs text-emerald-700 font-medium truncate flex-1">{exportSlipFile.name}</span>
+                                        <CheckCircle2 className="w-4 h-4 text-success-500 shrink-0" />
+                                        <span className="text-xs text-success-700 font-medium truncate flex-1">{exportSlipFile.name}</span>
                                         <button
                                             type="button"
                                             onClick={e => { e.preventDefault(); setExportSlipFile(null); }}
-                                            className="text-slate-400 hover:text-red-500 shrink-0"
+                                            className="text-surface-400 hover:text-danger-500 shrink-0"
                                         >
                                             <X className="w-3.5 h-3.5" />
                                         </button>
                                     </>
                                 ) : (
                                     <>
-                                        <FileText className="w-4 h-4 text-slate-400 group-hover:text-emerald-500 shrink-0" />
-                                        <span className="text-xs text-slate-400 group-hover:text-emerald-600">Chọn file phiếu xuất kho...</span>
+                                        <FileText className="w-4 h-4 text-surface-400 group-hover:text-success-500 shrink-0" />
+                                        <span className="text-xs text-surface-400 group-hover:text-success-600">Chọn file phiếu xuất kho...</span>
                                     </>
                                 )}
                             </label>
                         </div>
 
-                        <div className="p-6 border-t border-slate-100 flex gap-3">
+                        <div className="p-6 border-t border-surface-100 flex gap-3">
                             <button
                                 onClick={() => { setApprovingId(null); setExportSlipFile(null); }}
-                                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl font-medium text-sm transition-colors"
+                                className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 py-2.5 rounded-xl font-medium text-sm transition-colors"
                             >
                                 Hủy
                             </button>
                             <button
                                 onClick={handleApprove}
                                 disabled={isApproving}
-                                className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
+                                className="flex-1 bg-success-600 hover:bg-success-700 disabled:opacity-40 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
                             >
                                 {isApproving
                                     ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -362,41 +362,41 @@ export default function OfficeApprovalsPage() {
             {rejectingId && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-                        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                        <div className="p-6 border-b border-surface-100 flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <XCircle className="w-5 h-5 text-red-500" />
-                                <h2 className="text-lg font-bold text-slate-800">Từ chối đơn hàng</h2>
+                                <XCircle className="w-5 h-5 text-danger-500" />
+                                <h2 className="text-lg font-bold text-surface-800">Từ chối đơn hàng</h2>
                             </div>
-                            <button onClick={() => setRejectingId(null)} className="text-slate-400 hover:text-slate-700 p-1">
+                            <button onClick={() => setRejectingId(null)} className="text-surface-400 hover:text-surface-700 p-1">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
                         <div className="p-6 space-y-4">
-                            <p className="text-sm text-slate-600">Đơn sẽ bị từ chối và cửa hàng sẽ được thông báo. Lý do sẽ hiển thị trong lịch sử đặt hàng của họ.</p>
+                            <p className="text-sm text-surface-600">Đơn sẽ bị từ chối và cửa hàng sẽ được thông báo. Lý do sẽ hiển thị trong lịch sử đặt hàng của họ.</p>
                             <div>
-                                <label className="text-xs font-bold text-slate-600 block mb-1.5">
-                                    Lý do từ chối <span className="text-red-500">*</span>
+                                <label className="text-xs font-bold text-surface-600 block mb-1.5">
+                                    Lý do từ chối <span className="text-danger-500">*</span>
                                 </label>
                                 <textarea
                                     value={rejectReason}
                                     onChange={e => setRejectReason(e.target.value)}
                                     rows={3}
                                     placeholder="VD: Cơ cấu không phù hợp, thiếu file đề xuất, vượt ngân sách..."
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-red-300 resize-none"
+                                    className="w-full bg-surface-50 border border-surface-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-danger-300 resize-none"
                                 />
                             </div>
                         </div>
-                        <div className="p-6 border-t border-slate-100 flex gap-3">
+                        <div className="p-6 border-t border-surface-100 flex gap-3">
                             <button
                                 onClick={() => setRejectingId(null)}
-                                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl font-medium text-sm transition-colors"
+                                className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 py-2.5 rounded-xl font-medium text-sm transition-colors"
                             >
                                 Quay lại
                             </button>
                             <button
                                 onClick={handleReject}
                                 disabled={isRejecting || !rejectReason.trim()}
-                                className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
+                                className="flex-1 bg-danger-600 hover:bg-danger-700 disabled:opacity-40 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
                             >
                                 {isRejecting
                                     ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

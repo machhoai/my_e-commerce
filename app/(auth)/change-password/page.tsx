@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -55,22 +55,22 @@ export default function ChangePasswordPage() {
 
     return (
         <AuthGuard>
-            <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
-                <div className="max-w-md w-full backdrop-blur-xl bg-slate-900/60 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden text-slate-200">
-                    <div className="px-8 pt-8 pb-6 text-center border-b border-slate-800 relative">
+            <div className="min-h-screen flex items-center justify-center bg-surface-950 p-4">
+                <div className="max-w-md w-full backdrop-blur-xl bg-surface-900/60 border border-surface-800 rounded-2xl shadow-2xl overflow-hidden text-surface-200">
+                    <div className="px-8 pt-8 pb-6 text-center border-b border-surface-800 relative">
                         <Link
                             href="/employee/dashboard"
-                            className="absolute left-6 top-8 text-slate-400 hover:text-white transition-colors flex items-center gap-1 text-sm font-medium"
+                            className="absolute left-6 top-8 text-surface-400 hover:text-white transition-colors flex items-center gap-1 text-sm font-medium"
                         >
                             <ArrowLeft className="w-4 h-4" /> Quay lại
                         </Link>
-                        <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/20">
+                        <div className="w-16 h-16 bg-success-500/10 text-success-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-success-500/20">
                             <ShieldCheck className="w-8 h-8" />
                         </div>
-                        <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-success-400 to-teal-400 bg-clip-text text-transparent">
                             Đổi Mật Khẩu
                         </h1>
-                        <p className="text-slate-400 mt-2 text-sm">
+                        <p className="text-surface-400 mt-2 text-sm">
                             Cập nhật thông tin bảo mật tài khoản của bạn
                         </p>
                     </div>
@@ -82,21 +82,21 @@ export default function ChangePasswordPage() {
                                     <ShieldCheck className="w-8 h-8" />
                                 </div>
                                 <h3 className="text-lg font-medium text-white mb-2">Đã Cập Nhật Mật Khẩu!</h3>
-                                <p className="text-slate-400 text-sm">Đang chuyển hướng về trang chủ...</p>
+                                <p className="text-surface-400 text-sm">Đang chuyển hướng về trang chủ...</p>
                             </div>
                         ) : (
                             <form onSubmit={handleSubmit} className="space-y-5">
                                 {error && (
-                                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-400 text-sm">
+                                    <div className="p-3 rounded-lg bg-danger-500/10 border border-danger-500/20 flex items-start gap-3 text-danger-400 text-sm">
                                         <AlertCircle className="w-5 h-5 shrink-0" />
                                         <p>{error}</p>
                                     </div>
                                 )}
 
                                 <div className="space-y-1.5">
-                                    <label className="text-sm font-medium text-slate-300 ml-1">Mật khẩu hiện tại</label>
+                                    <label className="text-sm font-medium text-surface-300 ml-1">Mật khẩu hiện tại</label>
                                     <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-surface-500">
                                             <KeyRound className="w-4 h-4" />
                                         </div>
                                         <input
@@ -104,16 +104,16 @@ export default function ChangePasswordPage() {
                                             required
                                             value={currentPassword}
                                             onChange={(e) => setCurrentPassword(e.target.value)}
-                                            className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block pl-10 p-2.5 transition-colors"
+                                            className="w-full bg-surface-950 border border-surface-800 text-surface-200 text-sm rounded-lg focus:ring-success-500 focus:border-success-500 block pl-10 p-2.5 transition-colors"
                                             placeholder="••••••••"
                                         />
                                     </div>
                                 </div>
 
-                                <div className="space-y-1.5 pt-2 border-t border-slate-800">
-                                    <label className="text-sm font-medium text-slate-300 ml-1">Mật khẩu mới</label>
+                                <div className="space-y-1.5 pt-2 border-t border-surface-800">
+                                    <label className="text-sm font-medium text-surface-300 ml-1">Mật khẩu mới</label>
                                     <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-surface-500">
                                             <Lock className="w-4 h-4" />
                                         </div>
                                         <input
@@ -121,16 +121,16 @@ export default function ChangePasswordPage() {
                                             required
                                             value={newPassword}
                                             onChange={(e) => setNewPassword(e.target.value)}
-                                            className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block pl-10 p-2.5 transition-colors"
+                                            className="w-full bg-surface-950 border border-surface-800 text-surface-200 text-sm rounded-lg focus:ring-success-500 focus:border-success-500 block pl-10 p-2.5 transition-colors"
                                             placeholder="••••••••"
                                         />
                                     </div>
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <label className="text-sm font-medium text-slate-300 ml-1">Xác nhận Mật khẩu mới</label>
+                                    <label className="text-sm font-medium text-surface-300 ml-1">Xác nhận Mật khẩu mới</label>
                                     <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-surface-500">
                                             <Lock className="w-4 h-4" />
                                         </div>
                                         <input
@@ -138,7 +138,7 @@ export default function ChangePasswordPage() {
                                             required
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
-                                            className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block pl-10 p-2.5 transition-colors"
+                                            className="w-full bg-surface-950 border border-surface-800 text-surface-200 text-sm rounded-lg focus:ring-success-500 focus:border-success-500 block pl-10 p-2.5 transition-colors"
                                             placeholder="••••••••"
                                         />
                                     </div>
@@ -147,7 +147,7 @@ export default function ChangePasswordPage() {
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="w-full text-white bg-emerald-600 hover:bg-emerald-700 focus:ring-4 focus:outline-none focus:ring-emerald-800 font-medium rounded-lg text-sm px-5 py-3 text-center transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4 shadow-lg shadow-emerald-900/20"
+                                    className="w-full text-white bg-success-600 hover:bg-success-700 focus:ring-4 focus:outline-none focus:ring-success-800 font-medium rounded-lg text-sm px-5 py-3 text-center transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4 shadow-lg shadow-success-900/20"
                                 >
                                     {loading ? 'Đang cập nhật...' : 'Cập nhật Mật khẩu'}
                                 </button>

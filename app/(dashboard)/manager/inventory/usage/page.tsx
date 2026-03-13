@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -126,7 +126,7 @@ export default function UsagePage() {
     if (countersLoading) {
         return (
             <div className="flex justify-center py-20">
-                <div className="w-8 h-8 border-4 border-slate-300 border-t-indigo-600 rounded-full animate-spin" />
+                <div className="w-8 h-8 border-4 border-surface-300 border-t-accent-600 rounded-full animate-spin" />
             </div>
         );
     }
@@ -143,15 +143,15 @@ export default function UsagePage() {
                 titleChildren={
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
                         <div>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
-                                <ScanBarcode className="w-7 h-7 text-indigo-600" />
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-accent-600 to-primary-600 bg-clip-text text-transparent flex items-center gap-2">
+                                <ScanBarcode className="w-7 h-7 text-accent-600" />
                                 Quét mã vạch — Sử dụng hàng
                             </h1>
-                            <p className="text-slate-500 mt-1 text-sm">
+                            <p className="text-surface-500 mt-1 text-sm">
                                 Quản lý có thể quét mã vạch cho bất kỳ quầy nào.
                             </p>
                             {selectedCounter && (
-                                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-sm text-indigo-700 flex items-center gap-2 mt-2">
+                                <div className="bg-accent-50 border border-accent-200 rounded-xl p-3 text-sm text-accent-700 flex items-center gap-2 mt-2">
                                     <CheckCircle2 className="w-4 h-4 shrink-0" />
                                     <span>Đang ghi nhận cho quầy <strong>{selectedCounter.name}</strong>. Sẵn sàng quét mã vạch.</span>
                                 </div>
@@ -162,11 +162,11 @@ export default function UsagePage() {
             />
 
             {/* Barcode Input */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
-                <label className="block text-sm font-semibold text-slate-700">Mã vạch sản phẩm</label>
+            <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6 space-y-4">
+                <label className="block text-sm font-semibold text-surface-700">Mã vạch sản phẩm</label>
                 <div className="flex gap-2">
                     <div className="flex-1 relative">
-                        <ScanBarcode className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <ScanBarcode className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-surface-400" />
                         <input
                             id="barcode-input"
                             type="text"
@@ -175,12 +175,12 @@ export default function UsagePage() {
                             onKeyDown={handleBarcodeKeyDown}
                             placeholder="Quét hoặc nhập mã vạch..."
                             autoFocus
-                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 transition-all"
+                            className="w-full pl-10 pr-4 py-3 bg-surface-50 border border-surface-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent-300 focus:border-accent-300 transition-all"
                         />
                     </div>
                     <button
                         onClick={() => setShowScanner(true)}
-                        className="p-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-colors"
+                        className="p-3 bg-warning-500 hover:bg-warning-600 text-white rounded-xl transition-colors"
                         title="Quét bằng camera"
                     >
                         <Camera className="w-5 h-5" />
@@ -188,7 +188,7 @@ export default function UsagePage() {
                     <button
                         onClick={() => lookupBarcode(barcode)}
                         disabled={lookupLoading || !barcode.trim()}
-                        className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-xl font-bold text-sm transition-colors"
+                        className="px-5 py-3 bg-accent-600 hover:bg-accent-700 disabled:bg-surface-300 text-white rounded-xl font-bold text-sm transition-colors"
                     >
                         {lookupLoading ? '...' : 'Tra cứu'}
                     </button>
@@ -197,33 +197,33 @@ export default function UsagePage() {
 
             {/* Product Card */}
             {product && (
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+                <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6 space-y-5">
                     <div className="flex items-center gap-4">
                         {product.image ? (
-                            <img src={product.image} alt="" className="w-16 h-16 rounded-xl object-cover border border-slate-200" />
+                            <img src={product.image} alt="" className="w-16 h-16 rounded-xl object-cover border border-surface-200" />
                         ) : (
-                            <div className="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center">
-                                <Package className="w-6 h-6 text-slate-400" />
+                            <div className="w-16 h-16 rounded-xl bg-surface-100 flex items-center justify-center">
+                                <Package className="w-6 h-6 text-surface-400" />
                             </div>
                         )}
                         <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-lg text-slate-800 truncate">{product.name}</h3>
-                            <p className="text-sm text-slate-500">Mã vạch: {product.barcode} · ĐVT: {product.unit}</p>
+                            <h3 className="font-bold text-lg text-surface-800 truncate">{product.name}</h3>
+                            <p className="text-sm text-surface-500">Mã vạch: {product.barcode} · ĐVT: {product.unit}</p>
                         </div>
                     </div>
 
                     {/* Quantity */}
                     <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">Số lượng sử dụng</label>
+                        <label className="block text-sm font-semibold text-surface-700 mb-2">Số lượng sử dụng</label>
                         <div className="flex items-center gap-3">
                             <button onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                                className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                                className="w-10 h-10 rounded-xl bg-surface-100 hover:bg-surface-200 flex items-center justify-center transition-colors">
                                 <Minus className="w-4 h-4" />
                             </button>
                             <input type="number" min={1} value={quantity} onChange={e => setQuantity(Math.max(1, Number(e.target.value)))}
-                                className="w-20 text-center text-lg font-bold bg-slate-50 border border-slate-200 rounded-xl py-2 outline-none focus:ring-2 focus:ring-indigo-300" />
+                                className="w-20 text-center text-lg font-bold bg-surface-50 border border-surface-200 rounded-xl py-2 outline-none focus:ring-2 focus:ring-accent-300" />
                             <button onClick={() => setQuantity(q => q + 1)}
-                                className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                                className="w-10 h-10 rounded-xl bg-surface-100 hover:bg-surface-200 flex items-center justify-center transition-colors">
                                 <Plus className="w-4 h-4" />
                             </button>
                         </div>
@@ -231,14 +231,14 @@ export default function UsagePage() {
 
                     {/* Note */}
                     <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">Ghi chú (tuỳ chọn)</label>
+                        <label className="block text-sm font-semibold text-surface-700 mb-2">Ghi chú (tuỳ chọn)</label>
                         <input type="text" value={note} onChange={e => setNote(e.target.value)} placeholder="VD: Hết hạn, hư hỏng..."
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-300" />
+                            className="w-full bg-surface-50 border border-surface-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-accent-300" />
                     </div>
 
                     {/* Submit */}
                     <button onClick={handleSubmit} disabled={loading || !selectedCounterId}
-                        className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 disabled:from-slate-400 disabled:to-slate-400 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md">
+                        className="w-full bg-gradient-to-r from-accent-600 to-primary-600 hover:from-accent-700 hover:to-primary-700 disabled:from-surface-400 disabled:to-surface-400 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md">
                         {loading ? (
                             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         ) : (
@@ -251,8 +251,8 @@ export default function UsagePage() {
             {/* Toast message */}
             {message.text && (
                 <div className={`p-4 rounded-xl flex items-center gap-2 border text-sm font-medium ${message.type === 'error'
-                    ? 'bg-red-50 text-red-700 border-red-200'
-                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    ? 'bg-danger-50 text-danger-700 border-danger-200'
+                    : 'bg-success-50 text-success-700 border-success-200'
                     }`}>
                     {message.type === 'error' ? <AlertCircle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
                     {message.text}

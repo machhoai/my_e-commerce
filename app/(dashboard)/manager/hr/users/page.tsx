@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -343,15 +343,15 @@ function ManagerUsersPageContent() {
     if (!user || (userDoc?.role !== 'admin' && userDoc?.canManageHR !== true)) {
         return (
             <div className="flex flex-col items-center justify-center h-64 space-y-4">
-                <ShieldAlert className="w-12 h-12 text-red-500" />
-                <h2 className="text-xl font-bold text-slate-800">Không có quyền truy cập</h2>
-                <p className="text-slate-500">Bạn không được cấp quyền Quản lý Nhân sự.</p>
+                <ShieldAlert className="w-12 h-12 text-danger-500" />
+                <h2 className="text-xl font-bold text-surface-800">Không có quyền truy cập</h2>
+                <p className="text-surface-500">Bạn không được cấp quyền Quản lý Nhân sự.</p>
             </div>
         );
     }
 
     return (
-        <div className="space-y-4 mx-auto">
+        <div className="space-y-5 mx-auto">
             {/* Main content */}
             {(() => {
                 const storeMap = new Map(stores.map(s => [s.id, s.name]));
@@ -363,12 +363,12 @@ function ManagerUsersPageContent() {
                             titleChildren={
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                     <div>
-                                        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
-                                            <Users className="w-7 h-7 text-blue-600" />
+                                        <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-600 to-accent-600 bg-clip-text text-transparent flex items-center gap-2">
+                                            <Users className="w-7 h-7 text-primary-600" />
                                             Quản lý Nhân viên
                                         </h1>
-                                        <p className="text-slate-500 mt-1">
-                                            Xem và quản lý trạng thái hoạt động của tất cả nhân viên bán thời gian và toàn thời gian.
+                                        <p className="text-surface-500 mt-1 text-sm">
+                                            Xem và quản lý trạng thái hoạt động của nhân viên.
                                         </p>
                                     </div>
                                 </div>
@@ -377,14 +377,14 @@ function ManagerUsersPageContent() {
 
                         {/* Admin Store Selector Banner */}
                         {userDoc?.role === 'admin' && (
-                            <div className="bg-white rounded-xl items-center border border-slate-200 shadow-sm p-3 flex sm:flex-row sm:items-center gap-3">
+                            <div className="bg-white rounded-xl items-center border border-surface-200 shadow-sm p-3 flex sm:flex-row sm:items-center gap-3">
                                 <div className="flex items-center gap-2 shrink-0">
-                                    <Building2 className="w-5 h-5 text-indigo-500" />
+                                    <Building2 className="w-5 h-5 text-accent-500" />
                                 </div>
                                 <select
                                     value={selectedAdminStoreId}
                                     onChange={e => setSelectedAdminStoreId(e.target.value)}
-                                    className="flex-1 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white font-medium"
+                                    className="flex-1 border border-surface-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-accent-300 bg-white font-medium"
                                 >
                                     <option value="">-- Tất cả cửa hàng --</option>
                                     {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
@@ -393,7 +393,7 @@ function ManagerUsersPageContent() {
                         )}
 
                         {actionMessage.text && (
-                            <div className={`p-4 rounded-xl flex items-center justify-between gap-3 border shadow-sm animate-in fade-in slide-in-from-top-2 ${actionMessage.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            <div className={`p-4 rounded-xl flex items-center justify-between gap-3 border shadow-sm animate-in fade-in slide-in-from-top-2 ${actionMessage.type === 'error' ? 'bg-danger-50 text-danger-700 border-danger-200' : 'bg-success-50 text-success-700 border-success-200'
                                 }`}>
                                 <div className="flex items-center gap-2">
                                     {actionMessage.type === 'error' ? <ShieldAlert className="w-5 h-5 flex-shrink-0" /> : <ShieldCheck className="w-5 h-5 flex-shrink-0" />}
@@ -420,30 +420,52 @@ function ManagerUsersPageContent() {
                             onMobileApply={(values) => setParams(values)}
                         />
 
-                        {/* Stats summary */}
-                        <div className="flex items-center justify-between gap-4 text-sm font-medium p-2 bg-slate-50/50 border border-slate-200 rounded-xl">
-                            <div className='flex gap-3'>
-                                <div className="flex items-center gap-2 text-slate-500">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                    Hoạt động: {employees.filter(e => e.isActive !== false).length}
-                                </div>
-                                <div className="flex items-center gap-2 text-slate-500">
-                                    <span className="w-2 h-2 rounded-full bg-slate-300"></span>
-                                    Vô hiệu: {employees.filter(e => e.isActive === false).length}
-                                </div>
-                                <div className="h-4 w-px bg-slate-300"></div>
-                                <div className="text-slate-700 font-bold">
-                                    Tổng số: {employees.length}
+                        {/* KPI Stats Cards */}
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="bg-white rounded-xl border border-surface-200 shadow-sm p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-success-100 flex items-center justify-center">
+                                        <UserCheck className="w-5 h-5 text-success-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-black text-surface-800">{employees.filter(e => e.isActive !== false).length}</p>
+                                        <p className="text-xs text-surface-500 font-medium">Hoạt động</p>
+                                    </div>
                                 </div>
                             </div>
+                            <div className="bg-white rounded-xl border border-surface-200 shadow-sm p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-surface-100 flex items-center justify-center">
+                                        <UserMinus className="w-5 h-5 text-surface-500" />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-black text-surface-800">{employees.filter(e => e.isActive === false).length}</p>
+                                        <p className="text-xs text-surface-500 font-medium">Vô hiệu</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-xl border border-surface-200 shadow-sm p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center">
+                                        <Users className="w-5 h-5 text-primary-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-black text-surface-800">{employees.length}</p>
+                                        <p className="text-xs text-surface-500 font-medium">Tổng nhân sự</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
+                        {/* Add button */}
+                        <div className="flex justify-end">
                             <button
                                 onClick={() => {
                                     resetForm();
                                     setEditUid(null);
                                     setIsCreateModalOpen(true);
                                 }}
-                                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-5 py-2 rounded-lg font-medium shadow-md shadow-blue-500/20 transition-all"
+                                className="flex items-center gap-2 bg-gradient-to-r from-primary-600 to-accent-600 hover:from-primary-700 hover:to-accent-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-primary-500/20 transition-all active:scale-95"
                             >
                                 <Plus className="w-4 h-4" />
                                 Thêm Nhân viên
@@ -451,31 +473,31 @@ function ManagerUsersPageContent() {
                         </div>
 
                         {/* Table Container */}
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                        <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden flex flex-col">
 
                             <div className="overflow-x-auto">
-                                <table className="w-full text-sm text-left text-slate-600">
-                                    <thead className="text-xs text-slate-500 uppercase bg-slate-50/50 border-b border-slate-200">
+                                <table className="w-full text-sm text-left text-surface-600">
+                                    <thead className="text-[11px] text-surface-500 uppercase tracking-wider bg-surface-50/80 border-b border-surface-200">
                                         <tr>
-                                            <SortableHeader label="Tên & SĐT" field="name" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-6 text-center" />
-                                            <SortableHeader label="Loại HĐ" field="type" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-6 text-center" />
-                                            <SortableHeader label="Vai trò" field="role" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-6 text-center" />
-                                            {userDoc?.role === 'admin' && <th scope="col" className="px-6 py-4 text-center font-semibold">Cửa hàng</th>}
-                                            <SortableHeader label="KPI TB" field="kpi" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-6 text-center" />
-                                            <th scope="col" className="px-6 py-4 text-center font-semibold truncate">Trạng thái</th>
-                                            <th scope="col" className="px-6 py-4 text-center font-semibold truncate">Hành động</th>
+                                            <SortableHeader label="Nhân viên" field="name" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-5 text-center" />
+                                            <SortableHeader label="Loại HĐ" field="type" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-4 text-center" />
+                                            <SortableHeader label="Vai trò" field="role" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-4 text-center" />
+                                            {userDoc?.role === 'admin' && <th scope="col" className="px-4 py-3.5 text-center font-bold">Cửa hàng</th>}
+                                            <SortableHeader label="KPI TB" field="kpi" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-4 text-center" />
+                                            <th scope="col" className="px-4 py-3.5 text-center font-bold">Trạng thái</th>
+                                            <th scope="col" className="px-4 py-3.5 text-right font-bold">Hành động</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-100">
+                                    <tbody className="divide-y divide-surface-100">
                                         {loading ? (
                                             <tr>
                                                 <td colSpan={userDoc?.role === 'admin' ? 7 : 6} className="py-12 text-center">
-                                                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                                                    <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
                                                 </td>
                                             </tr>
                                         ) : filteredEmployees.length === 0 ? (
                                             <tr>
-                                                <td colSpan={userDoc?.role === 'admin' ? 7 : 6} className="py-12 text-center text-slate-400">Không tìm thấy nhân viên nào</td>
+                                                <td colSpan={userDoc?.role === 'admin' ? 7 : 6} className="py-12 text-center text-surface-400">Không tìm thấy nhân viên nào</td>
                                             </tr>
                                         ) : (
                                             paginatedEmployees.map((e) => {
@@ -483,37 +505,36 @@ function ManagerUsersPageContent() {
                                                 const isSubmitting = actionLoading === e.uid;
 
                                                 return (
-                                                    <tr key={e.uid} className={`hover:bg-slate-50/80 transition-colors group ${!isActive ? 'bg-slate-50/50' : ''}`}>
-                                                        <td className="px-6 py-4 whitespace-nowrap">
-                                                            <div className={`font-semibold transition-colors ${!isActive ? 'text-slate-400' : 'text-slate-900 group-hover:text-blue-700'}`}>
+                                                    <tr key={e.uid} className={`group transition-colors ${!isActive ? 'opacity-40 bg-surface-50/50' : 'hover:bg-primary-50/30'}`}>
+                                                        <td className="px-5 py-3.5 whitespace-nowrap">
+                                                            <div className={`font-semibold transition-colors ${!isActive ? 'text-surface-400' : 'text-surface-900 group-hover:text-primary-700'}`}>
                                                                 {e.name}
                                                             </div>
-                                                            <div className="text-slate-500 text-xs mt-0.5">{e.phone}</div>
+                                                            <div className="text-surface-400 text-xs mt-0.5 font-medium">{e.phone}</div>
                                                         </td>
-                                                        <td className="px-6 py-4">
-                                                            <span className={`px-2 py-1 text-[10px] font-bold uppercase truncate rounded ${e.type === 'FT' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-                                                                } ${!isActive ? 'opacity-50' : ''}`}>
+                                                        <td className="px-4 py-3.5">
+                                                            <span className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-lg border ${e.type === 'FT' ? 'bg-primary-50 text-primary-700 border-primary-200' : 'bg-accent-50 text-accent-700 border-accent-200'}`}>
                                                                 {e.type === 'FT' ? 'Toàn thời gian' : 'Bán thời gian'}
                                                             </span>
                                                         </td>
-                                                        <td className="px-6 py-4">
+                                                        <td className="px-4 py-3.5">
                                                             {(() => {
                                                                 const colorMap: Record<string, string> = {
-                                                                    red: 'bg-red-100 text-red-700',
-                                                                    purple: 'bg-purple-100 text-purple-700',
-                                                                    amber: 'bg-amber-100 text-amber-700',
-                                                                    blue: 'bg-blue-100 text-blue-700',
-                                                                    emerald: 'bg-emerald-100 text-emerald-700',
-                                                                    indigo: 'bg-indigo-100 text-indigo-700',
+                                                                    red: 'bg-danger-100 text-danger-700',
+                                                                    purple: 'bg-accent-100 text-accent-700',
+                                                                    amber: 'bg-warning-100 text-warning-700',
+                                                                    blue: 'bg-primary-100 text-primary-700',
+                                                                    emerald: 'bg-success-100 text-success-700',
+                                                                    indigo: 'bg-accent-100 text-accent-700',
                                                                     pink: 'bg-pink-100 text-pink-700',
-                                                                    slate: 'bg-slate-100 text-slate-600',
+                                                                    slate: 'bg-surface-100 text-surface-600',
                                                                 };
                                                                 // Check custom role first
                                                                 if (e.customRoleId) {
                                                                     const cr = customRoles.find(r => r.id === e.customRoleId);
                                                                     if (cr) {
                                                                         return (
-                                                                            <span className={`px-2 truncate py-1 text-[10px] font-bold uppercase rounded ${colorMap[cr.color || 'slate'] || 'bg-slate-100 text-slate-600'} ${!isActive ? 'opacity-50' : ''}`}>
+                                                                            <span className={`px-2.5 truncate py-1 text-[10px] font-bold uppercase rounded-lg border border-current/10 ${colorMap[cr.color || 'slate'] || 'bg-surface-100 text-surface-600'}`}>
                                                                                 {cr.name}
                                                                             </span>
                                                                         );
@@ -522,48 +543,47 @@ function ManagerUsersPageContent() {
                                                                 // Fallback: find system role by user's role field
                                                                 const sysRole = customRoles.find(r => r.isSystem && r.id === e.role);
                                                                 const roleName = sysRole?.name ?? (e.role === 'store_manager' ? 'CH Trưởng' : e.role === 'manager' ? 'Quản lý' : e.role === 'admin' ? 'Admin' : 'Nhân viên');
-                                                                const roleColor = sysRole ? colorMap[sysRole.color || 'slate'] : 'bg-slate-100 text-slate-600';
+                                                                const roleColor = sysRole ? colorMap[sysRole.color || 'slate'] : 'bg-surface-100 text-surface-600';
                                                                 return (
-                                                                    <span className={`px-2 py-1 text-[10px] font-bold uppercase truncate rounded ${roleColor} ${!isActive ? 'opacity-50' : ''}`}>
+                                                                    <span className={`px-2.5 py-1 text-[10px] font-bold uppercase truncate rounded-lg border border-current/10 ${roleColor}`}>
                                                                         {roleName}
                                                                     </span>
                                                                 );
                                                             })()}
                                                         </td>
                                                         {userDoc?.role === 'admin' && (
-                                                            <td className="px-6 py-4">
-                                                                <span className={`text-xs font-medium truncate px-2 py-1 rounded bg-slate-100 text-slate-600 ${!isActive ? 'opacity-50' : ''}`}>
-                                                                    {e.storeId ? (storeMap.get(e.storeId) ?? e.storeId) : <span className="italic text-slate-400">—</span>}
+                                                            <td className="px-4 py-3.5">
+                                                                <span className="text-xs font-medium truncate px-2.5 py-1 rounded-lg bg-surface-50 text-surface-600 border border-surface-200">
+                                                                    {e.storeId ? (storeMap.get(e.storeId) ?? e.storeId) : <span className="italic text-surface-400">—</span>}
                                                                 </span>
                                                             </td>
                                                         )}
-                                                        <td className="px-6 py-4 text-center">
+                                                        <td className="px-4 py-3.5 text-center">
                                                             {(() => {
                                                                 const kpi = kpiAverages[e.uid];
-                                                                if (!kpi || kpi.count === 0) return <span className="text-slate-300">—</span>;
+                                                                if (!kpi || kpi.count === 0) return <span className="text-surface-300">—</span>;
                                                                 const score = kpi.avgOfficial;
-                                                                const colorClass = score >= 80 ? 'bg-emerald-100 text-emerald-700' : score >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700';
+                                                                const colorClass = score >= 80 ? 'bg-success-50 text-success-700 border-success-200' : score >= 50 ? 'bg-warning-50 text-warning-700 border-warning-200' : 'bg-danger-50 text-danger-700 border-danger-200';
                                                                 return (
-                                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold ${colorClass} ${!isActive ? 'opacity-50' : ''}`} title={`${kpi.count} lượt chấm`}>
+                                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border ${colorClass}`} title={`${kpi.count} lượt chấm`}>
                                                                         <Award className="w-3 h-3" />
                                                                         {score}
                                                                     </span>
                                                                 );
                                                             })()}
                                                         </td>
-                                                        <td className="px-6 py-4">
-                                                            <span className={`inline-flex truncate items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold ${isActive ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-100 text-slate-500 border border-slate-200'}
-                                                                }`}>
-                                                                <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                                                        <td className="px-4 py-3.5">
+                                                            <span className={`inline-flex truncate items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border ${isActive ? 'bg-success-50 text-success-600 border-success-200' : 'bg-surface-50 text-surface-500 border-surface-200'}`}>
+                                                                <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-success-500 animate-pulse' : 'bg-surface-400'}`}></span>
                                                                 {isActive ? 'Hoạt động' : 'Vô hiệu'}
                                                             </span>
                                                         </td>
-                                                        <td className="px-6 py-4 text-right">
-                                                            <div className="flex items-center justify-end gap-2">
+                                                        <td className="px-4 py-3.5 text-right">
+                                                            <div className="flex items-center justify-end gap-1.5">
                                                                 <button
                                                                     onClick={() => openEditModal(e)}
                                                                     disabled={actionLoading !== null}
-                                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200 transition-all focus:ring-2 focus:ring-blue-500/30 disabled:opacity-50"
+                                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border bg-primary-50 text-primary-600 hover:bg-primary-100 border-primary-200 transition-all hover:shadow-sm disabled:opacity-50"
                                                                     title="Sửa Nhân viên"
                                                                 >
                                                                     Sửa
@@ -571,9 +591,9 @@ function ManagerUsersPageContent() {
                                                                 <button
                                                                     onClick={() => handleToggleActive(e.uid, isActive, e.name)}
                                                                     disabled={isSubmitting || actionLoading !== null}
-                                                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed ${isActive
-                                                                        ? 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200 focus:ring-red-500/30'
-                                                                        : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200 focus:ring-emerald-500/30'
+                                                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${isActive
+                                                                        ? 'bg-danger-50 text-danger-600 hover:bg-danger-100 border-danger-200 focus:ring-danger-500/30'
+                                                                        : 'bg-success-50 text-success-600 hover:bg-success-100 border-success-200'
                                                                         }`}
                                                                     title={isActive ? 'Deactivate Employee (Soft Delete)' : 'Reactivate Employee'}
                                                                 >
@@ -612,15 +632,15 @@ function ManagerUsersPageContent() {
                         {/* Create Modal */}
                         {isCreateModalOpen && (
                             <Portal>
-                                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
+                                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-surface-900/50 backdrop-blur-sm overflow-y-auto">
                                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-8">
-                                        <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50">
-                                            <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                                        <div className="p-6 border-b border-surface-100 flex items-center gap-3 bg-surface-50/50">
+                                            <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center shrink-0">
                                                 <MailPlus className="w-5 h-5" />
                                             </div>
                                             <div>
-                                                <h3 className="text-lg font-bold text-slate-900">{editUid ? 'Cập nhật Nhân viên' : 'Thêm Nhân viên mới'}</h3>
-                                                <p className="text-xs text-slate-500">{editUid ? 'Cập nhật thông tin nhân viên.' : 'Điền đầy đủ thông tin để thêm thành viên mới.'}</p>
+                                                <h3 className="text-lg font-bold text-surface-900">{editUid ? 'Cập nhật Nhân viên' : 'Thêm Nhân viên mới'}</h3>
+                                                <p className="text-xs text-surface-500">{editUid ? 'Cập nhật thông tin nhân viên.' : 'Điền đầy đủ thông tin để thêm thành viên mới.'}</p>
                                             </div>
                                         </div>
 
@@ -628,35 +648,35 @@ function ManagerUsersPageContent() {
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                                 {/* Base Information */}
                                                 <div className="space-y-4">
-                                                    <h4 className="font-semibold text-slate-800 text-sm border-b pb-2">Thông tin cơ bản</h4>
+                                                    <h4 className="font-semibold text-surface-800 text-sm border-b pb-2">Thông tin cơ bản</h4>
 
                                                     <div className="space-y-1.5">
-                                                        <label className="text-sm font-medium text-slate-700">Họ và Tên <span className="text-red-500">*</span></label>
+                                                        <label className="text-sm font-medium text-surface-700">Họ và Tên <span className="text-danger-500">*</span></label>
                                                         <input
                                                             type="text" required
                                                             value={newName} onChange={e => setNewName(e.target.value)}
-                                                            className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
+                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
                                                             placeholder="Nguyễn Văn A"
                                                         />
                                                     </div>
                                                     <div className="space-y-1.5">
-                                                        <label className="text-sm font-medium text-slate-700">Số điện thoại (ID đăng nhập) <span className="text-red-500">*</span></label>
+                                                        <label className="text-sm font-medium text-surface-700">Số điện thoại (ID đăng nhập) <span className="text-danger-500">*</span></label>
                                                         <input
                                                             type="tel" required
                                                             value={newPhone} onChange={e => setNewPhone(e.target.value)}
-                                                            className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
+                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
                                                             placeholder="0912345678"
                                                         />
-                                                        <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                                                        <p className="text-[10px] text-surface-400 mt-1 flex items-center gap-1">
                                                             <KeyRound className="w-3 h-3" />
                                                             Mật khẩu mặc định là 6 số cuối.
                                                         </p>
                                                     </div>
                                                     <div className="space-y-1.5">
-                                                        <label className="text-sm font-medium text-slate-700">Loại hợp đồng <span className="text-red-500">*</span></label>
+                                                        <label className="text-sm font-medium text-surface-700">Loại hợp đồng <span className="text-danger-500">*</span></label>
                                                         <select
                                                             value={newType} onChange={e => setNewType(e.target.value as EmployeeType)}
-                                                            className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 cursor-pointer"
+                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 cursor-pointer"
                                                         >
                                                             <option value="PT">Bán thời gian (PT)</option>
                                                             <option value="FT">Toàn thời gian (FT)</option>
@@ -683,14 +703,14 @@ function ManagerUsersPageContent() {
                                                         return (
                                                             <>
                                                                 <div className="space-y-1.5">
-                                                                    <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-                                                                        <Shield className="w-3.5 h-3.5 text-violet-500" />
-                                                                        Vai trò <span className="text-red-500">*</span>
+                                                                    <label className="text-sm font-medium text-surface-700 flex items-center gap-1.5">
+                                                                        <Shield className="w-3.5 h-3.5 text-accent-500" />
+                                                                        Vai trò <span className="text-danger-500">*</span>
                                                                     </label>
                                                                     <select
                                                                         value={selectValue}
                                                                         onChange={e => handleRoleChange(e.target.value)}
-                                                                        className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 cursor-pointer"
+                                                                        className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 cursor-pointer"
                                                                     >
                                                                         {eligibleRoles.map(r => (
                                                                             <option key={r.id} value={r.isSystem ? r.id : `custom:${r.id}`}>
@@ -699,31 +719,31 @@ function ManagerUsersPageContent() {
                                                                         ))}
                                                                     </select>
                                                                     {eligibleRoles.length === 0 && (
-                                                                        <p className="text-[10px] text-amber-600">Không có vai trò nào khả dụng cho bạn.</p>
+                                                                        <p className="text-[10px] text-warning-600">Không có vai trò nào khả dụng cho bạn.</p>
                                                                     )}
                                                                 </div>
-                                                                <label className="flex items-center gap-2.5 cursor-pointer p-3 border border-slate-200 rounded-lg bg-slate-50 hover:bg-blue-50/50 hover:border-blue-200 transition-colors">
+                                                                <label className="flex items-center gap-2.5 cursor-pointer p-3 border border-surface-200 rounded-lg bg-surface-50 hover:bg-primary-50/50 hover:border-primary-200 transition-colors">
                                                                     <input
                                                                         type="checkbox"
                                                                         checked={newCanManageHR}
                                                                         onChange={e => setNewCanManageHR(e.target.checked)}
-                                                                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                                                                        className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 cursor-pointer"
                                                                     />
                                                                     <div>
-                                                                        <span className="text-sm font-semibold text-slate-800">Quyền Quản lý Nhân sự</span>
-                                                                        <p className="text-[10px] text-slate-500 mt-0.5">Cho phép thêm, sửa, tắt hoạt động nhân viên và phân ca.</p>
+                                                                        <span className="text-sm font-semibold text-surface-800">Quyền Quản lý Nhân sự</span>
+                                                                        <p className="text-[10px] text-surface-500 mt-0.5">Cho phép thêm, sửa, tắt hoạt động nhân viên và phân ca.</p>
                                                                     </div>
                                                                 </label>
                                                                 {userDoc?.role === 'admin' && (
                                                                     <div className="space-y-1.5">
-                                                                        <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-                                                                            <Building2 className="w-3.5 h-3.5 text-indigo-500" />
+                                                                        <label className="text-sm font-medium text-surface-700 flex items-center gap-1.5">
+                                                                            <Building2 className="w-3.5 h-3.5 text-accent-500" />
                                                                             Cửa hàng
                                                                         </label>
                                                                         <select
                                                                             value={newStoreId}
                                                                             onChange={e => setNewStoreId(e.target.value)}
-                                                                            className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 cursor-pointer"
+                                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 cursor-pointer"
                                                                         >
                                                                             <option value="">-- Chưa gán cửa hàng --</option>
                                                                             {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
@@ -735,82 +755,82 @@ function ManagerUsersPageContent() {
                                                     })()}
 
                                                     <div className="space-y-1.5">
-                                                        <label className="text-sm font-medium text-slate-700">Ngày sinh</label>
+                                                        <label className="text-sm font-medium text-surface-700">Ngày sinh</label>
                                                         <input
                                                             type="date"
                                                             value={newDob} onChange={e => setNewDob(e.target.value)}
-                                                            className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
+                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
                                                         />
                                                     </div>
                                                 </div>
 
                                                 {/* Extended Details */}
                                                 <div className="space-y-4">
-                                                    <h4 className="font-semibold text-slate-800 text-sm border-b pb-2">Thông tin chi tiết</h4>
+                                                    <h4 className="font-semibold text-surface-800 text-sm border-b pb-2">Thông tin chi tiết</h4>
 
                                                     <div className="space-y-1.5">
-                                                        <label className="text-sm font-medium text-slate-700">Chức danh / Vị trí</label>
+                                                        <label className="text-sm font-medium text-surface-700">Chức danh / Vị trí</label>
                                                         <input
                                                             type="text"
                                                             value={newJobTitle} onChange={e => setNewJobTitle(e.target.value)}
-                                                            className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
+                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
                                                             placeholder="VD: Thu ngân, Kỹ thuật..."
                                                         />
                                                     </div>
                                                     <div className="space-y-1.5">
-                                                        <label className="text-sm font-medium text-slate-700">Địa chỉ Email</label>
+                                                        <label className="text-sm font-medium text-surface-700">Địa chỉ Email</label>
                                                         <input
                                                             type="email"
                                                             value={newEmail} onChange={e => setNewEmail(e.target.value)}
-                                                            className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
+                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
                                                             placeholder="nhanvien@example.com"
                                                         />
                                                     </div>
                                                     <div className="space-y-1.5">
-                                                        <label className="text-sm font-medium text-slate-700">Số CCCD</label>
+                                                        <label className="text-sm font-medium text-surface-700">Số CCCD</label>
                                                         <input
                                                             type="text"
                                                             value={newIdCard} onChange={e => setNewIdCard(e.target.value)}
-                                                            className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
+                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
                                                             placeholder="012345678910"
                                                         />
                                                     </div>
                                                     <div className="space-y-1.5">
-                                                        <label className="text-sm font-medium text-slate-700">Tài khoản Ngân hàng</label>
+                                                        <label className="text-sm font-medium text-surface-700">Tài khoản Ngân hàng</label>
                                                         <input
                                                             type="text"
                                                             value={newBankAccount} onChange={e => setNewBankAccount(e.target.value)}
-                                                            className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
+                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
                                                             placeholder="Tên ngân hàng - Số tài khoản"
                                                         />
                                                     </div>
                                                     <div className="space-y-1.5">
-                                                        <label className="text-sm font-medium text-slate-700">Trình độ học vấn</label>
+                                                        <label className="text-sm font-medium text-surface-700">Trình độ học vấn</label>
                                                         <input
                                                             type="text"
                                                             value={newEducation} onChange={e => setNewEducation(e.target.value)}
-                                                            className="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
+                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
                                                             placeholder="VD: Cử nhân, Kỹ sư..."
                                                         />
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="flex gap-3 pt-4 border-t border-slate-100 mt-6">
+                                            <div className="flex gap-3 pt-4 border-t border-surface-100 mt-6">
                                                 <button
                                                     type="button"
                                                     onClick={() => {
                                                         setIsCreateModalOpen(false);
                                                         setEditUid(null);
                                                     }}
-                                                    className="w-1/2 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition-colors"
+                                                    className="w-1/2 bg-white border border-surface-300 text-surface-700 hover:bg-surface-50 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition-colors"
                                                 >
                                                     Hủy
                                                 </button>
                                                 <button
                                                     type="submit"
                                                     disabled={actionLoading === 'create' || actionLoading === 'update'}
-                                                    className="w-1/2 text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/30 font-medium rounded-lg text-sm px-5 py-2.5 text-center disabled:opacity-50 flex justify-center items-center gap-2 transition-all shadow-md shadow-blue-600/20"
+                                                    className="w-1/2 text-white bg-primary-600 hover:bg-primary-700 focus:ring-4 focus:ring-primary-500/30 font-medium rounded-lg text-sm px-5 py-2.5 text-center disabled:opacity-50 flex justify-center items-center gap-2 transition-all shadow-md shadow-primary-600/20"
                                                 >
                                                     {actionLoading === 'create' || actionLoading === 'update' ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : (editUid ? 'Lưu thay đổi' : 'Thêm nhân viên')}
                                                 </button>
@@ -831,7 +851,7 @@ export default function ManagerUsersPage() {
     return (
         <Suspense fallback={
             <div className="flex justify-center py-12">
-                <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-4 border-accent-500 border-t-transparent rounded-full animate-spin" />
             </div>
         }>
             <ManagerUsersPageContent />

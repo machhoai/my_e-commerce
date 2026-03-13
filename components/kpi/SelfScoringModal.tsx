@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { KpiTemplateDoc, KpiGroup, KpiCriteriaScore } from '@/types';
@@ -70,47 +70,47 @@ export default function SelfScoringModal({
             <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
                     {/* Header */}
-                    <div className="p-5 border-b border-slate-100 flex items-center justify-between shrink-0">
+                    <div className="p-5 border-b border-surface-100 flex items-center justify-between shrink-0">
                         <div>
-                            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <h2 className="text-lg font-bold text-surface-800 flex items-center gap-2">
                                 <ClipboardCheck className="w-5 h-5 text-teal-500" />
                                 Tự đánh giá KPI
                             </h2>
-                            <p className="text-xs text-slate-400 mt-0.5">{template.name}</p>
+                            <p className="text-xs text-surface-400 mt-0.5">{template.name}</p>
                         </div>
-                        <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100 text-slate-400"><X className="w-5 h-5" /></button>
+                        <button onClick={onClose} className="p-2 rounded-lg hover:bg-surface-100 text-surface-400"><X className="w-5 h-5" /></button>
                     </div>
 
                     {/* Body */}
                     <div className="flex-1 overflow-y-auto p-5 space-y-4">
                         {error && (
-                            <div className="bg-red-50 text-red-600 p-2.5 rounded-lg flex items-center gap-2 text-sm border border-red-100">
+                            <div className="bg-danger-50 text-danger-600 p-2.5 rounded-lg flex items-center gap-2 text-sm border border-danger-100">
                                 <AlertCircle className="w-4 h-4 shrink-0" />{error}
                             </div>
                         )}
 
                         {template.groups.map((group, gi) => (
-                            <div key={gi} className="border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+                            <div key={gi} className="border border-surface-200 rounded-xl p-3 bg-surface-50/50">
                                 <p className="text-xs font-bold text-teal-700 mb-2 flex items-center gap-1.5">
                                     <Layers className="w-3.5 h-3.5" />
                                     {group.name}
                                 </p>
                                 <div className="space-y-2">
                                     {group.criteria.map((c, ci) => (
-                                        <div key={ci} className="flex items-center gap-3 bg-white rounded-lg p-2 border border-slate-100">
+                                        <div key={ci} className="flex items-center gap-3 bg-white rounded-lg p-2 border border-surface-100">
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-slate-700 truncate">{c.name}</p>
-                                                <p className="text-[10px] text-slate-400">Tối đa: {c.maxScore}đ</p>
+                                                <p className="text-sm font-medium text-surface-700 truncate">{c.name}</p>
+                                                <p className="text-[10px] text-surface-400">Tối đa: {c.maxScore}đ</p>
                                             </div>
                                             <div className="flex items-center gap-1 shrink-0">
                                                 <button onClick={() => updateScore(c.name, (scores[c.name] || 0) - 1, c.maxScore)}
-                                                    className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200  text-slate-600 font-bold text-sm flex items-center justify-center transition-colors">−</button>
+                                                    className="w-7 h-7 rounded-lg bg-surface-100 hover:bg-surface-200  text-surface-600 font-bold text-sm flex items-center justify-center transition-colors">−</button>
                                                 <input type="number" min={0} max={c.maxScore}
                                                     value={scores[c.name] ?? 0}
                                                     onChange={e => updateScore(c.name, parseInt(e.target.value) || 0, c.maxScore)}
-                                                    className="w-12 text-center text-sm font-bold border border-slate-200 rounded-lg py-1 outline-none focus:ring-2 focus:ring-teal-500/20" />
+                                                    className="w-12 text-center text-sm font-bold border border-surface-200 rounded-lg py-1 outline-none focus:ring-2 focus:ring-teal-500/20" />
                                                 <button onClick={() => updateScore(c.name, (scores[c.name] || 0) + 1, c.maxScore)}
-                                                    className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200  text-slate-600 font-bold text-sm flex items-center justify-center transition-colors">+</button>
+                                                    className="w-7 h-7 rounded-lg bg-surface-100 hover:bg-surface-200  text-surface-600 font-bold text-sm flex items-center justify-center transition-colors">+</button>
                                             </div>
                                         </div>
                                     ))}
@@ -120,11 +120,11 @@ export default function SelfScoringModal({
                     </div>
 
                     {/* Footer */}
-                    <div className="p-5 border-t border-slate-100 shrink-0">
+                    <div className="p-5 border-t border-surface-100 shrink-0">
                         <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm font-semibold text-slate-600">Tổng điểm tự đánh giá</span>
-                            <span className={cn('text-xl font-black', selfTotal >= 80 ? 'text-emerald-600' : selfTotal >= 50 ? 'text-amber-600' : 'text-red-600')}>
-                                {selfTotal}<span className="text-sm font-bold text-slate-400">/100</span>
+                            <span className="text-sm font-semibold text-surface-600">Tổng điểm tự đánh giá</span>
+                            <span className={cn('text-xl font-black', selfTotal >= 80 ? 'text-success-600' : selfTotal >= 50 ? 'text-warning-600' : 'text-danger-600')}>
+                                {selfTotal}<span className="text-sm font-bold text-surface-400">/100</span>
                             </span>
                         </div>
                         <button onClick={handleSubmit} disabled={saving}

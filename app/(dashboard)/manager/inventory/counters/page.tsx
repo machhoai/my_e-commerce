@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -168,7 +168,7 @@ export default function CounterStockDashboard() {
                     <BarChart3 className="w-7 h-7 text-teal-600" />
                     Tồn kho theo Quầy
                 </h1>
-                <p className="text-slate-500 mt-1 text-sm">Xem tổng quan tồn kho toàn cửa hàng hoặc theo từng quầy.</p>
+                <p className="text-surface-500 mt-1 text-sm">Xem tổng quan tồn kho toàn cửa hàng hoặc theo từng quầy.</p>
             </div>
         </div>
     )
@@ -192,8 +192,8 @@ export default function CounterStockDashboard() {
                     <button
                         onClick={() => setSelectedTab(OVERVIEW_TAB)}
                         className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${selectedTab === OVERVIEW_TAB
-                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
-                            : 'bg-white text-slate-600 border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50'
+                            ? 'bg-accent-600 text-white shadow-md shadow-accent-500/20'
+                            : 'bg-white text-surface-600 border border-surface-200 hover:border-accent-300 hover:bg-accent-50'
                             }`}
                     >
                         <LayoutGrid className="w-4 h-4" />
@@ -205,7 +205,7 @@ export default function CounterStockDashboard() {
                         <button key={c.id} onClick={() => setSelectedTab(c.id)}
                             className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${selectedTab === c.id
                                 ? 'bg-teal-600 text-white shadow-md shadow-teal-500/20'
-                                : 'bg-white text-slate-600 border border-slate-200 hover:border-teal-300 hover:bg-teal-50'
+                                : 'bg-white text-surface-600 border border-surface-200 hover:border-teal-300 hover:bg-teal-50'
                                 }`}>
                             {c.name}
                         </button>
@@ -214,14 +214,14 @@ export default function CounterStockDashboard() {
             )}
 
             {!counters.length && effectiveStoreId && (
-                <div className="bg-amber-50 text-amber-700 border border-amber-200 rounded-xl p-4 text-sm flex items-center gap-2">
+                <div className="bg-warning-50 text-warning-700 border border-warning-200 rounded-xl p-4 text-sm flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5 shrink-0" />
                     Cửa hàng chưa có quầy nào được kích hoạt. Vui lòng cấu hình trong Cài đặt.
                 </div>
             )}
 
             {!effectiveStoreId && (
-                <div className="bg-slate-50 text-slate-500 border border-slate-200 rounded-xl p-8 text-sm text-center">
+                <div className="bg-surface-50 text-surface-500 border border-surface-200 rounded-xl p-8 text-sm text-center">
                     Chọn cửa hàng để xem tồn kho
                 </div>
             )}
@@ -265,9 +265,9 @@ export default function CounterStockDashboard() {
 
             {/* Loading State Overlay */}
             {(overviewLoading || counterLoading) && (
-                <div className="flex flex-col items-center justify-center py-20 gap-3 bg-white rounded-2xl border border-slate-200 mt-4">
-                    <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-slate-400 text-sm">Đang tải dữ liệu tồn kho...</p>
+                <div className="flex flex-col items-center justify-center py-20 gap-3 bg-white rounded-2xl border border-surface-200 mt-4">
+                    <div className="w-8 h-8 border-4 border-success-500 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-surface-400 text-sm">Đang tải dữ liệu tồn kho...</p>
                 </div>
             )}
         </div>
