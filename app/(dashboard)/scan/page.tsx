@@ -1,13 +1,14 @@
-﻿'use client';
+'use client';
 
 import { useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     ScanBarcode, Package, Camera, AlertCircle, Tag, Hash,
-    Layers, Scale, X, Search,
+    Layers, Scale, X, Search, MapPin, ZoomIn,
 } from 'lucide-react';
 import type { ProductDoc } from '@/types/inventory';
 import dynamic from 'next/dynamic';
+import Portal from '@/components/Portal';
 
 const BarcodeScanner = dynamic(() => import('@/components/inventory/BarcodeScanner'), { ssr: false });
 
@@ -19,6 +20,7 @@ export default function ProductScanPage() {
     const [error, setError] = useState('');
     const [showScanner, setShowScanner] = useState(false);
     const [scanHistory, setScanHistory] = useState<ProductDoc[]>([]);
+    const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
     const lookupBarcode = useCallback(async (code: string) => {
         if (!code.trim() || !user) return;
@@ -62,12 +64,19 @@ export default function ProductScanPage() {
         lookupBarcode(decodedText);
     };
 
+    const infoItems = product ? [
+        product.barcode && { icon: ScanBarcode, label: 'Mã vạch', value: product.barcode, mono: true },
+        product.companyCode && { icon: Hash, label: 'Mã nội bộ', value: product.companyCode, mono: true, accent: true },
+        { icon: Scale, label: 'Đơn vị tính', value: product.unit || '—' },
+        product.actualPrice != null && { icon: Tag, label: 'Giá bán', value: `${product.actualPrice.toLocaleString('vi-VN')}đ`, success: true },
+    ].filter(Boolean) as { icon: typeof ScanBarcode; label: string; value: string; mono?: boolean; accent?: boolean; success?: boolean }[] : [];
+
     return (
         <div className="space-y-5 mx-auto max-w-lg pb-24">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-accent-600 to-accent-600 bg-clip-text text-transparent flex items-center gap-2">
-                    <ScanBarcode className="w-7 h-7 text-accent-600" />
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-600 to-accent-600 bg-clip-text text-transparent flex items-center gap-2">
+                    <ScanBarcode className="w-7 h-7 text-primary-600" />
                     Tra cứu sản phẩm
                 </h1>
                 <p className="text-surface-500 mt-1 text-sm">
@@ -87,23 +96,23 @@ export default function ProductScanPage() {
                             onKeyDown={handleKeyDown}
                             placeholder="Quét hoặc nhập mã vạch / QR..."
                             autoFocus
-                            className="w-full pl-10 pr-4 py-3.5 bg-surface-50 border border-surface-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent-300 transition-all"
+                            className="w-full pl-10 pr-4 py-3.5 bg-surface-50 border border-surface-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary-300 transition-all"
                         />
                     </div>
                     <button
                         onClick={() => setShowScanner(true)}
-                        className="px-4 bg-gradient-to-br from-warning-500 to-orange-500 hover:from-warning-600 hover:to-orange-600 text-white rounded-xl transition-all shadow-md shadow-warning-500/20 active:scale-95"
+                        className="px-4 bg-gradient-to-br from-accent-500 to-accent-600 hover:from-accent-600 hover:to-accent-700 text-white rounded-xl transition-all shadow-md shadow-accent-500/20 active:scale-95"
                         title="Quét bằng camera"
                     >
                         <Camera className="w-5 h-5" />
                     </button>
                 </div>
 
-                {/* Quick scan button */}
+                {/* Quick search button */}
                 <button
                     onClick={() => lookupBarcode(barcode)}
                     disabled={loading || !barcode.trim()}
-                    className="w-full bg-gradient-to-r from-accent-600 to-accent-600 hover:from-accent-700 hover:to-accent-700 disabled:from-surface-300 disabled:to-surface-400 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-accent-500/20"
+                    className="w-full bg-gradient-to-r from-primary-600 to-accent-600 hover:from-primary-700 hover:to-accent-700 disabled:from-surface-300 disabled:to-surface-400 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-primary-500/20"
                 >
                     {loading ? (
                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -120,69 +129,67 @@ export default function ProductScanPage() {
                 </div>
             )}
 
-            {/* Product Info Card */}
+            {/* Product Info Card — Redesigned */}
             {product && (
                 <div className="bg-white rounded-2xl border border-surface-200 shadow-lg overflow-hidden animate-in fade-in slide-in-from-bottom-3 duration-300">
-                    {/* Product image banner */}
+                    {/* Product image - clickable for full-size */}
                     {product.image && (
-                        <div className="w-full h-48 bg-surface-100 overflow-hidden">
-                            <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                        </div>
+                        <button
+                            onClick={() => setLightboxImage(product.image!)}
+                            className="relative w-full h-56 bg-surface-100 overflow-hidden group cursor-zoom-in"
+                        >
+                            <img
+                                src={product.image}
+                                alt={product.name}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                <div className="bg-white/80 backdrop-blur-sm rounded-full p-2.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+                                    <ZoomIn className="w-5 h-5 text-surface-700" />
+                                </div>
+                            </div>
+                        </button>
                     )}
 
                     <div className="p-5 space-y-4">
                         {/* Name & category */}
                         <div>
                             <h2 className="text-xl font-black text-surface-800">{product.name}</h2>
-                            {product.category && (
-                                <span className="inline-flex items-center gap-1 text-xs font-bold text-accent-600 bg-accent-50 border border-accent-200 px-2 py-0.5 rounded-full mt-1">
-                                    <Layers className="w-3 h-3" /> {product.category}
-                                </span>
-                            )}
+                            <div className="flex flex-wrap items-center gap-2 mt-2">
+                                {product.category && (
+                                    <span className="inline-flex items-center gap-1 text-xs font-bold text-accent-600 bg-accent-50 border border-accent-200 px-2.5 py-1 rounded-lg">
+                                        <Layers className="w-3 h-3" /> {product.category}
+                                    </span>
+                                )}
+                                {product.origin && (
+                                    <span className="inline-flex items-center gap-1 text-xs font-bold text-warning-700 bg-warning-50 border border-warning-200 px-2.5 py-1 rounded-lg">
+                                        <MapPin className="w-3 h-3" /> {product.origin}
+                                    </span>
+                                )}
+                            </div>
                         </div>
 
-                        {/* Info grid */}
-                        <div className="grid grid-cols-2 gap-3">
-                            {product.barcode && (
-                                <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
+                        {/* Info grid — compact cards */}
+                        <div className="grid grid-cols-2 gap-2.5">
+                            {infoItems.map((item) => (
+                                <div key={item.label} className="bg-surface-50/80 rounded-xl p-3 border border-surface-100">
                                     <p className="text-[10px] uppercase font-bold text-surface-400 flex items-center gap-1">
-                                        <ScanBarcode className="w-3 h-3" /> Mã vạch
+                                        <item.icon className="w-3 h-3" /> {item.label}
                                     </p>
-                                    <p className="text-sm font-black text-surface-800 mt-0.5 font-mono">{product.barcode}</p>
-                                </div>
-                            )}
-                            {product.companyCode && (
-                                <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
-                                    <p className="text-[10px] uppercase font-bold text-surface-400 flex items-center gap-1">
-                                        <Hash className="w-3 h-3" /> Mã nội bộ
-                                    </p>
-                                    <p className="text-sm font-black text-accent-700 mt-0.5 font-mono">{product.companyCode}</p>
-                                </div>
-                            )}
-                            <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
-                                <p className="text-[10px] uppercase font-bold text-surface-400 flex items-center gap-1">
-                                    <Scale className="w-3 h-3" /> Đơn vị tính
-                                </p>
-                                <p className="text-sm font-bold text-surface-800 mt-0.5">{product.unit || '—'}</p>
-                            </div>
-                            {product.actualPrice != null && (
-                                <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
-                                    <p className="text-[10px] uppercase font-bold text-surface-400 flex items-center gap-1">
-                                        <Tag className="w-3 h-3" /> Giá bán
-                                    </p>
-                                    <p className="text-sm font-black text-success-700 mt-0.5">
-                                        {product.actualPrice.toLocaleString('vi-VN')}đ
+                                    <p className={`text-sm font-black mt-0.5 ${item.mono ? 'font-mono' : ''} ${item.accent ? 'text-accent-700' : item.success ? 'text-success-700' : 'text-surface-800'}`}>
+                                        {item.value}
                                     </p>
                                 </div>
-                            )}
+                            ))}
                         </div>
 
-                        {/* Description */}
-                        {product.origin && (
-                            <div className="bg-warning-50 rounded-xl p-3 border border-warning-100">
-                                <p className="text-xs text-warning-800"><strong>Xuất xứ:</strong> {product.origin}</p>
-                            </div>
-                        )}
+                        {/* Scan again */}
+                        <button
+                            onClick={() => { setProduct(null); setBarcode(''); }}
+                            className="w-full py-2.5 rounded-xl bg-surface-100 hover:bg-surface-200 text-surface-600 font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+                        >
+                            <ScanBarcode className="w-4 h-4" /> Quét sản phẩm khác
+                        </button>
                     </div>
                 </div>
             )}
@@ -195,7 +202,7 @@ export default function ProductScanPage() {
                         <button
                             key={p.id}
                             onClick={() => { setProduct(p); setBarcode(p.barcode || p.companyCode || ''); }}
-                            className="w-full bg-white rounded-xl border border-surface-200 p-3 flex items-center gap-3 hover:bg-surface-50 transition-colors text-left"
+                            className="w-full bg-white rounded-xl border border-surface-200 p-3 flex items-center gap-3 hover:bg-primary-50/30 transition-colors text-left group"
                         >
                             {p.image ? (
                                 <img src={p.image} alt="" className="w-10 h-10 rounded-lg object-cover border border-surface-200" />
@@ -205,7 +212,7 @@ export default function ProductScanPage() {
                                 </div>
                             )}
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-surface-800 truncate">{p.name}</p>
+                                <p className="text-sm font-bold text-surface-800 truncate group-hover:text-primary-700 transition-colors">{p.name}</p>
                                 <p className="text-[11px] text-surface-400 font-mono">{p.companyCode || p.barcode}</p>
                             </div>
                         </button>
@@ -213,12 +220,36 @@ export default function ProductScanPage() {
                 </div>
             )}
 
-            {/* Camera Scanner Modal */}
+            {/* Camera Scanner Modal — auto-start enabled */}
             {showScanner && (
                 <BarcodeScanner
                     onScanSuccess={handleCameraScan}
                     onClose={() => setShowScanner(false)}
+                    autoStart
                 />
+            )}
+
+            {/* Image Lightbox */}
+            {lightboxImage && (
+                <Portal>
+                    <div
+                        className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out animate-in fade-in duration-200"
+                        onClick={() => setLightboxImage(null)}
+                    >
+                        <button
+                            onClick={() => setLightboxImage(null)}
+                            className="absolute top-4 right-4 z-10 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-colors"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                        <img
+                            src={lightboxImage}
+                            alt="Product full size"
+                            className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300"
+                            onClick={e => e.stopPropagation()}
+                        />
+                    </div>
+                </Portal>
             )}
         </div>
     );

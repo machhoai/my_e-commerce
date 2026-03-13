@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { Camera, X, SwitchCamera, ImagePlus, AlertTriangle, ShieldAlert, Loader2 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import Portal from '@/components/Portal';
@@ -8,9 +8,10 @@ import Portal from '@/components/Portal';
 interface BarcodeScannerProps {
     onScanSuccess: (decodedText: string) => void;
     onClose: () => void;
+    autoStart?: boolean;
 }
 
-export default function BarcodeScanner({ onScanSuccess, onClose }: BarcodeScannerProps) {
+export default function BarcodeScanner({ onScanSuccess, onClose, autoStart = false }: BarcodeScannerProps) {
     const scannerRef = useRef<Html5Qrcode | null>(null);
     const [scanError, setScanError] = useState('');
     const [cameraActive, setCameraActive] = useState(false);
@@ -18,6 +19,7 @@ export default function BarcodeScanner({ onScanSuccess, onClose }: BarcodeScanne
     const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
     const [fileProcessing, setFileProcessing] = useState(false);
     const containerId = 'barcode-scanner-region';
+    const autoStarted = useRef(false);
 
     // ── Rule 1 & 2 & 4: User-triggered, error handling, secure context ──
     const startCamera = useCallback(async (facing: 'environment' | 'user') => {
@@ -81,6 +83,17 @@ export default function BarcodeScanner({ onScanSuccess, onClose }: BarcodeScanne
             setCameraLoading(false);
         }
     }, [onScanSuccess]);
+
+    // Auto-start camera if requested
+    useEffect(() => {
+        if (autoStart && !autoStarted.current) {
+            autoStarted.current = true;
+            // Small delay to ensure the DOM container is mounted
+            const timer = setTimeout(() => startCamera(facingMode), 150);
+            return () => clearTimeout(timer);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [autoStart]);
 
     const handleSwitchCamera = async () => {
         const newFacing = facingMode === 'environment' ? 'user' : 'environment';
