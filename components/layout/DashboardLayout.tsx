@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -13,14 +13,37 @@ import { StoreDoc } from '@/types';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
+const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { user, userDoc, logout, loading, hasPermission } = useAuth();
     const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [storeName, setStoreName] = useState<string>('');
     const [unreadCount, setUnreadCount] = useState(0);
+    const [isCollapsed, setIsCollapsed] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+        }
+        if (mobileOpen) {
+            return false;
+        }
+        return false;
+    });
 
-    const [expandedGroups, setExpandedGroups] = useState<string[]>(['Nhân sự', 'Kho hàng', 'Văn phòng', 'Hệ thống']);
+    const [expandedGroups, setExpandedGroups] = useState<string[]>(['NhÃ¢n sá»±', 'Kho hÃ ng', 'VÄƒn phÃ²ng', 'Há»‡ thá»‘ng']);
+
+    const toggleCollapsed = () => {
+        if (mobileOpen) {
+            setMobileOpen(false);
+        } else {
+            setIsCollapsed(prev => {
+                const next = !prev;
+                localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+                return next;
+            });
+        }
+    };
 
     // Initialize Push Notifications hook (handles permission request and saving token)
     usePushNotifications();
@@ -67,7 +90,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="min-h-screen flex items-center justify-center bg-surface-950">
                 <div className="flex flex-col items-center gap-3">
                     <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-surface-400 text-sm">Đang tải...</p>
+                    <p className="text-surface-400 text-sm">Äang táº£i...</p>
                 </div>
             </div>
         );
@@ -78,12 +101,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="min-h-screen flex items-center justify-center bg-surface-950">
                 <div className="flex flex-col items-center gap-4 text-center px-4">
                     <div className="w-10 h-10 border-4 border-danger-500 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-surface-300 text-sm">Đang kết nối...</p>
+                    <p className="text-surface-300 text-sm">Äang káº¿t ná»‘i...</p>
                     <button
                         onClick={logout}
                         className="text-xs text-danger-400 hover:text-danger-300 underline mt-2"
                     >
-                        Đăng xuất
+                        ÄÄƒng xuáº¥t
                     </button>
                 </div>
             </div>
@@ -91,56 +114,52 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     // Determine effective location context
-    // Admin sees everything; workplaceType drives context for other roles
     const isAdmin = userDoc?.role === 'admin';
     const isSuperAdmin = userDoc?.role === 'super_admin';
     const isOfficeContext = !isAdmin && !isSuperAdmin && (userDoc?.workplaceType === 'OFFICE' || userDoc?.role === 'office');
     const isCentralContext = !isAdmin && !isSuperAdmin && userDoc?.workplaceType === 'CENTRAL';
-    // Default: STORE context (legacy users without workplaceType are treated as STORE)
     const isStoreContext = !isAdmin && !isSuperAdmin && !isOfficeContext && !isCentralContext;
 
     const routes = [
-        // ── Employee self-service (Store context only, non-admin) ──
         {
-            label: 'Lịch của tôi',
+            label: 'Lịch Của Tôi',
             href: '/employee/dashboard',
             icon: Calendar,
             show: isStoreContext,
-            group: 'Cá nhân',
+            group: 'Cá Nhân',
         },
         {
-            label: 'Đăng ký ca làm',
+            label: 'Đăng Ký Ca Làm',
             href: '/employee/register',
             icon: Calendar,
             show: isStoreContext,
-            group: 'Cá nhân',
+            group: 'Cá Nhân',
         },
         {
-            label: 'KPI của tôi',
+            label: 'KPI Của Tôi',
             href: '/employee/kpi-stats',
             icon: BarChart3,
             show: isStoreContext,
-            group: 'Cá nhân',
+            group: 'Cá Nhân',
         },
         {
-            label: 'Kho quầy',
+            label: 'Kho Quầy',
             href: '/employee/inventory/usage',
             icon: ScanBarcode,
             show: isStoreContext,
             matchPrefix: '/employee/inventory',
-            group: 'Cá nhân',
+            group: 'Cá Nhân',
         },
         {
-            label: 'Hồ sơ cá nhân',
+            label: 'Hồ Sơ Cá Nhân',
             href: '/profile',
             icon: User,
             show: isStoreContext || isOfficeContext,
-            group: 'Cá nhân',
+            group: 'Cá Nhân',
         },
 
-        // ── Nhân sự & Xếp lịch (Store managers + admin/superadmin) ──
         {
-            label: 'Lịch làm việc',
+            label: 'Lịch Làm Việc',
             href: '/manager/scheduling/overview',
             icon: Calendar,
             show: isAdmin || isSuperAdmin ||
@@ -152,10 +171,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     hasPermission('view_history')
                 )),
             matchPrefix: '/manager/scheduling',
-            group: 'Nhân sự',
+            group: 'Nhân Sự',
         },
         {
-            label: 'Nhân sự & KPI',
+            label: 'Nhân Sự & KPI',
             href: '/manager/hr/users',
             icon: Users,
             show: isAdmin || isSuperAdmin ||
@@ -167,12 +186,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     hasPermission('view_all_kpi')
                 )),
             matchPrefix: '/manager/hr',
-            group: 'Nhân sự',
+            group: 'Nhân Sự',
         },
 
-        // ── Kho hàng - Cửa hàng ──
         {
-            label: 'Kho cửa hàng',
+            label: 'Kho Cửa Hàng',
             href: '/manager/inventory/order',
             icon: Package,
             show: isAdmin || isSuperAdmin ||
@@ -182,75 +200,69 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     hasPermission('create_order')
                 )),
             matchPrefix: '/manager/inventory',
-            group: 'Kho hàng',
+            group: 'Kho Hàng',
         },
-
-        // ── Kho tổng (Central + admin + perms) ──
         {
-            label: 'Kho tổng',
+            label: 'Kho Tổng',
             href: '/admin/inventory/overview',
             icon: Warehouse,
             show: isAdmin || isSuperAdmin || isCentralContext || hasPermission('manage_central_warehouse'),
             matchPrefix: '/admin/inventory',
-            group: 'Kho hàng',
+            group: 'Kho Hàng',
         },
-
-        // ── Sản phẩm ──
         {
-            label: 'Sản phẩm',
+            label: 'Sản Phẩm',
             href: '/admin/products/products',
             icon: Package,
             show: isAdmin || isSuperAdmin || isCentralContext || hasPermission('manage_central_warehouse'),
             matchPrefix: '/admin/products',
-            group: 'Kho hàng',
+            group: 'Kho Hàng',
         },
 
-        // ── Văn phòng ──
         {
-            label: 'Duyệt lệnh',
+            label: 'Duyệt Lệnh',
             href: '/office/inventory/approvals',
             icon: Package,
             show: isAdmin || isSuperAdmin || isOfficeContext || hasPermission('approve_office_order') || hasPermission('reject_office_order'),
             matchPrefix: '/office/inventory',
-            group: 'Văn phòng',
+            group: 'Văn Phòng',
         },
         {
             label: 'Doanh thu',
             href: '/office/revenue',
             icon: BarChart3,
             show: isAdmin || isSuperAdmin || hasPermission('view_revenue'),
-            group: 'Văn phòng',
+            group: 'Văn Phòng',
         },
 
-        // ── Hệ thống (Admin + Super Admin) ──
         {
-            label: 'Quản lý Cửa hàng',
+            label: 'Quản lý Cửa Hàng',
             href: '/admin/stores',
             icon: Store,
             show: isAdmin || isSuperAdmin,
             matchPrefix: '/admin/stores',
-            group: 'Hệ thống',
+            group: 'H\u1ec7 Th\u1ed1ng',
         },
         {
-            label: 'Quản lý Văn phòng',
+            label: 'Quản lý Văn Phòng',
             href: '/admin/offices',
             icon: Building2,
             show: isAdmin || isSuperAdmin,
-            group: 'Hệ thống',
+            group: 'H\u1ec7 Th\u1ed1ng',
         },
         {
-            label: 'Quản lý Kho tổng',
+            label: 'Quản lý Kho Tổng',
             href: '/admin/warehouses',
             icon: Warehouse,
             show: isAdmin || isSuperAdmin,
-            group: 'Hệ thống',
+            group: 'H\u1ec7 Th\u1ed1ng',
         },
         {
             label: 'Quản lý Người dùng',
             href: '/admin/users',
             icon: Users,
             show: isAdmin || isSuperAdmin,
-            group: 'Hệ thống',
+            group: 'H\u1ec7 Th\u1ed1ng',
         },
         {
             label: 'Cài đặt hệ thống',
@@ -258,14 +270,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             icon: SettingsIcon,
             show: isAdmin || isSuperAdmin,
             matchPrefix: '/admin/settings',
-            group: 'Hệ thống',
+            group: 'H\u1ec7 Th\u1ed1ng',
         },
         {
             label: 'Cài đặt cửa hàng',
             href: '/manager/settings',
             icon: SettingsIcon,
             show: isStoreContext && userDoc?.role === 'store_manager',
-            group: 'Hệ thống',
+            group: 'H\u1ec7 Th\u1ed1ng',
         },
     ];
 
@@ -279,17 +291,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     };
 
     const roleBadgeClass: Record<string, string> = {
-        super_admin: 'bg-yellow-500/20 text-yellow-500',
-        admin: 'bg-success-500/20 text-success-500',
-        store_manager: 'bg-accent-500/20 text-accent-400',
-        manager: 'bg-warning-500/20 text-warning-400',
-        employee: 'bg-primary-500/20 text-primary-400',
-        office: 'bg-teal-500/20 text-teal-400',
+        super_admin: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
+        admin: 'bg-success-500/20 text-success-400 border border-success-500/30',
+        store_manager: 'bg-accent-500/20 text-accent-300 border border-accent-500/30',
+        manager: 'bg-warning-500/20 text-warning-300 border border-warning-500/30',
+        employee: 'bg-primary-500/20 text-primary-300 border border-primary-500/30',
+        office: 'bg-teal-500/20 text-teal-300 border border-teal-500/30',
+    };
+
+    const roleDotClass: Record<string, string> = {
+        super_admin: 'bg-yellow-400',
+        admin: 'bg-success-400',
+        store_manager: 'bg-accent-400',
+        manager: 'bg-warning-400',
+        employee: 'bg-primary-400',
+        office: 'bg-teal-400',
+    };
+
+    const groupIconMap: Record<string, React.ElementType> = {
+        'Cá Nhân': User,
+        'Nhân Sự': Users,
+        'Kho Hàng': Package,
+        'Văn Phòng': Building2,
+        'Hệ Thống': SettingsIcon,
+        'Khác': SettingsIcon,
     };
 
     const isNotificationsActive = pathname === '/notifications';
 
-    // Build grouped visible routes
     const visibleRoutes = routes.filter(r => r.show);
 
     const toggleGroup = (title: string) => {
@@ -299,76 +328,208 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     };
 
     const SidebarContent = () => {
-        // Group visible routes
-        const groups: { title: string, items: typeof visibleRoutes }[] = [];
-        const groupOrder = ['Cá nhân', 'Nhân sự', 'Kho hàng', 'Văn phòng', 'Hệ thống'];
-
-        groupOrder.forEach(gTitle => {
-            const items = visibleRoutes.filter(r => r.group === gTitle);
-            if (items.length > 0) {
-                groups.push({ title: gTitle, items });
-            }
-        });
-
-        // Add ungrouped items
-        const ungroupedItems = visibleRoutes.filter(r => !r.group);
-        if (ungroupedItems.length > 0) {
-            groups.push({ title: 'Khác', items: ungroupedItems });
-        }
-
         const getInitials = (name: string) => {
             if (!name) return 'U';
             const parts = name.split(' ').filter(Boolean);
-            if (parts.length >= 2) {
-                return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-            }
+            if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
             return name.substring(0, 2).toUpperCase();
         };
 
-        return (
-            <div className="flex flex-col h-full bg-surface-950 text-surface-100">
-                {/* Header/Branding */}
-                <div className="border-surface-800 pt-2 shrink-0">
-                    <div className="flex items-center h-16 w-full gap-3">
-                        <img src="/logo.png" alt="" className="h-full w-full object-contain" />
+        if (isCollapsed) {
+            // Flatten all visible routes into icon list, keep group separation
+            const iconGroups: { items: typeof visibleRoutes }[] = [];
+            const groupOrder = ['Cá Nhân', 'Nhân Sự', 'Kho Hàng', 'Văn Phòng', 'Hệ Thống'];
+            groupOrder.forEach(gTitle => {
+                const items = visibleRoutes.filter(r => r.group === gTitle);
+                if (items.length > 0) iconGroups.push({ items });
+            });
+            const ungrouped = visibleRoutes.filter(r => !r.group);
+            if (ungrouped.length > 0) iconGroups.push({ items: ungrouped });
+
+            const IconLink = ({ route }: { route: typeof visibleRoutes[0] }) => {
+                const isActive = route.matchPrefix
+                    ? pathname.startsWith(route.matchPrefix)
+                    : pathname.startsWith(route.href);
+                return (
+                    <Link
+                        href={route.href}
+                        title={route.label}
+                        onClick={() => setMobileOpen(false)}
+                        className={cn(
+                            "flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200",
+                            isActive
+                                ? "bg-accent-100 text-accent-600"
+                                : "text-surface-400 hover:bg-surface-100 hover:text-surface-700"
+                        )}
+                    >
+                        <route.icon className="size-[18px]" />
+                    </Link>
+                );
+            };
+
+            return (
+                <div className="flex flex-col h-full items-center py-3 gap-2">
+
+                    {/* Logo + expand button */}
+                    <div className="flex flex-col items-center gap-1.5 mb-1 px-1.5 w-full">
+                        <div className="flex items-center justify-center w-10 h-10">
+                            <img src="/logo.png" alt="Logo" className="w-9 h-9 object-contain" />
+                        </div>
+                        {
+                            !mobileOpen && (
+                                <button
+                                    onClick={toggleCollapsed}
+                                    title="Mở Rộng Sidebar"
+                                    className="flex items-center justify-center w-6 h-6 rounded-full bg-surface-100 text-surface-500 hover:bg-surface-200 hover:text-surface-700 transition-colors"
+                                >
+                                    <ChevronRight className="size-3.5" />
+                                </button>
+                            )
+                        }
+                    </div>
+
+                    {/* Icon groups as cards */}
+                    <div className="flex-1 flex flex-col gap-2 w-full px-1.5 overflow-y-auto custom-scrollbar">
+                        {iconGroups.map((group, idx) => (
+                            <div
+                                key={idx}
+                                className="flex flex-col items-center gap-1 bg-white rounded-2xl py-2 px-1 shadow-sm border border-surface-100"
+                            >
+                                {group.items.map(route => (
+                                    <IconLink key={route.href} route={route} />
+                                ))}
+                            </div>
+                        ))}
+
+                        {/* Utility group: Notifications + Settings */}
+                        <div className="flex flex-col items-center gap-1 bg-white rounded-2xl py-2 px-1 shadow-sm border border-surface-100">
+                            <Link
+                                href="/notifications"
+                                title="Thông Báo"
+                                onClick={() => setMobileOpen(false)}
+                                className={cn(
+                                    "relative flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200",
+                                    isNotificationsActive
+                                        ? "bg-accent-100 text-accent-600"
+                                        : "text-surface-400 hover:bg-surface-100 hover:text-surface-700"
+                                )}
+                            >
+                                <Bell className="size-[18px]" />
+                                {unreadCount > 0 && (
+                                    <span className="flex h-3.5 leading-none aspect-square items-center justify-center absolute top-0 right-0 rounded-full bg-danger-500 text-[10px] text-white">
+                                        {unreadCount > 99 ? '99+' : unreadCount}
+                                    </span>
+                                )}
+                            </Link>
+                            <Link
+                                href="/change-password"
+                                title="Đổi Mật Khẩu"
+                                onClick={() => setMobileOpen(false)}
+                                className="flex items-center justify-center w-10 h-10 rounded-xl text-surface-400 hover:bg-surface-100 hover:text-surface-700 transition-all duration-200"
+                            >
+                                <KeyRound className="size-[18px]" />
+                            </Link>
+                        </div>
+                    </div>
+
+                    {/* Avatar pinned at bottom */}
+                    <div className="mt-auto pt-2 flex flex-col items-center gap-1 pb-1">
+                        <button
+                            onClick={logout}
+                            title="Đăng Xuất"
+                            className="relative group"
+                        >
+                            <div className="p-[2px] rounded-full bg-gradient-to-br from-success-400 via-primary-500 to-accent-500">
+                                <Avatar className="size-9">
+                                    <AvatarImage src="/placeholder-user.jpg" alt="User" />
+                                    <AvatarFallback className="bg-surface-100 text-surface-700 text-xs font-bold">
+                                        {getInitials(userDoc.name)}
+                                    </AvatarFallback>
+                                </Avatar>
+                            </div>
+                            <span className="absolute bottom-0.5 right-0.5 size-2 rounded-full bg-success-400 ring-2 ring-white" />
+                        </button>
                     </div>
                 </div>
+            );
+        }
 
-                {/* User Profile */}
-                <div className="border-b border-surface-800 p-4 shrink-0">
-                    <div className="flex items-center gap-3">
-                        <Avatar className="size-10 border-2 border-surface-700">
-                            <AvatarImage src="/placeholder-user.jpg" alt="User" />
-                            <AvatarFallback className="bg-surface-800 text-surface-300 text-sm font-semibold">{getInitials(userDoc.name)}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm text-surface-400">Xin chào,</p>
-                            <p className="font-medium truncate">{userDoc.name || 'Người dùng'}</p>
-                        </div>
-                        <div className="space-y-0.5">
-                            <button
-                                onClick={logout}
-                                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-danger-400/90 hover:bg-danger-950/30 hover:text-danger-400 transition-colors"
-                            >
-                                <LogOut className="size-5" />
-                            </button>
-                        </div>
+        const groups: { title: string, items: typeof visibleRoutes }[] = [];
+        const groupOrder = ['Cá Nhân', 'Nhân Sự', 'Kho Hàng', 'Văn Phòng', 'Hệ Thống'];
+        groupOrder.forEach(gTitle => {
+            const items = visibleRoutes.filter(r => r.group === gTitle);
+            if (items.length > 0) groups.push({ title: gTitle, items });
+        });
+        const ungroupedItems = visibleRoutes.filter(r => !r.group);
+        if (ungroupedItems.length > 0) groups.push({ title: 'KhÃ¡c', items: ungroupedItems });
+
+        return (
+            <div className="flex flex-col h-full">
+
+                {/* Logo + collapse toggle */}
+                <div className="px-4 pt-3 pb-2 shrink-0 flex items-center border-b border-surface-100">
+                    <div className="flex items-center h-14 flex-1">
+                        <img src="/logo.png" alt="Logo" className="h-full w-full object-contain" />
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    {
+                        !mobileOpen && (
+                            <button
+                                onClick={toggleCollapsed}
+                                title="Thu gọn sidebar"
+                                className="flex items-center justify-center size-8 shrink-0 rounded-full bg-surface-100 text-surface-500 hover:bg-surface-200 hover:text-surface-700 transition-colors"
+                            >
+                                <ChevronDown className="size-3.5 rotate-90" />
+                            </button>
+                        )
+                    }
+                </div>
+
+                {/* Profile card - light */}
+                <div className="mx-3 mt-3 mb-2 rounded-2xl bg-white border border-surface-100 shadow-sm p-3 shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="relative shrink-0">
+                            <div className="p-[2px] rounded-full bg-gradient-to-br from-success-400 via-primary-500 to-accent-500">
+                                <Avatar className="size-10">
+                                    <AvatarImage src="/placeholder-user.jpg" alt="User" />
+                                    <AvatarFallback className="bg-surface-100 text-surface-700 text-sm font-bold">
+                                        {getInitials(userDoc.name)}
+                                    </AvatarFallback>
+                                </Avatar>
+                            </div>
+                            <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-success-400 ring-2 ring-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm text-surface-900 truncate leading-tight">
+                                {userDoc.name || 'Người dùng'}
+                            </p>
+                            <p className="text-[10px] text-surface-400 truncate leading-tight mt-0.5">
+                                {user?.email}
+                            </p>
+                        </div>
+                        <button
+                            onClick={logout}
+                            title="Đăng xuất"
+                            className="shrink-0 flex items-center justify-center size-8 rounded-lg text-surface-400 hover:text-danger-500 hover:bg-danger-50 transition-colors"
+                        >
+                            <LogOut className="size-4" />
+                        </button>
+                    </div>
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
                         <span className={cn(
-                            "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-                            roleBadgeClass[userDoc.role] ?? 'bg-surface-800 text-surface-300'
+                            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium",
+                            roleBadgeClass[userDoc.role] ?? 'bg-surface-100 text-surface-600 border border-surface-200'
                         )}>
+                            <span className={cn("size-1.5 rounded-full shrink-0", roleDotClass[userDoc.role] ?? 'bg-surface-400')} />
                             {roleLabelMap[userDoc.role] ?? userDoc.role}
                         </span>
                         {storeName && userDoc.role !== 'admin' && (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-surface-700 px-2.5 py-0.5 text-xs text-surface-300">
-                                <Building2 className="size-3" />
-                                <span className="max-w-[120px] truncate">{storeName}</span>
+                            <span className="inline-flex items-center gap-1 rounded-full border border-surface-200 bg-surface-50 px-2.5 py-0.5 text-[11px] text-surface-500">
+                                <Building2 className="size-2.5 shrink-0" />
+                                <span className="max-w-[110px] truncate">{storeName}</span>
                             </span>
                         )}
                         {userDoc.type && (
-                            <span className="inline-flex items-center rounded-full bg-surface-800 px-2.5 py-0.5 text-xs text-surface-300 font-medium">
+                            <span className="inline-flex items-center rounded-full bg-surface-100 px-2.5 py-0.5 text-[11px] text-surface-500">
                                 {userDoc.type}
                             </span>
                         )}
@@ -376,68 +537,79 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 overflow-y-auto p-3 custom-scrollbar">
-                    {groups.map((group) => (
-                        <div key={group.title} className="mb-2">
-                            <button
-                                onClick={() => toggleGroup(group.title)}
-                                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs font-medium uppercase tracking-wider text-surface-500 hover:text-surface-300 transition-colors"
-                            >
-                                {group.title}
-                                <ChevronDown
-                                    className={cn(
-                                        "size-3.5 transition-transform duration-200",
-                                        expandedGroups.includes(group.title) ? "rotate-0" : "-rotate-90"
+                <nav className="flex-1 overflow-y-auto px-3 py-2 custom-scrollbar">
+                    <div className="space-y-0.5">
+                        {groups.map((group) => {
+                            const GroupIcon = groupIconMap[group.title] ?? SettingsIcon;
+                            const isExpanded = expandedGroups.includes(group.title);
+                            return (
+                                <div key={group.title} className="mb-1">
+                                    <button
+                                        onClick={() => toggleGroup(group.title)}
+                                        className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-surface-400 hover:text-surface-600 hover:bg-surface-50 transition-colors group/header"
+                                    >
+                                        <GroupIcon className="size-3 text-surface-300 group-hover/header:text-surface-500 transition-colors" />
+                                        <span className="flex-1 text-left">{group.title}</span>
+                                        <ChevronDown className={cn(
+                                            "size-3 transition-transform duration-200 text-surface-300",
+                                            isExpanded ? "rotate-0" : "-rotate-90"
+                                        )} />
+                                    </button>
+                                    {isExpanded && (
+                                        <div className="mt-0.5 space-y-0.5 pl-1">
+                                            {group.items.map((route) => {
+                                                const isActive = route.matchPrefix
+                                                    ? pathname.startsWith(route.matchPrefix)
+                                                    : pathname.startsWith(route.href);
+                                                return (
+                                                    <Link
+                                                        key={route.href}
+                                                        href={route.href}
+                                                        onClick={() => setMobileOpen(false)}
+                                                        className={cn(
+                                                            "relative flex items-center gap-2.5 px-3 py-2 text-sm rounded-xl transition-colors duration-200",
+                                                            isActive
+                                                                ? "bg-accent-50 text-accent-600 font-medium"
+                                                                : "text-surface-500 hover:bg-surface-50 hover:text-surface-800"
+                                                        )}
+                                                    >
+                                                        {isActive && (
+                                                            <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-accent-500" />
+                                                        )}
+                                                        <route.icon className={cn(
+                                                            "size-4 shrink-0 transition-colors duration-200",
+                                                            isActive ? "text-accent-500" : "text-surface-400"
+                                                        )} />
+                                                        <span>{route.label}</span>
+                                                    </Link>
+                                                );
+                                            })}
+                                        </div>
                                     )}
-                                />
-                            </button>
-                            {expandedGroups.includes(group.title) && (
-                                <div className="mt-1 space-y-0.5">
-                                    {group.items.map((route) => {
-                                        const isActive = route.matchPrefix
-                                            ? pathname.startsWith(route.matchPrefix)
-                                            : pathname.startsWith(route.href);
-
-                                        return (
-                                            <Link
-                                                key={route.href}
-                                                href={route.href}
-                                                onClick={() => setMobileOpen(false)}
-                                                className={cn(
-                                                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                                                    isActive
-                                                        ? "bg-success-600/20 text-success-400 font-medium"
-                                                        : "text-surface-400 hover:bg-surface-800/50 hover:text-surface-200"
-                                                )}
-                                            >
-                                                <route.icon className={cn("size-4 shrink-0", isActive && "text-success-400")} />
-                                                <span>{route.label}</span>
-                                            </Link>
-                                        );
-                                    })}
                                 </div>
-                            )}
-                        </div>
-                    ))}
+                            );
+                        })}
+                    </div>
 
-                    {/* Notifications */}
-                    <div className="mt-2 border-t border-surface-800 pt-2">
+                    {/* Account links */}
+                    <div className="mt-3 pt-3 border-t border-surface-100 space-y-0.5 pb-2">
                         <Link
                             href="/notifications"
                             onClick={() => setMobileOpen(false)}
                             className={cn(
-                                "flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors",
+                                "relative flex items-center gap-2.5 px-3 py-2 text-sm rounded-xl transition-colors duration-200",
                                 isNotificationsActive
-                                    ? "bg-surface-800 text-white font-medium"
-                                    : "text-surface-400 hover:bg-surface-800/50 hover:text-surface-200"
+                                    ? "bg-accent-50 text-accent-600 font-medium"
+                                    : "text-surface-500 hover:bg-surface-50 hover:text-surface-800"
                             )}
                         >
-                            <div className="flex items-center gap-3">
-                                <Bell className={cn("size-4", isNotificationsActive && "text-success-500")} />
-                                <span>Thông báo</span>
-                            </div>
+                            {isNotificationsActive && (
+                                <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-accent-500" />
+                            )}
+                            <Bell className={cn("size-4 shrink-0", isNotificationsActive && "text-accent-500")} />
+                            <span className="flex-1">Thông báo</span>
                             {unreadCount > 0 && (
-                                <span className="flex size-5 items-center justify-center rounded-full bg-danger-500 text-[10px] font-bold text-white">
+                                <span className="flex min-w-[20px] h-5 items-center justify-center rounded-full bg-danger-500 px-1.5 text-[10px] font-bold text-white">
                                     {unreadCount > 99 ? '99+' : unreadCount}
                                 </span>
                             )}
@@ -445,18 +617,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <Link
                             href="/change-password"
                             onClick={() => setMobileOpen(false)}
-                            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-surface-400 hover:bg-surface-800/50 hover:text-surface-200 transition-colors"
+                            className="flex items-center gap-2.5 px-3 py-2 text-sm rounded-xl text-surface-500 hover:bg-surface-50 hover:text-surface-800 transition-colors duration-200"
                         >
-                            <KeyRound className="size-4" />
+                            <KeyRound className="size-4 shrink-0" />
                             <span>Đổi mật khẩu</span>
                         </Link>
                     </div>
                 </nav>
 
                 {/* Footer */}
-                <div className="p-2 shrink-0">
-                    <p className="px-3 text-[10px] text-surface-500/70 text-center">
-                        Thiết kế & phát triển bởi Mạch Hoài
+                <div className="px-4 py-2.5 border-t border-surface-100 shrink-0">
+                    <p className="text-[10px] text-surface-400 text-center">
+                        Thiết kế & phát triển bởi{' '}
+                        <span className="text-surface-500 font-medium">Mạch Hoài</span>
                     </p>
                 </div>
             </div>
@@ -466,22 +639,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return (
         <div className="flex bg-surface-50 h-screen">
             {/* Desktop Sidebar */}
-            <aside className="hidden md:flex w-64 bg-surface-950 border-r border-surface-800 text-surface-100 flex-col shrink-0">
+            <aside className={cn(
+                "hidden md:flex flex-col shrink-0 transition-all duration-300",
+                isCollapsed
+                    ? "w-[72px] bg-surface-50"
+                    : "w-64 bg-primary-50"
+            )}>
                 <SidebarContent />
             </aside>
 
             {/* Mobile Drawer Overlay */}
             {mobileOpen && (
                 <div className="md:hidden fixed inset-0 z-[100] flex">
-                    {/* Backdrop */}
                     <div
                         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
                         onClick={() => setMobileOpen(false)}
                     />
-                    {/* Drawer */}
                     <aside className="relative z-50 w-72 bg-surface-950 text-surface-100 flex flex-col animate-in slide-in-from-left-4 duration-200 overflow-hidden">
                         <button
-                            className="absolute top-4 right-4 text-surface-400 hover:text-surface-100 p-1 z-50 rounded-lg bg-surface-800/50"
+                            className="absolute top-4 right-4 text-surface-400 hover:text-surface-100 p-1 z-50 rounded-lg bg-surface-800/50 hover:bg-surface-700/50 transition-colors"
                             onClick={() => setMobileOpen(false)}
                             aria-label="Đóng menu"
                         >
@@ -492,17 +668,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
             )}
 
-            {/* Main Content — full height, no header */}
+            {/* Main Content */}
             <main className="flex-1 h-screen overflow-hidden flex flex-col bg-surface-50/50">
                 <div className="flex-1 overflow-y-auto w-full p-4 custom-scrollbar">
                     {children}
                 </div>
             </main>
 
-            {/* Mobile Combined FAB Group — Scan (primary) + Menu (secondary) */}
+            {/* Mobile FAB Group */}
             {!mobileOpen && (
                 <div className="md:hidden fixed bottom-5 right-5 z-30 flex flex-col items-center gap-2.5">
-                    {/* Secondary: Menu button (smaller, above scan) */}
                     <button
                         className="relative w-10 h-10 bg-surface-900/90 backdrop-blur-sm text-white rounded-full shadow-lg shadow-surface-900/30 flex items-center justify-center hover:bg-surface-800 active:scale-90 transition-all outline-none"
                         onClick={() => setMobileOpen(true)}
@@ -515,8 +690,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             </span>
                         )}
                     </button>
-
-                    {/* Primary: Scan button (large, prominent) */}
                     <Link
                         href="/scan"
                         className={cn(

@@ -22,7 +22,7 @@ export default function TabbedLayout({ tabs, children }: TabbedLayoutProps) {
     return (
         <div className="relative">
             {/* Tab Navigation Bar — fixed, glass-morphism style */}
-            <div className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-lg border-b border-surface-200/80 md:left-64">
+            <div className="flex-1 top-0 left-0 right-0 z-50 ">
                 <nav
                     className="flex items-center gap-1 px-2 py-1.5 overflow-x-auto no-scrollbar"
                     role="tablist"
