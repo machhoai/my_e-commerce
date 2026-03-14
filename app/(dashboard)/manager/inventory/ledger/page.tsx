@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -135,7 +135,7 @@ export default function LedgerPage() {
                 titleChildren={
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
                         <div>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-warning-600 to-orange-600 bg-clip-text text-transparent flex items-center gap-2">
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-warning-600 to-accent-600 bg-clip-text text-transparent flex items-center gap-2">
                                 <BookOpen className="w-7 h-7 text-warning-600" />
                                 Thẻ kho (Sổ giao dịch)
                             </h1>

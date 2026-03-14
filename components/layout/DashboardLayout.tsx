@@ -291,7 +291,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     };
 
     const roleBadgeClass: Record<string, string> = {
-        super_admin: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
+        super_admin: 'bg-bduck-yellow/20 text-bduck-yellow border border-bduck-yellow/30',
         admin: 'bg-success-500/20 text-success-400 border border-success-500/30',
         store_manager: 'bg-accent-500/20 text-accent-300 border border-accent-500/30',
         manager: 'bg-warning-500/20 text-warning-300 border border-warning-500/30',
@@ -300,7 +300,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     };
 
     const roleDotClass: Record<string, string> = {
-        super_admin: 'bg-yellow-400',
+        super_admin: 'bg-bduck-yellow',
         admin: 'bg-success-400',
         store_manager: 'bg-accent-400',
         manager: 'bg-warning-400',
@@ -359,7 +359,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             "flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200",
                             isActive
                                 ? "bg-accent-100 text-accent-600"
-                                : "text-surface-400 hover:bg-surface-100 hover:text-surface-700"
+                                : "text-surface-400 hover:bg-primary-200 hover:text-surface-700"
                         )}
                     >
                         <route.icon className="size-[18px]" />
@@ -371,7 +371,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="flex flex-col h-full items-center py-3 gap-2">
 
                     {/* Logo + expand button */}
-                    <div className="flex flex-col items-center gap-1.5 mb-1 px-1.5 w-full">
+                    <div className="flex flex-col items-center gap-1.5 mb-1 px-1.5 w-full relative">
                         <div className="flex items-center justify-center w-10 h-10">
                             <img src="/logo.png" alt="Logo" className="w-9 h-9 object-contain" />
                         </div>
@@ -380,7 +380,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 <button
                                     onClick={toggleCollapsed}
                                     title="Mở Rộng Sidebar"
-                                    className="flex items-center justify-center w-6 h-6 rounded-full bg-surface-100 text-surface-500 hover:bg-surface-200 hover:text-surface-700 transition-colors"
+                                    className="flex -right-2 top-1/2 -translate-y-1/2 translate-x-1/2 absolute items-center justify-center w-6 h-6 rounded-full bg-primary-600 text-white hover:bg-surface-200 hover:text-surface-700 transition-colors"
                                 >
                                     <ChevronRight className="size-3.5" />
                                 </button>
@@ -393,7 +393,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         {iconGroups.map((group, idx) => (
                             <div
                                 key={idx}
-                                className="flex flex-col items-center gap-1 bg-white rounded-2xl py-2 px-1 shadow-sm border border-surface-100"
+                                className="flex w-fit flex-col items-center gap-1 bg-white rounded-2xl p-1 shadow-sm border border-surface-100"
                             >
                                 {group.items.map(route => (
                                     <IconLink key={route.href} route={route} />
@@ -402,7 +402,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         ))}
 
                         {/* Utility group: Notifications + Settings */}
-                        <div className="flex flex-col items-center gap-1 bg-white rounded-2xl py-2 px-1 shadow-sm border border-surface-100">
+                        <div className="flex flex-col items-center gap-1 bg-white rounded-2xl p-1 shadow-sm border border-surface-100">
                             <Link
                                 href="/notifications"
                                 title="Thông Báo"
@@ -410,8 +410,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 className={cn(
                                     "relative flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200",
                                     isNotificationsActive
-                                        ? "bg-accent-100 text-accent-600"
-                                        : "text-surface-400 hover:bg-surface-100 hover:text-surface-700"
+                                        ? "bg-accent-100 text-accent-500"
+                                        : "text-surface-600 hover:bg-surface-100 hover:text-surface-600"
                                 )}
                             >
                                 <Bell className="size-[18px]" />
@@ -464,10 +464,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (ungroupedItems.length > 0) groups.push({ title: 'KhÃ¡c', items: ungroupedItems });
 
         return (
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full px-2 w-full">
 
                 {/* Logo + collapse toggle */}
-                <div className="px-4 pt-3 pb-2 shrink-0 flex items-center border-b border-surface-100">
+                <div className=" pt-3 pb-2 shrink-0 flex items-center">
                     <div className="flex items-center h-14 flex-1">
                         <img src="/logo.png" alt="Logo" className="h-full w-full object-contain" />
                     </div>
@@ -485,7 +485,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
 
                 {/* Profile card - light */}
-                <div className="mx-3 mt-3 mb-2 rounded-2xl bg-white border border-surface-100 shadow-sm p-3 shrink-0">
+                <div className="mt-3 mb-2 rounded-2xl bg-white shadow-sm p-3">
                     <div className="flex items-center gap-3">
                         <div className="relative shrink-0">
                             <div className="p-[2px] rounded-full bg-gradient-to-br from-success-400 via-primary-500 to-accent-500">
@@ -537,7 +537,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 overflow-y-auto px-3 py-2 custom-scrollbar">
+                <nav className="flex-1 overflow-y-auto py-2 custom-scrollbar">
                     <div className="space-y-0.5">
                         {groups.map((group) => {
                             const GroupIcon = groupIconMap[group.title] ?? SettingsIcon;
@@ -546,12 +546,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 <div key={group.title} className="mb-1">
                                     <button
                                         onClick={() => toggleGroup(group.title)}
-                                        className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-surface-400 hover:text-surface-600 hover:bg-surface-50 transition-colors group/header"
+                                        className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-surface-400 hover:text-surface-600 hover:bg-primary-200 transition-colors group/header"
                                     >
-                                        <GroupIcon className="size-3 text-surface-300 group-hover/header:text-surface-500 transition-colors" />
-                                        <span className="flex-1 text-left">{group.title}</span>
+                                        <GroupIcon className="size-3 text-surface-500 group-hover/header:text-surface-500 transition-colors" />
+                                        <span className="flex-1 text-left text-surface-500">{group.title}</span>
                                         <ChevronDown className={cn(
-                                            "size-3 transition-transform duration-200 text-surface-300",
+                                            "size-3 transition-transform duration-200 text-surface-500",
                                             isExpanded ? "rotate-0" : "-rotate-90"
                                         )} />
                                     </button>
@@ -570,7 +570,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                                             "relative flex items-center gap-2.5 px-3 py-2 text-sm rounded-xl transition-colors duration-200",
                                                             isActive
                                                                 ? "bg-accent-50 text-accent-600 font-medium"
-                                                                : "text-surface-500 hover:bg-surface-50 hover:text-surface-800"
+                                                                : "text-surface-500 hover:bg-primary-200 hover:text-surface-800"
                                                         )}
                                                     >
                                                         {isActive && (
@@ -578,9 +578,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                                         )}
                                                         <route.icon className={cn(
                                                             "size-4 shrink-0 transition-colors duration-200",
-                                                            isActive ? "text-accent-500" : "text-surface-400"
+                                                            isActive ? "text-accent-500" : "text-surface-600"
                                                         )} />
-                                                        <span>{route.label}</span>
+                                                        <span className={cn("flex-1", isActive ? "text-accent-600" : "text-surface-600")}>{route.label}</span>
                                                     </Link>
                                                 );
                                             })}
@@ -592,7 +592,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
 
                     {/* Account links */}
-                    <div className="mt-3 pt-3 border-t border-surface-100 space-y-0.5 pb-2">
+                    <div className="mt-3 pt-3 border-t border-primary-900 space-y-0.5 pb-2">
                         <Link
                             href="/notifications"
                             onClick={() => setMobileOpen(false)}
@@ -600,14 +600,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 "relative flex items-center gap-2.5 px-3 py-2 text-sm rounded-xl transition-colors duration-200",
                                 isNotificationsActive
                                     ? "bg-accent-50 text-accent-600 font-medium"
-                                    : "text-surface-500 hover:bg-surface-50 hover:text-surface-800"
+                                    : "text-surface-500 hover:bg-primary-200 hover:text-surface-800"
                             )}
                         >
                             {isNotificationsActive && (
                                 <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-accent-500" />
                             )}
-                            <Bell className={cn("size-4 shrink-0", isNotificationsActive && "text-accent-500")} />
-                            <span className="flex-1">Thông báo</span>
+                            <Bell className={cn("size-4 shrink-0 text-surface-600", isNotificationsActive && "text-accent-600")} />
+                            <span className={cn("flex-1 text-surface-600", isNotificationsActive && "text-accent-600")}>Thông báo</span>
                             {unreadCount > 0 && (
                                 <span className="flex min-w-[20px] h-5 items-center justify-center rounded-full bg-danger-500 px-1.5 text-[10px] font-bold text-white">
                                     {unreadCount > 99 ? '99+' : unreadCount}
@@ -617,16 +617,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <Link
                             href="/change-password"
                             onClick={() => setMobileOpen(false)}
-                            className="flex items-center gap-2.5 px-3 py-2 text-sm rounded-xl text-surface-500 hover:bg-surface-50 hover:text-surface-800 transition-colors duration-200"
+                            className="flex items-center gap-2.5 px-3 py-2 text-sm rounded-xl text-surface-500 hover:bg-primary-200 hover:text-surface-800 transition-colors duration-200"
                         >
-                            <KeyRound className="size-4 shrink-0" />
-                            <span>Đổi mật khẩu</span>
+                            <KeyRound className="size-4 shrink-0 text-surface-600" />
+                            <span className='text-surface-600'>Đổi mật khẩu</span>
                         </Link>
                     </div>
                 </nav>
 
                 {/* Footer */}
-                <div className="px-4 py-2.5 border-t border-surface-100 shrink-0">
+                <div className="px-4 py-2 shrink-0">
                     <p className="text-[10px] text-surface-400 text-center">
                         Thiết kế & phát triển bởi{' '}
                         <span className="text-surface-500 font-medium">Mạch Hoài</span>
@@ -640,10 +640,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex bg-surface-50 h-screen">
             {/* Desktop Sidebar */}
             <aside className={cn(
-                "hidden md:flex flex-col shrink-0 transition-all duration-300",
+                "hidden md:flex flex-col items-center justify-center shrink-0 transition-all duration-300",
                 isCollapsed
                     ? "w-[72px] bg-surface-50"
-                    : "w-64 bg-primary-50"
+                    : "w-64 bg-primary-400"
             )}>
                 <SidebarContent />
             </aside>
@@ -655,7 +655,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
                         onClick={() => setMobileOpen(false)}
                     />
-                    <aside className="relative z-50 w-72 bg-surface-950 text-surface-100 flex flex-col animate-in slide-in-from-left-4 duration-200 overflow-hidden">
+                    <aside className="relative z-50 w-72 bg-primary-400 text-surface-100 flex flex-col animate-in slide-in-from-left-4 duration-200 overflow-hidden">
                         <button
                             className="absolute top-4 right-4 text-surface-400 hover:text-surface-100 p-1 z-50 rounded-lg bg-surface-800/50 hover:bg-surface-700/50 transition-colors"
                             onClick={() => setMobileOpen(false)}

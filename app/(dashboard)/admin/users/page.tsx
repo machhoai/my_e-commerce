@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -512,7 +512,7 @@ function AdminUsersPageContent() {
                                                             <button
                                                                 onClick={() => handleResetPassword(u.uid, u.name)}
                                                                 disabled={actionLoading}
-                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200 transition-colors disabled:opacity-50"
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-accent-50 text-accent-600 hover:bg-accent-100 border border-accent-200 transition-colors disabled:opacity-50"
                                                             >
                                                                 <KeyRound className="w-3.5 h-3.5" /> Đặt lại
                                                             </button>
@@ -653,7 +653,7 @@ function AdminUsersPageContent() {
                                                             newWorkplaceType === wt
                                                                 ? wt === 'STORE' ? 'bg-accent-600 text-white border-accent-600'
                                                                     : wt === 'OFFICE' ? 'bg-teal-600 text-white border-teal-600'
-                                                                        : 'bg-orange-600 text-white border-orange-600'
+                                                                        : 'bg-accent-600 text-white border-accent-600'
                                                                 : 'bg-surface-50 text-surface-600 border-surface-200 hover:bg-surface-100'
                                                         )}
                                                     >
@@ -682,7 +682,7 @@ function AdminUsersPageContent() {
                                             )}
                                             {newWorkplaceType === 'CENTRAL' && (
                                                 <select value={newWarehouseId} onChange={e => setNewWarehouseId(e.target.value)}
-                                                    className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-orange-500 focus:border-orange-400 block p-2.5">
+                                                    className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5">
                                                     <option value="">(Không thuộc kho nào)</option>
                                                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}{!w.isActive ? ' (Đã tắt)' : ''}</option>)}
                                                 </select>

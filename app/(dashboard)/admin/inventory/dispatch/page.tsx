@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -226,9 +226,9 @@ export default function AdminDispatchPage() {
                     </select>
                 </div>
                 <div className="flex items-center gap-3 flex-1">
-                    <Warehouse className="w-5 h-5 text-orange-500 shrink-0" />
+                    <Warehouse className="w-5 h-5 text-accent-500 shrink-0" />
                     <select value={selectedWarehouseId} onChange={e => setSelectedWarehouseId(e.target.value)}
-                        className="flex-1 bg-surface-50 border border-surface-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-orange-300">
+                        className="flex-1 bg-surface-50 border border-surface-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-accent-300">
                         <option value="">📊 Tất cả các kho</option>
                         {warehouses.map(w => <option key={w.id} value={w.id}>🏭 {w.name}</option>)}
                     </select>
@@ -335,7 +335,7 @@ export default function AdminDispatchPage() {
                                         <td className="px-6 py-3">
                                             <p className="font-medium text-surface-700">{stores.find(s => s.id === order.storeId)?.name || order.storeId}</p>
                                             {order.status === 'PACKING' ? (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200 mt-0.5">
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-accent-100 text-accent-700 border border-accent-200 mt-0.5">
                                                     <PackageCheck className="w-3 h-3" /> Đang đóng gói
                                                 </span>
                                             ) : (
@@ -344,7 +344,7 @@ export default function AdminDispatchPage() {
                                                 </span>
                                             )}
                                             {order.warehouseName && (
-                                                <p className="text-[10px] text-orange-600 font-medium mt-1 flex items-center gap-1">
+                                                <p className="text-[10px] text-accent-600 font-medium mt-1 flex items-center gap-1">
                                                     <Warehouse className="w-3 h-3" /> {order.warehouseName}
                                                 </p>
                                             )}

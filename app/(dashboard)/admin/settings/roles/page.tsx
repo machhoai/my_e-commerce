@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -184,7 +184,7 @@ export default function AdminRolesPage() {
     const APPLICABLE_OPTIONS: { key: 'STORE' | 'OFFICE' | 'CENTRAL'; label: string; icon: string; color: string }[] = [
         { key: 'STORE', label: 'Cửa hàng', icon: '🏪', color: 'bg-accent-50 border-accent-300 text-accent-700' },
         { key: 'OFFICE', label: 'Văn phòng', icon: '🏢', color: 'bg-teal-50 border-teal-300 text-teal-700' },
-        { key: 'CENTRAL', label: 'Kho tổng', icon: '🏭', color: 'bg-orange-50 border-orange-300 text-orange-700' },
+        { key: 'CENTRAL', label: 'Kho tổng', icon: '🏭', color: 'bg-accent-50 border-accent-300 text-accent-700' },
     ];
 
     // Group permissions by their `group` field
@@ -464,7 +464,7 @@ export default function AdminRolesPage() {
                                                         <span key={loc} className={cn(
                                                             'text-[9px] font-bold px-1.5 py-0.5 rounded-full',
                                                             loc === 'OFFICE' ? 'bg-teal-100 text-teal-700' :
-                                                                loc === 'CENTRAL' ? 'bg-orange-100 text-orange-700' :
+                                                                loc === 'CENTRAL' ? 'bg-accent-100 text-accent-700' :
                                                                     'bg-accent-100 text-accent-700'
                                                         )}>
                                                             {loc === 'STORE' ? '🏪'

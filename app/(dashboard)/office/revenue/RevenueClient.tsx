@@ -54,7 +54,7 @@ function KPICard({ title, value, sub, icon, accent, badge, hero }: {
                 <div className="relative flex items-center justify-between gap-3">
                     <div className="flex-1 min-w-0">
                         <p className="text-[11px] font-bold uppercase tracking-widest text-success-100">{title}</p>
-                        <p className="mt-2 text-2xl sm:text-3xl font-extrabold text-white leading-tight break-words drop-shadow-sm">{value}</p>
+                        <p className="mt-2 text-2xl xl:text-3xl font-extrabold text-white leading-tight break-words drop-shadow-sm truncate">{value}</p>
                         <p className="mt-1.5 text-xs text-success-100 break-words leading-tight">{sub}</p>
                     </div>
                     <div className="shrink-0 w-11 h-11 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/30">
@@ -72,7 +72,7 @@ function KPICard({ title, value, sub, icon, accent, badge, hero }: {
             <div className="flex items-start justify-between w-full gap-2">
                 <div className="flex-1 min-w-0">
                     <p className="text-[10px] font-semibold uppercase tracking-widest text-surface-400 leading-tight">{title}</p>
-                    <p className="mt-1.5 text-base sm:text-lg font-bold text-surface-800 leading-tight break-words">{value}</p>
+                    <p className="mt-1.5 text-base sm:text-lg font-bold text-surface-800 leading-tight break-words truncate">{value}</p>
                     <p className="mt-1 text-[11px] text-surface-400 break-words leading-tight">{sub}</p>
                 </div>
                 <div className={`shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center ${accent} bg-opacity-10`}>
@@ -215,6 +215,10 @@ export default function RevenueClient() {
         const peakDay = data.length > 0 ? data.reduce((max, d) => d.realMoney > max.realMoney ? d : max, data[0]) : null;
         return { totalReal, totalSys, totalCash, totalTransfer, totalCoins, totalRefund, peakDay };
     }, [data, dailyPanel]);
+
+    useEffect(() => {
+        console.log(data);
+    }, [data]);
 
     const isMultiDay = data.length > 1;
 
@@ -400,8 +404,8 @@ export default function RevenueClient() {
                         {/* Dynamic accent colors via inline style */}
                         {/* THỰC THU — hero card: full-width on mobile, prominent gradient */}
                         <div className="col-span-2 sm:col-span-1">
-                            <KPICard hero title="Thực thu" value={fmtVND(kpis.totalReal)}
-                                sub={kpis.totalSys > 0 ? `Phải thu: ${fmtShort(kpis.totalSys)}` : 'Không có chênh lệch'}
+                            <KPICard hero title="Thực thu" value={fmtVND(kpis.totalSys)}
+                                sub=""
                                 icon={<DollarSign className="size-5 text-white" />} accent="bg-success-500" />
                         </div>
                         <div style={{ '--kpi-accent': '#3b82f6' } as React.CSSProperties}>

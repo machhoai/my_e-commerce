@@ -6,7 +6,7 @@ const tokenShades = (prefix) => {
     [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].forEach(s => {
         shades[s] = `hsl(var(--t-${prefix}-${s}) / <alpha-value>)`;
     });
-    shades.DEFAULT = `hsl(var(--t-${prefix}-600) / <alpha-value>)`;
+    shades.DEFAULT = `hsl(var(--t-${prefix}-500) / <alpha-value>)`;
     return shades;
 };
 
@@ -33,6 +33,17 @@ module.exports = {
                 warning: tokenShades('warning'),
                 danger: tokenShades('danger'),
                 surface: tokenShades('surface'),
+
+                // ── B.Duck Brand ──────────────────────────────
+                bduck: {
+                    yellow: 'rgb(var(--bduck-yellow) / <alpha-value>)',
+                    orange: 'rgb(var(--bduck-orange) / <alpha-value>)',
+                    dark:   'rgb(var(--bduck-dark) / <alpha-value>)',
+                },
+                secondary: {
+                    DEFAULT: 'rgb(var(--secondary) / <alpha-value>)',
+                    foreground: 'rgb(var(--secondary-foreground) / <alpha-value>)',
+                },
 
                 // ── shadcn/ui tokens (keep existing) ───────────
                 background: 'hsl(var(--background))',

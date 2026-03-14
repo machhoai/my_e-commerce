@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -102,13 +102,13 @@ export default function AdminWarehousesPage() {
                     <div className="flex items-center justify-between w-full flex-wrap gap-4">
                         <div>
                             <h1 className="text-2xl font-bold text-surface-800 flex items-center gap-2">
-                                <Warehouse className="w-6 h-6 text-orange-500" />
+                                <Warehouse className="w-6 h-6 text-accent-500" />
                                 Quản lý Kho tổng
                             </h1>
                             <p className="text-surface-500 mt-1 text-sm">Danh sách các kho trung tâm trong hệ thống</p>
                         </div>
                         <button onClick={openCreate}
-                            className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-md shadow-orange-500/20 transition-all">
+                            className="flex items-center gap-2 bg-accent-600 hover:bg-accent-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-md shadow-accent-500/20 transition-all">
                             <Plus className="w-4 h-4" /> Thêm Kho
                         </button>
                     </div>
@@ -132,26 +132,26 @@ export default function AdminWarehousesPage() {
                         <div>
                             <label className="text-xs font-semibold text-surface-600 block mb-1">Tên Kho *</label>
                             <input value={formName} onChange={e => setFormName(e.target.value)}
-                                className="w-full border border-surface-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-orange-300"
+                                className="w-full border border-surface-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-accent-300"
                                 placeholder="VD: Kho Tổng Bình Dương" />
                         </div>
                         <div>
                             <label className="text-xs font-semibold text-surface-600 block mb-1">Diện tích (m²)</label>
                             <input value={formCapacity} onChange={e => setFormCapacity(e.target.value)}
                                 type="number" min="0"
-                                className="w-full border border-surface-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-orange-300"
+                                className="w-full border border-surface-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-accent-300"
                                 placeholder="VD: 5000" />
                         </div>
                         <div>
                             <label className="text-xs font-semibold text-surface-600 block mb-1">Địa chỉ</label>
                             <input value={formAddress} onChange={e => setFormAddress(e.target.value)}
-                                className="w-full border border-surface-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-orange-300"
+                                className="w-full border border-surface-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-accent-300"
                                 placeholder="123 Đường ABC, Bình Dương" />
                         </div>
                     </div>
                     <div className="flex gap-3 mt-4">
                         <button onClick={handleSubmit} disabled={submitting}
-                            className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-5 py-2 rounded-xl text-sm font-bold transition-all disabled:opacity-60">
+                            className="flex items-center gap-2 bg-accent-600 hover:bg-accent-700 text-white px-5 py-2 rounded-xl text-sm font-bold transition-all disabled:opacity-60">
                             {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                             {editingId ? 'Lưu thay đổi' : 'Tạo Kho'}
                         </button>

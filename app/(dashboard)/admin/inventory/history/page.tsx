@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,7 +17,7 @@ import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader
 const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
     PENDING_OFFICE: { label: 'Chờ VP duyệt', badge: 'bg-warning-100 text-warning-700 border-warning-200' },
     APPROVED_BY_OFFICE: { label: 'Chờ kho chấp nhận', badge: 'bg-sky-100 text-sky-700 border-sky-200' },
-    PACKING: { label: 'Đang đóng gói', badge: 'bg-orange-100 text-orange-700 border-orange-200' },
+    PACKING: { label: 'Đang đóng gói', badge: 'bg-accent-100 text-accent-700 border-accent-200' },
     IN_TRANSIT: { label: 'Đang vận chuyển', badge: 'bg-accent-100 text-accent-700 border-accent-200' },
     COMPLETED: { label: 'Hoàn tất', badge: 'bg-success-100 text-success-700 border-success-200' },
     REJECTED: { label: 'Từ chối', badge: 'bg-danger-100 text-danger-700 border-danger-200' },
@@ -240,7 +240,7 @@ export default function WarehouseHistoryPage() {
                                                 {status.label}
                                             </span>
                                             {order.warehouseName && (
-                                                <span className="text-[10px] font-bold text-orange-600 flex items-center gap-0.5">
+                                                <span className="text-[10px] font-bold text-accent-600 flex items-center gap-0.5">
                                                     <Warehouse className="w-3 h-3" /> {order.warehouseName}
                                                 </span>
                                             )}

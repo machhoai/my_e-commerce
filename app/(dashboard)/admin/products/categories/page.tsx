@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -134,7 +134,7 @@ export default function CategoryManagementPage() {
         { bg: 'bg-accent-100', text: 'text-accent-600', dot: 'bg-accent-500', border: 'border-accent-200' },
         { bg: 'bg-rose-100', text: 'text-rose-600', dot: 'bg-rose-500', border: 'border-rose-200' },
         { bg: 'bg-cyan-100', text: 'text-cyan-600', dot: 'bg-cyan-500', border: 'border-cyan-200' },
-        { bg: 'bg-orange-100', text: 'text-orange-600', dot: 'bg-orange-500', border: 'border-orange-200' },
+        { bg: 'bg-accent-100', text: 'text-accent-600', dot: 'bg-accent-500', border: 'border-accent-200' },
         { bg: 'bg-pink-100', text: 'text-pink-600', dot: 'bg-pink-500', border: 'border-pink-200' },
     ];
 

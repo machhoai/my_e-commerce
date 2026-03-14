@@ -70,14 +70,14 @@ export default function BioPage() {
                 <h1 className="text-white text-2xl font-bold mb-1 text-center drop-shadow-md">
                     B.Duck Cityfuns Vietnam
                 </h1>
-                <p className="text-yellow-300 text-sm mb-6 italic drop-shadow-md text-center">
+                <p className="text-bduck-yellow text-sm mb-6 italic drop-shadow-md text-center">
                     Be Playful • Be Fun • B.Duck
                 </p>
 
                 {/* Nút chuyển đổi QR / List */}
                 <button
                     onClick={() => setShowQR(!showQR)}
-                    className="absolute flex items-center gap-2 p-2 aspect-square right-0 bg-yellow-400 hover:bg-yellow-500 text-black font-bold rounded-full shadow-lg transition-transform active:scale-90"
+                    className="absolute flex items-center gap-2 p-2 aspect-square right-0 bg-bduck-yellow hover:bg-bduck-yellow/90 text-bduck-dark font-bold rounded-full shadow-lg transition-transform active:scale-90"
                 >
                     {showQR ? <IoListOutline size={20} /> : <IoQrCodeOutline size={20} />}
                 </button>
@@ -93,15 +93,15 @@ export default function BioPage() {
                                     href={link.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-center p-4 bg-white/95 hover:bg-yellow-400 rounded-2xl transition-all shadow-xl group active:scale-95"
+                                    className="flex items-center p-4 bg-white/95 hover:bg-bduck-yellow rounded-2xl transition-all shadow-xl group active:scale-95"
                                 >
                                     <span className={`w-10 h-10 ${link.color} rounded-xl flex items-center justify-center text-[40px]`}>
                                         {link.icon}
                                     </span>
-                                    <span className="flex-1 ml-4 text-left font-bold text-gray-800 text-lg uppercase tracking-tight truncate">
+                                    <span className="flex-1 ml-4 text-left font-bold text-bduck-dark text-lg uppercase tracking-tight truncate">
                                         {link.name}
                                     </span>
-                                    <span className="text-gray-400 group-hover:text-white transition-colors">
+                                    <span className="text-surface-400 group-hover:text-white transition-colors">
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
                                         </svg>
@@ -138,7 +138,7 @@ export default function BioPage() {
             <div className="relative z-10 w-full max-w-md flex justify-center mt-12 mb-4">
                 <a
                     href="/login"
-                    className="text-white/50 hover:text-yellow-400 text-sm flex items-center gap-2 transition-colors duration-300"
+                    className="text-white/50 hover:text-bduck-yellow text-sm flex items-center gap-2 transition-colors duration-300"
                 >
                     Bạn là nhân viên B.Duck Cityfuns Vietnam?
                 </a>

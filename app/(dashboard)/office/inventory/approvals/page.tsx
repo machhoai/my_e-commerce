@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -126,7 +126,7 @@ export default function OfficeApprovalsPage() {
             {/* Header */}
             <div className="flex items-start justify-between flex-wrap gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-warning-600 to-orange-600 bg-clip-text text-transparent flex items-center gap-2">
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-warning-600 to-accent-600 bg-clip-text text-transparent flex items-center gap-2">
                         <ClipboardCheck className="w-7 h-7 text-warning-600" />
                         Duyệt lệnh đặt hàng — Văn phòng
                     </h1>

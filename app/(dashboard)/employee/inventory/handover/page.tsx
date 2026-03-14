@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -155,13 +155,13 @@ export default function EmployeeHandoverPage() {
         return (
             <div className="space-y-6 mx-auto">
                 <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-danger-600 bg-clip-text text-transparent flex items-center gap-2">
-                        <Handshake className="w-7 h-7 text-orange-600" />
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-accent-600 to-danger-600 bg-clip-text text-transparent flex items-center gap-2">
+                        <Handshake className="w-7 h-7 text-accent-600" />
                         Giao ca
                     </h1>
                 </div>
 
-                <div className="bg-gradient-to-br from-danger-50 to-orange-50 border-2 border-danger-200 rounded-2xl p-8 text-center space-y-4">
+                <div className="bg-gradient-to-br from-danger-50 to-accent-50 border-2 border-danger-200 rounded-2xl p-8 text-center space-y-4">
                     <div className="w-16 h-16 mx-auto bg-danger-100 rounded-full flex items-center justify-center">
                         <Lock className="w-8 h-8 text-danger-500" />
                     </div>
@@ -188,7 +188,7 @@ export default function EmployeeHandoverPage() {
                 titleChildren={
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
                         <div>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-warning-600 to-orange-600 bg-clip-text text-transparent flex items-center gap-2">
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-warning-600 to-accent-600 bg-clip-text text-transparent flex items-center gap-2">
                                 <Handshake className="w-7 h-7 text-warning-600" />
                                 Giao ca
                             </h1>
@@ -303,7 +303,7 @@ export default function EmployeeHandoverPage() {
 
             {/* Submit */}
             <button onClick={handleSubmit} disabled={loading || rows.length === 0}
-                className="w-full bg-gradient-to-r from-warning-600 to-orange-600 hover:from-warning-700 hover:to-orange-700 disabled:from-surface-400 disabled:to-surface-400 text-white py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md">
+                className="w-full bg-gradient-to-r from-warning-600 to-accent-600 hover:from-warning-700 hover:to-accent-700 disabled:from-surface-400 disabled:to-surface-400 text-white py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md">
                 {loading ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (

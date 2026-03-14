@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
@@ -123,7 +123,7 @@ export default function ForceAssignModal({
                 {/* Modal */}
                 <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden border border-surface-200">
                     {/* Header */}
-                    <div className="flex items-center justify-between p-5 border-b border-surface-100 bg-gradient-to-r from-warning-50 to-orange-50">
+                    <div className="flex items-center justify-between p-5 border-b border-surface-100 bg-gradient-to-r from-warning-50 to-accent-50">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-warning-100 rounded-xl flex items-center justify-center">
                                 <UserCog className="w-5 h-5 text-warning-600" />

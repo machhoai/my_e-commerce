@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -343,7 +343,7 @@ export default function TransferPage() {
                     {/* ── LOCATION CARDS ── */}
                     <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-3 items-center">
                         {/* Source: Kho cửa hàng */}
-                        <div className="bg-gradient-to-br from-warning-50 to-orange-50 rounded-2xl border-2 border-warning-200 p-5">
+                        <div className="bg-gradient-to-br from-warning-50 to-accent-50 rounded-2xl border-2 border-warning-200 p-5">
                             <div className="flex items-center gap-3 mb-2">
                                 <div className="w-10 h-10 rounded-xl bg-warning-100 flex items-center justify-center">
                                     <Warehouse className="w-5 h-5 text-warning-600" />

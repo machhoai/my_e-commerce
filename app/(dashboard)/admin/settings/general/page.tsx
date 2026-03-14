@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -612,14 +612,14 @@ export default function AdminSettingsPage() {
                                 {/* Monthly Quotas Global Configuration */}
                                 <div className="border-t border-surface-100 pt-6 mt-6">
                                     <h3 className="text-sm font-bold text-surface-700 mb-3 flex items-center gap-2">
-                                        <AlertCircle className="w-4 h-4 text-orange-500" />
+                                        <AlertCircle className="w-4 h-4 text-accent-500" />
                                         Định mức ca làm / Tháng
                                     </h3>
-                                    <div className="bg-orange-50/50 p-4 rounded-xl border border-orange-100 space-y-4">
+                                    <div className="bg-accent-50/50 p-4 rounded-xl border border-accent-100 space-y-4">
 
-                                        <div className="space-y-1.5 pb-3 border-b border-orange-200/50">
+                                        <div className="space-y-1.5 pb-3 border-b border-accent-200/50">
                                             <label className="text-xs font-semibold text-surface-600 block">
-                                                Toàn thời gian (FT) & Quản lý: <span className="text-orange-600">Số ngày nghỉ / tháng</span>
+                                                Toàn thời gian (FT) & Quản lý: <span className="text-accent-600">Số ngày nghỉ / tháng</span>
                                             </label>
                                             <input
                                                 type="number" min="0" max="31"
@@ -631,15 +631,15 @@ export default function AdminSettingsPage() {
                                                         ftDaysOff: parseInt(e.target.value) || 0
                                                     }
                                                 })}
-                                                className="w-full sm:w-1/2 bg-white border border-surface-200 text-sm font-bold rounded-lg focus:ring-orange-500 focus:border-orange-500 block p-2"
+                                                className="w-full sm:w-1/2 bg-white border border-surface-200 text-sm font-bold rounded-lg focus:ring-accent-500 focus:border-accent-500 block p-2"
                                                 placeholder="VD: 4"
                                             />
-                                            <p className="text-[10px] text-orange-600/80 mt-1">Hệ thống sẽ tự tính: [Số ngày trong tháng] - [Số ngày nghỉ] = Tổng số ca tối đa.</p>
+                                            <p className="text-[10px] text-accent-600/80 mt-1">Hệ thống sẽ tự tính: [Số ngày trong tháng] - [Số ngày nghỉ] = Tổng số ca tối đa.</p>
                                         </div>
 
                                         <div>
                                             <label className="text-xs font-semibold text-surface-600 block mb-2">
-                                                Bán thời gian (PT): <span className="text-orange-600">Số ca tối thiểu & tối đa / tháng</span>
+                                                Bán thời gian (PT): <span className="text-accent-600">Số ca tối thiểu & tối đa / tháng</span>
                                             </label>
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-1.5">
@@ -654,7 +654,7 @@ export default function AdminSettingsPage() {
                                                                 ptMinShifts: parseInt(e.target.value) || 0
                                                             }
                                                         })}
-                                                        className="w-full bg-white border border-surface-200 text-sm font-bold rounded-lg focus:ring-orange-500 focus:border-orange-500 block p-2"
+                                                        className="w-full bg-white border border-surface-200 text-sm font-bold rounded-lg focus:ring-accent-500 focus:border-accent-500 block p-2"
                                                         placeholder="VD: 10"
                                                     />
                                                 </div>
@@ -670,7 +670,7 @@ export default function AdminSettingsPage() {
                                                                 ptMaxShifts: parseInt(e.target.value) || 0
                                                             }
                                                         })}
-                                                        className="w-full bg-white border border-surface-200 text-sm font-bold rounded-lg focus:ring-orange-500 focus:border-orange-500 block p-2"
+                                                        className="w-full bg-white border border-surface-200 text-sm font-bold rounded-lg focus:ring-accent-500 focus:border-accent-500 block p-2"
                                                         placeholder="VD: 25"
                                                     />
                                                 </div>

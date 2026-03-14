@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
@@ -96,7 +96,7 @@ export default function EventSettingsPage() {
                 titleChildren={
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
                         <div>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-warning-500 to-orange-500 bg-clip-text text-transparent flex items-center gap-2">
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-warning-500 to-accent-500 bg-clip-text text-transparent flex items-center gap-2">
                                 <Zap className="w-7 h-7 text-warning-500" />
                                 Bản Đồ Sự Kiện
                             </h1>

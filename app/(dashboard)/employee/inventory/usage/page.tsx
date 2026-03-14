@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -109,13 +109,13 @@ export default function EmployeeUsagePage() {
         return (
             <div className="space-y-6 mx-auto">
                 <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-danger-600 bg-clip-text text-transparent flex items-center gap-2">
-                        <ScanBarcode className="w-7 h-7 text-orange-600" />
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-accent-600 to-danger-600 bg-clip-text text-transparent flex items-center gap-2">
+                        <ScanBarcode className="w-7 h-7 text-accent-600" />
                         Quét mã vạch — Sử dụng hàng
                     </h1>
                 </div>
 
-                <div className="bg-gradient-to-br from-danger-50 to-orange-50 border-2 border-danger-200 rounded-2xl p-8 text-center space-y-4">
+                <div className="bg-gradient-to-br from-danger-50 to-accent-50 border-2 border-danger-200 rounded-2xl p-8 text-center space-y-4">
                     <div className="w-16 h-16 mx-auto bg-danger-100 rounded-full flex items-center justify-center">
                         <Lock className="w-8 h-8 text-danger-500" />
                     </div>

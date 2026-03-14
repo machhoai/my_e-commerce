@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -78,7 +78,7 @@ export default function ChangePasswordPage() {
                     <div className="p-8">
                         {success ? (
                             <div className="text-center py-6">
-                                <div className="w-16 h-16 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <div className="w-16 h-16 bg-success-500/20 text-success-500 rounded-full flex items-center justify-center mx-auto mb-4">
                                     <ShieldCheck className="w-8 h-8" />
                                 </div>
                                 <h3 className="text-lg font-medium text-white mb-2">Đã Cập Nhật Mật Khẩu!</h3>

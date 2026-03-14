@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
@@ -153,11 +153,11 @@ function CartDrawer({
                         {/* Warehouse selector */}
                         <div className="space-y-1.5">
                             <p className="text-xs font-bold text-surface-600 flex items-center gap-1.5">
-                                <Warehouse className="w-3.5 h-3.5 text-orange-500" />
+                                <Warehouse className="w-3.5 h-3.5 text-accent-500" />
                                 Đặt hàng từ kho <span className="text-danger-500">*</span>
                             </p>
                             <select value={selectedWarehouseId} onChange={e => onWarehouseChange(e.target.value)}
-                                className={`w-full bg-white border rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-orange-300 ${!selectedWarehouseId ? 'border-danger-300 text-surface-400' : 'border-surface-200 text-surface-800'}`}>
+                                className={`w-full bg-white border rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-accent-300 ${!selectedWarehouseId ? 'border-danger-300 text-surface-400' : 'border-surface-200 text-surface-800'}`}>
                                 <option value="">-- Chọn kho đặt hàng --</option>
                                 {warehouses.map(w => <option key={w.id} value={w.id}>🏭 {w.name}</option>)}
                             </select>

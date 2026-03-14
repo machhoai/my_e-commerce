@@ -39,7 +39,7 @@ export default function TabbedLayout({ tabs, children }: TabbedLayoutProps) {
                                 className={cn(
                                     'flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-lg whitespace-nowrap transition-all duration-200 shrink-0',
                                     isActive
-                                        ? 'bg-surface-900 text-white shadow-md shadow-surface-900/20'
+                                        ? 'bg-primary-600 text-white shadow-md shadow-surface-900/20'
                                         : 'text-surface-500 hover:text-surface-800 hover:bg-surface-100/80'
                                 )}
                             >
@@ -57,7 +57,7 @@ export default function TabbedLayout({ tabs, children }: TabbedLayoutProps) {
             </div>
 
             {/* Page Content — offset for fixed tab bar */}
-            <div className="pt-12">
+            <div className="pt-4">
                 {children}
             </div>
         </div>

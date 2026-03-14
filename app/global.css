@@ -59,32 +59,39 @@
 
         --radius: 0.5rem;
 
-        /* ── Design Tokens ─────────────────────────────────── */
-        /* Primary: Main CTA, links, headers, focus rings    */
-        --t-primary-50:  214 100% 97%;
-        --t-primary-100: 214 95% 93%;
-        --t-primary-200: 213 97% 87%;
-        --t-primary-300: 212 96% 78%;
-        --t-primary-400: 213 94% 68%;
-        --t-primary-500: 217 91% 60%;
-        --t-primary-600: 221 83% 53%;
-        --t-primary-700: 224 76% 48%;
-        --t-primary-800: 226 71% 40%;
-        --t-primary-900: 224 64% 33%;
-        --t-primary-950: 226 57% 21%;
+        /* ── B.Duck Brand Colors (RGB triplets) ───────────── */
+        --bduck-yellow: 255 209 0;
+        --bduck-orange: 255 121 0;
+        --bduck-dark: 26 26 26;
+        --secondary: var(--bduck-orange);
+        --secondary-foreground: 255 255 255;
 
-        /* Accent: Secondary actions, tags, highlights       */
-        --t-accent-50:  226 100% 97%;
-        --t-accent-100: 226 100% 94%;
-        --t-accent-200: 228 96% 89%;
-        --t-accent-300: 230 94% 82%;
-        --t-accent-400: 234 89% 74%;
-        --t-accent-500: 239 84% 67%;
-        --t-accent-600: 243 75% 59%;
-        --t-accent-700: 245 58% 51%;
-        --t-accent-800: 244 55% 41%;
-        --t-accent-900: 242 47% 34%;
-        --t-accent-950: 244 47% 20%;
+        /* ── Design Tokens ─────────────────────────────────── */
+        /* Primary: B.Duck Yellow (#FFD100) shades            */
+        --t-primary-50:  49 100% 97%;
+        --t-primary-100: 49 100% 92%;
+        --t-primary-200: 48 100% 82%;
+        --t-primary-300: 47 100% 70%;
+        --t-primary-400: 46 100% 60%;
+        --t-primary-500: 45 100% 50%;
+        --t-primary-600: 42 100% 45%;
+        --t-primary-700: 38 100% 38%;
+        --t-primary-800: 34 90% 30%;
+        --t-primary-900: 30 80% 22%;
+        --t-primary-950: 26 70% 14%;
+
+        /* Accent: B.Duck Orange (#FF7900) shades            */
+        --t-accent-50:  30 100% 97%;
+        --t-accent-100: 28 100% 92%;
+        --t-accent-200: 26 100% 83%;
+        --t-accent-300: 24 100% 72%;
+        --t-accent-400: 22 100% 62%;
+        --t-accent-500: 20 100% 50%;
+        --t-accent-600: 18 100% 45%;
+        --t-accent-700: 16 95% 38%;
+        --t-accent-800: 14 85% 30%;
+        --t-accent-900: 12 75% 22%;
+        --t-accent-950: 10 65% 14%;
 
         /* Success: Active, confirmed, positive states       */
         --t-success-50:  152 81% 96%;

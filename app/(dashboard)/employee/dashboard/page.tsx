@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -303,7 +303,7 @@ export default function EmployeeDashboardPage() {
                                                     }`}
                                             >
                                                 <div className={`absolute left-0 top-0 bottom-0 w-1 group-hover:w-1.5 transition-all ${isForceAssigned
-                                                    ? 'bg-gradient-to-b from-warning-400 to-orange-500'
+                                                    ? 'bg-gradient-to-b from-warning-400 to-accent-500'
                                                     : 'bg-gradient-to-b from-success-400 to-teal-500'
                                                     }`}></div>
 
