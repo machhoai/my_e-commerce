@@ -28,6 +28,7 @@ interface AuthContextValue {
     loading: boolean;
     permissions: Set<AppPermission>;
     hasPermission: (key: AppPermission) => boolean;
+    roleDefaultRoute: string | null;
     getToken: () => Promise<string>;
     login: (phone: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
@@ -64,6 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [userDoc, setUserDoc] = useState<UserDoc | null>(null);
     const [loading, setLoading] = useState(true);
     const [permissions, setPermissions] = useState<Set<AppPermission>>(new Set());
+    const [roleDefaultRoute, setRoleDefaultRoute] = useState<string | null>(null);
 
     const fetchUserDoc = useCallback(async (uid: string) => {
         try {
@@ -83,6 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         if (roleSnap.exists()) {
                             const roleData = roleSnap.data() as CustomRoleDoc;
                             roleData.permissions.forEach(p => permSet.add(p));
+                            setRoleDefaultRoute(roleData.defaultRoute || null);
                         }
                     } catch (err) {
                         console.error('Failed to load custom role:', err);
@@ -151,6 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 recoveryAttempted = false;
                 setUserDoc(null);
                 setPermissions(new Set());
+                setRoleDefaultRoute(null);
                 setLoading(false);
             }
         });
@@ -198,6 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await signOut(auth);
         setUserDoc(null);
         setPermissions(new Set());
+        setRoleDefaultRoute(null);
     }, []);
 
     const changePassword = useCallback(
@@ -217,7 +222,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     return (
-        <AuthContext.Provider value={{ user, userDoc, loading, permissions, hasPermission, getToken, login, logout, changePassword }}>
+        <AuthContext.Provider value={{ user, userDoc, loading, permissions, hasPermission, roleDefaultRoute, getToken, login, logout, changePassword }}>
             {children}
         </AuthContext.Provider>
     );

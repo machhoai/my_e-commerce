@@ -53,6 +53,7 @@ export default function AdminRolesPage() {
     const [newRolePerms, setNewRolePerms] = useState<Set<AppPermission>>(new Set());
     const [newCreatorRoles, setNewCreatorRoles] = useState<Set<string>>(new Set(['admin']));
     const [newColor, setNewColor] = useState('slate');
+    const [newDefaultRoute, setNewDefaultRoute] = useState('');
     const [newApplicableTo, setNewApplicableTo] = useState<Set<'STORE' | 'OFFICE' | 'CENTRAL'>>(new Set());
 
     // Edit state
@@ -61,6 +62,7 @@ export default function AdminRolesPage() {
     const [editPerms, setEditPerms] = useState<Set<AppPermission>>(new Set());
     const [editCreatorRoles, setEditCreatorRoles] = useState<Set<string>>(new Set());
     const [editColor, setEditColor] = useState('slate');
+    const [editDefaultRoute, setEditDefaultRoute] = useState('');
     const [editApplicableTo, setEditApplicableTo] = useState<Set<'STORE' | 'OFFICE' | 'CENTRAL'>>(new Set());
 
     // Expansion
@@ -101,11 +103,12 @@ export default function AdminRolesPage() {
                     permissions: Array.from(newRolePerms),
                     creatorRoles: Array.from(newCreatorRoles),
                     color: newColor,
+                    defaultRoute: newDefaultRoute.trim() || undefined,
                     applicableTo: Array.from(newApplicableTo),
                 }),
             });
             if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
-            setNewRoleName(''); setNewRolePerms(new Set()); setNewCreatorRoles(new Set(['admin'])); setNewColor('slate'); setNewApplicableTo(new Set());
+            setNewRoleName(''); setNewRolePerms(new Set()); setNewCreatorRoles(new Set(['admin'])); setNewColor('slate'); setNewDefaultRoute(''); setNewApplicableTo(new Set());
             showMsg('success', 'Đã tạo role mới!');
             fetchRoles();
         } catch (err) {
@@ -126,6 +129,7 @@ export default function AdminRolesPage() {
                     permissions: Array.from(editPerms),
                     creatorRoles: Array.from(editCreatorRoles),
                     color: editColor,
+                    defaultRoute: editDefaultRoute.trim() || '',
                     applicableTo: Array.from(editApplicableTo),
                 }),
             });
@@ -159,6 +163,7 @@ export default function AdminRolesPage() {
         setEditPerms(new Set(role.permissions));
         setEditCreatorRoles(new Set(role.creatorRoles || ['admin']));
         setEditColor(role.color || 'slate');
+        setEditDefaultRoute(role.defaultRoute || '');
         setEditApplicableTo(new Set(role.applicableTo || []));
     };
 
@@ -365,6 +370,19 @@ export default function AdminRolesPage() {
                         {renderApplicableTo(newApplicableTo, setNewApplicableTo)}
                         {renderColorPicker(newColor, setNewColor)}
                         {renderCreatorRolePicker(newCreatorRoles, setNewCreatorRoles)}
+
+                        {/* Default Route */}
+                        <div>
+                            <label className="text-xs font-semibold text-surface-600 block mb-1">Trang mặc định sau đăng nhập (Tùy chọn)</label>
+                            <input
+                                value={newDefaultRoute}
+                                onChange={e => setNewDefaultRoute(e.target.value)}
+                                placeholder="VD: /office/revenue"
+                                className="w-full border border-surface-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-accent-500/20 focus:border-accent-400 outline-none"
+                            />
+                            <p className="text-[11px] text-surface-400 mt-1">Route mặc định khi người dùng đăng nhập (để trống = dùng mặc định theo vai trò)</p>
+                        </div>
+
                         {renderPermissions(newRolePerms, setNewRolePerms)}
 
                         <button
@@ -410,6 +428,18 @@ export default function AdminRolesPage() {
                                         {renderApplicableTo(editApplicableTo, setEditApplicableTo)}
                                         {renderColorPicker(editColor, setEditColor)}
                                         {renderCreatorRolePicker(editCreatorRoles, setEditCreatorRoles)}
+
+                                        {/* Default Route */}
+                                        <div>
+                                            <label className="text-xs font-semibold text-surface-600 block mb-1">Trang mặc định sau đăng nhập (Tùy chọn)</label>
+                                            <input
+                                                value={editDefaultRoute}
+                                                onChange={e => setEditDefaultRoute(e.target.value)}
+                                                placeholder="VD: /office/revenue"
+                                                className="w-full border border-accent-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-accent-500/20 outline-none"
+                                            />
+                                            <p className="text-[11px] text-surface-400 mt-1">Để trống = dùng mặc định theo vai trò</p>
+                                        </div>
                                         <div className="space-y-1 max-h-56 overflow-y-auto pr-1">
                                             {permissionGroups.map(group => (
                                                 <div key={group}>
@@ -487,6 +517,9 @@ export default function AdminRolesPage() {
                                                             const cr = roles.find(r => r.id === cid);
                                                             return cr?.name ?? cid;
                                                         }).join(', ')}</>
+                                                    )}
+                                                    {role.defaultRoute && (
+                                                        <> · Redirect: <span className="font-mono text-accent-600">{role.defaultRoute}</span></>
                                                     )}
                                                 </p>
                                             </div>

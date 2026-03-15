@@ -19,6 +19,7 @@ interface DataTableToolbarProps {
     activeFilterCount: number;
     onClearAll: () => void;
     onMobileApply: (values: Record<string, string>) => void;
+    className?: string;
 }
 
 export default function DataTableToolbar({
@@ -35,6 +36,7 @@ export default function DataTableToolbar({
     activeFilterCount,
     onClearAll,
     onMobileApply,
+    className,
 }: DataTableToolbarProps) {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [localSearch, setLocalSearch] = useState(searchValue);
@@ -58,9 +60,9 @@ export default function DataTableToolbar({
 
     return (
         <>
-            <div className="bg-white rounded-xl border border-surface-200 shadow-sm overflow-hidden">
+            <div className={cn("bg-white rounded-xl border border-surface-200 shadow-sm overflow-hidden", className)}>
                 {/* Desktop View */}
-                <div className="hidden md:flex items-center gap-3 p-3">
+                <div className="hidden md:flex items-center gap-3 p-2">
                     {/* Search */}
                     <div className="relative flex-1 max-w-sm">
                         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />

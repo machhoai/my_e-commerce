@@ -40,6 +40,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             permissions?: AppPermission[];
             creatorRoles?: string[];
             color?: string;
+            defaultRoute?: string;
             applicableTo?: ('STORE' | 'OFFICE' | 'CENTRAL')[];
         };
 
@@ -48,6 +49,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         if (body.permissions !== undefined) updateData.permissions = body.permissions;
         if (body.creatorRoles !== undefined) updateData.creatorRoles = body.creatorRoles;
         if (body.color !== undefined) updateData.color = body.color;
+        if (body.defaultRoute !== undefined) {
+            updateData.defaultRoute = body.defaultRoute.trim() || null;
+        }
         if (body.applicableTo !== undefined) {
             updateData.applicableTo = body.applicableTo.length > 0 ? body.applicableTo : null;
         }

@@ -48,14 +48,16 @@ function KPICard({ title, value, sub, icon, accent, badge, hero }: {
 }) {
     if (hero) {
         return (
-            <div className="relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-success-500 to-success-600 shadow-lg shadow-success-200 hover:shadow-xl hover:shadow-success-200 transition-all duration-200">
+            <div className="relative shrink-0 flex-1 overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-primary-600 to-primary-800 shadow-lg shadow-primary-200 hover:shadow-xl hover:shadow-primary-200 transition-all duration-200">
                 {/* Subtle pattern overlay */}
                 <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
                 <div className="relative flex items-center justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold uppercase tracking-widest text-success-100">{title}</p>
-                        <p className="mt-2 text-2xl xl:text-3xl font-extrabold text-white leading-tight break-words drop-shadow-sm truncate">{value}</p>
-                        <p className="mt-1.5 text-xs text-success-100 break-words leading-tight">{sub}</p>
+                        <p className="text-[11px] font-bold uppercase tracking-widest text-primary-100">{title}</p>
+                        <p className="mt-2 text-xl sm:text-2xl xl:text-3xl tracking-tighter font-extrabold text-white leading-tight drop-shadow-sm whitespace-nowrap">
+                            {value}
+                        </p>
+                        <p className="mt-1.5 text-xs text-primary-100 break-words leading-tight">{sub}</p>
                     </div>
                     <div className="shrink-0 w-11 h-11 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/30">
                         {icon}
@@ -136,7 +138,7 @@ function SectionHeader({ icon, title, subtitle }: { icon: React.ReactNode; title
 export default function RevenueClient() {
     const { userDoc, hasPermission } = useAuth();
 
-    const [filterMode, setFilterMode] = useState<FilterMode>('month');
+    const [filterMode, setFilterMode] = useState<FilterMode>('day');
     const [dayDate, setDayDate] = useState(todayStr());
     const [monthDate, setMonthDate] = useState(todayStr().slice(0, 7));
     const [customStart, setCustomStart] = useState(monthStart());
@@ -199,26 +201,53 @@ export default function RevenueClient() {
         setSyncing(true);
         try {
             const result = await triggerSyncAction(start, end);
-            if (!result.success) setError(result.error || 'Đồng bộ thất bại.');
+            if (!result.success) {
+                setError(result.error || 'Đồng bộ thất bại.');
+            } else {
+                // 👇 THÊM 5 DÒNG NÀY ĐỂ ÉP UI NHẢY SỐ NGAY LẬP TỨC 👇
+                setData(result.data);
+                setSellData(result.sellData);
+                setDailyPanel(result.dailyPanel ?? null);
+                setUpdatedAt(result.updatedAt);
+                setError(null);
+                // 👆 ------------------------------------------- 👆
+            }
         } catch { setError('Đồng bộ thất bại.'); }
         finally { setSyncing(false); }
     }, [getRange]);
 
     // ── Computed data ──────────────────────────────────────────────────────────
+    // ── Computed data ──────────────────────────────────────────────────────────
     const kpis = useMemo(() => {
-        const totalReal = data.reduce((s, d) => s + d.realMoney, 0);
-        const totalSys = data.reduce((s, d) => s + d.sysMoney, 0);
-        const totalCash = data.reduce((s, d) => s + d.cashRealMoney, 0);
-        const totalTransfer = data.reduce((s, d) => s + d.transferRealMoney, 0);
+        // 1. Tính toán mặc định từ mảng data (Dành cho khi xem nhiều ngày / theo tháng)
+        let totalReal = data.reduce((s, d) => s + d.realMoney, 0);
+        let totalSys = data.reduce((s, d) => s + d.sysMoney, 0);
+        let totalCash = data.reduce((s, d) => s + d.cashRealMoney, 0);
+        let totalTransfer = data.reduce((s, d) => s + d.transferRealMoney, 0);
         const totalCoins = data.reduce((s, d) => s + d.sellCoinAmount, 0);
         const totalRefund = dailyPanel?.shopSummary?.refundMoney ?? data.reduce((s, d) => s + d.cashErrorMoney, 0);
         const peakDay = data.length > 0 ? data.reduce((max, d) => d.realMoney > max.realMoney ? d : max, data[0]) : null;
+
+        // 2. GHI ĐÈ BẰNG DỮ LIỆU REAL-TIME NẾU ĐANG XEM 1 NGÀY (dailyPanel tồn tại)
+        if (dailyPanel) {
+            // Ghi đè Thực thu bằng số chính xác nhất từ ShopSummary
+            if (dailyPanel.shopSummary) {
+                totalReal = dailyPanel.shopSummary.shopRealMoney;
+                totalSys = dailyPanel.shopSummary.totalMoney;
+            }
+
+            // Ghi đè Tiền mặt & Chuyển khoản từ PaymentStats (Giống hệt Pie Chart)
+            if (dailyPanel.paymentStats && dailyPanel.paymentStats.length > 0) {
+                const pmCash = dailyPanel.paymentStats.find(p => p.paymentCategoryName.toLowerCase().includes('tiền mặt'));
+                const pmTransfer = dailyPanel.paymentStats.find(p => p.paymentCategoryName.toLowerCase().includes('chuyển khoản'));
+
+                if (pmCash) totalCash = pmCash.totalRealMoney;
+                if (pmTransfer) totalTransfer = pmTransfer.totalRealMoney;
+            }
+        }
+
         return { totalReal, totalSys, totalCash, totalTransfer, totalCoins, totalRefund, peakDay };
     }, [data, dailyPanel]);
-
-    useEffect(() => {
-        console.log(data);
-    }, [data]);
 
     const isMultiDay = data.length > 1;
 
@@ -261,7 +290,7 @@ export default function RevenueClient() {
     const tabBtn = (active: boolean) =>
         `flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${active
             ? 'bg-white text-accent-600 shadow-sm border border-surface-200' : 'text-surface-500 hover:text-surface-700 hover:bg-white/60'}`;
-    const inputCls = "rounded-xl border border-surface-200 bg-white px-3 py-2 text-sm text-surface-700 focus:border-accent-400 focus:ring-2 focus:ring-accent-100 outline-none transition-all";
+    const inputCls = "rounded-xl bg-white px-3 text-sm text-surface-700 focus:border-accent-400 focus:ring-2 focus:ring-accent-100 outline-none transition-all";
 
     // ── Permission guard (placed AFTER all hooks — Rules of Hooks compliant) ──
     const isAdminOrSuper = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
@@ -336,8 +365,8 @@ export default function RevenueClient() {
                 </div>
 
                 {/* Filter Bar */}
-                <div className="flex flex-wrap items-center gap-3 bg-white rounded-2xl p-3 border border-surface-100 shadow-sm">
-                    <div className="flex items-center gap-1 bg-surface-50 rounded-xl p-1 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-3 bg-white rounded-2xl p-1 border border-surface-100 shadow-sm">
+                    <div className="flex items-center gap-1 w-full sm:w-auto">
                         <button onClick={() => setFilterMode('day')} className={pillBtn(filterMode === 'day') + ' flex-1 flex justify-center items-center sm:flex-none'}>
                             <Calendar className="size-3" />Ngày
                         </button>
@@ -404,7 +433,7 @@ export default function RevenueClient() {
                         {/* Dynamic accent colors via inline style */}
                         {/* THỰC THU — hero card: full-width on mobile, prominent gradient */}
                         <div className="col-span-2 sm:col-span-1">
-                            <KPICard hero title="Thực thu" value={fmtVND(kpis.totalSys)}
+                            <KPICard hero title="Thực thu" value={fmtVND(dailyPanel?.shopSummary?.shopRealMoney ?? kpis.totalReal)}
                                 sub=""
                                 icon={<DollarSign className="size-5 text-white" />} accent="bg-success-500" />
                         </div>

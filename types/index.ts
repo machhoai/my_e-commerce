@@ -80,6 +80,7 @@ export interface CustomRoleDoc {
     isLocked?: boolean;         // Fully locked (admin role) — cannot be edited or deleted
     creatorRoles: string[];     // Which role IDs are allowed to create/assign this role
     color?: string;             // Display color for the role badge
+    defaultRoute?: string;      // Default redirect route after login (e.g. '/office/revenue')
     applicableTo?: ('STORE' | 'OFFICE' | 'CENTRAL')[];  // Which location types can use this role
     createdAt?: string;
     createdBy?: string;

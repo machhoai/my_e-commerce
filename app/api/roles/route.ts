@@ -108,6 +108,7 @@ export async function POST(req: NextRequest) {
             permissions: AppPermission[];
             creatorRoles?: string[];
             color?: string;
+            defaultRoute?: string;
             applicableTo?: ('STORE' | 'OFFICE' | 'CENTRAL')[];
         };
 
@@ -120,6 +121,7 @@ export async function POST(req: NextRequest) {
             permissions: body.permissions || [],
             creatorRoles: body.creatorRoles || ['admin'],
             color: body.color || undefined,
+            ...(body.defaultRoute?.trim() ? { defaultRoute: body.defaultRoute.trim() } : {}),
             ...(body.applicableTo?.length ? { applicableTo: body.applicableTo } : {}),
             isSystem: false,
             isLocked: false,

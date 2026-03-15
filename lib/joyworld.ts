@@ -25,7 +25,7 @@ export async function getJoyworldToken() {
  * Lấy dữ liệu doanh thu theo khoảng ngày (Revenue overview)
  */
 export async function getRevenueData(token: string, startDate: string, endDate: string) {
-    const url = `${BASE_URL}/finance/manager/revenueoverview/revenue?startDate=${startDate}&endDate=${endDate}`;
+    const url = `${BASE_URL}/finance/manager/revenueoverview/revenue?startDate=${startDate}&endDate=${endDate}&_t=${Date.now()}`;
     const response = await fetch(url, {
         method: 'GET',
         cache: 'no-store',
@@ -42,7 +42,7 @@ export async function getRevenueData(token: string, startDate: string, endDate: 
  * Lấy dữ liệu sản phẩm bán theo khoảng ngày (Sell overview)
  */
 export async function getSellData(token: string, startDate: string, endDate: string) {
-    const url = `${BASE_URL}/finance/manager/revenueoverview/sell?startDate=${startDate}&endDate=${endDate}`;
+    const url = `${BASE_URL}/finance/manager/revenueoverview/revenue?startDate=${startDate}&endDate=${endDate}&_t=${Date.now()}`;
     const response = await fetch(url, {
         method: 'GET',
         cache: 'no-store',
@@ -62,7 +62,7 @@ export async function getSellData(token: string, startDate: string, endDate: str
  * GET /finance/manager/revenuepanel/getshopsummary?forDate=YYYY-MM-DD
  */
 export async function getShopSummary(token: string, forDate: string) {
-    const url = `${BASE_URL}/finance/manager/revenuepanel/getshopsummary?forDate=${forDate}`;
+    const url = `${BASE_URL}/finance/manager/revenuepanel/getshopsummary?forDate=${forDate}&_t=${Date.now()}`;
     const response = await fetch(url, {
         method: 'GET',
         cache: 'no-store',
@@ -80,7 +80,7 @@ export async function getShopSummary(token: string, forDate: string) {
  * GET /finance/manager/revenuepanel/statistics/payment?forDate=YYYY-MM-DD
  */
 export async function getPaymentStatistics(token: string, forDate: string) {
-    const url = `${BASE_URL}/finance/manager/revenuepanel/statistics/payment?forDate=${forDate}`;
+    const url = `${BASE_URL}/finance/manager/revenuepanel/statistics/payment?forDate=${forDate}&_t=${Date.now()}`;
     console.log(url);
     const response = await fetch(url, {
         method: 'GET',
@@ -102,7 +102,7 @@ export async function getPaymentStatistics(token: string, forDate: string) {
  * GET /finance/manager/revenuepanel/statistics/goods/type?forDate=YYYY-MM-DD
  */
 export async function getGoodsTypeStatistics(token: string, forDate: string) {
-    const url = `${BASE_URL}/finance/manager/revenuepanel/statistics/goods/type?forDate=${forDate}`;
+    const url = `${BASE_URL}/finance/manager/revenuepanel/statistics/goods/type?forDate=${forDate}&_t=${Date.now()}`;
     const response = await fetch(url, {
         method: 'GET',
         cache: 'no-store',

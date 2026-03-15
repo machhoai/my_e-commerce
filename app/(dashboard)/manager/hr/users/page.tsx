@@ -404,21 +404,7 @@ function ManagerUsersPageContent() {
                         )}
 
                         {/* Toolbar */}
-                        <DataTableToolbar
-                            searchValue={params.q}
-                            onSearchChange={(v) => setParam('q', v)}
-                            searchPlaceholder="Tìm theo tên hoặc số điện thoại..."
-                            filters={tableFilters}
-                            filterValues={{ type: params.type || '', role: params.role || '', status: params.status || '' }}
-                            onFilterChange={(key, value) => setParam(key, value)}
-                            sortOptions={tableSortOptions}
-                            currentSort={params.sort}
-                            currentOrder={params.order}
-                            onSortChange={toggleSort}
-                            activeFilterCount={activeFilterCount}
-                            onClearAll={clearAll}
-                            onMobileApply={(values) => setParams(values)}
-                        />
+
 
                         {/* KPI Stats Cards */}
                         <div className="grid grid-cols-3 gap-3">
@@ -457,19 +443,38 @@ function ManagerUsersPageContent() {
                             </div>
                         </div>
 
-                        {/* Add button */}
-                        <div className="flex justify-end">
-                            <button
-                                onClick={() => {
-                                    resetForm();
-                                    setEditUid(null);
-                                    setIsCreateModalOpen(true);
-                                }}
-                                className="flex items-center gap-2 bg-gradient-to-r from-primary-600 to-accent-600 hover:from-primary-700 hover:to-accent-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-primary-500/20 transition-all active:scale-95"
-                            >
-                                <Plus className="w-4 h-4" />
-                                Thêm Nhân viên
-                            </button>
+                        <div className="flex gap-2 w-full">
+                            <DataTableToolbar
+                                searchValue={params.q}
+                                onSearchChange={(v) => setParam('q', v)}
+                                searchPlaceholder="Tìm theo tên hoặc số điện thoại..."
+                                filters={tableFilters}
+                                filterValues={{ type: params.type || '', role: params.role || '', status: params.status || '' }}
+                                onFilterChange={(key, value) => setParam(key, value)}
+                                sortOptions={tableSortOptions}
+                                currentSort={params.sort}
+                                currentOrder={params.order}
+                                onSortChange={toggleSort}
+                                activeFilterCount={activeFilterCount}
+                                onClearAll={clearAll}
+                                onMobileApply={(values) => setParams(values)}
+                                className="flex-1"
+                            />
+
+                            {/* Add button */}
+                            <div className="flex justify-end">
+                                <button
+                                    onClick={() => {
+                                        resetForm();
+                                        setEditUid(null);
+                                        setIsCreateModalOpen(true);
+                                    }}
+                                    className="flex items-center gap-2 bg-gradient-to-r from-primary-600 to-accent-600 hover:from-primary-700 hover:to-accent-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-primary-500/20 transition-all active:scale-95"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Thêm Nhân viên
+                                </button>
+                            </div>
                         </div>
 
                         {/* Table Container */}
