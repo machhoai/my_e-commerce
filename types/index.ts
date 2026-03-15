@@ -157,6 +157,7 @@ export interface UserDoc {
     canManageHR?: boolean;
     customRoleId?: string; // Points to a document in 'custom_roles' collection
     fcmToken?: string; // Firebase Cloud Messaging registration token
+    defaultDashboard?: string; // User-configurable preferred landing page (e.g. '/office/revenue')
 }
 
 export interface NotificationDoc {

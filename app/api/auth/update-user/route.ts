@@ -69,6 +69,11 @@ export async function POST(request: Request) {
         if (body.email !== undefined) updateData.email = body.email;
         if (body.idCard !== undefined) updateData.idCard = body.idCard;
 
+        // User's preferred landing page — anyone can update their own; ignored when editing others
+        if (body.defaultDashboard !== undefined && requestUid === targetUid) {
+            updateData.defaultDashboard = body.defaultDashboard || null;
+        }
+
         const canEditBankAccount = (requestUid !== targetUid) || ['admin', 'store_manager', 'manager'].includes(requesterRole);
         if (body.bankAccount !== undefined && canEditBankAccount) {
             updateData.bankAccount = body.bankAccount;

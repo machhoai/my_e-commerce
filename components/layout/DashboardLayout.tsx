@@ -380,7 +380,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 <button
                                     onClick={toggleCollapsed}
                                     title="Mở Rộng Sidebar"
-                                    className="flex -right-2 top-1/2 -translate-y-1/2 translate-x-1/2 absolute items-center justify-center w-6 h-6 rounded-full bg-primary-600 text-white hover:bg-surface-200 hover:text-surface-700 transition-colors"
+                                    className="flex -right-2 top-1/2 -translate-y-1/2 translate-x-1/2 absolute items-center justify-center w-6 h-6 rounded-full hover:bg-primary-600 hover:text-white text-surface-700 transition-colors"
                                 >
                                     <ChevronRight className="size-3.5" />
                                 </button>

@@ -99,9 +99,20 @@ export async function POST(req: NextRequest) {
 export async function DELETE() {
     try {
         const cookieStore = await cookies();
+
+        // Clear the server-side session cookie
         cookieStore.set('session', '', {
             maxAge: 0,
             httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            path: '/',
+            sameSite: 'lax',
+        });
+
+        // Clear last_visited_path so the next login won't resurrect a stale destination
+        cookieStore.set('last_visited_path', '', {
+            maxAge: 0,
+            httpOnly: false, // non-httpOnly so client JS can also clear it
             secure: process.env.NODE_ENV === 'production',
             path: '/',
             sameSite: 'lax',

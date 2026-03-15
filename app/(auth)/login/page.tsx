@@ -1,9 +1,30 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Phone, Lock, LogIn, AlertCircle } from 'lucide-react';
+import { getRoleDefaultRoute, parseLastVisitedPath } from '@/lib/routing';
+
+/**
+ * Resolves the redirect destination after successful login.
+ * Priority: last_visited_path cookie → userDoc.defaultDashboard → role-based fallback.
+ */
+function resolveRedirectDestination(
+    role: string,
+    workplaceType: string | undefined,
+    defaultDashboard: string | undefined
+): string {
+    // 1. Last visited page (client-readable cookie)
+    if (typeof document !== 'undefined') {
+        const lastVisited = parseLastVisitedPath(document.cookie);
+        if (lastVisited) return lastVisited;
+    }
+    // 2. User-configured default dashboard
+    if (defaultDashboard) return defaultDashboard;
+    // 3. Role-based fallback
+    return getRoleDefaultRoute(role, workplaceType);
+}
 
 export default function LoginPage() {
     const [phone, setPhone] = useState('');
@@ -17,17 +38,17 @@ export default function LoginPage() {
     // This is critical for iOS PWA: when the OS restores the standalone
     // WebView, the user may land on /login even though they're still
     // authenticated (via IndexedDB or session cookie recovery).
+    // The middleware handles the fast-path redirect for server-rendered hits,
+    // but this useEffect covers the client-hydration path.
     useEffect(() => {
-        if (authLoading) return; // Wait for onAuthStateChanged to resolve
+        if (authLoading) return;
         if (user && userDoc) {
-            // Redirect based on role
-            const roleRoutes: Record<string, string> = {
-                admin: '/admin/users',
-                store_manager: '/admin/users',
-                manager: '/manager/scheduling/overview',
-                employee: '/employee/dashboard',
-            };
-            router.replace(roleRoutes[userDoc.role] || '/employee/dashboard');
+            const destination = resolveRedirectDestination(
+                userDoc.role,
+                userDoc.workplaceType,
+                userDoc.defaultDashboard
+            );
+            router.replace(destination);
         }
     }, [user, userDoc, authLoading, router]);
 
@@ -38,7 +59,13 @@ export default function LoginPage() {
 
         try {
             await login(phone, password);
-            router.push('/employee/dashboard'); // Default redirect
+            // userDoc will be populated by onAuthStateChanged → fetchUserDoc,
+            // but we can't await it here. The useEffect above will fire once
+            // userDoc is ready and handle the navigation.
+            // As a safety-net for the edge case where userDoc is already set
+            // (e.g., re-login), we also push to the employee dashboard fallback
+            // — the useEffect will override this if a better destination exists.
+            router.push('/employee/dashboard');
         } catch (err: unknown) {
             if (err instanceof Error) {
                 if (err.message.includes('auth/invalid-credential')) {
@@ -122,10 +149,10 @@ export default function LoginPage() {
                                     className="w-full bg-surface-950 border border-surface-800 text-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block pl-10 p-2.5 transition-colors"
                                     placeholder="••••••••"
                                 />
+                                <p className="text-xs text-surface-500 ml-1 mt-1">
+                                    Mật khẩu mặc định là 6 số cuối số điện thoại của bạn
+                                </p>
                             </div>
-                            <p className="text-xs text-surface-500 ml-1 mt-1">
-                                Mật khẩu mặc định là 6 số cuối số điện thoại của bạn
-                            </p>
                         </div>
 
                         <button

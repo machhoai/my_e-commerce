@@ -1,11 +1,12 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { UserDoc } from '@/types';
-import { User, Mail, Phone, Calendar, Briefcase, CreditCard, GraduationCap, ShieldCheck } from 'lucide-react';
+import { DEFAULT_DASHBOARD_OPTIONS } from '@/lib/routing';
+import { User, Mail, Phone, Calendar, Briefcase, CreditCard, GraduationCap, ShieldCheck, Home } from 'lucide-react';
 
 export default function ProfilePage() {
     const { user } = useAuth();
@@ -64,8 +65,9 @@ export default function ProfilePage() {
             setMessage({ type: 'success', text: 'Cập nhật hồ sơ thành công!' });
             setProfileData(prev => prev ? { ...prev, ...editData } : null);
             setIsEditing(false);
-        } catch (err: any) {
-            setMessage({ type: 'error', text: err.message || 'Đã xảy ra lỗi' });
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Đã xảy ra lỗi';
+            setMessage({ type: 'error', text: msg });
         } finally {
             setSaving(false);
         }
@@ -78,6 +80,7 @@ export default function ProfilePage() {
                 dob: profileData.dob || '',
                 bankAccount: profileData.bankAccount || '',
                 education: profileData.education || '',
+                defaultDashboard: profileData.defaultDashboard || '',
             });
             setIsEditing(true);
         }
@@ -95,6 +98,9 @@ export default function ProfilePage() {
     if (!profileData) {
         return <div className="p-6 text-center text-danger-500">Không tìm thấy dữ liệu hồ sơ.</div>;
     }
+
+    // Get the allowed dashboard options for this user's role
+    const dashboardOptions = DEFAULT_DASHBOARD_OPTIONS[profileData.role] || [];
 
     return (
         <div className=" mx-auto space-y-6 animate-in fade-in duration-500 ">
@@ -181,6 +187,37 @@ export default function ProfilePage() {
                                     <div className="text-surface-900 font-medium px-1">{profileData.email || <span className="text-surface-400 italic">Chưa cung cấp</span>}</div>
                                 )}
                             </div>
+
+                            {/* Default Dashboard (shown when editing, if user has options) */}
+                            {dashboardOptions.length > 1 && (
+                                <div className="space-y-1.5 group">
+                                    <label className={`text-sm font-semibold flex items-center gap-2 ${isEditing ? 'text-primary-600' : 'text-surface-500'}`}>
+                                        <Home className={`w-4 h-4 ${isEditing ? 'text-primary-500' : 'text-surface-400'}`} /> Trang chủ mặc định
+                                    </label>
+                                    {isEditing ? (
+                                        <select
+                                            value={editData.defaultDashboard || ''}
+                                            onChange={e => handleEditChange('defaultDashboard', e.target.value)}
+                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 transition-all"
+                                        >
+                                            <option value="">Tự động (theo vai trò)</option>
+                                            {dashboardOptions.map(opt => (
+                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <div className="text-surface-900 font-medium px-1">
+                                            {profileData.defaultDashboard
+                                                ? (dashboardOptions.find(o => o.value === profileData.defaultDashboard)?.label ?? profileData.defaultDashboard)
+                                                : <span className="text-surface-400 italic">Tự động (theo vai trò)</span>
+                                            }
+                                        </div>
+                                    )}
+                                    {!isEditing && (
+                                        <p className="text-[10px] text-surface-400 ml-1">Trang bạn sẽ được chuyển đến sau khi đăng nhập.</p>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Column 2 */}
