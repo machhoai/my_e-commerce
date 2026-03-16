@@ -6,6 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Phone, Lock, LogIn, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { getRoleDefaultRoute, parseLastVisitedPath } from '@/lib/routing';
 
+
+
 /**
  * Resolves the redirect destination after successful login.
  * Priority: last_visited_path cookie → userDoc.defaultDashboard → roleDoc.defaultRoute → role-based fallback.
@@ -37,6 +39,7 @@ export default function LoginPage() {
     useEffect(() => {
         if (authLoading) return;
         if (user && userDoc) {
+            // user_role cookie is already set by AuthContext.fetchUserDoc
             const destination = resolveRedirectDestination(
                 userDoc.role,
                 userDoc.workplaceType,
@@ -53,7 +56,9 @@ export default function LoginPage() {
         setLocalLoading(true);
         try {
             await login(phone, password);
-            router.push('/employee/dashboard');
+            // ✅ Tidak redirect cứng ở đây.
+            // useEffect bên trên sẽ tự redirect đúng trang theo role
+            // khi user + userDoc được load xong từ AuthContext.
         } catch (err: unknown) {
             if (err instanceof Error) {
                 if (err.message.includes('auth/invalid-credential')) {

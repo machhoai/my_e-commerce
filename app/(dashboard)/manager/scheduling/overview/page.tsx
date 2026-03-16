@@ -491,7 +491,7 @@ export default function GlobalOverviewPage() {
         try {
             // Create a clean, hidden HTML table with inline styles (no Tailwind)
             const wrapper = document.createElement('div');
-            wrapper.style.cssText = 'position:fixed;top:-99999px;left:0;z-index:-1;background:#fff;padding:24px;width:1920px;';
+            wrapper.style.cssText = 'position:fixed;top:-99999px;left:0;z-index:-1;background:#fff;padding:24px;width:1400px;';
 
             // Title
             const titleEl = document.createElement('h2');

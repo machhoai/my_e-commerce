@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
@@ -10,11 +10,13 @@ import {
     TrendingUp, CalendarDays, Coins, Loader2, AlertTriangle, BarChart3,
     CalendarRange, Calendar, Table2, Package, ShoppingBag, RefreshCw,
     Wifi, WifiOff, Banknote, ArrowUpDown, DollarSign, XCircle, Clock,
+    ShoppingCart, User, CreditCard, Store, CheckCircle2, ChevronLeft, ChevronRight, Receipt,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { subscribeDocument } from '@/lib/firestore';
 import { JOYWORLD_CACHE_COLLECTION, getCacheDocId, type RevenueCache, type RevenueRecord, type SellCategory, type DailyPanel } from '@/lib/revenue-cache';
 import { fetchRevenueFromCache, triggerSyncAction } from './actions';
+import { fetchOrderList, fetchOrderDetail, JwOrder, JwOrderFoot, JwOrderDetailData } from './orders/actions';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 const fmt = (v: number) => v.toLocaleString('vi-VN');
@@ -38,7 +40,7 @@ function fmtTime(iso: string) {
 }
 
 type FilterMode = 'day' | 'month' | 'custom';
-type ViewTab = 'overview' | 'table';
+type ViewTab = 'overview' | 'table' | 'orders';
 
 const PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#06b6d4', '#ec4899', '#8b5cf6', '#f97316', '#14b8a6'];
 
@@ -48,10 +50,10 @@ function KPICard({ title, value, sub, icon, accent, badge, hero }: {
 }) {
     if (hero) {
         return (
-            <div className="relative shrink-0 flex-1 overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-primary-600 to-primary-800 shadow-lg shadow-primary-200 hover:shadow-xl hover:shadow-primary-200 transition-all duration-200">
+            <div className="relative h-full items-center flex  shrink-0 flex-1 overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-primary-600 to-primary-800 shadow-lg shadow-primary-200 hover:shadow-xl hover:shadow-primary-200 transition-all duration-200 min-w-[300px]">
                 {/* Subtle pattern overlay */}
                 <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
-                <div className="relative flex items-center justify-between gap-3">
+                <div className="relative flex items-center w-full justify-between gap-3">
                     <div className="flex-1 min-w-0">
                         <p className="text-[11px] font-bold uppercase tracking-widest text-primary-100">{title}</p>
                         <p className="mt-2 text-xl sm:text-2xl xl:text-3xl tracking-tighter font-extrabold text-white leading-tight drop-shadow-sm whitespace-nowrap">
@@ -130,6 +132,343 @@ function SectionHeader({ icon, title, subtitle }: { icon: React.ReactNode; title
                 {subtitle && <p className="text-xs text-surface-400">{subtitle}</p>}
             </div>
             <div className="flex-1 h-px bg-gradient-to-r from-surface-200 to-transparent ml-2" />
+        </div>
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── OrdersPanel — embedded as a tab inside RevenueClient ─────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const ORDER_STATUS: Record<number, { label: string; cls: string }> = {
+    1: { label: 'Ch\u1edd x\u1eed l\u00fd', cls: 'bg-warning-100 text-warning-700 border-warning-200' },
+    2: { label: 'M\u1ed9t ph\u1ea7n', cls: 'bg-primary-100 text-primary-700 border-primary-200' },
+    3: { label: 'Ho\u00e0n th\u00e0nh', cls: 'bg-success-100 text-success-700 border-success-200' },
+    4: { label: '\u0110\u00e3 hu\u1ef7', cls: 'bg-danger-100 text-danger-700 border-danger-200' },
+};
+const PAGE_LIMIT = 20;
+
+function OrderStatusBadge({ status }: { status: number }) {
+    const s = ORDER_STATUS[status] ?? { label: `#${status}`, cls: 'bg-surface-100 text-surface-500 border-surface-200' };
+    return (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${s.cls}`}>
+            {status === 3 && <CheckCircle2 className="w-3 h-3" />}
+            {status === 4 && <XCircle className="w-3 h-3" />}
+            {s.label}
+        </span>
+    );
+}
+
+function OrdersPanel({ getRange }: { getRange: () => { start: string; end: string } }) {
+    const [orders, setOrders] = useState<JwOrder[]>([]);
+    const [foot, setFoot] = useState<JwOrderFoot | null>(null);
+    const [totals, setTotals] = useState(0);
+    const [page, setPage] = useState(1);
+    const [fetched, setFetched] = useState(false);
+    const [loadingList, setLoadingList] = useState(false);
+    const [errList, setErrList] = useState('');
+
+    const [selectedOrder, setSelectedOrder] = useState<JwOrder | null>(null);
+    const [detail, setDetail] = useState<JwOrderDetailData | null>(null);
+    const [loadingDetail, setLoadingDetail] = useState(false);
+
+    const load = useCallback(async (p: number) => {
+        const { start, end } = getRange();
+        setLoadingList(true);
+        setErrList('');
+        try {
+            const res = await fetchOrderList({
+                startTime: `${start} 00:00:00`,
+                endTime: `${end} 23:59:59`,
+                page: p,
+                limit: PAGE_LIMIT,
+            });
+            if (!res.success) { setErrList(res.error || 'L\u1ed7i t\u1ea3i \u0111\u01a1n h\u00e0ng'); setOrders([]); }
+            else { setOrders(res.data); setFoot(res.foot); setTotals(res.totals); setPage(p); }
+        } catch { setErrList('Kh\u00f4ng th\u1ec3 k\u1ebft n\u1ed1i Joyworld'); }
+        finally { setLoadingList(false); setFetched(true); }
+    }, [getRange]);
+
+    // Auto-load when panel becomes visible
+    useEffect(() => { load(1); }, [load]);
+
+    const openDetail = async (order: JwOrder) => {
+        setSelectedOrder(order);
+        setDetail(null);
+        setLoadingDetail(true);
+        const res = await fetchOrderDetail(order.orderId);
+        setDetail(res.data);
+        setLoadingDetail(false);
+    };
+
+    const totalPages = Math.ceil(totals / PAGE_LIMIT);
+
+    return (
+        <div className="space-y-4">
+            {/* Foot summary */}
+            {foot && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                    {([
+                        { l: 'Tổng sản phẩm', v: `${foot.totalQty}`, c: 'text-surface-800' },
+                        { l: 'Giá gốc', v: fmtVND(foot.originalMoney), c: 'text-surface-600' },
+                        { l: 'Thực thu', v: fmtVND(foot.realMoney), c: 'text-success-700 font-bold' },
+                        { l: 'Giảm giá', v: fmtVND(foot.discountMoney), c: 'text-warning-700' },
+                        { l: 'Hoàn trả', v: fmtVND(foot.cancelMoney), c: 'text-danger-700' },
+                        { l: 'Thuế', v: fmtVND(foot.taxMoney), c: 'text-surface-600' },
+                    ] as { l: string; v: string; c: string }[]).map(({ l, v, c }) => (
+                        <div key={l} className="bg-white rounded-2xl border border-surface-100 shadow-sm p-3">
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-surface-400">{l}</p>
+                            <p className={`text-xs font-bold mt-0.5 ${c}`}>{v}</p>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Error */}
+            {errList && (
+                <div className="rounded-2xl border border-danger-200 bg-danger-50 p-3 flex items-center gap-2 text-sm text-danger-700">
+                    <AlertTriangle className="size-4 shrink-0" />{errList}
+                </div>
+            )}
+
+            {/* Loading first load */}
+            {loadingList && !fetched && (
+                <div className="flex flex-col items-center justify-center py-20 gap-3 bg-white rounded-3xl border border-surface-100">
+                    <div className="relative">
+                        <div className="w-10 h-10 rounded-full border-4 border-accent-100" />
+                        <div className="w-10 h-10 rounded-full border-4 border-accent-500 border-t-transparent absolute inset-0 animate-spin" />
+                    </div>
+                    <p className="text-sm text-surface-500">Đang tải đơn hàng...</p>
+                </div>
+            )}
+
+            {/* No data */}
+            {fetched && !loadingList && orders.length === 0 && !errList && (
+                <div className="flex flex-col items-center justify-center py-20 gap-3 bg-white rounded-3xl border border-surface-100">
+                    <ShoppingCart className="size-10 text-surface-300" />
+                    <p className="text-sm text-surface-500">Không có đơn hàng nào trong khoảng thời gian này</p>
+                </div>
+            )}
+
+            {/* Table */}
+            {orders.length > 0 && (
+                <div className={`space-y-3 ${loadingList ? 'opacity-50 pointer-events-none' : ''} transition-opacity`}>
+                    {/* Desktop table */}
+                    <div className="hidden md:block overflow-x-auto rounded-2xl border border-surface-100 shadow-sm bg-white">
+                        <table className="w-full text-sm border-collapse">
+                            <thead>
+                                <tr className="bg-surface-50">
+                                    {['Mã đơn', 'Sản phẩm / Quầy', 'Nhân viên', 'Thanh toán', 'SL', 'Thực thu', 'Trạng thái', 'Thời gian'].map((h, i) => (
+                                        <th key={h} className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-surface-500 border-b border-surface-100 whitespace-nowrap ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {orders.map((o, i) => (
+                                    <tr key={o.orderId} onClick={() => openDetail(o)}
+                                        className={`border-b border-surface-50 cursor-pointer transition-colors hover:bg-accent-50/30 ${i % 2 !== 0 ? 'bg-surface-50/30' : ''} ${o.status === 4 ? 'opacity-60' : ''}`}>
+                                        <td className="px-4 py-2.5 font-mono text-[11px] text-surface-400">{o.orderNumber.slice(-10)}</td>
+                                        <td className="px-4 py-2.5 max-w-[200px]">
+                                            <p className="text-sm text-surface-800 font-medium truncate">{o.goodsNames || '—'}</p>
+                                            {o.terminalName && <p className="text-[11px] text-surface-400 flex items-center gap-1 truncate"><Store className="w-2.5 h-2.5 shrink-0" />{o.terminalName}</p>}
+                                        </td>
+                                        <td className="px-4 py-2.5 text-right">
+                                            <p className="text-sm text-surface-700">{o.employeeName || '—'}</p>
+                                            {o.realName && <p className="text-[11px] text-surface-400">{o.realName}</p>}
+                                        </td>
+                                        <td className="px-4 py-2.5 text-right text-sm text-surface-600 whitespace-nowrap">{o.payModeNames || '—'}</td>
+                                        <td className="px-4 py-2.5 text-right font-semibold text-surface-800">{o.totalQty}</td>
+                                        <td className="px-4 py-2.5 text-right">
+                                            <span className={`text-sm font-bold ${o.status === 4 ? 'text-surface-400 line-through' : 'text-success-700'}`}>{fmtVND(o.realMoney)}</span>
+                                        </td>
+                                        <td className="px-4 py-2.5 text-right"><OrderStatusBadge status={o.status} /></td>
+                                        <td className="px-4 py-2.5 text-right text-[11px] text-surface-400 whitespace-nowrap">{o.createTime.slice(0, 16)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            {foot && (
+                                <tfoot>
+                                    <tr className="border-t-2 border-surface-200 bg-success-50/30">
+                                        <td className="px-4 py-3 text-xs font-bold text-surface-600 uppercase tracking-wider" colSpan={4}>Tổng cộng</td>
+                                        <td className="px-4 py-3 text-right font-bold text-surface-800">{foot.totalQty}</td>
+                                        <td className="px-4 py-3 text-right font-bold text-success-700">{fmtVND(foot.realMoney)}</td>
+                                        <td colSpan={2} />
+                                    </tr>
+                                </tfoot>
+                            )}
+                        </table>
+                    </div>
+
+                    {/* Mobile cards */}
+                    <div className="md:hidden space-y-2">
+                        {orders.map(o => (
+                            <div key={o.orderId} onClick={() => openDetail(o)}
+                                className={`bg-white rounded-2xl border border-surface-100 shadow-sm p-3.5 cursor-pointer transition-colors hover:border-accent-200 ${o.status === 4 ? 'opacity-60' : ''}`}>
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold text-surface-800 truncate">{o.goodsNames || '—'}</p>
+                                        <p className="text-[11px] font-mono text-surface-400 mt-0.5">{o.orderNumber.slice(-12)}</p>
+                                    </div>
+                                    <OrderStatusBadge status={o.status} />
+                                </div>
+                                <div className="flex items-center justify-between text-xs text-surface-500 gap-2">
+                                    <span className="flex items-center gap-1 min-w-0 truncate"><User className="w-3 h-3 shrink-0" />{o.employeeName || '—'}</span>
+                                    <span className="flex items-center gap-1 shrink-0"><CreditCard className="w-3 h-3" />{o.payModeNames || '—'}</span>
+                                </div>
+                                <div className="flex items-center justify-between mt-2 pt-2 border-t border-surface-50">
+                                    <span className="text-[11px] text-surface-400">{o.createTime.slice(0, 16)}</span>
+                                    <span className={`text-sm font-bold ${o.status === 4 ? 'text-surface-400 line-through' : 'text-success-700'}`}>{fmtVND(o.realMoney)}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-between">
+                            <p className="text-xs text-surface-400">
+                                Trang <span className="font-semibold text-surface-700">{page}</span> / {totalPages} · {totals} đơn
+                            </p>
+                            <div className="flex gap-1">
+                                <button onClick={() => load(page - 1)} disabled={page <= 1 || loadingList}
+                                    className="p-2 rounded-xl border border-surface-200 hover:bg-surface-100 disabled:opacity-40 transition-colors">
+                                    <ChevronLeft className="w-4 h-4 text-surface-600" />
+                                </button>
+                                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                                    const p = Math.max(1, Math.min(page - 2, totalPages - 4)) + i;
+                                    return (
+                                        <button key={p} onClick={() => load(p)} disabled={loadingList}
+                                            className={`px-3 py-1.5 rounded-xl text-sm font-semibold transition-colors ${p === page ? 'bg-accent-600 text-white' : 'border border-surface-200 text-surface-600 hover:bg-surface-100'}`}>
+                                            {p}
+                                        </button>
+                                    );
+                                })}
+                                <button onClick={() => load(page + 1)} disabled={page >= totalPages || loadingList}
+                                    className="p-2 rounded-xl border border-surface-200 hover:bg-surface-100 disabled:opacity-40 transition-colors">
+                                    <ChevronRight className="w-4 h-4 text-surface-600" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Order Detail Drawer */}
+            {selectedOrder && (
+                <div className="fixed inset-0 z-50 flex items-start justify-end">
+                    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={() => setSelectedOrder(null)} />
+                    <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-white shadow-2xl z-50 flex flex-col border-l border-surface-100">
+                        {/* Drawer header */}
+                        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-surface-100">
+                            <div>
+                                <p className="text-[11px] font-mono text-surface-400">{selectedOrder.orderNumber}</p>
+                                <h2 className="text-base font-bold text-surface-800 mt-0.5">Chi tiết đơn hàng</h2>
+                                <p className="text-xs text-surface-400 mt-0.5">{selectedOrder.createTime.slice(0, 16)}</p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <OrderStatusBadge status={selectedOrder.status} />
+                                <button onClick={() => setSelectedOrder(null)} className="p-1.5 rounded-lg hover:bg-surface-100 text-surface-400 transition-colors">
+                                    <XCircle className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                        {/* Drawer body */}
+                        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                            {loadingDetail ? (
+                                <div className="flex flex-col items-center justify-center gap-3 py-20">
+                                    <div className="relative"><div className="w-8 h-8 rounded-full border-4 border-accent-100" />
+                                        <div className="w-8 h-8 rounded-full border-4 border-accent-500 border-t-transparent absolute inset-0 animate-spin" /></div>
+                                    <p className="text-sm text-surface-400">Đang tải chi tiết...</p>
+                                </div>
+                            ) : !detail ? (
+                                <div className="text-center py-20 text-danger-400 text-sm">Không tải được chi tiết đơn hàng</div>
+                            ) : (
+                                <>
+                                    {/* Money summary */}
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {([
+                                            { l: 'Giá gốc', v: fmtVND(detail.originalMoney), c: 'text-surface-700' },
+                                            { l: 'Thực thu', v: fmtVND(detail.realMoney), c: 'text-success-700 font-bold' },
+                                            { l: 'Giảm giá', v: fmtVND(detail.discountMoney), c: 'text-warning-700' },
+                                            { l: 'Thuế', v: fmtVND(detail.taxMoney), c: 'text-surface-600' },
+                                        ] as { l: string; v: string; c: string }[]).map(({ l, v, c }) => (
+                                            <div key={l} className="bg-surface-50 rounded-xl p-3">
+                                                <p className="text-[10px] uppercase tracking-widest text-surface-400 font-semibold">{l}</p>
+                                                <p className={`text-sm mt-0.5 ${c}`}>{v}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Info rows */}
+                                    <div className="bg-surface-50 rounded-2xl divide-y divide-surface-100">
+                                        {[
+                                            { icon: <User className="w-3.5 h-3.5" />, label: 'Nhân viên', value: detail.employeeName || '—' },
+                                            { icon: <CreditCard className="w-3.5 h-3.5" />, label: 'Khách hàng', value: detail.realName ? `${detail.realName}${detail.phone ? ` · ${detail.phone}` : ''}` : '—' },
+                                            { icon: <Receipt className="w-3.5 h-3.5" />, label: 'Thanh toán', value: detail.payModeNames || '—' },
+                                        ].map(({ icon, label, value }) => (
+                                            <div key={label} className="flex items-center gap-3 px-3 py-2.5">
+                                                <span className="text-surface-400 shrink-0">{icon}</span>
+                                                <span className="text-[11px] text-surface-400 w-20 shrink-0">{label}</span>
+                                                <span className="text-sm text-surface-700 font-medium flex-1 text-right">{value}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Goods */}
+                                    {detail.goodsInfo.length > 0 && (
+                                        <div>
+                                            <p className="text-xs font-bold text-surface-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                                                <Package className="w-3.5 h-3.5" /> Sản phẩm ({detail.goodsInfo.length})
+                                            </p>
+                                            <div className="space-y-2">
+                                                {detail.goodsInfo.map((g, i) => (
+                                                    <div key={i} className="bg-surface-50 rounded-xl p-3">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-semibold text-surface-800 leading-tight">{g.goodsName}</p>
+                                                                <p className="text-[11px] text-surface-400 mt-0.5">{g.goodsCategoryName}</p>
+                                                            </div>
+                                                            <span className="text-xs text-surface-400 shrink-0">×{g.qty}</span>
+                                                        </div>
+                                                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-surface-100">
+                                                            <span className="text-[11px] text-surface-500">
+                                                                {fmtVND(g.price)}{g.taxRate > 0 && ` · VAT ${g.taxRate}%`}
+                                                            </span>
+                                                            <span className="text-sm font-bold text-success-700">{fmtVND(g.realMoney)}</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Payment modes */}
+                                    {detail.payModeInfo.length > 0 && (
+                                        <div>
+                                            <p className="text-xs font-bold text-surface-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                                                <Receipt className="w-3.5 h-3.5" /> Thanh toán
+                                            </p>
+                                            <div className="space-y-2">
+                                                {detail.payModeInfo.map((p, i) => (
+                                                    <div key={i} className="bg-surface-50 rounded-xl p-3">
+                                                        <div className="flex items-center justify-between">
+                                                            <div>
+                                                                <p className="text-sm font-semibold text-surface-800">{p.payMethodName}</p>
+                                                                <p className="text-[11px] text-surface-400 mt-0.5">{p.payStatusName} · {p.payTime}</p>
+                                                            </div>
+                                                            <span className="text-sm font-bold text-accent-700">{fmtVND(p.money)}</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -360,6 +699,9 @@ export default function RevenueClient() {
                             <button onClick={() => setViewTab('table')} className={tabBtn(viewTab === 'table')}>
                                 <Table2 className="size-3.5" />Bảng
                             </button>
+                            <button onClick={() => setViewTab('orders')} className={tabBtn(viewTab === 'orders')}>
+                                <ShoppingCart className="size-3.5" />Đơn hàng
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -429,37 +771,45 @@ export default function RevenueClient() {
                 <div className={`space-y-5 ${(loading || syncing) ? 'opacity-50 pointer-events-none' : ''} transition-opacity duration-300`}>
 
                     {/* KPI Cards */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-                        {/* Dynamic accent colors via inline style */}
-                        {/* THỰC THU — hero card: full-width on mobile, prominent gradient */}
-                        <div className="col-span-2 sm:col-span-1">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:flex lg:flex-nowrap gap-2.5">
+
+                        {/* THỰC THU — hero card */}
+                        <div className="col-span-2 sm:col-span-4 lg:w-fit lg:shrink-0">
                             <KPICard hero title="Thực thu" value={fmtVND(dailyPanel?.shopSummary?.shopRealMoney ?? kpis.totalReal)}
                                 sub=""
                                 icon={<DollarSign className="size-5 text-white" />} accent="bg-success-500" />
                         </div>
-                        <div style={{ '--kpi-accent': '#3b82f6' } as React.CSSProperties}>
+
+                        {/* TIỀN MẶT */}
+                        <div className="col-span-1 lg:flex-1 lg:min-w-0" style={{ '--kpi-accent': '#3b82f6' } as React.CSSProperties}>
                             <KPICard title="Tiền mặt" value={fmtVND(kpis.totalCash)}
                                 sub={`${kpis.totalReal > 0 ? ((kpis.totalCash / kpis.totalReal) * 100).toFixed(0) : 0}% tổng thu`}
                                 icon={<Banknote className="size-5 text-primary-600" />} accent="bg-primary-500" />
                         </div>
-                        <div style={{ '--kpi-accent': '#8b5cf6' } as React.CSSProperties}>
+
+                        {/* CHUYỂN KHOẢN */}
+                        <div className="col-span-1 lg:flex-1 lg:min-w-0" style={{ '--kpi-accent': '#8b5cf6' } as React.CSSProperties}>
                             <KPICard title="Chuyển khoản" value={fmtVND(kpis.totalTransfer)}
                                 sub={`${kpis.totalReal > 0 ? ((kpis.totalTransfer / kpis.totalReal) * 100).toFixed(0) : 0}% tổng thu`}
                                 icon={<ArrowUpDown className="size-5 text-accent-600" />} accent="bg-accent-500" />
                         </div>
-                        <div style={{ '--kpi-accent': '#f59e0b' } as React.CSSProperties}>
+
+                        {/* XU BÁN */}
+                        <div className="col-span-1 lg:flex-1 lg:min-w-0" style={{ '--kpi-accent': '#f59e0b' } as React.CSSProperties}>
                             <KPICard title="Xu bán" value={fmt(kpis.totalCoins)}
                                 sub={`Đơn giá: ${fmtVND(data[0]?.sellCoinPrice || 0)}`}
                                 icon={<Coins className="size-5 text-warning-600" />} accent="bg-warning-500" />
                         </div>
+
+                        {/* ĐÃ HỦY / NGÀY CAO NHẤT */}
                         {isMultiDay ? (
-                            <div style={{ '--kpi-accent': '#ec4899' } as React.CSSProperties}>
+                            <div className="col-span-1 lg:flex-1 lg:min-w-0" style={{ '--kpi-accent': '#ec4899' } as React.CSSProperties}>
                                 <KPICard title="Ngày cao nhất" value={kpis.peakDay ? fmtShort(kpis.peakDay.realMoney) : '—'}
                                     sub={kpis.peakDay?.forDate || 'N/A'}
                                     icon={<TrendingUp className="size-5 text-pink-600" />} accent="bg-pink-500" />
                             </div>
                         ) : (
-                            <div style={{ '--kpi-accent': '#ef4444' } as React.CSSProperties}>
+                            <div className="col-span-1 lg:flex-1 lg:min-w-0" style={{ '--kpi-accent': '#ef4444' } as React.CSSProperties}>
                                 <KPICard title="Đã hủy" value={fmtVND(kpis.totalRefund)}
                                     sub={kpis.totalRefund > 0 ? 'Giao dịch bị hủy' : 'Không có hủy đơn'}
                                     icon={<XCircle className="size-5 text-danger-500" />} accent="bg-danger-500" />
@@ -801,6 +1151,11 @@ export default function RevenueClient() {
                         </div>
                     )}
                 </div>
+            )}
+
+            {/* ═══ ORDERS TAB ═══ */}
+            {viewTab === 'orders' && (
+                <OrdersPanel getRange={getRange} />
             )}
 
             {/* Empty state */}

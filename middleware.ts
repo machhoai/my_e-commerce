@@ -2,16 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PROTECTED_ROUTE_PREFIXES } from '@/lib/routing';
 
 // Paths that are public (no auth needed, no last_visited tracking)
-const PUBLIC_PATHS = new Set(['/login', '/change-password']);
+const PUBLIC_PATHS = new Set(['/login', '/change-password', '/403']);
 
 // Cookie name for storing the last visited protected route
 const LAST_VISITED_COOKIE = 'last_visited_path';
+
+// Cookie name storing the user's base role (plain text, set at login for Edge middleware)
+const USER_ROLE_COOKIE = 'user_role';
+
+// Roles that are allowed to access /admin/* routes
+const ADMIN_ROLES = new Set(['admin', 'super_admin']);
 
 // 7 days in seconds
 const COOKIE_MAX_AGE = 7 * 24 * 60 * 60;
 
 /**
- * Next.js Edge Middleware: Smart session check, last-visited tracking, and root redirect.
+ * Next.js Edge Middleware: Smart session check, /admin hardlock, last-visited tracking.
  *
  * ARCHITECTURE NOTE:
  * This app uses a hybrid auth model — Firebase Client Auth (IndexedDB) with a server-side
@@ -19,41 +25,60 @@ const COOKIE_MAX_AGE = 7 * 24 * 60 * 60;
  * so the `session` cookie is used as a fast presence signal only (not cryptographic verification).
  * Real auth enforcement is handled client-side by AuthGuard + onAuthStateChanged.
  *
+ * The `user_role` cookie (plain text, httpOnly: false) is set on the client after login
+ * purely so the Edge middleware can make role-based redirect decisions without a DB call.
+ *
  * What this middleware does:
- * 1. If the user visits `/`   and has NO session cookie → redirect to /login.
- * 2. If the user visits `/` or `/login` and HAS a session cookie →
+ * 1. If the user visits `/`  and has NO session cookie → redirect to /login.
+ * 2. If the user visits `/` and HAS a session cookie →
  *    redirect to: last_visited_path cookie → OR → /employee/dashboard (safe fallback).
- *    (The login page itself handles the full 3-tier priority using userDoc data.)
- * 3. For any other protected route hit, set/refresh the `last_visited_path` cookie.
+ * 3. /admin/* lock: if user_role is not admin/super_admin → redirect to /403.
+ * 4. For any other protected route hit, set/refresh the `last_visited_path` cookie.
  */
 export function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
     const sessionCookie = request.cookies.get('session');
     const hasSession = Boolean(sessionCookie?.value);
+    const userRole = request.cookies.get(USER_ROLE_COOKIE)?.value ?? '';
 
     // ── 1. Root ("/") handling ──────────────────────────────────────────────
     if (pathname === '/') {
         if (!hasSession) {
-            // No session → send to login
             return NextResponse.redirect(new URL('/login', request.url));
         }
-
         // Has session → restore last visited or safe fallback
         const lastVisited = request.cookies.get(LAST_VISITED_COOKIE)?.value;
         const destination = lastVisited || '/employee/dashboard';
         return NextResponse.redirect(new URL(destination, request.url));
     }
 
-    // ── 2. /login fast redirect for already-authenticated users ────────────
-    // (The login page handles the full priority logic client-side, but this
-    //  provides an instant server-side redirect to avoid flashing the login UI.)
+    // ── 2. /login — fast redirect for already-authenticated users ─────────
+    // If the user already has a session cookie, redirect them away from /login.
+    // We use `user_role` + `last_visited_path` to pick the right destination.
+    // The login page client-side logic is STILL the authoritative handler for
+    // defaultDashboard/roleDefaultRoute, but this server-side shortcut avoids
+    // the infinite spinner caused by Firebase Auth resolving while /login renders.
     if (pathname === '/login' && hasSession) {
         const lastVisited = request.cookies.get(LAST_VISITED_COOKIE)?.value;
-        const destination = lastVisited || '/employee/dashboard';
+        // If userRole is known and is admin, send to last_visited or /admin/users.
+        // Otherwise, send to last_visited or the safe universal fallback.
+        const adminFallback = ADMIN_ROLES.has(userRole) ? '/admin/users' : '/employee/dashboard';
+        const destination = lastVisited || adminFallback;
         return NextResponse.redirect(new URL(destination, request.url));
     }
 
-    // ── 3. Protected routes: track last_visited_path ───────────────────────
+    // ── 3. /admin hardlock — only admin & super_admin allowed ──────────────
+
+    if (pathname.startsWith('/admin')) {
+        if (!hasSession) {
+            return NextResponse.redirect(new URL('/login', request.url));
+        }
+        if (!ADMIN_ROLES.has(userRole)) {
+            return NextResponse.redirect(new URL('/403', request.url));
+        }
+    }
+
+    // ── 4. Protected routes: track last_visited_path ───────────────────────
     const isProtected = PROTECTED_ROUTE_PREFIXES.some(prefix =>
         pathname.startsWith(prefix)
     );
@@ -70,7 +95,6 @@ export function middleware(request: NextRequest) {
             sameSite: 'lax',
         });
 
-        // Keep the existing session-status header for Server Components
         response.headers.set(
             'x-session-status',
             hasSession ? 'active' : 'none'
@@ -87,7 +111,6 @@ export const config = {
         /*
          * Match:
          *  - `/` (root — redirect to login or dashboard)
-         *  - `/login` (fast redirect for authenticated users)
          *  - All protected dashboard routes (for last_visited_path tracking)
          *
          * Exclude: _next/static, _next/image, favicon.ico, api routes (handled separately)

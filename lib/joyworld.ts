@@ -1,4 +1,4 @@
-// lib/joyworld.ts
+﻿// lib/joyworld.ts
 
 const BASE_URL = 'http://joyworld.jingjianx.vip';
 
@@ -113,4 +113,57 @@ export async function getGoodsTypeStatistics(token: string, forDate: string) {
     });
     if (!response.ok) throw new Error('Lấy thống kê hàng hóa thất bại');
     return response.json();
+}
+
+// ─────────────────────────── ORDER APIs ─────────────────────────────────────
+
+export interface OrderListParams {
+    startTime: string;  // 'YYYY-MM-DD HH:mm:ss'
+    endTime: string;
+    statusContent?: string;
+    payMethodContent?: string;
+    couponIdContent?: string;
+    page?: number;
+    limit?: number;
+}
+
+/**
+ * Lấy danh sách đơn hàng có lọc và phân trang
+ * GET /order/manager/buy/order/list
+ */
+export async function getOrderList(token: string, params: OrderListParams) {
+    const qs = new URLSearchParams({
+        startTime: params.startTime,
+        endTime: params.endTime,
+        statusContent: params.statusContent ?? '',
+        payMethodContent: params.payMethodContent ?? '',
+        couponIdContent: params.couponIdContent ?? '',
+        page: String(params.page ?? 1),
+        limit: String(params.limit ?? 20),
+        _t: String(Date.now()),
+    });
+    const url = `\/order/manager/buy/order/list?\`;
+    const res = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    });
+    log
+    if (!res.ok) throw new Error('Lấy danh sách đơn hàng thất bại');
+    return res.json();
+}
+
+/**
+ * Lấy chi tiết một đơn hàng
+ * GET /order/manager/buy/getorderdetails?orderId=xxx
+ */
+export async function getOrderDetail(token: string, orderId: string) {
+    const url = `${BASE_URL}/order/manager/buy/getorderdetails?orderId=${orderId}&_t=${Date.now()}`;
+    const res = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) throw new Error('Lấy chi tiết đơn hàng thất bại');
+    return res.json();
 }

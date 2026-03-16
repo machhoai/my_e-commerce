@@ -19,21 +19,37 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { UserDoc, AppPermission, CustomRoleDoc, ALL_PERMISSIONS } from '@/types';
+import { UserDoc, AppPermission, CustomRoleDoc, ALL_PERMISSIONS, CrudAction, PermissionMatrix } from '@/types';
 import { phoneToEmail } from '@/lib/utils';
+
+// ── Role cookie helpers (Edge-readable, not for auth — just nav hints) ──────
+const ROLE_COOKIE_MAX_AGE = 7 * 24 * 60 * 60;
+function writeRoleCookie(role: string) {
+    if (typeof document === 'undefined') return;
+    const secure = location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `user_role=${encodeURIComponent(role)}; Max-Age=${ROLE_COOKIE_MAX_AGE}; Path=/${secure}; SameSite=Lax`;
+}
+function clearRoleCookie() {
+    if (typeof document === 'undefined') return;
+    document.cookie = 'user_role=; Max-Age=0; Path=/';
+}
+
+
 
 interface AuthContextValue {
     user: User | null;
     userDoc: UserDoc | null;
     loading: boolean;
     permissions: Set<AppPermission>;
-    hasPermission: (key: AppPermission) => boolean;
+    permissionMatrix: PermissionMatrix | null;
+    hasPermission: (resource: string, action?: CrudAction) => boolean;
     roleDefaultRoute: string | null;
     getToken: () => Promise<string>;
     login: (phone: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
     changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
+
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -65,7 +81,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [userDoc, setUserDoc] = useState<UserDoc | null>(null);
     const [loading, setLoading] = useState(true);
     const [permissions, setPermissions] = useState<Set<AppPermission>>(new Set());
+    const [permissionMatrix, setPermissionMatrix] = useState<PermissionMatrix | null>(null);
     const [roleDefaultRoute, setRoleDefaultRoute] = useState<string | null>(null);
+
 
     const fetchUserDoc = useCallback(async (uid: string) => {
         try {
@@ -78,6 +96,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const builtIn = getBuiltInPermissions(data);
                 const permSet = new Set<AppPermission>(builtIn);
 
+                // Write role cookie immediately so middleware /admin lock works
+                // on the very first navigation after login (no race condition).
+                writeRoleCookie(data.role);
+
                 // Load custom role permissions if assigned
                 if (data.customRoleId) {
                     try {
@@ -86,11 +108,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                             const roleData = roleSnap.data() as CustomRoleDoc;
                             roleData.permissions.forEach(p => permSet.add(p));
                             setRoleDefaultRoute(roleData.defaultRoute || null);
+                            setPermissionMatrix(roleData.permissionMatrix ?? null);
                         }
                     } catch (err) {
                         console.error('Failed to load custom role:', err);
                     }
+                } else {
+                    setPermissionMatrix(null);
                 }
+
 
                 setPermissions(permSet);
             }
@@ -154,8 +180,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 recoveryAttempted = false;
                 setUserDoc(null);
                 setPermissions(new Set());
+                setPermissionMatrix(null);
                 setRoleDefaultRoute(null);
                 setLoading(false);
+
             }
         });
 
@@ -199,11 +227,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch (err) {
             console.error('Failed to clear session cookie:', err);
         }
+        // Clear the Edge-readable role cookie
+        clearRoleCookie();
         await signOut(auth);
         setUserDoc(null);
         setPermissions(new Set());
+        setPermissionMatrix(null);
         setRoleDefaultRoute(null);
     }, []);
+
 
     const changePassword = useCallback(
         async (currentPassword: string, newPassword: string) => {
@@ -215,17 +247,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         [user]
     );
 
-    // SUPER_ADMIN bypass: unconditionally grants every permission
+    /**
+     * Check if the current user has permission for a given resource + action.
+     *
+     * Priority:
+     *  1. super_admin / admin → always true (bypass)
+     *  2. permissionMatrix[resource][action] if matrix exists
+     *  3. Fallback: treat the resource string as a legacy AppPermission key
+     */
     const hasPermission = useCallback(
-        (key: AppPermission) => userDoc?.role === 'super_admin' ? true : permissions.has(key),
-        [permissions, userDoc]
+        (resource: string, action: CrudAction = 'read'): boolean => {
+            if (!userDoc) return false;
+            // Admins bypass all checks
+            if (userDoc.role === 'super_admin' || userDoc.role === 'admin') return true;
+            // Check granular matrix first
+            if (permissionMatrix && permissionMatrix[resource]) {
+                return permissionMatrix[resource][action] === true;
+            }
+            // Fallback: treat resource as a legacy flat AppPermission key
+            return permissions.has(resource as AppPermission);
+        },
+        [permissions, permissionMatrix, userDoc]
     );
 
+
     return (
-        <AuthContext.Provider value={{ user, userDoc, loading, permissions, hasPermission, roleDefaultRoute, getToken, login, logout, changePassword }}>
+        <AuthContext.Provider value={{ user, userDoc, loading, permissions, permissionMatrix, hasPermission, roleDefaultRoute, getToken, login, logout, changePassword }}>
             {children}
         </AuthContext.Provider>
     );
+
 }
 
 export function useAuth(): AuthContextValue {

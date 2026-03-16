@@ -11,8 +11,8 @@ export function getRoleDefaultRoute(
     role: UserRole | string,
     workplaceType?: string
 ): string {
-    if (role === 'super_admin' || role === 'admin') return '/admin/users';
-    if (role === 'store_manager') return '/admin/users';
+    if (role === 'super_admin' || role === 'admin') return '/office/revenue';
+    if (role === 'store_manager') return '/manager/scheduling/overview';
     if (role === 'office') return '/office/revenue';
     if (role === 'manager') return '/manager/scheduling/overview';
     // employee (or unknown)

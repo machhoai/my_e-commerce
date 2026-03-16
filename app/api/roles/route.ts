@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { CustomRoleDoc, AppPermission } from '@/types';
+import { CustomRoleDoc, AppPermission, PermissionMatrix } from '@/types';
+
 
 // System roles to auto-seed if collection is empty
 const SYSTEM_ROLES: Omit<CustomRoleDoc, 'createdAt' | 'createdBy'>[] = [
@@ -106,11 +107,13 @@ export async function POST(req: NextRequest) {
         const body = await req.json() as {
             name: string;
             permissions: AppPermission[];
+            permissionMatrix?: PermissionMatrix;
             creatorRoles?: string[];
             color?: string;
             defaultRoute?: string;
             applicableTo?: ('STORE' | 'OFFICE' | 'CENTRAL')[];
         };
+
 
         if (!body.name?.trim()) {
             return NextResponse.json({ error: 'Tên role không được để trống' }, { status: 400 });
@@ -119,6 +122,7 @@ export async function POST(req: NextRequest) {
         const newRole: Omit<CustomRoleDoc, 'id'> = {
             name: body.name.trim(),
             permissions: body.permissions || [],
+            ...(body.permissionMatrix ? { permissionMatrix: body.permissionMatrix } : {}),
             creatorRoles: body.creatorRoles || ['admin'],
             color: body.color || undefined,
             ...(body.defaultRoute?.trim() ? { defaultRoute: body.defaultRoute.trim() } : {}),
@@ -128,6 +132,7 @@ export async function POST(req: NextRequest) {
             createdAt: new Date().toISOString(),
             createdBy: decoded.uid,
         };
+
 
         const ref = await adminDb.collection('custom_roles').add(newRole);
         return NextResponse.json({ id: ref.id, ...newRole }, { status: 201 });

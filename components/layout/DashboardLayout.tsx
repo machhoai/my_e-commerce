@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -231,6 +231,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             label: 'Doanh thu',
             href: '/office/revenue',
             icon: BarChart3,
+            show: isAdmin || isSuperAdmin || hasPermission('view_revenue'),
+            group: 'Văn Phòng',
+        },
+        {
+            label: 'Đơn hàng',
+            href: '/office/revenue/orders',
+            icon: ShoppingCart,
             show: isAdmin || isSuperAdmin || hasPermission('view_revenue'),
             group: 'Văn Phòng',
         },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { AppPermission } from '@/types';
+import { AppPermission, PermissionMatrix } from '@/types';
+
 
 async function requireAdmin(req: NextRequest) {
     const token = req.headers.get('Authorization')?.split('Bearer ')[1];
@@ -38,15 +39,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         const body = await req.json() as {
             name?: string;
             permissions?: AppPermission[];
+            permissionMatrix?: PermissionMatrix | null;
             creatorRoles?: string[];
             color?: string;
             defaultRoute?: string;
             applicableTo?: ('STORE' | 'OFFICE' | 'CENTRAL')[];
         };
 
+
         const updateData: Record<string, unknown> = {};
         if (body.name !== undefined) updateData.name = body.name.trim();
         if (body.permissions !== undefined) updateData.permissions = body.permissions;
+        if (body.permissionMatrix !== undefined) {
+            updateData.permissionMatrix = body.permissionMatrix ?? null;
+        }
         if (body.creatorRoles !== undefined) updateData.creatorRoles = body.creatorRoles;
         if (body.color !== undefined) updateData.color = body.color;
         if (body.defaultRoute !== undefined) {
@@ -55,6 +61,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         if (body.applicableTo !== undefined) {
             updateData.applicableTo = body.applicableTo.length > 0 ? body.applicableTo : null;
         }
+
 
         if (Object.keys(updateData).length === 0) {
             return NextResponse.json({ error: 'Không có dữ liệu cập nhật' }, { status: 400 });

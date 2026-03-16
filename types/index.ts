@@ -3,6 +3,40 @@
 // ============================================================
 
 export type UserRole = 'super_admin' | 'admin' | 'store_manager' | 'manager' | 'employee' | 'office';
+
+// ── Granular Permission Matrix ──────────────────────────────
+export type CrudAction = 'read' | 'create' | 'update' | 'delete';
+
+export interface ResourcePermission {
+    read: boolean;
+    create: boolean;
+    update: boolean;
+    delete: boolean;
+}
+
+export type PermissionMatrix = Record<string, ResourcePermission>;
+
+/** Canonical resource keys used in the permission matrix UI and hasPermission() checks */
+export const PERMISSION_RESOURCES: { key: string; label: string; icon: string }[] = [
+    { key: 'hr',        label: 'Nhân sự',    icon: '👥' },
+    { key: 'scheduling',label: 'Xếp lịch',  icon: '📅' },
+    { key: 'inventory', label: 'Kho hàng',   icon: '📦' },
+    { key: 'orders',    label: 'Đặt lệnh',   icon: '📋' },
+    { key: 'revenue',   label: 'Doanh thu',  icon: '💰' },
+    { key: 'system',    label: 'Hệ thống',   icon: '⚙️'  },
+];
+
+/** Helper: create a blank ResourcePermission with all false */
+export function blankResourcePermission(): ResourcePermission {
+    return { read: false, create: false, update: false, delete: false };
+}
+
+/** Helper: create an empty PermissionMatrix (all resources, all false) */
+export function emptyPermissionMatrix(): PermissionMatrix {
+    return Object.fromEntries(
+        PERMISSION_RESOURCES.map(r => [r.key, blankResourcePermission()])
+    );
+}
 export type EmployeeType = 'FT' | 'PT';
 
 // All available granular permissions in the system
@@ -75,7 +109,8 @@ export const ALL_PERMISSIONS: { key: AppPermission; label: string; description: 
 export interface CustomRoleDoc {
     id: string;
     name: string;
-    permissions: AppPermission[];
+    permissions: AppPermission[];        // Legacy flat list — kept for backward compat
+    permissionMatrix?: PermissionMatrix; // Granular CRUD matrix keyed by resource
     isSystem?: boolean;         // Built-in role (admin, store_manager, manager, employee) — cannot be deleted
     isLocked?: boolean;         // Fully locked (admin role) — cannot be edited or deleted
     creatorRoles: string[];     // Which role IDs are allowed to create/assign this role
