@@ -1,4 +1,4 @@
-﻿// lib/joyworld.ts
+// lib/joyworld.ts
 
 const BASE_URL = 'http://joyworld.jingjianx.vip';
 
@@ -142,13 +142,12 @@ export async function getOrderList(token: string, params: OrderListParams) {
         limit: String(params.limit ?? 20),
         _t: String(Date.now()),
     });
-    const url = `\/order/manager/buy/order/list?\`;
+    const url = `${BASE_URL}/order/manager/buy/order/list?${qs}`;
     const res = await fetch(url, {
         method: 'GET',
         cache: 'no-store',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     });
-    log
     if (!res.ok) throw new Error('Lấy danh sách đơn hàng thất bại');
     return res.json();
 }

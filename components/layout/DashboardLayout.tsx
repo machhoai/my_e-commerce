@@ -234,13 +234,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             show: isAdmin || isSuperAdmin || hasPermission('view_revenue'),
             group: 'Văn Phòng',
         },
-        {
-            label: 'Đơn hàng',
-            href: '/office/revenue/orders',
-            icon: ShoppingCart,
-            show: isAdmin || isSuperAdmin || hasPermission('view_revenue'),
-            group: 'Văn Phòng',
-        },
 
         {
             label: 'Quản lý Cửa Hàng',
