@@ -42,7 +42,7 @@ export async function getRevenueData(token: string, startDate: string, endDate: 
  * Lấy dữ liệu sản phẩm bán theo khoảng ngày (Sell overview)
  */
 export async function getSellData(token: string, startDate: string, endDate: string) {
-    const url = `${BASE_URL}/finance/manager/revenueoverview/revenue?startDate=${startDate}&endDate=${endDate}&_t=${Date.now()}`;
+    const url = `${BASE_URL}/finance/manager/revenueoverview/sell?startDate=${startDate}&endDate=${endDate}&_t=${Date.now()}`;
     const response = await fetch(url, {
         method: 'GET',
         cache: 'no-store',
@@ -81,7 +81,6 @@ export async function getShopSummary(token: string, forDate: string) {
  */
 export async function getPaymentStatistics(token: string, forDate: string) {
     const url = `${BASE_URL}/finance/manager/revenuepanel/statistics/payment?forDate=${forDate}&_t=${Date.now()}`;
-    console.log(url);
     const response = await fetch(url, {
         method: 'GET',
         cache: 'no-store',
@@ -90,9 +89,6 @@ export async function getPaymentStatistics(token: string, forDate: string) {
             'Content-Type': 'application/json',
         },
     });
-    console.log("=== DỮ LIỆU DOANH THU THẬT SỰ ===");
-    console.log(JSON.stringify(response, null, 2));
-    console.log("=================================");
     if (!response.ok) throw new Error('Lấy thống kê thanh toán thất bại');
     return response.json();
 }

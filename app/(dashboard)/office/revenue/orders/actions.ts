@@ -25,6 +25,7 @@ export interface OrderRecord {
     realMoney: number;
     cancelMoney: number;
     taxMoney: number;
+    taxRate: number;
     employeeName: string;
     realName: string;
     phone: string;
@@ -156,6 +157,7 @@ export async function fetchOrdersAction(
             realMoney: o.realMoney || 0,
             cancelMoney: o.cancelMoney || 0,
             taxMoney: o.taxMoney || 0,
+            taxRate: o.taxRate || 0,
             employeeName: o.employeeName || '',
             realName: o.realName || '',
             phone: o.phone || '',
@@ -288,8 +290,11 @@ export interface GoodsRecord {
     goodsTypeName: string;
     price: number;
     qty: number;
+    totalBeforeTax: number;
     realMoney: number;
     cancelMoney: number;
+    taxMoney: number;
+    taxRate: number;
     payModeNames: string;
     employeeName: string;
     createTime: string;
@@ -353,8 +358,11 @@ export async function fetchOrderGoodsAction(
             goodsTypeName: g.goodsTypeName || '',
             price: g.price || 0,
             qty: g.qty || 0,
+            totalBeforeTax: (g.realMoney || 0) - (g.taxMoney || 0),
             realMoney: g.realMoney || 0,
             cancelMoney: g.cancelMoney || 0,
+            taxMoney: g.taxMoney || 0,
+            taxRate: g.taxRate || 0,
             payModeNames: g.payModeNames || '',
             employeeName: g.employeeName || '',
             createTime: g.createTime || '',

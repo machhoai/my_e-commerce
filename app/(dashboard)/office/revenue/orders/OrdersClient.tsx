@@ -171,6 +171,7 @@ const ORDER_EXPORT_COLUMNS: ExportColumn[] = [
     { key: 'realMoney', label: 'Thực Thu (VND)' },
     { key: 'discountMoney', label: 'Giảm Giá (VND)' },
     { key: 'cancelMoney', label: 'Hoàn Huỷ (VND)' },
+    { key: 'taxMoney', label: 'Tiền Thuế (VND)' },
     { key: 'payModeNames', label: 'Thanh Toán' },
     { key: 'statusName', label: 'Trạng Thái' },
     { key: 'terminalName', label: 'Quầy' },
@@ -181,8 +182,10 @@ const GOODS_EXPORT_COLUMNS: ExportColumn[] = [
     { key: 'createTime', label: 'Thời Gian' },
     { key: 'goodsName', label: 'Tên Sản Phẩm' },
     { key: 'showCategoryName', label: 'Danh Mục' },
-    { key: 'qty', label: 'Số Lượng' },
     { key: 'price', label: 'Đơn Giá (VND)' },
+    { key: 'qty', label: 'Số Lượng' },
+    { key: 'totalBeforeTax', label: 'Thành Tiền Trước Thuế (VND)' },
+    { key: 'taxMoney', label: 'Thuế Của Thành Tiền (VND)' },
     { key: 'realMoney', label: 'Thực Thu (VND)' },
     { key: 'payModeNames', label: 'Thanh Toán' },
     { key: 'employeeName', label: 'Nhân Viên' },
@@ -538,6 +541,7 @@ export default function OrdersClient({ startDate, endDate }: Props) {
         totalQty: filteredOrders.reduce((s, o) => s + o.totalQty, 0),
         cancelMoney: filteredOrders.reduce((s, o) => s + o.cancelMoney, 0),
         discountMoney: filteredOrders.reduce((s, o) => s + o.discountMoney, 0),
+        taxMoney: filteredOrders.reduce((s, o) => s + o.taxMoney, 0),
     }), [filteredOrders]);
 
     // ── Open detail ────────────────────────────────────────────────────────────
@@ -592,11 +596,10 @@ export default function OrdersClient({ startDate, endDate }: Props) {
                 <div className="flex items-center gap-1 bg-surface-100 p-1 rounded-2xl w-fit">
                     {(['orders', 'goods'] as const).map(mode => (
                         <button key={mode} onClick={() => setViewMode(mode)}
-                            className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                                viewMode === mode
-                                    ? 'bg-white shadow-sm text-surface-800'
-                                    : 'text-surface-500 hover:text-surface-700'
-                            }`}>
+                            className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all ${viewMode === mode
+                                ? 'bg-white shadow-sm text-surface-800'
+                                : 'text-surface-500 hover:text-surface-700'
+                                }`}>
                             {mode === 'orders' ? `Đơn hàng (${allOrders.length.toLocaleString()})` : `Hàng hóa (${allGoods.length.toLocaleString()})`}
                         </button>
                     ))}
@@ -628,226 +631,234 @@ export default function OrdersClient({ startDate, endDate }: Props) {
                     {/* ── Orders View ────────────────────────────────────────────── */}
                     {viewMode === 'orders' && (<>
 
-                    {/* ── Filter Bar ─────────────────────────────────────────────── */}
-                    <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                            {/* <span className="flex items-center gap-1 text-xs font-semibold text-surface-500 mr-1">
+                        {/* ── Filter Bar ─────────────────────────────────────────────── */}
+                        <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                                {/* <span className="flex items-center gap-1 text-xs font-semibold text-surface-500 mr-1">
                                 <Filter className="w-3.5 h-3.5" />
                                 {activeFilterCount > 0 && (
                                     <span className="flex items-center justify-center w-4 h-4 rounded-full bg-accent-600 text-white text-[10px] font-bold">{activeFilterCount}</span>
                                 )}
                             </span> */}
 
-                            {/* Search */}
-                            <div className="relative flex-1 min-w-[200px]">
-                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-400 pointer-events-none" />
-                                <input value={search} onChange={e => setSearch(e.target.value)}
-                                    placeholder="Mã, sản phẩm, nhân viên..."
-                                    className="pl-8 w-full pr-3 py-2 text-xs border border-surface-200 rounded-xl bg-white text-surface-700 outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent-400" />
-                            </div>
-
-                            {/* Employee */}
-                            {filters.employees.length > 0 && (
+                                {/* Search */}
                                 <div className="relative flex-1 min-w-[200px]">
-                                    <select value={selEmployee} onChange={e => setSelEmployee(e.target.value)} className={`${selectCls} appearance-none pr-7`}>
-                                        <option value="ALL">Tất cả nhân viên</option>
-                                        {filters.employees.map(e => <option key={e} value={e}>{e}</option>)}
-                                    </select>
-                                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-surface-400 pointer-events-none" />
+                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-400 pointer-events-none" />
+                                    <input value={search} onChange={e => setSearch(e.target.value)}
+                                        placeholder="Mã, sản phẩm, nhân viên..."
+                                        className="pl-8 w-full pr-3 py-2 text-xs border border-surface-200 rounded-xl bg-white text-surface-700 outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent-400" />
                                 </div>
-                            )}
 
-                            {/* Status */}
-                            {filters.statuses.length > 0 && (
-                                <div className="relative flex-1 min-w-[200px]">
-                                    <select value={selStatus} onChange={e => setSelStatus(e.target.value)} className={`${selectCls} appearance-none pr-7`}>
-                                        <option value="ALL">Tất cả trạng thái</option>
-                                        {filters.statuses.map(s => <option key={s.value} value={String(s.value)}>{s.label}</option>)}
-                                    </select>
-                                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-surface-400 pointer-events-none" />
-                                </div>
-                            )}
-
-                            {/* Pay method */}
-                            {filters.payMethods.length > 0 && (
-                                <div className="relative flex-1 min-w-[200px]">
-                                    <select value={selPayMethod} onChange={e => setSelPayMethod(e.target.value)} className={`${selectCls} appearance-none pr-7`}>
-                                        <option value="ALL">Tất cả thanh toán</option>
-                                        {filters.payMethods.map(p => <option key={p} value={p}>{p}</option>)}
-                                    </select>
-                                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-surface-400 pointer-events-none" />
-                                </div>
-                            )}
-
-                            {/* Terminal */}
-                            {filters.terminals.length > 1 && (
-                                <div className="relative flex-1 min-w-[200px]">
-                                    <select value={selTerminal} onChange={e => setSelTerminal(e.target.value)} className={`${selectCls} appearance-none pr-7`}>
-                                        <option value="ALL">Tất cả quầy</option>
-                                        {filters.terminals.map(t => <option key={t} value={t}>{t}</option>)}
-                                    </select>
-                                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-surface-400 pointer-events-none" />
-                                </div>
-                            )}
-
-                            {/* Reset */}
-                            {activeFilterCount > 0 && (
-                                <button onClick={() => { setSelEmployee('ALL'); setSelStatus('ALL'); setSelPayMethod('ALL'); setSelTerminal('ALL'); setSearch(''); }}
-                                    className="text-[11px] text-accent-600 hover:text-accent-800 font-semibold underline">
-                                    Xóa lọc
-                                </button>
-                            )}
-
-                            {/* Right-side controls */}
-                            <div className="ml-auto flex items-center gap-1.5">
-                                {/* Export Excel */}
-                                {filteredOrders.length > 0 && (
-                                    <button onClick={() => setIsExportOpen(true)}
-                                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-success-200 bg-success-50 hover:bg-success-100 text-success-700 text-xs font-semibold transition-colors">
-                                        <FileDown className="w-3.5 h-3.5" />
-                                        Xuất Excel
-                                    </button>
-                                )}
-                                {/* Embed: refresh */}
-                                {isEmbedded && (
-                                    <button onClick={() => loadOrders(effectiveStart, effectiveEnd)} disabled={isPending}
-                                        className="p-1.5 rounded-lg border border-surface-200 hover:bg-surface-100 text-surface-400 transition-colors">
-                                        <RefreshCw className={`w-3.5 h-3.5 ${isPending ? 'animate-spin' : ''}`} />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ── Filtered Summary ──────────────────────────────────────── */}
-                    {allOrders.length > 0 && (
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            {([
-                                { l: 'Số đơn', v: filteredFoot.count.toLocaleString(), c: 'text-surface-800 font-bold' },
-                                { l: 'Tổng SP', v: filteredFoot.totalQty.toLocaleString(), c: 'text-surface-700' },
-                                { l: 'Giảm giá', v: fmtVND(filteredFoot.discountMoney), c: 'text-warning-700' },
-                                { l: 'Hoàn huỷ', v: fmtVND(filteredFoot.cancelMoney), c: 'text-danger-700' },
-                            ] as { l: string; v: string; c: string }[]).map(({ l, v, c }) => (
-                                <div key={l} className="bg-white rounded-2xl border border-surface-100 shadow-sm p-3">
-                                    <p className="text-[10px] font-semibold uppercase tracking-widest text-surface-400">{l}</p>
-                                    <p className={`text-xs mt-0.5 ${c}`}>{v}</p>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* ── Empty ─────────────────────────────────────────────────── */}
-                    {allOrders.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-20 gap-3 bg-white rounded-3xl border border-surface-100">
-                            <ShoppingCart className="size-10 text-surface-300" />
-                            <p className="text-sm text-surface-500">Không có đơn hàng nào trong khoảng thời gian này</p>
-                        </div>
-                    ) : filteredOrders.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-12 gap-2 bg-white rounded-3xl border border-surface-100">
-                            <p className="text-sm text-surface-500">Không có đơn nào khớp với bộ lọc</p>
-                            <button onClick={() => { setSelEmployee('ALL'); setSelStatus('ALL'); setSelPayMethod('ALL'); setSelTerminal('ALL'); setSearch(''); }}
-                                className="text-xs text-accent-600 hover:underline font-semibold">Xóa bộ lọc</button>
-                        </div>
-                    ) : (
-                        <>
-                            {/* ── Desktop Table ─────────────────────────────────────── */}
-                            <div className="hidden md:block overflow-x-auto rounded-2xl border border-surface-100 shadow-sm bg-white">
-                                <table className="w-full text-sm border-collapse">
-                                    <thead>
-                                        <tr className="bg-surface-50 border-b border-surface-100">
-                                            {['Mã đơn', 'Sản phẩm / Quầy', 'Nhân viên', 'Thanh toán', 'SL', 'Thực thu', 'Trạng thái', 'Thời gian'].map((h, i) => (
-                                                <th key={h} className={`px-4 py-3 text-[11px] font-semibold text-center uppercase tracking-wider text-surface-500 whitespace-nowrap`}>{h}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {paginatedOrders.map((o, i) => (
-                                            <tr key={o.orderId} onClick={() => openDetail(o)}
-                                                className={`border-b border-surface-50 cursor-pointer transition-colors hover:bg-accent-50/30 ${i % 2 !== 0 ? 'bg-surface-50/20' : ''} ${o.status === 4 ? 'opacity-60' : ''}`}>
-                                                <td className="px-4 py-2.5 font-mono text-[11px] text-surface-400">{o.orderNumber.slice(-10)}</td>
-                                                <td className="px-4 py-2.5 max-w-[200px]">
-                                                    <p className="text-sm text-surface-800 font-medium truncate">{o.goodsNames || '—'}</p>
-                                                    {o.terminalName && <p className="text-[11px] text-surface-400 flex items-center gap-1 truncate"><Store className="w-2.5 h-2.5 shrink-0" />{o.terminalName}</p>}
-                                                </td>
-                                                <td className="px-4 py-2.5 text-sm text-surface-700 whitespace-nowrap text-center">{o.employeeName || '—'}</td>
-                                                <td className="px-4 py-2.5 text-sm text-surface-600 whitespace-nowrap text-center">{o.payModeNames || '—'}</td>
-                                                <td className="px-4 py-2.5 text-center font-semibold text-surface-800">{o.totalQty}</td>
-                                                <td className="px-4 py-2.5 text-center">
-                                                    <span className={`text-sm font-bold ${o.status === 4 ? 'text-surface-400 line-through' : 'text-success-700'}`}>{fmtVND(o.realMoney)}</span>
-                                                </td>
-                                                <td className="px-4 py-2.5 text-center"><StatusBadge status={o.status} label={o.statusName} /></td>
-                                                <td className="px-4 py-2.5 text-center text-[11px] text-surface-400 whitespace-nowrap">{o.createTime.slice(0, 16)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {/* ── Mobile Cards ──────────────────────────────────────── */}
-                            <div className="md:hidden space-y-2">
-                                {paginatedOrders.map(o => (
-                                    <div key={o.orderId} onClick={() => openDetail(o)}
-                                        className={`bg-white rounded-2xl border border-surface-100 shadow-sm p-3.5 cursor-pointer transition-colors hover:border-accent-200 ${o.status === 4 ? 'opacity-60' : ''}`}>
-                                        <div className="flex items-start justify-between gap-2 mb-2">
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-semibold text-surface-800 truncate">{o.goodsNames || '—'}</p>
-                                                <p className="text-[11px] font-mono text-surface-400 mt-0.5">{o.orderNumber.slice(-12)}</p>
-                                            </div>
-                                            <StatusBadge status={o.status} label={o.statusName} />
-                                        </div>
-                                        <div className="flex items-center justify-between text-xs text-surface-500 gap-2">
-                                            <span className="flex items-center gap-1 min-w-0 truncate"><User className="w-3 h-3 shrink-0" />{o.employeeName || '—'}</span>
-                                            <span className="flex items-center gap-1 shrink-0"><CreditCard className="w-3 h-3" />{o.payModeNames || '—'}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-surface-50">
-                                            <span className="text-[11px] text-surface-400">{o.createTime.slice(0, 16)}</span>
-                                            <span className={`text-sm font-bold ${o.status === 4 ? 'text-surface-400 line-through' : 'text-success-700'}`}>{fmtVND(o.realMoney)}</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* ── Pagination + Page-size selector ───────────────────── */}
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                                {/* Info + page-size */}
-                                <div className="flex items-center gap-3">
-                                    <p className="text-xs text-surface-400">
-                                        Trang <span className="font-semibold text-surface-700">{currentPage}</span> / {totalPages}
-                                        &nbsp;·&nbsp;<span className="font-semibold text-surface-700">{filteredOrders.length}</span> đơn
-                                    </p>
-                                    <div className="relative">
-                                        <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-                                            className={`${selectCls} appearance-none pr-7`}>
-                                            {[20, 50, 100, 500].map(n => <option key={n} value={n}>{n} / trang</option>)}
+                                {/* Employee */}
+                                {filters.employees.length > 0 && (
+                                    <div className="relative flex-1 min-w-[200px]">
+                                        <select value={selEmployee} onChange={e => setSelEmployee(e.target.value)} className={`${selectCls} appearance-none pr-7`}>
+                                            <option value="ALL">Tất cả nhân viên</option>
+                                            {filters.employees.map(e => <option key={e} value={e}>{e}</option>)}
                                         </select>
                                         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-surface-400 pointer-events-none" />
                                     </div>
-                                </div>
-                                {/* Page buttons */}
-                                {totalPages > 1 && (
-                                    <div className="flex gap-1">
-                                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1}
-                                            className="p-2 rounded-xl border border-surface-200 hover:bg-surface-100 disabled:opacity-40 transition-colors">
-                                            <ChevronLeft className="w-4 h-4 text-surface-600" />
-                                        </button>
-                                        {Array.from({ length: Math.min(totalPages, 5) }, (_, idx) => {
-                                            const p = Math.max(1, Math.min(currentPage - 2, totalPages - 4)) + idx;
-                                            return (
-                                                <button key={p} onClick={() => setCurrentPage(p)}
-                                                    className={`px-3 py-1.5 rounded-xl text-sm font-semibold transition-colors ${p === currentPage ? 'bg-accent-600 text-white' : 'border border-surface-200 text-surface-600 hover:bg-surface-100'}`}>
-                                                    {p}
-                                                </button>
-                                            );
-                                        })}
-                                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages}
-                                            className="p-2 rounded-xl border border-surface-200 hover:bg-surface-100 disabled:opacity-40 transition-colors">
-                                            <ChevronRight className="w-4 h-4 text-surface-600" />
-                                        </button>
+                                )}
+
+                                {/* Status */}
+                                {filters.statuses.length > 0 && (
+                                    <div className="relative flex-1 min-w-[200px]">
+                                        <select value={selStatus} onChange={e => setSelStatus(e.target.value)} className={`${selectCls} appearance-none pr-7`}>
+                                            <option value="ALL">Tất cả trạng thái</option>
+                                            {filters.statuses.map(s => <option key={s.value} value={String(s.value)}>{s.label}</option>)}
+                                        </select>
+                                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-surface-400 pointer-events-none" />
                                     </div>
                                 )}
+
+                                {/* Pay method */}
+                                {filters.payMethods.length > 0 && (
+                                    <div className="relative flex-1 min-w-[200px]">
+                                        <select value={selPayMethod} onChange={e => setSelPayMethod(e.target.value)} className={`${selectCls} appearance-none pr-7`}>
+                                            <option value="ALL">Tất cả thanh toán</option>
+                                            {filters.payMethods.map(p => <option key={p} value={p}>{p}</option>)}
+                                        </select>
+                                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-surface-400 pointer-events-none" />
+                                    </div>
+                                )}
+
+                                {/* Terminal */}
+                                {filters.terminals.length > 1 && (
+                                    <div className="relative flex-1 min-w-[200px]">
+                                        <select value={selTerminal} onChange={e => setSelTerminal(e.target.value)} className={`${selectCls} appearance-none pr-7`}>
+                                            <option value="ALL">Tất cả quầy</option>
+                                            {filters.terminals.map(t => <option key={t} value={t}>{t}</option>)}
+                                        </select>
+                                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-surface-400 pointer-events-none" />
+                                    </div>
+                                )}
+
+                                {/* Reset */}
+                                {activeFilterCount > 0 && (
+                                    <button onClick={() => { setSelEmployee('ALL'); setSelStatus('ALL'); setSelPayMethod('ALL'); setSelTerminal('ALL'); setSearch(''); }}
+                                        className="text-[11px] text-accent-600 hover:text-accent-800 font-semibold underline">
+                                        Xóa lọc
+                                    </button>
+                                )}
+
+                                {/* Right-side controls */}
+                                <div className="ml-auto flex items-center gap-1.5">
+                                    {/* Export Excel */}
+                                    {filteredOrders.length > 0 && (
+                                        <button onClick={() => setIsExportOpen(true)}
+                                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-success-200 bg-success-50 hover:bg-success-100 text-success-700 text-xs font-semibold transition-colors">
+                                            <FileDown className="w-3.5 h-3.5" />
+                                            Xuất Excel
+                                        </button>
+                                    )}
+                                    {/* Embed: refresh */}
+                                    {isEmbedded && (
+                                        <button onClick={() => loadOrders(effectiveStart, effectiveEnd)} disabled={isPending}
+                                            className="p-1.5 rounded-lg border border-surface-200 hover:bg-surface-100 text-surface-400 transition-colors">
+                                            <RefreshCw className={`w-3.5 h-3.5 ${isPending ? 'animate-spin' : ''}`} />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                        </>
-                    )}
+                        </div>
+
+                        {/* ── Filtered Summary ──────────────────────────────────────── */}
+                        {allOrders.length > 0 && (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                {([
+                                    { l: 'Số đơn', v: filteredFoot.count.toLocaleString(), c: 'text-surface-800 font-bold' },
+                                    { l: 'Tổng SP', v: filteredFoot.totalQty.toLocaleString(), c: 'text-surface-700' },
+                                    { l: 'Giảm giá', v: fmtVND(filteredFoot.discountMoney), c: 'text-warning-700' },
+                                    { l: 'Hoàn huỷ', v: fmtVND(filteredFoot.cancelMoney), c: 'text-danger-700' },
+                                ] as { l: string; v: string; c: string }[]).map(({ l, v, c }) => (
+                                    <div key={l} className="bg-white rounded-2xl border border-surface-100 shadow-sm p-3">
+                                        <p className="text-[10px] font-semibold uppercase tracking-widest text-surface-400">{l}</p>
+                                        <p className={`text-xs mt-0.5 ${c}`}>{v}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* ── Empty ─────────────────────────────────────────────────── */}
+                        {allOrders.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-20 gap-3 bg-white rounded-3xl border border-surface-100">
+                                <ShoppingCart className="size-10 text-surface-300" />
+                                <p className="text-sm text-surface-500">Không có đơn hàng nào trong khoảng thời gian này</p>
+                            </div>
+                        ) : filteredOrders.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 gap-2 bg-white rounded-3xl border border-surface-100">
+                                <p className="text-sm text-surface-500">Không có đơn nào khớp với bộ lọc</p>
+                                <button onClick={() => { setSelEmployee('ALL'); setSelStatus('ALL'); setSelPayMethod('ALL'); setSelTerminal('ALL'); setSearch(''); }}
+                                    className="text-xs text-accent-600 hover:underline font-semibold">Xóa bộ lọc</button>
+                            </div>
+                        ) : (
+                            <>
+                                {/* ── Desktop Table ─────────────────────────────────────── */}
+                                <div className="hidden md:block overflow-x-auto rounded-2xl border border-surface-100 shadow-sm bg-white">
+                                    <table className="w-full text-sm border-collapse">
+                                        <thead>
+                                            <tr className="bg-surface-50 border-b border-surface-100">
+                                                {['Mã đơn', 'Sản phẩm / Quầy', 'Nhân viên', 'Thanh toán', 'SL', 'Thực thu', 'Thuế', 'Trạng thái', 'Thời gian'].map((h) => (
+                                                    <th key={h} className="px-4 py-3 text-[11px] font-semibold text-center uppercase tracking-wider text-surface-500 whitespace-nowrap">{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {paginatedOrders.map((o, i) => (
+                                                <tr key={o.orderId} onClick={() => openDetail(o)}
+                                                    className={`border-b border-surface-50 cursor-pointer transition-colors hover:bg-accent-50/30 ${i % 2 !== 0 ? 'bg-surface-50/20' : ''} ${o.status === 4 ? 'opacity-60' : ''}`}>
+                                                    <td className="px-4 py-2.5 font-mono text-[11px] text-surface-400">{o.orderNumber.slice(-10)}</td>
+                                                    <td className="px-4 py-2.5 max-w-[200px]">
+                                                        <p className="text-sm text-surface-800 font-medium truncate">{o.goodsNames || '—'}</p>
+                                                        {o.terminalName && <p className="text-[11px] text-surface-400 flex items-center gap-1 truncate"><Store className="w-2.5 h-2.5 shrink-0" />{o.terminalName}</p>}
+                                                    </td>
+                                                    <td className="px-4 py-2.5 text-sm text-surface-700 whitespace-nowrap text-center">{o.employeeName || '—'}</td>
+                                                    <td className="px-4 py-2.5 text-sm text-surface-600 whitespace-nowrap text-center">{o.payModeNames || '—'}</td>
+                                                    <td className="px-4 py-2.5 text-center font-semibold text-surface-800">{o.totalQty}</td>
+                                                    <td className="px-4 py-2.5 text-center">
+                                                        <span className={`text-sm font-bold ${o.status === 4 ? 'text-surface-400 line-through' : 'text-success-700'}`}>{fmtVND(o.realMoney)}</span>
+                                                    </td>
+                                                    <td className="px-4 py-2.5 text-center">
+                                                        {o.taxMoney > 0 ? (
+                                                            <span className="text-xs text-surface-500">
+                                                                {fmtVND(o.taxMoney)}
+                                                                {o.taxRate > 0 && <span className="ml-1 text-[10px] text-surface-400">({o.taxRate}%)</span>}
+                                                            </span>
+                                                        ) : <span className="text-surface-300 text-xs">—</span>}
+                                                    </td>
+                                                    <td className="px-4 py-2.5 text-center"><StatusBadge status={o.status} label={o.statusName} /></td>
+                                                    <td className="px-4 py-2.5 text-center text-[11px] text-surface-400 whitespace-nowrap">{o.createTime.slice(0, 16)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* ── Mobile Cards ──────────────────────────────────────── */}
+                                <div className="md:hidden space-y-2">
+                                    {paginatedOrders.map(o => (
+                                        <div key={o.orderId} onClick={() => openDetail(o)}
+                                            className={`bg-white rounded-2xl border border-surface-100 shadow-sm p-3.5 cursor-pointer transition-colors hover:border-accent-200 ${o.status === 4 ? 'opacity-60' : ''}`}>
+                                            <div className="flex items-start justify-between gap-2 mb-2">
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-semibold text-surface-800 truncate">{o.goodsNames || '—'}</p>
+                                                    <p className="text-[11px] font-mono text-surface-400 mt-0.5">{o.orderNumber.slice(-12)}</p>
+                                                </div>
+                                                <StatusBadge status={o.status} label={o.statusName} />
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs text-surface-500 gap-2">
+                                                <span className="flex items-center gap-1 min-w-0 truncate"><User className="w-3 h-3 shrink-0" />{o.employeeName || '—'}</span>
+                                                <span className="flex items-center gap-1 shrink-0"><CreditCard className="w-3 h-3" />{o.payModeNames || '—'}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between mt-2 pt-2 border-t border-surface-50">
+                                                <span className="text-[11px] text-surface-400">{o.createTime.slice(0, 16)}</span>
+                                                <span className={`text-sm font-bold ${o.status === 4 ? 'text-surface-400 line-through' : 'text-success-700'}`}>{fmtVND(o.realMoney)}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* ── Pagination + Page-size selector ───────────────────── */}
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                    {/* Info + page-size */}
+                                    <div className="flex items-center gap-3">
+                                        <p className="text-xs text-surface-400">
+                                            Trang <span className="font-semibold text-surface-700">{currentPage}</span> / {totalPages}
+                                            &nbsp;·&nbsp;<span className="font-semibold text-surface-700">{filteredOrders.length}</span> đơn
+                                        </p>
+                                        <div className="relative">
+                                            <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                                                className={`${selectCls} appearance-none pr-7`}>
+                                                {[20, 50, 100, 500].map(n => <option key={n} value={n}>{n} / trang</option>)}
+                                            </select>
+                                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-surface-400 pointer-events-none" />
+                                        </div>
+                                    </div>
+                                    {/* Page buttons */}
+                                    {totalPages > 1 && (
+                                        <div className="flex gap-1">
+                                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1}
+                                                className="p-2 rounded-xl border border-surface-200 hover:bg-surface-100 disabled:opacity-40 transition-colors">
+                                                <ChevronLeft className="w-4 h-4 text-surface-600" />
+                                            </button>
+                                            {Array.from({ length: Math.min(totalPages, 5) }, (_, idx) => {
+                                                const p = Math.max(1, Math.min(currentPage - 2, totalPages - 4)) + idx;
+                                                return (
+                                                    <button key={p} onClick={() => setCurrentPage(p)}
+                                                        className={`px-3 py-1.5 rounded-xl text-sm font-semibold transition-colors ${p === currentPage ? 'bg-accent-600 text-white' : 'border border-surface-200 text-surface-600 hover:bg-surface-100'}`}>
+                                                        {p}
+                                                    </button>
+                                                );
+                                            })}
+                                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages}
+                                                className="p-2 rounded-xl border border-surface-200 hover:bg-surface-100 disabled:opacity-40 transition-colors">
+                                                <ChevronRight className="w-4 h-4 text-surface-600" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </>)}
 
                     {/* ── Goods View ─────────────────────────────────────────────── */}
@@ -947,7 +958,7 @@ export default function OrdersClient({ startDate, endDate }: Props) {
                                 <table className="w-full text-sm border-collapse">
                                     <thead>
                                         <tr className="bg-surface-50 border-b border-surface-100">
-                                            {['Mã đơn', 'Thời gian', 'Tên hàng', 'Danh mục', 'SL', 'Đơn giá', 'Thực thu', 'Thanh toán', 'Nhân viên'].map(h => (
+                                            {['Mã đơn', 'Thời gian', 'Tên hàng', 'Danh mục', 'SL', 'Đơn giá', 'Thuế', 'Thực thu', 'Thanh toán', 'Nhân viên'].map(h => (
                                                 <th key={h} className="px-4 py-3 text-[11px] font-semibold text-center uppercase tracking-wider text-surface-500 whitespace-nowrap">{h}</th>
                                             ))}
                                         </tr>
@@ -964,6 +975,7 @@ export default function OrdersClient({ startDate, endDate }: Props) {
                                                 <td className="px-4 py-2.5 text-xs text-surface-500 text-center whitespace-nowrap">{g.showCategoryName || '—'}</td>
                                                 <td className="px-4 py-2.5 text-center font-semibold text-surface-800">{g.qty}</td>
                                                 <td className="px-4 py-2.5 text-center text-xs text-surface-600">{fmtVND(g.price)}</td>
+                                                <td className="px-4 py-2.5 text-center text-xs text-surface-600">{fmtVND(g.taxMoney)}</td>
                                                 <td className="px-4 py-2.5 text-center">
                                                     <span className={`text-sm font-bold ${g.status === 4 ? 'text-surface-400 line-through' : 'text-success-700'}`}>{fmtVND(g.realMoney)}</span>
                                                 </td>
