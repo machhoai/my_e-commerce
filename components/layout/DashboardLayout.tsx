@@ -90,7 +90,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="min-h-screen flex items-center justify-center bg-surface-950">
                 <div className="flex flex-col items-center gap-3">
                     <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-surface-400 text-sm">Äang táº£i...</p>
+                    <p className="text-surface-400 text-sm">Đang tải...</p>
                 </div>
             </div>
         );
@@ -101,12 +101,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="min-h-screen flex items-center justify-center bg-surface-950">
                 <div className="flex flex-col items-center gap-4 text-center px-4">
                     <div className="w-10 h-10 border-4 border-danger-500 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-surface-300 text-sm">Äang káº¿t ná»‘i...</p>
+                    <p className="text-surface-300 text-sm">Đang kết nối...</p>
                     <button
                         onClick={logout}
                         className="text-xs text-danger-400 hover:text-danger-300 underline mt-2"
                     >
-                        ÄÄƒng xuáº¥t
+                        Đăng xuất
                     </button>
                 </div>
             </div>
@@ -630,6 +630,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <p className="text-[10px] text-surface-400 text-center">
                         Thiết kế & phát triển bởi{' '}
                         <span className="text-surface-500 font-medium">Mạch Hoài</span>
+                    </p>
+                    <p className="text-[9px] text-surface-500 text-center mt-0.5">
+                        Phiên bản v{process.env.NEXT_PUBLIC_BUILD_VERSION || 'Dev'}
                     </p>
                 </div>
             </div>
