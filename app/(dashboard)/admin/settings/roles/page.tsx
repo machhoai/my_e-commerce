@@ -2,260 +2,151 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-    CustomRoleDoc, AppPermission, ALL_PERMISSIONS,
-    PermissionMatrix, PERMISSION_RESOURCES, ResourcePermission,
-    emptyPermissionMatrix, blankResourcePermission,
-} from '@/types';
-import { Shield, Plus, Trash2, Pencil, Save, X, CheckCircle2, AlertCircle, RefreshCw, Lock, ChevronDown, ChevronUp, Users, Grid3X3, List } from 'lucide-react';
+import { CustomRoleDoc, ALL_PERMISSIONS } from '@/types';
+import { Shield, Plus, Trash2, Pencil, Save, X, CheckCircle2, AlertCircle, RefreshCw, Lock, ChevronDown, ChevronUp, Users, Eye, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 const COLOR_OPTIONS = [
-    { value: 'red', label: 'Đỏ', className: 'bg-danger-100 text-danger-700 border-danger-200' },
-    { value: 'purple', label: 'Tím', className: 'bg-accent-100 text-accent-700 border-accent-200' },
-    { value: 'amber', label: 'Vàng', className: 'bg-warning-100 text-warning-700 border-warning-200' },
-    { value: 'blue', label: 'Xanh', className: 'bg-primary-100 text-primary-700 border-primary-200' },
-    { value: 'emerald', label: 'Xanh lá', className: 'bg-success-100 text-success-700 border-success-200' },
-    { value: 'pink', label: 'Hồng', className: 'bg-pink-100 text-pink-700 border-pink-200' },
-    { value: 'slate', label: 'Xám', className: 'bg-surface-100 text-surface-700 border-surface-200' },
+    { value: 'red',     label: 'Đỏ',      className: 'bg-danger-100 text-danger-700 border-danger-200' },
+    { value: 'purple',  label: 'Tím',      className: 'bg-accent-100 text-accent-700 border-accent-200' },
+    { value: 'amber',   label: 'Vàng',     className: 'bg-warning-100 text-warning-700 border-warning-200' },
+    { value: 'blue',    label: 'Xanh',     className: 'bg-primary-100 text-primary-700 border-primary-200' },
+    { value: 'emerald', label: 'Xanh lá',  className: 'bg-success-100 text-success-700 border-success-200' },
+    { value: 'pink',    label: 'Hồng',     className: 'bg-pink-100 text-pink-700 border-pink-200' },
+    { value: 'slate',   label: 'Xám',      className: 'bg-surface-100 text-surface-700 border-surface-200' },
 ];
 
 const BADGE_COLOR: Record<string, string> = {
-    red: 'bg-danger-100 text-danger-700 border-danger-200',
-    purple: 'bg-accent-100 text-accent-700 border-accent-200',
-    amber: 'bg-warning-100 text-warning-700 border-warning-200',
-    blue: 'bg-primary-100 text-primary-700 border-primary-200',
+    red:     'bg-danger-100 text-danger-700 border-danger-200',
+    purple:  'bg-accent-100 text-accent-700 border-accent-200',
+    amber:   'bg-warning-100 text-warning-700 border-warning-200',
+    blue:    'bg-primary-100 text-primary-700 border-primary-200',
     emerald: 'bg-success-100 text-success-700 border-success-200',
-    pink: 'bg-pink-100 text-pink-700 border-pink-200',
-    slate: 'bg-surface-100 text-surface-700 border-surface-200',
+    pink:    'bg-pink-100 text-pink-700 border-pink-200',
+    slate:   'bg-surface-100 text-surface-700 border-surface-200',
 };
 
 const CARD_BG: Record<string, string> = {
-    red: 'border-danger-200 bg-danger-50/30',
-    purple: 'border-accent-200 bg-accent-50/30',
-    amber: 'border-warning-200 bg-warning-50/30',
-    blue: 'border-primary-200 bg-primary-50/30',
+    red:     'border-danger-200 bg-danger-50/30',
+    purple:  'border-accent-200 bg-accent-50/30',
+    amber:   'border-warning-200 bg-warning-50/30',
+    blue:    'border-primary-200 bg-primary-50/30',
     emerald: 'border-success-200 bg-success-50/30',
-    pink: 'border-pink-200 bg-pink-50/30',
-    slate: 'border-surface-200 bg-surface-50/30',
+    pink:    'border-pink-200 bg-pink-50/30',
+    slate:   'border-surface-200 bg-surface-50/30',
 };
 
-const CRUD_COLS: { key: keyof ResourcePermission; label: string; color: string }[] = [
-    { key: 'read',   label: 'Xem',   color: 'text-primary-600'  },
-    { key: 'create', label: 'Thêm',  color: 'text-success-600'  },
-    { key: 'update', label: 'Sửa',   color: 'text-warning-600'  },
-    { key: 'delete', label: 'Xóa',   color: 'text-danger-600'   },
-];
+// Group permissions by category
+const permissionGroups = Array.from(new Set(ALL_PERMISSIONS.map(p => p.group)));
 
-// ─── Permission Matrix Table ──────────────────────────────────────────────────
-function PermissionMatrixTable({
-    matrix,
+// ─── Permission Picker Component ──────────────────────────────────────────────
+function PermissionPicker({
+    selected,
     onChange,
 }: {
-    matrix: PermissionMatrix;
-    onChange: (m: PermissionMatrix) => void;
+    selected: Set<string>;
+    onChange: (s: Set<string>) => void;
 }) {
-    const toggle = (resource: string, action: keyof ResourcePermission) => {
-        const next = { ...matrix, [resource]: { ...matrix[resource], [action]: !matrix[resource]?.[action] } };
+    const toggle = (key: string) => {
+        const next = new Set(selected);
+        next.has(key) ? next.delete(key) : next.add(key);
         onChange(next);
     };
 
-    const setRow = (resource: string, value: boolean) => {
-        const next = { ...matrix, [resource]: { read: value, create: value, update: value, delete: value } };
-        onChange(next);
-    };
+    const selectAll = () => onChange(new Set(ALL_PERMISSIONS.map(p => p.key)));
+    const clearAll = () => onChange(new Set());
 
-    const setColumn = (action: keyof ResourcePermission, value: boolean) => {
-        const next = { ...matrix };
-        PERMISSION_RESOURCES.forEach(r => {
-            next[r.key] = { ...(next[r.key] ?? blankResourcePermission()), [action]: value };
+    const selectGroup = (group: string, value: boolean) => {
+        const next = new Set(selected);
+        ALL_PERMISSIONS.filter(p => p.group === group).forEach(p => {
+            value ? next.add(p.key) : next.delete(p.key);
         });
         onChange(next);
     };
 
-    const isRowFull   = (key: string) => CRUD_COLS.every(c => matrix[key]?.[c.key]);
-    const isColFull   = (col: keyof ResourcePermission) => PERMISSION_RESOURCES.every(r => matrix[r.key]?.[col]);
-
     return (
-        <div className="overflow-x-auto rounded-xl border border-surface-200 shadow-sm">
-            <table className="w-full text-sm border-collapse">
-                <thead>
-                    <tr className="bg-surface-50">
-                        <th className="text-left px-3 py-2.5 text-xs font-bold text-surface-600 uppercase tracking-wider w-40 border-b border-surface-200">
-                            Chức năng
-                        </th>
-                        {CRUD_COLS.map(col => (
-                            <th key={col.key} className="px-2 py-2.5 border-b border-surface-200 min-w-[60px]">
-                                <div className="flex flex-col items-center gap-1">
-                                    <span className={cn('text-xs font-bold', col.color)}>{col.label}</span>
-                                    <input
-                                        type="checkbox"
-                                        title={`Chọn tất cả cột ${col.label}`}
-                                        className="accent-accent-600 cursor-pointer"
-                                        checked={isColFull(col.key)}
-                                        onChange={e => setColumn(col.key, e.target.checked)}
-                                    />
-                                </div>
-                            </th>
-                        ))}
-                        <th className="px-2 py-2.5 border-b border-surface-200 min-w-[60px]">
-                            <div className="flex flex-col items-center gap-1">
-                                <span className="text-[10px] font-bold text-surface-400">Tất cả</span>
-                                <input
-                                    type="checkbox"
-                                    title="Chọn tất cả"
-                                    className="accent-accent-600 cursor-pointer"
-                                    checked={PERMISSION_RESOURCES.every(r => isRowFull(r.key))}
-                                    onChange={e => {
-                                        const all: PermissionMatrix = {};
-                                        PERMISSION_RESOURCES.forEach(r => {
-                                            all[r.key] = { read: e.target.checked, create: e.target.checked, update: e.target.checked, delete: e.target.checked };
-                                        });
-                                        onChange(all);
-                                    }}
-                                />
-                            </div>
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {PERMISSION_RESOURCES.map((res, i) => {
-                        const rowFull = isRowFull(res.key);
-                        return (
-                            <tr key={res.key} className={cn(
-                                'transition-colors',
-                                i % 2 === 0 ? 'bg-white' : 'bg-surface-50/50',
-                                'hover:bg-accent-50/30'
-                            )}>
-                                <td className="px-3 py-2.5 border-b border-surface-100">
-                                    <span className="flex items-center gap-1.5 font-semibold text-surface-700">
-                                        <span className="text-base leading-none">{res.icon}</span>
-                                        {res.label}
-                                    </span>
-                                </td>
-                                {CRUD_COLS.map(col => {
-                                    const checked = Boolean(matrix[res.key]?.[col.key]);
-                                    return (
-                                        <td key={col.key} className="px-2 py-2.5 border-b border-surface-100 text-center">
-                                            <input
-                                                type="checkbox"
-                                                className="accent-accent-600 cursor-pointer w-4 h-4"
-                                                checked={checked}
-                                                onChange={() => toggle(res.key, col.key)}
-                                            />
-                                        </td>
-                                    );
-                                })}
-                                {/* Row select-all */}
-                                <td className="px-2 py-2.5 border-b border-surface-100 text-center">
-                                    <input
-                                        type="checkbox"
-                                        title={`Chọn tất cả ${res.label}`}
-                                        className="accent-accent-600 cursor-pointer w-4 h-4"
-                                        checked={rowFull}
-                                        onChange={e => setRow(res.key, e.target.checked)}
-                                    />
-                                </td>
-                            </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
-        </div>
-    );
-}
-
-// ─── Permissions Form Section ─────────────────────────────────────────────────
-function PermissionsSection({
-    perms,
-    matrix,
-    onPermsChange,
-    onMatrixChange,
-}: {
-    perms: Set<AppPermission>;
-    matrix: PermissionMatrix;
-    onPermsChange: (s: Set<AppPermission>) => void;
-    onMatrixChange: (m: PermissionMatrix) => void;
-}) {
-    const [activeTab, setActiveTab] = useState<'matrix' | 'advanced'>('matrix');
-    const permissionGroups = Array.from(new Set(ALL_PERMISSIONS.map(p => p.group)));
-
-    const togglePerm = (key: AppPermission) => {
-        const next = new Set(perms);
-        next.has(key) ? next.delete(key) : next.add(key);
-        onPermsChange(next);
-    };
-
-    return (
-        <div>
-            {/* Tab switcher */}
-            <div className="flex gap-1 mb-3 bg-surface-100 p-1 rounded-lg w-fit">
-                <button
-                    type="button"
-                    onClick={() => setActiveTab('matrix')}
-                    className={cn(
-                        'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all',
-                        activeTab === 'matrix'
-                            ? 'bg-white text-accent-700 shadow-sm'
-                            : 'text-surface-500 hover:text-surface-700'
-                    )}
-                >
-                    <Grid3X3 className="w-3.5 h-3.5" /> Ma trận CRUD
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setActiveTab('advanced')}
-                    className={cn(
-                        'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all',
-                        activeTab === 'advanced'
-                            ? 'bg-white text-accent-700 shadow-sm'
-                            : 'text-surface-500 hover:text-surface-700'
-                    )}
-                >
-                    <List className="w-3.5 h-3.5" /> Quyền chi tiết ({perms.size})
-                </button>
+        <div className="space-y-3">
+            <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-surface-600">
+                    Danh sách quyền ({selected.size}/{ALL_PERMISSIONS.length})
+                </span>
+                <div className="flex gap-2">
+                    <button type="button" onClick={selectAll}
+                        className="text-[10px] text-accent-600 hover:underline font-semibold">Chọn tất cả</button>
+                    <button type="button" onClick={clearAll}
+                        className="text-[10px] text-surface-400 hover:underline">Bỏ hết</button>
+                </div>
             </div>
 
-            {activeTab === 'matrix' ? (
-                <PermissionMatrixTable matrix={matrix} onChange={onMatrixChange} />
-            ) : (
-                <div>
-                    <div className="flex items-center justify-between mb-2">
-                        <label className="text-xs font-semibold text-surface-600">Quyền chi tiết ({perms.size}/{ALL_PERMISSIONS.length})</label>
-                        <div className="flex gap-2">
-                            <button type="button" onClick={() => onPermsChange(new Set(ALL_PERMISSIONS.map(p => p.key)))}
-                                className="text-[10px] text-accent-600 hover:underline font-semibold">Chọn tất cả</button>
-                            <button type="button" onClick={() => onPermsChange(new Set())}
-                                className="text-[10px] text-surface-400 hover:underline">Bỏ hết</button>
-                        </div>
-                    </div>
-                    <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                        {permissionGroups.map(group => (
-                            <div key={group}>
-                                <p className="text-[10px] font-bold text-surface-400 uppercase tracking-wide mb-1.5 px-1">{group}</p>
-                                <div className="space-y-1">
-                                    {ALL_PERMISSIONS.filter(p => p.group === group).map(p => (
-                                        <label key={p.key} className={cn(
-                                            'flex items-start gap-2.5 p-2 rounded-lg border cursor-pointer transition-colors',
-                                            perms.has(p.key) ? 'bg-accent-50 border-accent-300' : 'bg-surface-50 border-surface-200 hover:border-accent-200'
-                                        )}>
-                                            <input type="checkbox" className="mt-0.5 accent-accent-600"
-                                                checked={perms.has(p.key)}
-                                                onChange={() => togglePerm(p.key)}
+            <div className="space-y-4 max-h-80 overflow-y-auto pr-1 rounded-xl">
+                {permissionGroups.map(group => {
+                    const groupPerms = ALL_PERMISSIONS.filter(p => p.group === group);
+                    const allSelected = groupPerms.every(p => selected.has(p.key));
+                    const someSelected = groupPerms.some(p => selected.has(p.key));
+
+                    return (
+                        <div key={group} className="border border-surface-200 rounded-xl overflow-hidden">
+                            {/* Group header */}
+                            <div className="flex items-center justify-between bg-surface-50 px-3 py-2 border-b border-surface-200">
+                                <span className="text-xs font-bold text-surface-700">{group}</span>
+                                <button type="button"
+                                    onClick={() => selectGroup(group, !allSelected)}
+                                    className={cn(
+                                        'text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-colors',
+                                        allSelected
+                                            ? 'bg-accent-100 text-accent-700 border-accent-300'
+                                            : someSelected
+                                                ? 'bg-warning-100 text-warning-700 border-warning-300'
+                                                : 'bg-surface-100 text-surface-500 border-surface-200 hover:border-accent-300'
+                                    )}>
+                                    {allSelected ? '✓ Tất cả' : someSelected ? '~ Một phần' : 'Chọn nhóm'}
+                                </button>
+                            </div>
+
+                            {/* Permission items */}
+                            <div className="divide-y divide-surface-100">
+                                {groupPerms.map(p => {
+                                    const checked = selected.has(p.key);
+                                    return (
+                                        <label key={p.key}
+                                            className={cn(
+                                                'flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors',
+                                                checked ? 'bg-accent-50' : 'bg-white hover:bg-surface-50'
+                                            )}>
+                                            <input
+                                                type="checkbox"
+                                                className="accent-accent-600 shrink-0"
+                                                checked={checked}
+                                                onChange={() => toggle(p.key)}
                                             />
-                                            <div>
-                                                <p className="text-xs font-semibold text-surface-700">{p.label}</p>
-                                                <p className="text-[10px] text-surface-400">{p.description}</p>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    {p.type === 'page' ? (
+                                                        <Eye className="w-3 h-3 text-primary-500 shrink-0" />
+                                                    ) : (
+                                                        <Zap className="w-3 h-3 text-warning-500 shrink-0" />
+                                                    )}
+                                                    <span className="text-xs font-semibold text-surface-800">{p.label}</span>
+                                                    <span className={cn(
+                                                        'text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase',
+                                                        p.type === 'page'
+                                                            ? 'bg-primary-100 text-primary-600'
+                                                            : 'bg-warning-100 text-warning-600'
+                                                    )}>
+                                                        {p.type === 'page' ? 'Trang' : 'Ghi'}
+                                                    </span>
+                                                </div>
+                                                <p className="text-[10px] text-surface-400 mt-0.5">{p.description}</p>
                                             </div>
                                         </label>
-                                    ))}
-                                </div>
+                                    );
+                                })}
                             </div>
-                        ))}
-                    </div>
-                </div>
-            )}
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 }
@@ -269,10 +160,9 @@ export default function AdminRolesPage() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
-    // Create form
+    // Create form state
     const [newRoleName, setNewRoleName] = useState('');
-    const [newRolePerms, setNewRolePerms] = useState<Set<AppPermission>>(new Set());
-    const [newMatrix, setNewMatrix] = useState<PermissionMatrix>(emptyPermissionMatrix());
+    const [newPerms, setNewPerms] = useState<Set<string>>(new Set());
     const [newCreatorRoles, setNewCreatorRoles] = useState<Set<string>>(new Set(['admin']));
     const [newColor, setNewColor] = useState('slate');
     const [newDefaultRoute, setNewDefaultRoute] = useState('');
@@ -281,8 +171,7 @@ export default function AdminRolesPage() {
     // Edit state
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editName, setEditName] = useState('');
-    const [editPerms, setEditPerms] = useState<Set<AppPermission>>(new Set());
-    const [editMatrix, setEditMatrix] = useState<PermissionMatrix>(emptyPermissionMatrix());
+    const [editPerms, setEditPerms] = useState<Set<string>>(new Set());
     const [editCreatorRoles, setEditCreatorRoles] = useState<Set<string>>(new Set());
     const [editColor, setEditColor] = useState('slate');
     const [editDefaultRoute, setEditDefaultRoute] = useState('');
@@ -309,12 +198,12 @@ export default function AdminRolesPage() {
     useEffect(() => { fetchRoles(); }, [fetchRoles]);
 
     const showMsg = (type: 'success' | 'error', msg: string) => {
-        if (type === 'error') { setError(msg); setSuccess(''); } else { setSuccess(msg); setError(''); }
+        if (type === 'error') { setError(msg); setSuccess(''); }
+        else { setSuccess(msg); setError(''); }
     };
 
     const handleCreate = async () => {
         if (!newRoleName.trim()) { showMsg('error', 'Tên role không được để trống'); return; }
-        if (newCreatorRoles.size === 0) { showMsg('error', 'Phải chọn ít nhất 1 role được phép tạo'); return; }
         setSaving(true); setError(''); setSuccess('');
         try {
             const token = await getToken();
@@ -323,8 +212,7 @@ export default function AdminRolesPage() {
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({
                     name: newRoleName.trim(),
-                    permissions: Array.from(newRolePerms),
-                    permissionMatrix: newMatrix,
+                    permissions: Array.from(newPerms),
                     creatorRoles: Array.from(newCreatorRoles),
                     color: newColor,
                     defaultRoute: newDefaultRoute.trim() || undefined,
@@ -332,8 +220,9 @@ export default function AdminRolesPage() {
                 }),
             });
             if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
-            setNewRoleName(''); setNewRolePerms(new Set()); setNewMatrix(emptyPermissionMatrix());
-            setNewCreatorRoles(new Set(['admin'])); setNewColor('slate'); setNewDefaultRoute(''); setNewApplicableTo(new Set());
+            setNewRoleName(''); setNewPerms(new Set());
+            setNewCreatorRoles(new Set(['admin'])); setNewColor('slate');
+            setNewDefaultRoute(''); setNewApplicableTo(new Set());
             showMsg('success', 'Đã tạo role mới!');
             fetchRoles();
         } catch (err) {
@@ -342,7 +231,6 @@ export default function AdminRolesPage() {
     };
 
     const handleSaveEdit = async (id: string) => {
-        if (editCreatorRoles.size === 0) { showMsg('error', 'Phải chọn ít nhất 1 role được phép tạo'); return; }
         setSaving(true); setError(''); setSuccess('');
         try {
             const token = await getToken();
@@ -352,7 +240,6 @@ export default function AdminRolesPage() {
                 body: JSON.stringify({
                     name: editName,
                     permissions: Array.from(editPerms),
-                    permissionMatrix: editMatrix,
                     creatorRoles: Array.from(editCreatorRoles),
                     color: editColor,
                     defaultRoute: editDefaultRoute.trim() || '',
@@ -387,29 +274,22 @@ export default function AdminRolesPage() {
         setEditingId(role.id);
         setEditName(role.name);
         setEditPerms(new Set(role.permissions));
-        setEditMatrix(role.permissionMatrix ? { ...emptyPermissionMatrix(), ...role.permissionMatrix } : emptyPermissionMatrix());
         setEditCreatorRoles(new Set(role.creatorRoles || ['admin']));
         setEditColor(role.color || 'slate');
         setEditDefaultRoute(role.defaultRoute || '');
         setEditApplicableTo(new Set(role.applicableTo || []));
     };
 
-    const toggleCreator = (set: Set<string>, roleId: string, setter: (s: Set<string>) => void) => {
-        const next = new Set(set);
-        next.has(roleId) ? next.delete(roleId) : next.add(roleId);
-        setter(next);
-    };
-
-    const creatorCandidates = roles.filter(r => r.isSystem);
-
     if (userDoc?.role !== 'admin' && userDoc?.role !== 'super_admin') {
         return <div className="p-8 text-center text-danger-500 font-bold">Không có quyền truy cập.</div>;
     }
 
+    const creatorCandidates = roles.filter(r => r.isSystem);
+
     const APPLICABLE_OPTIONS: { key: 'STORE' | 'OFFICE' | 'CENTRAL'; label: string; icon: string; color: string }[] = [
-        { key: 'STORE', label: 'Cửa hàng', icon: '🏪', color: 'bg-accent-50 border-accent-300 text-accent-700' },
-        { key: 'OFFICE', label: 'Văn phòng', icon: '🏢', color: 'bg-teal-50 border-teal-300 text-teal-700' },
-        { key: 'CENTRAL', label: 'Kho tổng', icon: '🏭', color: 'bg-accent-50 border-accent-300 text-accent-700' },
+        { key: 'STORE',   label: 'Cửa hàng', icon: '🏪', color: 'bg-accent-50 border-accent-300 text-accent-700' },
+        { key: 'OFFICE',  label: 'Văn phòng', icon: '🏢', color: 'bg-teal-50 border-teal-300 text-teal-700' },
+        { key: 'CENTRAL', label: 'Kho tổng',  icon: '🏭', color: 'bg-warning-50 border-warning-300 text-warning-700' },
     ];
 
     const renderApplicableTo = (
@@ -431,8 +311,7 @@ export default function AdminRolesPage() {
                             className={cn(
                                 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all',
                                 active ? opt.color + ' ring-2 ring-offset-1 ring-accent-300' : 'border-surface-200 text-surface-500 hover:border-surface-300'
-                            )}
-                        >
+                            )}>
                             {opt.icon} {opt.label}
                             {active && <span className="ml-0.5">✓</span>}
                         </button>
@@ -450,7 +329,7 @@ export default function AdminRolesPage() {
         <div>
             <label className="text-xs font-semibold text-surface-600 mb-2 flex items-center gap-1.5">
                 <Users className="w-3.5 h-3.5 text-accent-500" />
-                Ai được phép tạo/gán role này?
+                Ai được phép gán role này?
             </label>
             <div className="flex flex-wrap gap-1.5">
                 {creatorCandidates.map(r => (
@@ -462,7 +341,11 @@ export default function AdminRolesPage() {
                     )}>
                         <input type="checkbox" className="accent-accent-600"
                             checked={selected.has(r.id)}
-                            onChange={() => toggleCreator(selected, r.id, setter)}
+                            onChange={() => {
+                                const next = new Set(selected);
+                                next.has(r.id) ? next.delete(r.id) : next.add(r.id);
+                                setter(next);
+                            }}
                         />
                         {r.name}
                     </label>
@@ -482,8 +365,7 @@ export default function AdminRolesPage() {
                             'px-2.5 py-1 rounded-full text-xs font-medium border transition-all',
                             c.className,
                             value === c.value ? 'ring-2 ring-offset-1 ring-accent-400 scale-105' : 'opacity-70 hover:opacity-100'
-                        )}
-                    >
+                        )}>
                         {c.label}
                     </button>
                 ))}
@@ -503,7 +385,7 @@ export default function AdminRolesPage() {
                                 <Shield className="w-7 h-7 text-accent-600" />
                                 Quản lý Phân Quyền
                             </h1>
-                            <p className="text-surface-500 mt-1 text-sm">Quản lý vai trò và ma trận quyền CRUD cho từng tài nguyên.</p>
+                            <p className="text-surface-500 mt-1 text-sm">Tạo vai trò tùy chỉnh và phân quyền chi tiết cho từng tính năng.</p>
                         </div>
                         <button onClick={fetchRoles} className="p-2 rounded-lg hover:bg-surface-100 text-surface-500 transition-colors shrink-0">
                             <RefreshCw className="w-4 h-4" />
@@ -511,6 +393,18 @@ export default function AdminRolesPage() {
                     </div>
                 }
             />
+
+            {/* Legend */}
+            <div className="flex items-center gap-4 text-xs text-surface-500 bg-surface-50 border border-surface-200 rounded-xl px-4 py-3">
+                <div className="flex items-center gap-1.5">
+                    <Eye className="w-3.5 h-3.5 text-primary-500" />
+                    <span><strong className="text-surface-700">Trang</strong> — cho phép truy cập vào route/trang</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-warning-500" />
+                    <span><strong className="text-surface-700">Ghi</strong> — cho phép thêm/sửa/xóa dữ liệu</span>
+                </div>
+            </div>
 
             {/* Alerts */}
             {error && (
@@ -549,24 +443,17 @@ export default function AdminRolesPage() {
                         {renderColorPicker(newColor, setNewColor)}
                         {renderCreatorRolePicker(newCreatorRoles, setNewCreatorRoles)}
 
-                        {/* Default Route */}
                         <div>
                             <label className="text-xs font-semibold text-surface-600 block mb-1">Trang mặc định sau đăng nhập (Tùy chọn)</label>
                             <input
                                 value={newDefaultRoute}
                                 onChange={e => setNewDefaultRoute(e.target.value)}
                                 placeholder="VD: /office/revenue"
-                                className="w-full border border-surface-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-accent-500/20 focus:border-accent-400 outline-none"
+                                className="w-full border border-surface-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-accent-500/20 focus:border-accent-400 outline-none font-mono"
                             />
                         </div>
 
-                        {/* Permissions (Matrix + Advanced) */}
-                        <PermissionsSection
-                            perms={newRolePerms}
-                            matrix={newMatrix}
-                            onPermsChange={setNewRolePerms}
-                            onMatrixChange={setNewMatrix}
-                        />
+                        <PermissionPicker selected={newPerms} onChange={setNewPerms} />
 
                         <button
                             onClick={handleCreate}
@@ -592,7 +479,7 @@ export default function AdminRolesPage() {
                         </div>
                     ) : roles.length === 0 ? (
                         <div className="bg-surface-50 border border-dashed border-surface-300 rounded-2xl p-8 text-center text-surface-400 text-sm">
-                            Đang tải vai trò...
+                            Chưa có role nào
                         </div>
                     ) : (
                         roles.map(role => (
@@ -601,7 +488,7 @@ export default function AdminRolesPage() {
                                 CARD_BG[role.color || 'slate'] || 'border-surface-200 bg-white'
                             )}>
                                 {editingId === role.id ? (
-                                    /* ─── Edit Mode ─── */
+                                    /* Edit Mode */
                                     <div className="space-y-3">
                                         <input
                                             value={editName}
@@ -617,16 +504,11 @@ export default function AdminRolesPage() {
                                                 value={editDefaultRoute}
                                                 onChange={e => setEditDefaultRoute(e.target.value)}
                                                 placeholder="VD: /office/revenue"
-                                                className="w-full border border-accent-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-accent-500/20 outline-none"
+                                                className="w-full border border-accent-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-accent-500/20 outline-none font-mono"
                                             />
                                         </div>
 
-                                        <PermissionsSection
-                                            perms={editPerms}
-                                            matrix={editMatrix}
-                                            onPermsChange={setEditPerms}
-                                            onMatrixChange={setEditMatrix}
-                                        />
+                                        <PermissionPicker selected={editPerms} onChange={setEditPerms} />
 
                                         <div className="flex gap-2">
                                             <button onClick={() => handleSaveEdit(role.id)} disabled={saving}
@@ -640,7 +522,7 @@ export default function AdminRolesPage() {
                                         </div>
                                     </div>
                                 ) : (
-                                    /* ─── View Mode ─── */
+                                    /* View Mode */
                                     <>
                                         <div className="flex items-start justify-between mb-2">
                                             <div
@@ -659,21 +541,16 @@ export default function AdminRolesPage() {
                                                             Hệ thống
                                                         </span>
                                                     )}
-                                                    {role.permissionMatrix && (
-                                                        <span className="text-[9px] bg-accent-100 text-accent-700 px-1.5 py-0.5 rounded-full font-semibold uppercase flex items-center gap-0.5">
-                                                            <Grid3X3 className="w-2.5 h-2.5" /> Matrix
-                                                        </span>
-                                                    )}
                                                     {role.applicableTo && role.applicableTo.length > 0 && role.applicableTo.map(loc => (
                                                         <span key={loc} className={cn(
                                                             'text-[9px] font-bold px-1.5 py-0.5 rounded-full',
                                                             loc === 'OFFICE' ? 'bg-teal-100 text-teal-700' :
-                                                                loc === 'CENTRAL' ? 'bg-accent-100 text-accent-700' :
+                                                                loc === 'CENTRAL' ? 'bg-warning-100 text-warning-700' :
                                                                     'bg-accent-100 text-accent-700'
                                                         )}>
-                                                            {loc === 'STORE' ? '🏪'
-                                                                : loc === 'OFFICE' ? '🏢'
-                                                                    : '🏭'} {loc}
+                                                            {loc === 'STORE' ? '🏪 Cửa hàng'
+                                                                : loc === 'OFFICE' ? '🏢 Văn phòng'
+                                                                    : '🏭 Kho tổng'}
                                                         </span>
                                                     ))}
                                                     {role.isLocked && <Lock className="w-3 h-3 text-surface-400" />}
@@ -683,13 +560,7 @@ export default function AdminRolesPage() {
                                                     }
                                                 </div>
                                                 <p className="text-xs text-surface-500 mt-1">
-                                                    {role.permissions.length} quyền chi tiết
-                                                    {role.creatorRoles?.length > 0 && (
-                                                        <> · Được tạo bởi: {role.creatorRoles.map(cid => {
-                                                            const cr = roles.find(r => r.id === cid);
-                                                            return cr?.name ?? cid;
-                                                        }).join(', ')}</>
-                                                    )}
+                                                    {role.permissions.length} quyền
                                                     {role.defaultRoute && (
                                                         <> · Redirect: <span className="font-mono text-accent-600">{role.defaultRoute}</span></>
                                                     )}
@@ -712,60 +583,38 @@ export default function AdminRolesPage() {
                                             )}
                                         </div>
 
-                                        {/* Expanded: show matrix + flat permissions */}
+                                        {/* Expanded: show permission list */}
                                         {expandedId === role.id && (
-                                            <div className="mt-2 pt-2 border-t border-surface-200/60 space-y-3">
-                                                {role.permissionMatrix && (
-                                                    <div>
-                                                        <p className="text-[10px] font-bold text-surface-400 uppercase tracking-wide mb-1.5">Ma trận CRUD</p>
-                                                        <div className="overflow-x-auto rounded-lg border border-surface-200">
-                                                            <table className="text-xs w-full border-collapse">
-                                                                <thead>
-                                                                    <tr className="bg-surface-50">
-                                                                        <th className="text-left px-2 py-1.5 font-semibold text-surface-600 border-b border-surface-200 w-28">Tài nguyên</th>
-                                                                        {CRUD_COLS.map(c => (
-                                                                            <th key={c.key} className={cn('px-2 py-1.5 border-b border-surface-200 text-center font-bold', c.color)}>{c.label}</th>
-                                                                        ))}
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    {PERMISSION_RESOURCES.map((res, i) => (
-                                                                        <tr key={res.key} className={i % 2 === 0 ? 'bg-white' : 'bg-surface-50/50'}>
-                                                                            <td className="px-2 py-1.5 border-b border-surface-100 font-medium text-surface-700">
-                                                                                {res.icon} {res.label}
-                                                                            </td>
-                                                                            {CRUD_COLS.map(col => {
-                                                                                const ok = role.permissionMatrix?.[res.key]?.[col.key];
-                                                                                return (
-                                                                                    <td key={col.key} className="px-2 py-1.5 border-b border-surface-100 text-center">
-                                                                                        {ok ? <span className="text-success-500 font-bold">✓</span> : <span className="text-surface-300">–</span>}
-                                                                                    </td>
-                                                                                );
-                                                                            })}
-                                                                        </tr>
-                                                                    ))}
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                {role.permissions.length > 0 && (
-                                                    <div>
-                                                        <p className="text-[10px] font-bold text-surface-400 uppercase tracking-wide mb-1.5">Quyền chi tiết</p>
-                                                        <div className="flex flex-wrap gap-1.5">
-                                                            {role.permissions.map(pKey => {
-                                                                const pInfo = ALL_PERMISSIONS.find(p => p.key === pKey);
-                                                                return (
-                                                                    <span key={pKey} className="text-xs bg-white/80 text-surface-700 px-2 py-0.5 rounded-full font-medium border border-surface-200">
-                                                                        {pInfo?.label ?? pKey}
-                                                                    </span>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                {!role.permissionMatrix && role.permissions.length === 0 && (
+                                            <div className="mt-2 pt-2 border-t border-surface-200/60">
+                                                {role.permissions.length === 0 ? (
                                                     <span className="text-xs text-surface-400 italic">Không có quyền nào</span>
+                                                ) : (
+                                                    <div className="space-y-2">
+                                                        {permissionGroups.map(group => {
+                                                            const groupPerms = ALL_PERMISSIONS.filter(
+                                                                p => p.group === group && role.permissions.includes(p.key)
+                                                            );
+                                                            if (groupPerms.length === 0) return null;
+                                                            return (
+                                                                <div key={group}>
+                                                                    <p className="text-[10px] font-bold text-surface-400 uppercase tracking-wide mb-1">{group}</p>
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {groupPerms.map(p => (
+                                                                            <span key={p.key} className={cn(
+                                                                                'text-[10px] font-medium px-2 py-0.5 rounded-full border flex items-center gap-1',
+                                                                                p.type === 'page'
+                                                                                    ? 'bg-primary-50 text-primary-700 border-primary-200'
+                                                                                    : 'bg-warning-50 text-warning-700 border-warning-200'
+                                                                            )}>
+                                                                                {p.type === 'page' ? <Eye className="w-2.5 h-2.5" /> : <Zap className="w-2.5 h-2.5" />}
+                                                                                {p.label}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 )}
                                             </div>
                                         )}

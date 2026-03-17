@@ -20,7 +20,7 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export default function OfficeApprovalsPage() {
-    const { user, userDoc, getToken } = useAuth();
+    const { user, userDoc, getToken, hasPermission } = useAuth();
     const [orders, setOrders] = useState<PurchaseOrderDoc[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -56,8 +56,8 @@ export default function OfficeApprovalsPage() {
         if (user) fetchOrders();
     }, [user, fetchOrders]);
 
-    // Guard: only office or admin
-    if (userDoc && userDoc.role !== 'office' && userDoc.role !== 'admin') {
+    // Guard: only office role, admin/super_admin, or custom role with page.office.approvals permission
+    if (userDoc && userDoc.role !== 'office' && userDoc.role !== 'admin' && userDoc.role !== 'super_admin' && !hasPermission('page.office.approvals')) {
         return (
             <div className="flex items-center justify-center h-[60vh] text-surface-400">
                 <p>Bạn không có quyền truy cập trang này.</p>

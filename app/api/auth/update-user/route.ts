@@ -80,7 +80,18 @@ export async function POST(request: Request) {
         }
 
         if (body.education !== undefined) updateData.education = body.education;
-        if (body.phone !== undefined) updateData.phone = body.phone;
+        if (body.phone !== undefined) {
+            const phoneCheck = await adminDb.collection('users')
+                .where('phone', '==', body.phone).limit(1).get();
+            const conflict = phoneCheck.docs.find(d => d.id !== targetUid);
+            if (conflict) {
+                return NextResponse.json(
+                    { error: 'Số điện thoại này đã được sử dụng bởi một tài khoản khác.' },
+                    { status: 409 }
+                );
+            }
+            updateData.phone = body.phone;
+        }
 
         // type: admin OR manager/store_manager with canManageHR editing someone else
         const isPrivilegedEdit = (requestUid !== targetUid) && (

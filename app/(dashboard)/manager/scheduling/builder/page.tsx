@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { db } from '@/lib/firebase';
@@ -58,7 +58,7 @@ function saveWeeklyDraft(storeId: string, weekStart: Date, draft: WeeklyDraft): 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function ManagerSchedulePage() {
-    const { user, userDoc } = useAuth();
+    const { user, userDoc, hasPermission } = useAuth();
 
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000)));
     const weekDays = getWeekDays(currentWeekStart);
@@ -500,7 +500,11 @@ export default function ManagerSchedulePage() {
         );
     }
 
-    if (!userDoc || (userDoc.role !== 'admin' && userDoc.role !== 'store_manager' && !userDoc.canManageHR)) {
+    if (!userDoc || (
+        userDoc.role !== 'admin' &&
+        userDoc.role !== 'store_manager' &&
+        !hasPermission('page.scheduling.builder')
+    )) {
         return (
             <div className="flex flex-col items-center justify-center h-64 space-y-4">
                 <AlertCircle className="w-12 h-12 text-danger-500" />

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,7 +15,7 @@ import Portal from '@/components/Portal';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 function ManagerUsersPageContent() {
-    const { user, userDoc, loading: authLoading } = useAuth();
+    const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId, managedStoreIds } = useAuth();
     const { params, setParam, setParams, clearAll, toggleSort, activeFilterCount, setPage, setPageSize } = useTableParams();
     const [employees, setEmployees] = useState<UserDoc[]>([]);
     const [loading, setLoading] = useState(true);
@@ -29,7 +29,6 @@ function ManagerUsersPageContent() {
     const [newPhone, setNewPhone] = useState('');
     const [newType, setNewType] = useState<EmployeeType>('PT');
     const [newRole, setNewRole] = useState<UserRole>('employee');
-    const [newCanManageHR, setNewCanManageHR] = useState(false);
     const [newCustomRoleId, setNewCustomRoleId] = useState('');
     const [newDob, setNewDob] = useState('');
     const [newJobTitle, setNewJobTitle] = useState('');
@@ -115,7 +114,7 @@ function ManagerUsersPageContent() {
 
     // Fetch KPI averages
     useEffect(() => {
-        const effectiveStoreId = userDoc?.role === 'admin' ? selectedAdminStoreId : userDoc?.storeId;
+        const effectiveStoreId = userDoc?.role === 'admin' ? selectedAdminStoreId : (contextStoreId || userDoc?.storeId);
         if (!effectiveStoreId || !user) { setKpiAverages({}); return; }
         (async () => {
             try {
@@ -126,7 +125,7 @@ function ManagerUsersPageContent() {
                 if (res.ok) setKpiAverages(await res.json());
             } catch { /* silent */ }
         })();
-    }, [user, userDoc, selectedAdminStoreId, getToken]);
+    }, [user, userDoc, selectedAdminStoreId, contextStoreId, getToken]);
 
     // Fetch custom roles for the dropdown
     useEffect(() => {
@@ -148,7 +147,8 @@ function ManagerUsersPageContent() {
         if (!user || !userDoc) return;
 
         // Admin: filter by selected store if chosen, otherwise show all
-        const effectiveStoreId = userDoc.role === 'admin' ? selectedAdminStoreId : userDoc.storeId;
+        // Office users: use effectiveStoreId from AuthContext (managed store selection)
+        const effectiveStoreId = userDoc.role === 'admin' ? selectedAdminStoreId : (contextStoreId || userDoc.storeId);
 
         // Build constraints based on role
         const constraints = effectiveStoreId ? [where('storeId', '==', effectiveStoreId)] : [];
@@ -197,9 +197,6 @@ function ManagerUsersPageContent() {
                     bodyPayload.role = newRole;
                     bodyPayload.customRoleId = newCustomRoleId || null;
                 }
-                if (userDoc?.role === 'store_manager') {
-                    bodyPayload.canManageHR = newCanManageHR;
-                }
                 if (userDoc?.role === 'admin') {
                     // Always send storeId so admin can change or clear it
                     bodyPayload.storeId = newStoreId || null;
@@ -207,7 +204,6 @@ function ManagerUsersPageContent() {
             } else {
                 bodyPayload.role = (userDoc?.role === 'store_manager' || userDoc?.role === 'admin') ? newRole : 'employee';
                 if (userDoc?.role === 'store_manager' || userDoc?.role === 'admin') {
-                    bodyPayload.canManageHR = newCanManageHR;
                     bodyPayload.customRoleId = newCustomRoleId || null;
                 }
                 if (userDoc?.role === 'admin' && newStoreId) {
@@ -246,7 +242,7 @@ function ManagerUsersPageContent() {
     };
 
     const resetForm = () => {
-        setNewName(''); setNewPhone(''); setNewType('PT'); setNewRole('employee'); setNewCanManageHR(false); setNewCustomRoleId('');
+        setNewName(''); setNewPhone(''); setNewType('PT'); setNewRole('employee'); setNewCustomRoleId('');
         setNewDob(''); setNewJobTitle(''); setNewEmail('');
         setNewIdCard(''); setNewBankAccount(''); setNewEducation('');
         setNewStoreId('');
@@ -257,7 +253,6 @@ function ManagerUsersPageContent() {
         setNewPhone(employee.phone);
         setNewType(employee.type || 'PT');
         setNewRole(employee.role ?? 'employee');
-        setNewCanManageHR(employee.canManageHR ?? false);
         setNewCustomRoleId(employee.customRoleId ?? '');
         setNewDob(employee.dob || '');
         setNewJobTitle(employee.jobTitle || '');
@@ -340,12 +335,17 @@ function ManagerUsersPageContent() {
     const currentPageSize = Number(params.pageSize) || 10;
     const paginatedEmployees = filteredEmployees.slice((currentPage - 1) * currentPageSize, currentPage * currentPageSize);
 
-    if (!user || (userDoc?.role !== 'admin' && userDoc?.canManageHR !== true)) {
+    if (!user || (
+        userDoc?.role !== 'admin' &&
+        userDoc?.role !== 'store_manager' &&
+        userDoc?.role !== 'manager' &&
+        !hasPermission('page.hr.users')
+    )) {
         return (
             <div className="flex flex-col items-center justify-center h-64 space-y-4">
                 <ShieldAlert className="w-12 h-12 text-danger-500" />
                 <h2 className="text-xl font-bold text-surface-800">Không có quyền truy cập</h2>
-                <p className="text-surface-500">Bạn không được cấp quyền Quản lý Nhân sự.</p>
+                <p className="text-surface-500">Bạn chưa được cấp quyền xem danh sách nhân viên.</p>
             </div>
         );
     }
@@ -687,10 +687,13 @@ function ManagerUsersPageContent() {
                                                             <option value="FT">Toàn thời gian (FT)</option>
                                                         </select>
                                                     </div>
-                                                    {(userDoc?.role === 'store_manager' || userDoc?.role === 'admin') && (() => {
-                                                        // Filter roles this user can assign (based on creatorRoles), exclude admin and locked roles
+                                                    {(userDoc?.role === 'store_manager' || userDoc?.role === 'admin' || hasPermission('action.hr.manage')) && (() => {
+                                                        // Filter roles this user can assign (based on creatorRoles), exclude locked roles
                                                         const eligibleRoles = customRoles.filter(r =>
-                                                            !r.isLocked && r.creatorRoles?.includes(userDoc?.role ?? '')
+                                                            !r.isLocked && (
+                                                                r.creatorRoles?.includes(userDoc?.role ?? '') ||
+                                                                r.creatorRoles?.includes(userDoc?.customRoleId ?? '')
+                                                            )
                                                         );
                                                         // Determine current value: if customRoleId is set, use custom: prefix, otherwise use the system role
                                                         const selectValue = newCustomRoleId ? `custom:${newCustomRoleId}` : newRole;
@@ -727,18 +730,6 @@ function ManagerUsersPageContent() {
                                                                         <p className="text-[10px] text-warning-600">Không có vai trò nào khả dụng cho bạn.</p>
                                                                     )}
                                                                 </div>
-                                                                <label className="flex items-center gap-2.5 cursor-pointer p-3 border border-surface-200 rounded-lg bg-surface-50 hover:bg-primary-50/50 hover:border-primary-200 transition-colors">
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={newCanManageHR}
-                                                                        onChange={e => setNewCanManageHR(e.target.checked)}
-                                                                        className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 cursor-pointer"
-                                                                    />
-                                                                    <div>
-                                                                        <span className="text-sm font-semibold text-surface-800">Quyền Quản lý Nhân sự</span>
-                                                                        <p className="text-[10px] text-surface-500 mt-0.5">Cho phép thêm, sửa, tắt hoạt động nhân viên và phân ca.</p>
-                                                                    </div>
-                                                                </label>
                                                                 {userDoc?.role === 'admin' && (
                                                                     <div className="space-y-1.5">
                                                                         <label className="text-sm font-medium text-surface-700 flex items-center gap-1.5">

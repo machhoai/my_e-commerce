@@ -50,20 +50,21 @@ export async function POST(req: NextRequest) {
         const uid = await requireAdmin(req);
         if (!uid) return NextResponse.json({ error: 'Bị từ chối truy cập' }, { status: 403 });
 
-        const body = await req.json() as { name: string; address?: string; contactEmail?: string };
+        const body = await req.json() as { name: string; address?: string; contactEmail?: string; managedStoreIds?: string[] };
         if (!body.name?.trim()) return NextResponse.json({ error: 'Tên văn phòng là bắt buộc' }, { status: 400 });
 
         const adminDb = getAdminDb();
         const ref = adminDb.collection('offices').doc();
-        const doc: OfficeDoc = {
+        const docData: OfficeDoc = {
             id: ref.id,
             name: body.name.trim(),
             address: body.address?.trim() || '',
             contactEmail: body.contactEmail?.trim() || '',
             isActive: true,
             createdAt: new Date().toISOString(),
+            managedStoreIds: body.managedStoreIds ?? [],
         };
-        await ref.set(doc);
+        await ref.set(docData);
         return NextResponse.json({ id: ref.id, message: 'Tạo văn phòng thành công' });
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Lỗi hệ thống';
@@ -77,7 +78,7 @@ export async function PUT(req: NextRequest) {
         const uid = await requireAdmin(req);
         if (!uid) return NextResponse.json({ error: 'Bị từ chối truy cập' }, { status: 403 });
 
-        const body = await req.json() as { id: string; name?: string; address?: string; contactEmail?: string };
+        const body = await req.json() as { id: string; name?: string; address?: string; contactEmail?: string; managedStoreIds?: string[] };
         if (!body.id) return NextResponse.json({ error: 'Thiếu officeId' }, { status: 400 });
 
         const adminDb = getAdminDb();
@@ -85,6 +86,7 @@ export async function PUT(req: NextRequest) {
         if (body.name !== undefined) updateData.name = body.name.trim();
         if (body.address !== undefined) updateData.address = body.address.trim();
         if (body.contactEmail !== undefined) updateData.contactEmail = body.contactEmail.trim();
+        if (body.managedStoreIds !== undefined) updateData.managedStoreIds = body.managedStoreIds;
 
         await adminDb.collection('offices').doc(body.id).update(updateData);
         return NextResponse.json({ message: 'Cập nhật văn phòng thành công' });

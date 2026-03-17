@@ -23,6 +23,7 @@ import {
 
 import type { MergedProduct } from '@/app/(dashboard)/admin/inventory/overview/page';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
+import { OfficeManagedStorePicker } from '@/components/shared/OfficeManagedStorePicker';
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -258,7 +259,7 @@ const STATUS_LABEL: Record<string, string> = {
 type ActiveTab = 'order' | 'history';
 
 export default function StoreInventoryDashboard() {
-    const { user, userDoc } = useAuth();
+    const { user, userDoc, effectiveStoreId: contextStoreId, managedStoreIds } = useAuth();
 
     // Data
     const [products, setProducts] = useState<ProductDoc[]>([]);
@@ -293,8 +294,11 @@ export default function StoreInventoryDashboard() {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
-    const isAdmin = userDoc?.role === 'admin';
-    const effectiveStoreId = isAdmin ? selectedStoreId : userDoc?.storeId || '';
+    const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
+    // Office-context users: use effectiveStoreId from AuthContext (set via managed stores)
+    // Store-context users: use userDoc.storeId
+    const effectiveStoreId = isAdmin ? selectedStoreId : (contextStoreId || userDoc?.storeId || '');
+    const isOfficeUser = !!userDoc?.officeId && !userDoc?.storeId;
 
     // Fetch products + balances + orders in parallel
     const fetchAll = useCallback(async () => {
@@ -328,9 +332,9 @@ export default function StoreInventoryDashboard() {
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
 
-    // Fetch stores (admin only)
+    // Fetch stores (admin or office users with multiple managed stores)
     useEffect(() => {
-        if (!user || !isAdmin) return;
+        if (!user || (!isAdmin && managedStoreIds.length <= 1)) return;
         (async () => {
             try {
                 const token = await getToken();
@@ -339,7 +343,7 @@ export default function StoreInventoryDashboard() {
                 setStores(Array.isArray(data) ? data : []);
             } catch { /* silent */ }
         })();
-    }, [user, isAdmin, getToken]);
+    }, [user, isAdmin, managedStoreIds, getToken]);
 
     // Fetch warehouses
     useEffect(() => {
@@ -437,7 +441,9 @@ export default function StoreInventoryDashboard() {
         setMessage({ type: '', text: '' });
         try {
             const token = await getToken();
-            const storeName = isAdmin ? stores.find(s => s.id === effectiveStoreId)?.name || '' : '';
+            const storeName = isAdmin
+                ? stores.find(s => s.id === effectiveStoreId)?.name || ''
+                : stores.find(s => s.id === effectiveStoreId)?.name || userDoc?.name || '';
 
             // Upload attachment to Firebase Storage if provided
             let attachmentUrl: string | null = null;
@@ -581,6 +587,14 @@ export default function StoreInventoryDashboard() {
                                     onAddToCart={addToCart}
                                     onUpdateMinStock={handleUpdateMinStock}
                                 />
+                            </div>
+                        )}
+
+                        {/* Office user store picker (when managing multiple stores) */}
+                        {isOfficeUser && managedStoreIds.length > 1 && (
+                            <div className="bg-white rounded-xl border border-surface-200 shadow-sm p-3 flex items-center gap-3">
+                                <span className="text-sm font-semibold text-surface-600 shrink-0">Xem cửa hàng:</span>
+                                <OfficeManagedStorePicker />
                             </div>
                         )}
 

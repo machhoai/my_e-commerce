@@ -3,12 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ShoppingCart } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ShoppingCart, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { StoreDoc } from '@/types';
+import { StoreDoc, CustomRoleDoc } from '@/types';
 
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -21,6 +21,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [mobileOpen, setMobileOpen] = useState(false);
     const [storeName, setStoreName] = useState<string>('');
     const [unreadCount, setUnreadCount] = useState(0);
+    const [customRoles, setCustomRoles] = useState<CustomRoleDoc[]>([]);
     const [isCollapsed, setIsCollapsed] = useState(() => {
         if (typeof window !== 'undefined') {
             return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
@@ -65,6 +66,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             fetchStore();
         }
     }, [userDoc]);
+
+    // Fetch custom roles for role name display
+    useEffect(() => {
+        if (!user) return;
+        (async () => {
+            try {
+                const token = await user.getIdToken();
+                const res = await fetch('/api/roles', { headers: { Authorization: `Bearer ${token}` } });
+                if (res.ok) setCustomRoles(await res.json());
+            } catch { /* silent */ }
+        })();
+    }, [user]);
 
     // Real-time unread notification count for sidebar badge
     useEffect(() => {
@@ -163,14 +176,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             href: '/manager/scheduling/overview',
             icon: Calendar,
             show: isAdmin || isSuperAdmin ||
-                (isStoreContext && (
-                    userDoc?.role === 'store_manager' ||
-                    hasPermission('view_overview') ||
-                    hasPermission('view_schedule') ||
-                    hasPermission('edit_schedule') ||
-                    hasPermission('view_history')
-                )),
+                (isStoreContext && userDoc?.role === 'store_manager') ||
+                (isStoreContext && userDoc?.role === 'manager') ||
+                isOfficeContext ||
+                hasPermission('page.scheduling.overview'),
             matchPrefix: '/manager/scheduling',
+            group: 'Nhân Sự',
+        },
+        {
+            label: 'Đăng Ký Ca',
+            href: '/manager/scheduling/register',
+            icon: ClipboardList,
+            show: isAdmin || isSuperAdmin ||
+                (isStoreContext && userDoc?.role === 'store_manager') ||
+                (isStoreContext && userDoc?.role === 'manager') ||
+                isOfficeContext ||
+                hasPermission('page.scheduling.register'),
             group: 'Nhân Sự',
         },
         {
@@ -178,13 +199,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             href: '/manager/hr/users',
             icon: Users,
             show: isAdmin || isSuperAdmin ||
-                (isStoreContext && (
-                    userDoc?.role === 'store_manager' ||
-                    hasPermission('manage_hr') ||
-                    hasPermission('view_users') ||
-                    hasPermission('score_employees') ||
-                    hasPermission('view_all_kpi')
-                )),
+                (isStoreContext && userDoc?.role === 'store_manager') ||
+                (isStoreContext && userDoc?.role === 'manager') ||
+                isOfficeContext ||
+                hasPermission('page.hr.users'),
             matchPrefix: '/manager/hr',
             group: 'Nhân Sự',
         },
@@ -194,19 +212,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             href: '/manager/inventory/order',
             icon: Package,
             show: isAdmin || isSuperAdmin ||
-                (isStoreContext && (
-                    userDoc?.role === 'store_manager' ||
-                    hasPermission('view_inventory') ||
-                    hasPermission('create_order')
-                )),
+                (isStoreContext && userDoc?.role === 'store_manager') ||
+                hasPermission('page.manager.inventory'),
             matchPrefix: '/manager/inventory',
             group: 'Kho Hàng',
+        },
+        {
+            label: 'Cài Đặt Cửa Hàng',
+            href: '/manager/settings',
+            icon: SettingsIcon,
+            show: isAdmin || isSuperAdmin ||
+                (isStoreContext && userDoc?.role === 'store_manager') ||
+                hasPermission('page.manager.settings'),
+            matchPrefix: '/manager/settings',
+            group: 'Cài Đặt',
         },
         {
             label: 'Kho Tổng',
             href: '/admin/inventory/overview',
             icon: Warehouse,
-            show: isAdmin || isSuperAdmin || isCentralContext || hasPermission('manage_central_warehouse'),
+            show: isAdmin || isSuperAdmin || isCentralContext || hasPermission('page.admin.inventory'),
             matchPrefix: '/admin/inventory',
             group: 'Kho Hàng',
         },
@@ -214,7 +239,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             label: 'Sản Phẩm',
             href: '/admin/products/products',
             icon: Package,
-            show: isAdmin || isSuperAdmin || isCentralContext || hasPermission('manage_central_warehouse'),
+            show: isAdmin || isSuperAdmin || isCentralContext || hasPermission('page.products'),
             matchPrefix: '/admin/products',
             group: 'Kho Hàng',
         },
@@ -223,7 +248,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             label: 'Duyệt Lệnh',
             href: '/office/inventory/approvals',
             icon: Package,
-            show: isAdmin || isSuperAdmin || isOfficeContext || hasPermission('approve_office_order') || hasPermission('reject_office_order'),
+            show: isAdmin || isSuperAdmin || isOfficeContext ||
+                userDoc?.role === 'office' ||
+                hasPermission('page.office.approvals'),
             matchPrefix: '/office/inventory',
             group: 'Văn Phòng',
         },
@@ -231,7 +258,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             label: 'Doanh thu',
             href: '/office/revenue',
             icon: BarChart3,
-            show: isAdmin || isSuperAdmin || hasPermission('view_revenue'),
+            show: isAdmin || isSuperAdmin || isOfficeContext ||
+                userDoc?.role === 'office' ||
+                hasPermission('page.office.revenue'),
             group: 'Văn Phòng',
         },
 
@@ -272,13 +301,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             matchPrefix: '/admin/settings',
             group: 'H\u1ec7 Th\u1ed1ng',
         },
-        {
-            label: 'Cài đặt cửa hàng',
-            href: '/manager/settings',
-            icon: SettingsIcon,
-            show: isStoreContext && userDoc?.role === 'store_manager',
-            group: 'H\u1ec7 Th\u1ed1ng',
-        },
+
     ];
 
     const roleLabelMap: Record<string, string> = {
@@ -313,6 +336,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         'Nhân Sự': Users,
         'Kho Hàng': Package,
         'Văn Phòng': Building2,
+        'Cài Đặt': SettingsIcon,
         'Hệ Thống': SettingsIcon,
         'Khác': SettingsIcon,
     };
@@ -338,7 +362,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (isCollapsed) {
             // Flatten all visible routes into icon list, keep group separation
             const iconGroups: { items: typeof visibleRoutes }[] = [];
-            const groupOrder = ['Cá Nhân', 'Nhân Sự', 'Kho Hàng', 'Văn Phòng', 'Hệ Thống'];
+            const groupOrder = ['Cá Nhân', 'Nhân Sự', 'Kho Hàng', 'Văn Phòng', 'Cài Đặt', 'Hệ Thống'];
             groupOrder.forEach(gTitle => {
                 const items = visibleRoutes.filter(r => r.group === gTitle);
                 if (items.length > 0) iconGroups.push({ items });
@@ -455,7 +479,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
 
         const groups: { title: string, items: typeof visibleRoutes }[] = [];
-        const groupOrder = ['Cá Nhân', 'Nhân Sự', 'Kho Hàng', 'Văn Phòng', 'Hệ Thống'];
+        const groupOrder = ['Cá Nhân', 'Nhân Sự', 'Kho Hàng', 'Văn Phòng', 'Cài Đặt', 'Hệ Thống'];
         groupOrder.forEach(gTitle => {
             const items = visibleRoutes.filter(r => r.group === gTitle);
             if (items.length > 0) groups.push({ title: gTitle, items });
@@ -517,10 +541,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <div className="mt-2.5 flex flex-wrap gap-1.5">
                         <span className={cn(
                             "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium",
-                            roleBadgeClass[userDoc.role] ?? 'bg-surface-100 text-surface-600 border border-surface-200'
+                            (() => {
+                                if (userDoc.customRoleId) {
+                                    const cr = customRoles.find(r => r.id === userDoc.customRoleId);
+                                    const colorMap: Record<string, string> = {
+                                        red: 'bg-danger-500/20 text-danger-300 border border-danger-500/30',
+                                        purple: 'bg-accent-500/20 text-accent-300 border border-accent-500/30',
+                                        amber: 'bg-warning-500/20 text-warning-300 border border-warning-500/30',
+                                        blue: 'bg-primary-500/20 text-primary-300 border border-primary-500/30',
+                                        emerald: 'bg-success-500/20 text-success-300 border border-success-500/30',
+                                        indigo: 'bg-accent-500/20 text-accent-200 border border-accent-500/30',
+                                        pink: 'bg-pink-500/20 text-pink-300 border border-pink-500/30',
+                                        slate: 'bg-surface-500/20 text-surface-300 border border-surface-500/30',
+                                    };
+                                    return colorMap[cr?.color ?? 'slate'] ?? 'bg-surface-500/20 text-surface-300 border border-surface-500/30';
+                                }
+                                return roleBadgeClass[userDoc.role] ?? 'bg-surface-100 text-surface-600 border border-surface-200';
+                            })()
                         )}>
                             <span className={cn("size-1.5 rounded-full shrink-0", roleDotClass[userDoc.role] ?? 'bg-surface-400')} />
-                            {roleLabelMap[userDoc.role] ?? userDoc.role}
+                            {(() => {
+                                if (userDoc.customRoleId) {
+                                    const cr = customRoles.find(r => r.id === userDoc.customRoleId);
+                                    return cr?.name ?? roleLabelMap[userDoc.role] ?? userDoc.role;
+                                }
+                                return roleLabelMap[userDoc.role] ?? userDoc.role;
+                            })()}
                         </span>
                         {storeName && userDoc.role !== 'admin' && (
                             <span className="inline-flex items-center gap-1 rounded-full border border-surface-200 bg-surface-50 px-2.5 py-0.5 text-[11px] text-surface-500">

@@ -17,7 +17,7 @@ interface DispatchResult {
 }
 
 export default function AdminDispatchPage() {
-    const { user, userDoc } = useAuth();
+    const { user, userDoc, hasPermission } = useAuth();
     const [orders, setOrders] = useState<PurchaseOrderDoc[]>([]);
     const [stores, setStores] = useState<StoreDoc[]>([]);
     const [warehouses, setWarehouses] = useState<WarehouseDoc[]>([]);
@@ -37,7 +37,7 @@ export default function AdminDispatchPage() {
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
-    if (userDoc && userDoc.role !== 'admin') {
+    if (userDoc && userDoc.role !== 'admin' && !hasPermission('page.admin.inventory.dispatch')) {
         return (
             <div className="flex flex-col items-center justify-center h-64 text-danger-500">
                 <AlertCircle className="w-12 h-12 mb-2" />

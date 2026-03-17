@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { db } from '@/lib/firebase';
@@ -28,7 +28,7 @@ interface EmployeeStats {
 }
 
 function ManagerHistoryPageContent() {
-    const { user, userDoc } = useAuth();
+    const { user, userDoc, hasPermission } = useAuth();
     const { params, setParam, setParams, clearAll, toggleSort: urlToggleSort, activeFilterCount, setPage, setPageSize } = useTableParams();
 
     const [currentMonth, setCurrentMonth] = useState<Date>(() => {
@@ -258,7 +258,10 @@ function ManagerHistoryPageContent() {
     const currentPageSize = Number(params.pageSize) || 10;
     const paginatedStats = filteredAndSortedStats.slice((currentPage - 1) * currentPageSize, currentPage * currentPageSize);
 
-    if (userDoc && !['admin', 'store_manager', 'manager'].includes(userDoc.role)) {
+    if (userDoc && (
+        !['admin', 'store_manager', 'manager'].includes(userDoc.role) &&
+        !hasPermission('page.scheduling.history')
+    )) {
         return <div className="p-8 text-center text-danger-500">Bạn không có quyền truy cập trang này.</div>;
     }
 

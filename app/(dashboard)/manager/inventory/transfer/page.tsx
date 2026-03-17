@@ -125,7 +125,7 @@ function ProductCombobox({
 
 // ── Main Page ───────────────────────────────────────────────────
 export default function TransferPage() {
-    const { user, userDoc } = useAuth();
+    const { user, userDoc, effectiveStoreId: contextStoreId } = useAuth();
     const [products, setProducts] = useState<ProductDoc[]>([]);
     const [counters, setCounters] = useState<CounterDoc[]>([]);
     const [balances, setBalances] = useState<InventoryBalanceDoc[]>([]);
@@ -140,8 +140,8 @@ export default function TransferPage() {
     const [message, setMessage] = useState({ type: '', text: '' });
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
-    const isAdmin = userDoc?.role === 'admin';
-    const effectiveStoreId = isAdmin ? selectedStoreId : userDoc?.storeId || '';
+    const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
+    const effectiveStoreId = isAdmin ? selectedStoreId : (contextStoreId || userDoc?.storeId || '');
 
     // Fetch products (active only)
     useEffect(() => {

@@ -10,8 +10,8 @@ const DAY_NAMES = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', '
 const pad = (n: number) => String(n).padStart(2, '0');
 
 export default function ManagerSettingsPage() {
-    const { user, userDoc } = useAuth();
-    const storeId = userDoc?.storeId ?? '';
+    const { user, userDoc, hasPermission, effectiveStoreId } = useAuth();
+    const storeId = effectiveStoreId || userDoc?.storeId || '';
 
     // Data State
     const [settings, setSettings] = useState<SettingsDoc | null>(null);
@@ -202,7 +202,11 @@ export default function ManagerSettingsPage() {
         setSuccess('Đã xóa ngày đặc biệt.');
     };
 
-    if (!userDoc || (userDoc.role !== 'store_manager' && userDoc.role !== 'admin')) {
+    if (!userDoc || (
+        userDoc.role !== 'store_manager' &&
+        userDoc.role !== 'admin' &&
+        !hasPermission('page.manager.settings')
+    )) {
         return <div className="p-8 text-center text-danger-500 font-bold">Không có quyền truy cập.</div>;
     }
 

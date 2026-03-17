@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,7 +23,7 @@ const EMPTY_FORM: Partial<ProductDoc> = {
 };
 
 export default function ProductManagementPage() {
-    const { user, userDoc } = useAuth();
+    const { user, userDoc, hasPermission } = useAuth();
     const [products, setProducts] = useState<ProductDoc[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -51,8 +51,8 @@ export default function ProductManagementPage() {
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
-    // Guard: admin only
-    if (userDoc && userDoc.role !== 'admin') {
+    // Guard: admin or custom role with page.products permission
+    if (userDoc && userDoc.role !== 'admin' && !hasPermission('page.products')) {
         return <div className="flex items-center justify-center h-64 text-danger-500 font-bold">Chỉ quản trị viên mới có quyền truy cập.</div>;
     }
 

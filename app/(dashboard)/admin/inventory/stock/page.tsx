@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function CentralStockPage() {
-    const { user, userDoc } = useAuth();
+    const { user, userDoc, hasPermission } = useAuth();
     const [warehouses, setWarehouses] = useState<WarehouseDoc[]>([]);
     const [products, setProducts] = useState<ProductDoc[]>([]);
     const [balances, setBalances] = useState<InventoryBalanceDoc[]>([]);
@@ -23,7 +23,7 @@ export default function CentralStockPage() {
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
-    if (userDoc && userDoc.role !== 'admin') {
+    if (userDoc && userDoc.role !== 'admin' && !hasPermission('page.admin.inventory')) {
         return <div className="flex items-center justify-center h-64 text-danger-500 font-bold">Chỉ quản trị viên.</div>;
     }
 

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,8 +13,8 @@ import { cn } from '@/lib/utils';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function ManagerKpiTemplatesPage() {
-    const { user, userDoc, getToken } = useAuth();
-    const storeId = userDoc?.storeId ?? '';
+    const { user, userDoc, getToken, hasPermission, effectiveStoreId } = useAuth();
+    const storeId = effectiveStoreId || userDoc?.storeId || '';
 
     const [templates, setTemplates] = useState<KpiTemplateDoc[]>([]);
     const [counters, setCounters] = useState<CounterDoc[]>([]);
@@ -127,7 +127,7 @@ export default function ManagerKpiTemplatesPage() {
         setFormCounterIds(s);
     };
 
-    if (!userDoc || (userDoc.role !== 'store_manager' && userDoc.role !== 'admin')) {
+    if (!userDoc || (userDoc.role !== 'store_manager' && userDoc.role !== 'admin' && userDoc.role !== 'super_admin' && !hasPermission('page.hr.kpi_templates'))) {
         return <div className="p-8 text-center text-danger-500 font-bold">Không có quyền truy cập.</div>;
     }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { CustomRoleDoc, AppPermission, PermissionMatrix } from '@/types';
+import { CustomRoleDoc } from '@/types';
 
 
 // System roles to auto-seed if collection is empty
@@ -106,8 +106,7 @@ export async function POST(req: NextRequest) {
 
         const body = await req.json() as {
             name: string;
-            permissions: AppPermission[];
-            permissionMatrix?: PermissionMatrix;
+            permissions: string[];
             creatorRoles?: string[];
             color?: string;
             defaultRoute?: string;
@@ -122,7 +121,6 @@ export async function POST(req: NextRequest) {
         const newRole: Omit<CustomRoleDoc, 'id'> = {
             name: body.name.trim(),
             permissions: body.permissions || [],
-            ...(body.permissionMatrix ? { permissionMatrix: body.permissionMatrix } : {}),
             creatorRoles: body.creatorRoles || ['admin'],
             color: body.color || undefined,
             ...(body.defaultRoute?.trim() ? { defaultRoute: body.defaultRoute.trim() } : {}),

@@ -19,7 +19,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { UserDoc, AppPermission, CustomRoleDoc, ALL_PERMISSIONS, CrudAction, PermissionMatrix } from '@/types';
+import { UserDoc, CustomRoleDoc, OfficeDoc } from '@/types';
 import { phoneToEmail } from '@/lib/utils';
 
 // ── Role cookie helpers (Edge-readable, not for auth — just nav hints) ──────
@@ -34,56 +34,59 @@ function clearRoleCookie() {
     document.cookie = 'user_role=; Max-Age=0; Path=/';
 }
 
-
+// ── LocalStorage key for office user's selected store ───────────────────────
+const OFFICE_STORE_KEY = 'office_selected_store_id';
 
 interface AuthContextValue {
     user: User | null;
     userDoc: UserDoc | null;
     loading: boolean;
-    permissions: Set<AppPermission>;
-    permissionMatrix: PermissionMatrix | null;
-    hasPermission: (resource: string, action?: CrudAction) => boolean;
+    /** Set of permission keys granted to this user (page.* / action.*). Admin bypass = always full. */
+    permissions: Set<string>;
+    /**
+     * Check if the current user has a given permission key.
+     * Admin & super_admin always return true (bypass).
+     * Custom roles are checked against their `permissions` array.
+     */
+    hasPermission: (key: string) => boolean;
+    /** Default route after login, derived from the user's custom role */
     roleDefaultRoute: string | null;
     getToken: () => Promise<string>;
     login: (phone: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
     changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
-}
 
+    // ── Office managed stores ───────────────────────────────────────────────
+    /** List of store IDs this office is allowed to manage (office-context users only). */
+    managedStoreIds: string[];
+    /**
+     * The store ID currently selected for data viewing.
+     * - Store-context users: === userDoc.storeId (fixed)
+     * - Office-context users: whichever store from managedStoreIds they picked
+     * - Admin/super_admin: set separately per page via their own store selector
+     */
+    effectiveStoreId: string;
+    /** Update the store selection for office-context users and persist to localStorage. */
+    setEffectiveStoreId: (storeId: string) => void;
+}
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-// Derive built-in permissions from base role (backward compat)
-function getBuiltInPermissions(userDoc: UserDoc): AppPermission[] {
-    const { role, canManageHR } = userDoc;
-    // Super admin gets every permission
-    if (role === 'super_admin') {
-        return ALL_PERMISSIONS.map(p => p.key);
-    }
-    if (role === 'admin' || role === 'store_manager') {
-        return ['view_overview', 'view_history', 'view_schedule', 'edit_schedule', 'view_users', 'manage_hr', 'manage_kpi_templates', 'score_employees', 'view_all_kpi', 'export_kpi'];
-    }
-    if (role === 'manager') {
-        const perms: AppPermission[] = ['view_overview', 'view_history'];
-        if (canManageHR) {
-            perms.push('view_schedule', 'edit_schedule', 'view_users', 'manage_hr');
-        }
-        return perms;
-    }
-    if (role === 'employee') {
-        return ['register_shift'];
-    }
-    return [];
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [userDoc, setUserDoc] = useState<UserDoc | null>(null);
     const [loading, setLoading] = useState(true);
-    const [permissions, setPermissions] = useState<Set<AppPermission>>(new Set());
-    const [permissionMatrix, setPermissionMatrix] = useState<PermissionMatrix | null>(null);
+    const [permissions, setPermissions] = useState<Set<string>>(new Set());
     const [roleDefaultRoute, setRoleDefaultRoute] = useState<string | null>(null);
+    const [managedStoreIds, setManagedStoreIds] = useState<string[]>([]);
+    const [effectiveStoreId, setEffectiveStoreIdState] = useState<string>('');
 
+    const setEffectiveStoreId = useCallback((storeId: string) => {
+        setEffectiveStoreIdState(storeId);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(OFFICE_STORE_KEY, storeId);
+        }
+    }, []);
 
     const fetchUserDoc = useCallback(async (uid: string) => {
         try {
@@ -92,12 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const data = snap.data() as UserDoc;
                 setUserDoc(data);
 
-                // Build built-in permissions first
-                const builtIn = getBuiltInPermissions(data);
-                const permSet = new Set<AppPermission>(builtIn);
-
                 // Write role cookie immediately so middleware /admin lock works
-                // on the very first navigation after login (no race condition).
                 writeRoleCookie(data.role);
 
                 // Load custom role permissions if assigned
@@ -106,19 +104,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         const roleSnap = await getDoc(doc(db, 'custom_roles', data.customRoleId));
                         if (roleSnap.exists()) {
                             const roleData = roleSnap.data() as CustomRoleDoc;
-                            roleData.permissions.forEach(p => permSet.add(p));
+                            setPermissions(new Set<string>(roleData.permissions ?? []));
                             setRoleDefaultRoute(roleData.defaultRoute || null);
-                            setPermissionMatrix(roleData.permissionMatrix ?? null);
+                        } else {
+                            setPermissions(new Set());
+                            setRoleDefaultRoute(null);
                         }
                     } catch (err) {
                         console.error('Failed to load custom role:', err);
+                        setPermissions(new Set());
+                        setRoleDefaultRoute(null);
                     }
                 } else {
-                    setPermissionMatrix(null);
+                    setPermissions(new Set());
+                    setRoleDefaultRoute(null);
                 }
 
+                // ── Resolve office managed stores ───────────────────────
+                const isOfficeCtx = data.workplaceType === 'OFFICE' || (data.officeId && data.role !== 'admin');
+                if (isOfficeCtx && data.officeId) {
+                    try {
+                        const officeSnap = await getDoc(doc(db, 'offices', data.officeId));
+                        if (officeSnap.exists()) {
+                            const officeData = officeSnap.data() as OfficeDoc;
+                            const ids = officeData.managedStoreIds ?? [];
+                            setManagedStoreIds(ids);
 
-                setPermissions(permSet);
+                            // Restore or default the effective store selection
+                            const saved = typeof window !== 'undefined'
+                                ? (localStorage.getItem(OFFICE_STORE_KEY) ?? '')
+                                : '';
+                            const valid = saved && ids.includes(saved) ? saved : (ids[0] ?? '');
+                            setEffectiveStoreIdState(valid);
+                        } else {
+                            setManagedStoreIds([]);
+                            setEffectiveStoreIdState('');
+                        }
+                    } catch (err) {
+                        console.error('Failed to load office doc:', err);
+                        setManagedStoreIds([]);
+                        setEffectiveStoreIdState('');
+                    }
+                } else if (data.storeId) {
+                    // Store-context user: effectiveStoreId = their own storeId
+                    setManagedStoreIds([]);
+                    setEffectiveStoreIdState(data.storeId);
+                } else {
+                    setManagedStoreIds([]);
+                    setEffectiveStoreIdState('');
+                }
             }
         } catch (err) {
             console.error('Failed to fetch user doc:', err);
@@ -126,21 +160,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     useEffect(() => {
-        // Track whether we've already tried session cookie recovery
-        // to prevent infinite loops (signInWithCustomToken triggers
-        // onAuthStateChanged again).
         let recoveryAttempted = false;
 
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             setUser(firebaseUser);
 
             if (firebaseUser) {
-                // ✅ User authenticated (from IndexedDB or recovery)
                 await fetchUserDoc(firebaseUser.uid);
 
-                // Sync token → session cookie (rolling 7-day window).
-                // This keeps the cookie alive as long as the user opens
-                // the app at least once every 7 days.
+                // Sync token → session cookie (rolling 7-day window)
                 try {
                     const idToken = await firebaseUser.getIdToken();
                     await fetch('/api/auth/session', {
@@ -155,8 +183,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 recoveryAttempted = false;
                 setLoading(false);
             } else {
-                // ❌ User is null — IndexedDB may have been wiped by the OS.
-                // Try to recover from the server-side session cookie ONCE.
                 if (!recoveryAttempted) {
                     recoveryAttempted = true;
                     try {
@@ -164,11 +190,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         if (res.ok) {
                             const data = await res.json();
                             if (data.customToken) {
-                                // Re-authenticate silently — this will
-                                // trigger onAuthStateChanged again with
-                                // the recovered user.
                                 await signInWithCustomToken(auth, data.customToken);
-                                return; // Don't setLoading(false) yet
+                                return;
                             }
                         }
                     } catch (err) {
@@ -176,14 +199,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     }
                 }
 
-                // Recovery failed or not applicable — truly logged out
                 recoveryAttempted = false;
                 setUserDoc(null);
                 setPermissions(new Set());
-                setPermissionMatrix(null);
                 setRoleDefaultRoute(null);
+                setManagedStoreIds([]);
+                setEffectiveStoreIdState('');
                 setLoading(false);
-
             }
         });
 
@@ -199,15 +221,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const email = phoneToEmail(phone);
         const credential = await signInWithEmailAndPassword(auth, email, password);
 
-        // Check if account is active in Firestore before allowing access
         const snap = await getDoc(doc(db, 'users', credential.user.uid));
         if (snap.exists() && snap.data()?.isActive === false) {
-            // Sign out immediately to prevent access
             await signOut(auth);
             throw new Error('Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản lý.');
         }
 
-        // Create a 7-day server-side session cookie for PWA persistence
         try {
             const idToken = await credential.user.getIdToken();
             await fetch('/api/auth/session', {
@@ -221,21 +240,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const logout = useCallback(async () => {
-        // Clear the server-side session cookie before signing out
         try {
             await fetch('/api/auth/session', { method: 'DELETE' });
         } catch (err) {
             console.error('Failed to clear session cookie:', err);
         }
-        // Clear the Edge-readable role cookie
         clearRoleCookie();
         await signOut(auth);
         setUserDoc(null);
         setPermissions(new Set());
-        setPermissionMatrix(null);
         setRoleDefaultRoute(null);
+        setManagedStoreIds([]);
+        setEffectiveStoreIdState('');
     }, []);
-
 
     const changePassword = useCallback(
         async (currentPassword: string, newPassword: string) => {
@@ -248,35 +265,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     /**
-     * Check if the current user has permission for a given resource + action.
+     * Check if the current user has a given permission key.
      *
-     * Priority:
-     *  1. super_admin / admin → always true (bypass)
-     *  2. permissionMatrix[resource][action] if matrix exists
-     *  3. Fallback: treat the resource string as a legacy AppPermission key
+     * - Admin / super_admin → always true (bypass all checks)
+     * - Others → check if `key` is in their permissions Set
      */
     const hasPermission = useCallback(
-        (resource: string, action: CrudAction = 'read'): boolean => {
+        (key: string): boolean => {
             if (!userDoc) return false;
-            // Admins bypass all checks
             if (userDoc.role === 'super_admin' || userDoc.role === 'admin') return true;
-            // Check granular matrix first
-            if (permissionMatrix && permissionMatrix[resource]) {
-                return permissionMatrix[resource][action] === true;
-            }
-            // Fallback: treat resource as a legacy flat AppPermission key
-            return permissions.has(resource as AppPermission);
+            return permissions.has(key);
         },
-        [permissions, permissionMatrix, userDoc]
+        [permissions, userDoc]
     );
 
-
     return (
-        <AuthContext.Provider value={{ user, userDoc, loading, permissions, permissionMatrix, hasPermission, roleDefaultRoute, getToken, login, logout, changePassword }}>
+        <AuthContext.Provider value={{
+            user, userDoc, loading, permissions, hasPermission,
+            roleDefaultRoute, getToken, login, logout, changePassword,
+            managedStoreIds, effectiveStoreId, setEffectiveStoreId,
+        }}>
             {children}
         </AuthContext.Provider>
     );
-
 }
 
 export function useAuth(): AuthContextValue {

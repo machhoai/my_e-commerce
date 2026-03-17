@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,7 +17,7 @@ interface DispatchResult {
 }
 
 export default function DispatchPage() {
-    const { user, userDoc } = useAuth();
+    const { user, userDoc, hasPermission } = useAuth();
     const [orders, setOrders] = useState<PurchaseOrderDoc[]>([]);
     const [stores, setStores] = useState<StoreDoc[]>([]);
     const [selectedStoreId, setSelectedStoreId] = useState('');
@@ -30,8 +30,8 @@ export default function DispatchPage() {
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
-    // Guard: admin only
-    if (userDoc && userDoc.role !== 'admin') {
+    // Guard: admin or custom role with page.admin.inventory.dispatch permission
+    if (userDoc && userDoc.role !== 'admin' && !hasPermission('page.admin.inventory.dispatch')) {
         return (
             <div className="flex flex-col items-center justify-center h-64 text-danger-500">
                 <AlertCircle className="w-12 h-12 mb-2" />

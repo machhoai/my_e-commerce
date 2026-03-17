@@ -4,118 +4,238 @@
 
 export type UserRole = 'super_admin' | 'admin' | 'store_manager' | 'manager' | 'employee' | 'office';
 
-// ── Granular Permission Matrix ──────────────────────────────
-export type CrudAction = 'read' | 'create' | 'update' | 'delete';
-
-export interface ResourcePermission {
-    read: boolean;
-    create: boolean;
-    update: boolean;
-    delete: boolean;
-}
-
-export type PermissionMatrix = Record<string, ResourcePermission>;
-
-/** Canonical resource keys used in the permission matrix UI and hasPermission() checks */
-export const PERMISSION_RESOURCES: { key: string; label: string; icon: string }[] = [
-    { key: 'hr',        label: 'Nhân sự',    icon: '👥' },
-    { key: 'scheduling',label: 'Xếp lịch',  icon: '📅' },
-    { key: 'inventory', label: 'Kho hàng',   icon: '📦' },
-    { key: 'orders',    label: 'Đặt lệnh',   icon: '📋' },
-    { key: 'revenue',   label: 'Doanh thu',  icon: '💰' },
-    { key: 'system',    label: 'Hệ thống',   icon: '⚙️'  },
-];
-
-/** Helper: create a blank ResourcePermission with all false */
-export function blankResourcePermission(): ResourcePermission {
-    return { read: false, create: false, update: false, delete: false };
-}
-
-/** Helper: create an empty PermissionMatrix (all resources, all false) */
-export function emptyPermissionMatrix(): PermissionMatrix {
-    return Object.fromEntries(
-        PERMISSION_RESOURCES.map(r => [r.key, blankResourcePermission()])
-    );
-}
 export type EmployeeType = 'FT' | 'PT';
 
-// All available granular permissions in the system
-export type AppPermission =
-    // ── Inventory ──
-    | 'view_inventory'    // Xem kho hàng
-    | 'create_product'   // Thêm sản phẩm
-    | 'edit_product'     // Sửa sản phẩm
-    | 'import_excel'     // Import Excel
-    | 'delete_product'   // Xóa sản phẩm
-    // ── Orders ──
-    | 'create_order'            // Tạo lệnh đặt hàng
-    | 'cancel_order'            // Hủy lệnh đặt hàng
-    | 'approve_office_order'    // Duyệt lệnh (Văn phòng)
-    | 'reject_office_order'     // Từ chối lệnh (Văn phòng)
-    | 'dispatch_central_order'  // Xuất kho (Kho Tổng)
-    // ── HR & Scheduling (legacy keys kept for compat) ──
-    | 'view_overview'    // Xem lịch tổng quan
-    | 'view_history'     // Xem lịch sử & thống kê
-    | 'view_schedule'    // Xem trang xếp lịch (chỉ đọc)
-    | 'edit_schedule'    // Xếp ca / lưu lịch
-    | 'view_users'       // Xem danh sách nhân viên
-    | 'manage_hr'        // Thêm/sửa/tắt hoạt động nhân viên
-    | 'register_shift'   // Đăng ký ca làm (ân viên)
-    | 'manage_kpi_templates'  // Tạo/sửa mẫu KPI
-    | 'score_employees'       // Chấm điểm nhân viên
-    | 'view_all_kpi'          // Xem thống kê KPI tất cả NV
-    | 'export_kpi'            // Xuất báo cáo KPI
-    | 'manage_central_warehouse' // Quản lý kho tổng
-    | 'manage_locations' // Quản lý địa điểm (chi nhánh, VP, kho)
-    | 'manage_roles'     // Quản lý phân quyền
-    | 'manage_users'     // Quản lý tài khoản người dùng
-    // ── Doanh thu ──
-    | 'view_revenue';    // Xem trang phân tích doanh thu
+// ── Permission System ─────────────────────────────────────────
+// Mỗi key theo quy ước:
+//   page.*   → kiểm soát truy cập vào trang (route guard)
+//   action.* → kiểm soát hành động ghi dữ liệu (thêm/sửa/xóa)
+// Admin & super_admin luôn bypass tất cả checks.
 
-export const ALL_PERMISSIONS: { key: AppPermission; label: string; description: string; group: string }[] = [
-    // Kho hàng
-    { key: 'view_inventory', label: 'Xem Kho hàng', description: 'Xem danh sách sản phẩm và tồn kho', group: 'Kho hàng' },
-    { key: 'create_product', label: 'Thêm Sản phẩm', description: 'Tạo sản phẩm mới trong danh mục', group: 'Kho hàng' },
-    { key: 'edit_product', label: 'Sửa Sản phẩm', description: 'Cập nhật thông tin sản phẩm', group: 'Kho hàng' },
-    { key: 'import_excel', label: 'Import Excel', description: 'Nhập dữ liệu hàng loạt từ file Excel', group: 'Kho hàng' },
-    { key: 'delete_product', label: 'Xóa Sản phẩm', description: 'Xóa sản phẩm khỏi hệ thống', group: 'Kho hàng' },
-    // Đặt lệnh
-    { key: 'create_order', label: 'Tạo Lệnh Đặt hàng', description: 'Tạo lệnh đặt hàng mới từ cửa hàng', group: 'Đặt lệnh' },
-    { key: 'cancel_order', label: 'Hủy Lệnh', description: 'Hủy lệnh đặt hàng đang chờ xử lý', group: 'Đặt lệnh' },
-    { key: 'approve_office_order', label: 'Duyệt lệnh (VP)', description: 'Phê duyệt lệnh đặt hàng tại tầng Văn phòng', group: 'Đặt lệnh' },
-    { key: 'reject_office_order', label: 'Từ chối lệnh (VP)', description: 'Từ chối lệnh đặt hàng tại tầng Văn phòng', group: 'Đặt lệnh' },
-    { key: 'dispatch_central_order', label: 'Xuất kho (Kho Tổng)', description: 'Xác nhận xuất hàng từ kho trung tâm', group: 'Đặt lệnh' },
-    // Nhân sự & Xếp lịch
-    { key: 'view_overview', label: 'Xem Tổng quan', description: 'Xem lịch tổng quan hàng tuần', group: 'Nhân sự' },
-    { key: 'view_history', label: 'Xem Lịch sử', description: 'Xem thống kê và lịch sử các tháng', group: 'Nhân sự' },
-    { key: 'view_schedule', label: 'Xem Xếp lịch', description: 'Xem (không sửa) trang xếp ca', group: 'Nhân sự' },
-    { key: 'edit_schedule', label: 'Chỉnh sửa Xếp lịch', description: 'Tạo/lưu lịch phân công ca', group: 'Nhân sự' },
-    { key: 'view_users', label: 'Xem Nhân viên', description: 'Xem danh sách nhân viên', group: 'Nhân sự' },
-    { key: 'manage_hr', label: 'Quản lý Nhân sự', description: 'Thêm, sửa, vô hiệu hóa tài khoản', group: 'Nhân sự' },
-    { key: 'register_shift', label: 'Đăng ký Ca làm', description: 'Tự đăng ký lịch làm hàng tuần', group: 'Nhân sự' },
-    { key: 'manage_kpi_templates', label: 'Quản lý Mẫu KPI', description: 'Tạo, sửa, xóa mẫu chấm điểm KPI', group: 'Nhân sự' },
-    { key: 'score_employees', label: 'Chấm điểm NV', description: 'Chấm điểm KPI chính thức cho nhân viên', group: 'Nhân sự' },
-    { key: 'view_all_kpi', label: 'Xem KPI Tất cả NV', description: 'Xem thống kê KPI của tất cả nhân viên', group: 'Nhân sự' },
-    { key: 'export_kpi', label: 'Xuất Báo cáo KPI', description: 'Xuất báo cáo PDF/Excel KPI nhân viên', group: 'Nhân sự' },
-    { key: 'manage_central_warehouse', label: 'Quản lý Kho tổng', description: 'Truy cập và quản lý kho trung tâm', group: 'Kho hàng' },
-    // Hệ thống
-    { key: 'manage_locations', label: 'Quản lý Địa điểm', description: 'Tạo, sửa, bật/tắt cửa hàng, văn phòng, kho', group: 'Hệ thống' },
-    { key: 'manage_roles', label: 'Quản lý Phân quyền', description: 'Tạo, sửa, xóa vai trò tùy chỉnh', group: 'Hệ thống' },
-    { key: 'manage_users', label: 'Quản lý Người dùng', description: 'Tạo, sửa, khóa tài khoản người dùng', group: 'Hệ thống' },
-    // Doanh thu
-    { key: 'view_revenue', label: 'Xem Doanh thu', description: 'Truy cập trang phân tích doanh thu Joyworld', group: 'Doanh thu' },
+export interface PermissionDef {
+    key: string;
+    label: string;
+    description: string;
+    group: string;
+    type: 'page' | 'action';
+}
+
+export const ALL_PERMISSIONS: PermissionDef[] = [
+    // ── Nhân sự & Lịch làm việc ───────────────────────────────
+    {
+        key: 'page.scheduling.overview',
+        label: 'Xem Lịch Tổng Quan',
+        description: 'Truy cập trang lịch tổng quan hàng tuần',
+        group: 'Nhân sự & Lịch',
+        type: 'page',
+    },
+    {
+        key: 'page.scheduling.register',
+        label: 'Xem Đăng Ký Ca',
+        description: 'Truy cập trang xem đăng ký ca của nhân viên',
+        group: 'Nhân sự & Lịch',
+        type: 'page',
+    },
+    {
+        key: 'page.scheduling.history',
+        label: 'Xem Lịch Sử',
+        description: 'Truy cập trang lịch sử & thống kê các tháng',
+        group: 'Nhân sự & Lịch',
+        type: 'page',
+    },
+    {
+        key: 'page.scheduling.builder',
+        label: 'Vào Trang Xếp Ca',
+        description: 'Truy cập trang xếp ca làm việc',
+        group: 'Nhân sự & Lịch',
+        type: 'page',
+    },
+    {
+        key: 'action.schedule.edit',
+        label: 'Lưu / Chỉnh Sửa Lịch',
+        description: 'Được phép lưu và chỉnh sửa ca trong Builder',
+        group: 'Nhân sự & Lịch',
+        type: 'action',
+    },
+    {
+        key: 'page.hr.users',
+        label: 'Xem Danh Sách Nhân Viên',
+        description: 'Truy cập trang quản lý nhân viên',
+        group: 'Nhân sự & Lịch',
+        type: 'page',
+    },
+    {
+        key: 'action.hr.manage',
+        label: 'Thêm / Sửa Nhân Viên',
+        description: 'Tạo, chỉnh sửa, khóa tài khoản nhân viên',
+        group: 'Nhân sự & Lịch',
+        type: 'action',
+    },
+    {
+        key: 'page.hr.kpi_stats',
+        label: 'Xem KPI Nhân Viên',
+        description: 'Truy cập trang xem thống kê KPI toàn shop',
+        group: 'Nhân sự & Lịch',
+        type: 'page',
+    },
+    {
+        key: 'page.hr.kpi_scoring',
+        label: 'Vào Trang Chấm KPI',
+        description: 'Truy cập trang chấm điểm KPI nhân viên',
+        group: 'Nhân sự & Lịch',
+        type: 'page',
+    },
+    {
+        key: 'action.hr.score',
+        label: 'Chấm Điểm KPI',
+        description: 'Thực hiện chấm điểm KPI chính thức',
+        group: 'Nhân sự & Lịch',
+        type: 'action',
+    },
+    {
+        key: 'action.export.kpi',
+        label: 'Xuất Báo Cáo KPI',
+        description: 'Xuất file PDF/Excel thống kê KPI nhân viên',
+        group: 'Nhân sự & Lịch',
+        type: 'action',
+    },
+    {
+        key: 'page.hr.kpi_templates',
+        label: 'Quản Lý Mẫu KPI',
+        description: 'Tạo, sửa, xóa mẫu chấm điểm KPI',
+        group: 'Nhân sự & Lịch',
+        type: 'page',
+    },
+
+    // ── Kho cửa hàng ──────────────────────────────────────────
+    {
+        key: 'page.manager.inventory',
+        label: 'Xem Kho Cửa Hàng',
+        description: 'Truy cập trang kho và đặt hàng của cửa hàng',
+        group: 'Kho Cửa Hàng',
+        type: 'page',
+    },
+    {
+        key: 'action.manager.order',
+        label: 'Tạo Lệnh Đặt Hàng',
+        description: 'Được phép gửi lệnh đặt hàng về kho tổng',
+        group: 'Kho Cửa Hàng',
+        type: 'action',
+    },
+    // ── Kho tổng ──────────────────────────────────────────────
+    {
+        key: 'page.admin.inventory',
+        label: 'Xem Kho Tổng',
+        description: 'Truy cập trang tổng quan kho tổng',
+        group: 'Kho Tổng',
+        type: 'page',
+    },
+    {
+        key: 'page.admin.inventory.import',
+        label: 'Nhập Kho',
+        description: 'Truy cập trang nhập hàng vào kho tổng',
+        group: 'Kho Tổng',
+        type: 'page',
+    },
+    {
+        key: 'page.admin.inventory.dispatch',
+        label: 'Duyệt Xuất Kho',
+        description: 'Truy cập trang duyệt lệnh xuất kho',
+        group: 'Kho Tổng',
+        type: 'page',
+    },
+    {
+        key: 'action.warehouse.write',
+        label: 'Thực Hiện Nhập / Xuất Kho',
+        description: 'Ghi dữ liệu nhập kho, xuất kho, điều chỉnh tồn',
+        group: 'Kho Tổng',
+        type: 'action',
+    },
+    // ── Sản phẩm ──────────────────────────────────────────────
+    {
+        key: 'page.products',
+        label: 'Xem Sản Phẩm',
+        description: 'Truy cập trang danh sách sản phẩm',
+        group: 'Sản Phẩm',
+        type: 'page',
+    },
+    {
+        key: 'page.products.categories',
+        label: 'Xem Danh Mục',
+        description: 'Truy cập trang quản lý danh mục sản phẩm',
+        group: 'Sản Phẩm',
+        type: 'page',
+    },
+    {
+        key: 'action.products.write',
+        label: 'Thêm / Sửa / Xóa Sản Phẩm',
+        description: 'Ghi dữ liệu sản phẩm và danh mục',
+        group: 'Sản Phẩm',
+        type: 'action',
+    },
+    // ── Văn phòng ─────────────────────────────────────────────
+    {
+        key: 'page.office.approvals',
+        label: 'Duyệt Lệnh Văn Phòng',
+        description: 'Truy cập trang duyệt lệnh đặt hàng từ cửa hàng',
+        group: 'Văn Phòng',
+        type: 'page',
+    },
+    {
+        key: 'action.office.approve',
+        label: 'Phê Duyệt / Từ Chối Lệnh',
+        description: 'Thực hiện phê duyệt hoặc từ chối đơn hàng',
+        group: 'Văn Phòng',
+        type: 'action',
+    },
+    {
+        key: 'page.office.revenue',
+        label: 'Xem Doanh Thu',
+        description: 'Truy cập trang phân tích doanh thu',
+        group: 'Văn Phòng',
+        type: 'page',
+    },
+    // ── Cài Đặt Cửa Hàng ───────────────────────────────────────
+    {
+        key: 'page.manager.settings',
+        label: 'Cài Đặt Cửa Hàng',
+        description: 'Truy cập trang cài đặt ca làm, quầy, định mức của cửa hàng',
+        group: 'Cài Đặt Cửa Hàng',
+        type: 'page',
+    },
+    {
+        key: 'action.manager.settings.write',
+        label: 'Chỉnh Sửa Cài Đặt Cửa Hàng',
+        description: 'Lưu thay đổi cài đặt ca làm, quầy, định mức',
+        group: 'Cài Đặt Cửa Hàng',
+        type: 'action',
+    },
+    // ── Hệ thống ──────────────────────────────────────────────
+    {
+        key: 'page.admin.settings',
+        label: 'Cài Đặt Hệ Thống',
+        description: 'Truy cập trang cài đặt hệ thống (Chỉ admin)',
+        group: 'Hệ Thống',
+        type: 'page',
+    },
+    {
+        key: 'page.admin.broadcast',
+        label: 'Gửi Thông Báo Hệ Thống',
+        description: 'Truy cập trang gửi push notification hàng loạt',
+        group: 'Hệ Thống',
+        type: 'page',
+    },
 ];
 
 export interface CustomRoleDoc {
     id: string;
     name: string;
-    permissions: AppPermission[];        // Legacy flat list — kept for backward compat
-    permissionMatrix?: PermissionMatrix; // Granular CRUD matrix keyed by resource
-    isSystem?: boolean;         // Built-in role (admin, store_manager, manager, employee) — cannot be deleted
-    isLocked?: boolean;         // Fully locked (admin role) — cannot be edited or deleted
-    creatorRoles: string[];     // Which role IDs are allowed to create/assign this role
+    permissions: string[];       // Danh sách permission keys (page.* / action.*)
+    isSystem?: boolean;         // Built-in role — cannot be deleted
+    isLocked?: boolean;         // Fully locked (admin) — cannot be edited
+    creatorRoles: string[];     // Which role IDs are allowed to assign this role
     color?: string;             // Display color for the role badge
-    defaultRoute?: string;      // Default redirect route after login (e.g. '/office/revenue')
+    defaultRoute?: string;      // Default redirect route after login
     applicableTo?: ('STORE' | 'OFFICE' | 'CENTRAL')[];  // Which location types can use this role
     createdAt?: string;
     createdBy?: string;
@@ -155,6 +275,8 @@ export interface OfficeDoc {
     contactEmail?: string;
     isActive: boolean;
     createdAt?: string;
+    /** Store IDs this office is authorized to manage. Empty/undefined = no store access. */
+    managedStoreIds?: string[];
 }
 
 export interface WarehouseDoc {

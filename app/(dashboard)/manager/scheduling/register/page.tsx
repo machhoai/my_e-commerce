@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -206,7 +206,8 @@ export default function ManagerRegistrationOverviewPage() {
     const canAccess =
         isAdmin ||
         userDoc?.role === 'store_manager' ||
-        hasPermission('manage_hr');
+        userDoc?.role === 'manager' ||
+        hasPermission('page.scheduling.register');
 
     if (!canAccess) {
         return (

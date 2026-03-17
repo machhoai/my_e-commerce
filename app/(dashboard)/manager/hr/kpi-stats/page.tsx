@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, Suspense, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -290,7 +290,7 @@ function ManagerKpiStatsPageContent() {
     const currentPageSize = Number(params.pageSize) || 10;
     const paginatedEmployees = processedEmployees.slice((currentPage - 1) * currentPageSize, currentPage * currentPageSize);
 
-    if (!userDoc || (userDoc.role !== 'admin' && userDoc.role !== 'store_manager' && !hasPermission('view_all_kpi'))) {
+    if (!userDoc || (userDoc.role !== 'admin' && userDoc.role !== 'store_manager' && userDoc.role !== 'super_admin' && !hasPermission('page.hr.kpi_stats'))) {
         return <div className="p-8 text-center text-danger-500 font-bold">Không có quyền truy cập.</div>;
     }
 
@@ -320,7 +320,7 @@ function ManagerKpiStatsPageContent() {
                             <p className="text-surface-500 mt-1 text-sm">Lịch sử chấm điểm và thống kê KPI nhân viên theo tháng.</p>
                         </div>
                         {/* Export buttons */}
-                        {hasPermission('export_kpi') && (
+                        {(hasPermission('action.export.kpi') || userDoc.role === 'admin' || userDoc.role === 'store_manager') && (
                             <div className="flex items-center gap-2">
                                 <button onClick={handleExportPdf} disabled={!!exporting || !filteredRecords.length}
                                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-danger-50 text-danger-700 border border-danger-200 hover:bg-danger-100 font-semibold text-xs disabled:opacity-50 transition-colors">

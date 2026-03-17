@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,7 +11,7 @@ import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader
 type TargetType = 'ALL' | 'STORE' | 'ROLE';
 
 export default function AdminBroadcastPage() {
-    const { user, userDoc, loading: authLoading } = useAuth();
+    const { user, userDoc, loading: authLoading, hasPermission } = useAuth();
 
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
@@ -41,7 +41,7 @@ export default function AdminBroadcastPage() {
             }
         };
 
-        if (userDoc?.role === 'admin') {
+        if (userDoc?.role === 'admin' || hasPermission('page.admin.broadcast')) {
             fetchStores();
         }
     }, [userDoc]);
@@ -109,7 +109,7 @@ export default function AdminBroadcastPage() {
     };
 
     if (authLoading) return <div className="p-8 text-center">Đang tải...</div>;
-    if (userDoc?.role !== 'admin') return <div className="p-8 text-center text-danger-500">Bạn không có quyền truy cập trang này.</div>;
+    if (userDoc?.role !== 'admin' && !hasPermission('page.admin.broadcast')) return <div className="p-8 text-center text-danger-500">Bạn không có quyền truy cập trang này.</div>;
 
     return (
         <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">

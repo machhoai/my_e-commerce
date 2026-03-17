@@ -69,6 +69,16 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Thiếu các trường bắt buộc' }, { status: 400 });
         }
 
+        // Check phone uniqueness before creating the Firebase Auth user
+        const phoneCheck = await adminDb.collection('users')
+            .where('phone', '==', phone).limit(1).get();
+        if (!phoneCheck.empty) {
+            return NextResponse.json(
+                { error: 'Số điện thoại này đã được sử dụng bởi một tài khoản khác.' },
+                { status: 409 }
+            );
+        }
+
         const email = phoneToEmail(phone);
         const password = defaultPassword(phone);
 

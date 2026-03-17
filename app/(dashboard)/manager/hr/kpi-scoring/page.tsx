@@ -212,20 +212,30 @@ export default function ManagerKpiScoringPage() {
         return name.substring(0, 2).toUpperCase();
     };
 
-    // KPI summary stats
+    // ─── Multi-counter helpers ─────────────────────────────────────────────────
+    const getEmpSchedules = (uid: string): ScheduleDoc[] =>
+        schedules.filter(s => s.employeeIds.includes(uid));
+
+    const getEmpAvgScore = (uid: string): number | null => {
+        const recs = getEmpSchedules(uid)
+            .map(s => getRecordForEmployee(uid, s.counterId))
+            .filter((r): r is KpiRecordDoc => r?.status === 'OFFICIAL');
+        if (!recs.length) return null;
+        return Math.round(recs.reduce((sum, r) => sum + r.officialTotal, 0) / recs.length);
+    };
+
+    // KPI summary stats — "scored" means ALL counters are OFFICIAL
     const totalEmployees = employees.length;
     const scoredCount = employees.filter(emp => {
-        const sched = schedules.find(s => s.employeeIds.includes(emp.uid));
-        const record = sched ? getRecordForEmployee(emp.uid, sched.counterId || '') : undefined;
-        return record?.status === 'OFFICIAL';
+        const empScheds = getEmpSchedules(emp.uid);
+        return empScheds.length > 0 && empScheds.every(s => getRecordForEmployee(emp.uid, s.counterId)?.status === 'OFFICIAL');
     }).length;
-    const selfScoredCount = employees.filter(emp => {
-        const sched = schedules.find(s => s.employeeIds.includes(emp.uid));
-        const record = sched ? getRecordForEmployee(emp.uid, sched.counterId || '') : undefined;
-        return record?.status === 'SELF_SCORED';
-    }).length;
+    const selfScoredCount = employees.filter(emp =>
+        getEmpSchedules(emp.uid).some(s => getRecordForEmployee(emp.uid, s.counterId)?.status === 'SELF_SCORED')
+    ).length;
 
-    if (!userDoc || (userDoc.role !== 'admin' && userDoc.role !== 'store_manager' && !hasPermission('score_employees'))) {
+
+    if (!userDoc || (userDoc.role !== 'admin' && userDoc.role !== 'store_manager' && userDoc.role !== 'super_admin' && !hasPermission('page.hr.kpi_scoring'))) {
         return <div className="p-8 text-center text-danger-500 font-bold">Không có quyền truy cập.</div>;
     }
 
@@ -351,108 +361,117 @@ export default function ManagerKpiScoringPage() {
                     <p className="text-sm text-surface-400 mt-1">Không tìm thấy nhân viên nào trong ca này</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="space-y-4">
                     {employees.map(emp => {
-                        const empSchedule = schedules.find(s => s.employeeIds.includes(emp.uid));
-                        const counterId = empSchedule?.counterId || '';
-                        const counterName = counters.find(c => c.id === counterId)?.name || counterId;
-                        const record = getRecordForEmployee(emp.uid, counterId);
-                        const template = getTemplateForCounter(counterId);
+                        const empScheds = getEmpSchedules(emp.uid);
+                        const avgScore = getEmpAvgScore(emp.uid);
+                        const allOfficial = empScheds.length > 0 && empScheds.every(s => getRecordForEmployee(emp.uid, s.counterId)?.status === 'OFFICIAL');
+                        const hasAnySelf = empScheds.some(s => getRecordForEmployee(emp.uid, s.counterId)?.status === 'SELF_SCORED');
 
-                        const isOfficial = record?.status === 'OFFICIAL';
-                        const isSelfScored = record?.status === 'SELF_SCORED';
-
-                        // Score color
                         const scoreColor = (score: number) =>
                             score >= 80 ? 'text-success-700 bg-success-50 border-success-200' :
                             score >= 50 ? 'text-warning-700 bg-warning-50 border-warning-200' :
                                           'text-danger-700 bg-danger-50 border-danger-200';
 
-                        // Accent bar color
-                        const accentColor = isOfficial ? 'bg-success-500' : isSelfScored ? 'bg-primary-400' : 'bg-surface-200';
-
                         return (
-                            <div
-                                key={emp.uid}
-                                className={cn(
-                                    "relative bg-white border rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group",
-                                    isOfficial ? "border-success-200" : isSelfScored ? "border-primary-200" : "border-surface-200"
-                                )}
-                            >
-                                {/* Left accent bar */}
-                                <div className={cn("absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl", accentColor)} />
-
-                                <div className="p-4 pl-5">
-                                    {/* Top row: Avatar + Info + Badge */}
-                                    <div className="flex items-start gap-3 mb-3">
-                                        <div className={cn(
-                                            "w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 transition-transform group-hover:scale-105",
-                                            isOfficial ? "bg-success-100 text-success-700" :
-                                            isSelfScored ? "bg-primary-100 text-primary-700" :
-                                                           "bg-surface-100 text-surface-600"
-                                        )}>
-                                            {getInitials(emp.name)}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-bold text-surface-800 truncate leading-tight">{emp.name}</p>
-                                            <p className="text-xs text-surface-400 mt-0.5 flex items-center gap-1">
-                                                <span className="truncate">{counterName}</span>
-                                                <span className="text-surface-300">·</span>
-                                                <span>{selectedShiftId}</span>
-                                            </p>
-                                        </div>
-                                        {isOfficial ? (
-                                            <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg bg-success-100 text-success-700 border border-success-200 shrink-0 whitespace-nowrap">
-                                                <CheckCircle2 className="w-3 h-3" /> Đã chấm
-                                            </span>
-                                        ) : isSelfScored ? (
-                                            <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg bg-primary-100 text-primary-700 border border-primary-200 shrink-0 whitespace-nowrap">
-                                                <Star className="w-3 h-3" /> NV tự chấm
-                                            </span>
-                                        ) : (
-                                            <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg bg-surface-100 text-surface-500 border border-surface-200 shrink-0 whitespace-nowrap">
-                                                Chưa chấm
-                                            </span>
-                                        )}
+                            <div key={emp.uid} className="bg-white border border-surface-200 rounded-2xl overflow-hidden shadow-sm">
+                                {/* ── Employee header ── */}
+                                <div className="flex items-center gap-3 px-4 py-3 border-b border-surface-100 bg-surface-50/60">
+                                    <div className={cn(
+                                        'w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0',
+                                        allOfficial ? 'bg-success-100 text-success-700' :
+                                        hasAnySelf ? 'bg-primary-100 text-primary-700' :
+                                                     'bg-surface-100 text-surface-600'
+                                    )}>
+                                        {getInitials(emp.name)}
                                     </div>
-
-                                    {/* Score display */}
-                                    {record && (
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary-50 border border-primary-100 text-xs">
-                                                <Star className="w-3 h-3 text-primary-500" />
-                                                <span className="font-bold text-primary-700">NV: {record.selfTotal}</span>
-                                            </div>
-                                            {isOfficial && (
-                                                <div className={cn("flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs", scoreColor(record.officialTotal))}>
-                                                    <Award className="w-3 h-3" />
-                                                    <span className="font-bold">CK: {record.officialTotal}</span>
-                                                </div>
-                                            )}
-                                            {isOfficial && record.officialTotal >= 80 && (
-                                                <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-success-50 text-success-600 text-xs border border-success-100">
-                                                    <TrendingUp className="w-3 h-3" />
-                                                </div>
-                                            )}
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-bold text-surface-800 leading-tight">{emp.name}</p>
+                                        <p className="text-[11px] text-surface-400">{empScheds.length} quầy · {selectedShiftId}</p>
+                                    </div>
+                                    {/* Average score badge */}
+                                    {avgScore !== null && (
+                                        <div className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold', scoreColor(avgScore))}>
+                                            <Award className="w-3.5 h-3.5" />
+                                            TB: {avgScore}
                                         </div>
                                     )}
+                                    {allOfficial && (
+                                        <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg bg-success-100 text-success-700 border border-success-200 whitespace-nowrap">
+                                            <CheckCircle2 className="w-3 h-3" /> Hoàn thành
+                                        </span>
+                                    )}
+                                </div>
 
-                                    {/* Action button */}
-                                    <button
-                                        onClick={() => openScoring(emp, counterId)}
-                                        disabled={!template}
-                                        className={cn(
-                                            'w-full py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98]',
-                                            isOfficial
-                                                ? 'bg-success-50 text-success-700 hover:bg-success-100 border border-success-200'
-                                                : 'bg-gradient-to-r from-accent-500 to-accent-600 text-white hover:from-accent-600 hover:to-accent-700 shadow-sm shadow-accent-500/20',
-                                            !template && 'opacity-50 cursor-not-allowed !shadow-none'
-                                        )}
-                                    >
-                                        <ClipboardCheck className="w-4 h-4" />
-                                        {isOfficial ? 'Xem & sửa điểm' : 'Chấm điểm'}
-                                    </button>
-                                    {!template && <p className="text-[10px] text-warning-500 mt-1.5 text-center font-medium">⚠ Chưa có mẫu KPI cho quầy này</p>}
+                                {/* ── Per-counter rows ── */}
+                                <div className="divide-y divide-surface-100">
+                                    {empScheds.length === 0 ? (
+                                        <p className="p-4 text-xs text-surface-400 italic">Không tìm thấy quầy được phân công.</p>
+                                    ) : empScheds.map(sched => {
+                                        const cId = sched.counterId;
+                                        const counterName = counters.find(c => c.id === cId)?.name || cId;
+                                        const record = getRecordForEmployee(emp.uid, cId);
+                                        const template = getTemplateForCounter(cId);
+                                        const isOfficial = record?.status === 'OFFICIAL';
+                                        const isSelfScored = record?.status === 'SELF_SCORED';
+
+                                        return (
+                                            <div key={cId} className="flex items-center gap-3 px-4 py-3">
+                                                {/* Counter label */}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-semibold text-surface-700 truncate">📍 {counterName}</p>
+                                                    {record && (
+                                                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary-50 border border-primary-100 text-[11px]">
+                                                                <Star className="w-2.5 h-2.5 text-primary-500" />
+                                                                <span className="font-bold text-primary-700">NV: {record.selfTotal}</span>
+                                                            </div>
+                                                            {isOfficial && (
+                                                                <div className={cn('flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px]', scoreColor(record.officialTotal))}>
+                                                                    <Award className="w-2.5 h-2.5" />
+                                                                    <span className="font-bold">CK: {record.officialTotal}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Status badge */}
+                                                <div className="shrink-0">
+                                                    {isOfficial ? (
+                                                        <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg bg-success-100 text-success-700 border border-success-200">
+                                                            <CheckCircle2 className="w-3 h-3" /> Đã chấm
+                                                        </span>
+                                                    ) : isSelfScored ? (
+                                                        <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg bg-primary-100 text-primary-700 border border-primary-200">
+                                                            <Star className="w-3 h-3" /> Tự chấm
+                                                        </span>
+                                                    ) : (
+                                                        <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg bg-surface-100 text-surface-500 border border-surface-200">
+                                                            Chưa chấm
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Score button */}
+                                                <button
+                                                    onClick={() => openScoring(emp, cId)}
+                                                    disabled={!template}
+                                                    title={!template ? 'Chưa có mẫu KPI cho quầy này' : undefined}
+                                                    className={cn(
+                                                        'shrink-0 px-3 py-2 rounded-xl font-semibold text-xs flex items-center gap-1.5 transition-all duration-200 active:scale-[0.98]',
+                                                        isOfficial
+                                                            ? 'bg-success-50 text-success-700 hover:bg-success-100 border border-success-200'
+                                                            : 'bg-gradient-to-r from-accent-500 to-accent-600 text-white hover:from-accent-600 hover:to-accent-700 shadow-sm shadow-accent-500/20',
+                                                        !template && 'opacity-40 cursor-not-allowed !shadow-none'
+                                                    )}
+                                                >
+                                                    <ClipboardCheck className="w-3.5 h-3.5" />
+                                                    {isOfficial ? 'Sửa' : 'Chấm'}
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         );

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, getDocs, doc, getDoc, orderBy, where } from 'firebase/firestore';
 import { UserDoc, CounterDoc, ScheduleDoc, StoreDoc, SettingsDoc } from '@/types';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
+import { OfficeManagedStorePicker } from '@/components/shared/OfficeManagedStorePicker';
 import { getWeekStart, toLocalDateString, shortName } from '@/lib/utils';
 import { Calendar, ChevronLeft, ChevronRight, Users, Clock, Store, Building2, UserCog, Image, FileText, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -17,7 +18,7 @@ import { registerVietnameseFont } from '@/lib/pdf-font';
 type ViewMode = 'employee' | 'shift';
 
 export default function GlobalOverviewPage() {
-    const { user, userDoc } = useAuth();
+    const { user, userDoc, hasPermission, loading: authLoading, effectiveStoreId: contextStoreId, managedStoreIds } = useAuth();
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date()));
     const [weekDays, setWeekDays] = useState<Date[]>([]);
     const [loading, setLoading] = useState(true);
@@ -63,12 +64,21 @@ export default function GlobalOverviewPage() {
         fetchStores();
     }, [userDoc, user, getToken]);
 
-    // Only Admin, Store Manager & Manager (with canManageHR) can access
+    // Admin, Store Manager, Manager, or custom role with page.scheduling.overview
     useEffect(() => {
-        if (!userDoc || !['admin', 'store_manager', 'manager'].includes(userDoc.role)) return;
+        if (!userDoc) return;
+        const hasAccess = ['admin', 'store_manager', 'manager'].includes(userDoc.role) ||
+            hasPermission('page.scheduling.overview');
+        if (!hasAccess) {
+            setLoading(false);
+            return;
+        }
 
         // Admin: filter by selected store if chosen, otherwise show all
-        const effectiveStoreId = userDoc.role === 'admin' ? selectedAdminStoreId : userDoc.storeId;
+        // Office users: use effectiveStoreId from AuthContext (managed store selection)
+        const effectiveStoreId = userDoc.role === 'admin'
+            ? selectedAdminStoreId
+            : (contextStoreId || userDoc.storeId);
 
         async function loadData() {
             setLoading(true);
@@ -128,9 +138,6 @@ export default function GlobalOverviewPage() {
 
                 const schedulesSnap = await getDocs(schedulesQuery);
 
-                // We fetch all schedules for the week. Since we already filtered users
-                // and counters by storeId, we don't strictly need to filter schedules.
-                // The UI will only show schedules that match the rendered users/counters.
                 const weekScheds = schedulesSnap.docs.map(d => d.data() as ScheduleDoc);
                 setSchedules(weekScheds);
 
@@ -141,9 +148,14 @@ export default function GlobalOverviewPage() {
             }
         }
         loadData();
-    }, [currentWeekStart, userDoc, selectedAdminStoreId]);
+    }, [currentWeekStart, userDoc, selectedAdminStoreId, contextStoreId]);
 
-    if (!userDoc || (userDoc.role !== 'admin' && userDoc.role !== 'store_manager' && userDoc.role !== 'manager' && userDoc.canManageHR !== true)) {
+    if (!userDoc || (
+        userDoc.role !== 'admin' &&
+        userDoc.role !== 'store_manager' &&
+        userDoc.role !== 'manager' &&
+        !hasPermission('page.scheduling.overview')
+    )) {
         return <div className="p-8 text-center text-danger-500 font-bold">Không có quyền truy cập.</div>;
     }
 
@@ -651,6 +663,15 @@ export default function GlobalOverviewPage() {
                         <option value="">-- Tất cả cửa hàng --</option>
                         {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
                     </select>
+                </div>
+            )}
+
+            {/* Office Store Picker — shown only when office user manages multiple stores */}
+            {managedStoreIds.length > 1 && (
+                <div className="bg-white rounded-xl border border-surface-200 shadow-sm p-3 flex items-center gap-3">
+                    <Building2 className="w-4 h-4 text-teal-500 shrink-0" />
+                    <span className="text-sm font-semibold text-surface-700 shrink-0">Xem cửa hàng:</span>
+                    <OfficeManagedStorePicker />
                 </div>
             )}
 

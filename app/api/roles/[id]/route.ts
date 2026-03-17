@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { AppPermission, PermissionMatrix } from '@/types';
-
 
 async function requireAdmin(req: NextRequest) {
     const token = req.headers.get('Authorization')?.split('Bearer ')[1];
@@ -38,8 +36,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
         const body = await req.json() as {
             name?: string;
-            permissions?: AppPermission[];
-            permissionMatrix?: PermissionMatrix | null;
+            permissions?: string[];
             creatorRoles?: string[];
             color?: string;
             defaultRoute?: string;
@@ -50,9 +47,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         const updateData: Record<string, unknown> = {};
         if (body.name !== undefined) updateData.name = body.name.trim();
         if (body.permissions !== undefined) updateData.permissions = body.permissions;
-        if (body.permissionMatrix !== undefined) {
-            updateData.permissionMatrix = body.permissionMatrix ?? null;
-        }
         if (body.creatorRoles !== undefined) updateData.creatorRoles = body.creatorRoles;
         if (body.color !== undefined) updateData.color = body.color;
         if (body.defaultRoute !== undefined) {

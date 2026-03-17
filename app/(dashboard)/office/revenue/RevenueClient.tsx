@@ -303,7 +303,7 @@ export default function RevenueClient() {
 
     // ── Permission guard (placed AFTER all hooks — Rules of Hooks compliant) ──
     const isAdminOrSuper = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
-    if (userDoc && !isAdminOrSuper && !hasPermission('view_revenue')) {
+    if (userDoc && !isAdminOrSuper && !hasPermission('page.office.revenue')) {
         return (
             <div className="flex flex-col items-center justify-center py-24 gap-5 bg-white rounded-3xl border border-surface-100">
                 <div className="w-16 h-16 rounded-2xl bg-danger-50 flex items-center justify-center">
@@ -311,7 +311,7 @@ export default function RevenueClient() {
                 </div>
                 <div className="text-center">
                     <h2 className="text-base font-bold text-surface-700">Không có quyền truy cập</h2>
-                    <p className="text-sm text-surface-400 mt-1 max-w-xs">Bạn cần quyền <code className="bg-surface-100 px-1.5 py-0.5 rounded text-xs font-mono text-accent-600">view_revenue</code> để xem trang này.</p>
+                    <p className="text-sm text-surface-400 mt-1 max-w-xs">Bạn chưa được cấp quyền xem trang Doanh thu. Liên hệ quản trị viên để được phân quyền.</p>
                     <p className="text-xs text-surface-400 mt-1">Liên hệ Admin để được cấp quyền qua trang <strong>Quản lý Phân quyền</strong>.</p>
                 </div>
             </div>

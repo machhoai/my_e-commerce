@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
@@ -269,7 +269,7 @@ function ImportBatchDrawer({
 
 // ── Main Page ──────────────────────────────────────────────────────
 export default function CentralImportPage() {
-    const { user, userDoc } = useAuth();
+    const { user, userDoc, hasPermission } = useAuth();
     const [products, setProducts] = useState<ProductDoc[]>([]);
     const [balances, setBalances] = useState<InventoryBalanceDoc[]>([]);
     const [loading, setLoading] = useState(true);
@@ -430,7 +430,7 @@ export default function CentralImportPage() {
         } finally { setSubmitting(false); }
     };
 
-    if (userDoc && userDoc.role !== 'admin') {
+    if (userDoc && userDoc.role !== 'admin' && !hasPermission('page.admin.inventory.import')) {
         return <div className="flex items-center justify-center h-64 text-danger-500 font-bold">Chỉ quản trị viên.</div>;
     }
 
