@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ShoppingCart, ClipboardList } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ShoppingCart, ClipboardList, Ticket, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -249,7 +249,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             href: '/office/inventory/approvals',
             icon: Package,
             show: isAdmin || isSuperAdmin || isOfficeContext ||
-                userDoc?.role === 'office' ||
                 hasPermission('page.office.approvals'),
             matchPrefix: '/office/inventory',
             group: 'Văn Phòng',
@@ -291,6 +290,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             href: '/admin/users',
             icon: Users,
             show: isAdmin || isSuperAdmin,
+            group: 'H\u1ec7 Th\u1ed1ng',
+        },
+        {
+            label: 'Quản lý Voucher',
+            href: '/admin/vouchers',
+            icon: Ticket,
+            show: isAdmin || isSuperAdmin || hasPermission('page.admin.vouchers'),
+            matchPrefix: '/admin/vouchers',
+            group: 'H\u1ec7 Th\u1ed1ng',
+        },
+        {
+            label: 'Quản lý Sự kiện',
+            href: '/admin/events',
+            icon: CalendarDays,
+            show: isAdmin || isSuperAdmin || hasPermission('page.admin.events'),
+            matchPrefix: '/admin/events',
             group: 'H\u1ec7 Th\u1ed1ng',
         },
         {

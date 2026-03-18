@@ -79,3 +79,19 @@ export function shortName(fullName: string): string {
     const parts = fullName.trim().split(/\s+/);
     return parts.length > 2 ? parts.slice(-2).join(' ') : fullName;
 }
+
+/**
+ * Generate a cryptographically-random alphanumeric string.
+ * Alphabet excludes visually ambiguous characters: 0/O, 1/I/L.
+ */
+const SAFE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+export function generateSecureCode(length: number): string {
+    const chars: string[] = [];
+    const randomValues = new Uint8Array(length);
+    crypto.getRandomValues(randomValues);
+    for (let i = 0; i < length; i++) {
+        chars.push(SAFE_ALPHABET[randomValues[i] % SAFE_ALPHABET.length]);
+    }
+    return chars.join('');
+}

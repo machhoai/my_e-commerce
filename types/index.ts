@@ -225,6 +225,29 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         group: 'Hệ Thống',
         type: 'page',
     },
+    // ── Voucher ───────────────────────────────────────────────
+    {
+        key: 'page.admin.vouchers',
+        label: 'Quản Lý Voucher',
+        description: 'Truy cập trang quản lý chiến dịch và mã voucher',
+        group: 'Voucher',
+        type: 'page',
+    },
+    {
+        key: 'action.voucher.revoke',
+        label: 'Vô Hiệu Hóa Voucher',
+        description: 'Vô hiệu hóa mã voucher đã phát hành',
+        group: 'Voucher',
+        type: 'action',
+    },
+    // ── Sự kiện ──────────────────────────────────────────────────
+    {
+        key: 'page.admin.events',
+        label: 'Quản Lý Sự Kiện',
+        description: 'Truy cập trang quản lý sự kiện và phát hành voucher',
+        group: 'Sự kiện',
+        type: 'page',
+    },
 ];
 
 export interface CustomRoleDoc {
@@ -473,3 +496,110 @@ export interface KpiRecordDoc {
     createdAt?: string;
     updatedAt?: string;
 }
+
+// ============================================================
+// Voucher Management
+// ============================================================
+
+export type VoucherRewardType = 'discount_percent' | 'discount_fixed' | 'free_ticket' | 'free_item';
+export type VoucherCampaignStatus = 'active' | 'paused' | 'ended';
+export type VoucherCodeStatus = 'available' | 'distributed' | 'used' | 'revoked' | 'expired';
+
+export interface VoucherCampaign {
+    id: string;
+    name: string;
+    description: string;
+    rewardType: VoucherRewardType;
+    rewardValue: number;
+    validFrom: string;   // ISO date string
+    validTo: string;     // ISO date string
+    prefix: string;
+    codeLength: number;
+    suffix: string;
+    totalIssued: number;
+    status: VoucherCampaignStatus;
+    createdAt?: string;
+    createdBy?: string;
+}
+
+export interface VoucherCode {
+    id: string;          // The actual code, e.g. "OPEN-X7B9-26"
+    campaignId: string;
+    campaignName?: string;
+    rewardType: VoucherRewardType;
+    rewardValue: number;
+    validTo: string;
+    status: VoucherCodeStatus;
+    distributedToPhone: string | null;
+    distributedAt: string | null;
+    usedAt: string | null;
+    usedByStaffId: string | null;
+}
+
+// ============================================================
+// Event Management
+// ============================================================
+
+export type EventStatus = 'upcoming' | 'active' | 'ended' | 'closed';
+export type AuditAction = 'CREATE_EVENT' | 'UPDATE_EVENT' | 'GENERATE_VOUCHERS' | 'ISSUE_VOUCHER' | 'REVOKE_VOUCHER';
+
+export interface PrizePoolEntry {
+    campaignId: string;
+    campaignName?: string;      // denormalized for display
+    rewardType: string;
+    dailyLimit: number;         // max codes to distribute per day for this campaign
+    rate: number;               // win percentage, e.g. 10 = 10%
+}
+
+export interface EventDoc {
+    id: string;
+    name: string;
+    prizePool: PrizePoolEntry[];
+    startDate: string;          // ISO date string YYYY-MM-DD
+    endDate: string;            // ISO date string YYYY-MM-DD
+    status: EventStatus;
+    dailyStats: Record<string, Record<string, number>>;  // { 'YYYY-MM-DD': { campaignId: count } }
+    createdBy: string;
+    createdAt: string;
+}
+
+export interface AuditLogDoc {
+    id: string;
+    action: AuditAction;
+    actor: string;            // User ID
+    actorName?: string;       // Display name
+    timestamp: string;        // ISO timestamp
+    targetId: string;         // Event/Campaign ID
+    details: string;          // Human-readable description
+}
+
+// ============================================================
+// Headless Promotion Engine
+// ============================================================
+
+export interface EventParticipation {
+    eventId: string;
+    phone: string;
+    name: string;
+    totalSpins: number;       // default 3
+    usedSpins: number;
+    prizes: string[];         // voucher code IDs won
+    createdAt: string;
+}
+
+export type GachaStatus = 'WON_VOUCHER' | 'LUCK_NEXT_TIME' | 'NO_SPINS_LEFT' | 'ERROR';
+
+export interface GachaResult {
+    success: boolean;
+    status: GachaStatus;
+    spinsRemaining?: number;
+    prizeData?: {
+        campaignId: string;
+        campaignName: string;
+        rewardType: string;
+        rewardValue: number;
+        voucherCode: string;
+    };
+    message?: string;
+}
+
