@@ -25,11 +25,14 @@ export async function POST(req: NextRequest) {
             customer: {
                 phone: string;     // Primary key
                 fullName: string;
-                email?: string;
-                dob?: string;      // YYYY-MM-DD
+                dob: string;       // YYYY-MM-DD — bắt buộc
+                email?: string;    // tùy chọn
             };
             source?: string;       // e.g. 'qr_code', 'social_media', 'direct'
         };
+
+        // ── Phone format validator (VN: 10 digits, starts 03/05/07/08/09) ──
+        const VN_PHONE_REGEX = /^(0[35789][0-9]{8})$/;
 
         // ── Validation ──────────────────────────────────────────
         if (!body.eventId) {
@@ -40,19 +43,43 @@ export async function POST(req: NextRequest) {
         }
         if (!body.customer?.phone?.trim()) {
             return NextResponse.json(
-                { error: 'customer.phone is required' },
+                { error: 'customer.phone là bắt buộc' },
                 { status: 400, headers: corsHeaders },
             );
         }
         if (!body.customer?.fullName?.trim()) {
             return NextResponse.json(
-                { error: 'customer.fullName is required' },
+                { error: 'customer.fullName là bắt buộc' },
+                { status: 400, headers: corsHeaders },
+            );
+        }
+        if (!body.customer?.dob?.trim()) {
+            return NextResponse.json(
+                { error: 'customer.dob là bắt buộc (định dạng YYYY-MM-DD)' },
                 { status: 400, headers: corsHeaders },
             );
         }
 
-        const phone = body.customer.phone.trim().replace(/\s+/g, '');
+        const phone = body.customer.phone.trim().replace(/[\s\-]/g, '');
         const fullName = body.customer.fullName.trim();
+        const dob = body.customer.dob.trim();
+
+        // ── Validate phone format ────────────────────────────────
+        if (!VN_PHONE_REGEX.test(phone)) {
+            return NextResponse.json(
+                { error: 'Số điện thoại không đúng định dạng (VD: 0912345678)' },
+                { status: 400, headers: corsHeaders },
+            );
+        }
+
+        // ── Validate dob format (YYYY-MM-DD) ────────────────────
+        const DOB_REGEX = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+        if (!DOB_REGEX.test(dob)) {
+            return NextResponse.json(
+                { error: 'Ngày sinh không đúng định dạng (YYYY-MM-DD, VD: 1995-10-25)' },
+                { status: 400, headers: corsHeaders },
+            );
+        }
 
         const db = getAdminDb();
 
@@ -84,8 +111,8 @@ export async function POST(req: NextRequest) {
             // Update customer info but DON'T reset spins
             await partRef.update({
                 name: fullName,
-                email: body.customer.email || null,
-                dob: body.customer.dob || null,
+                dob,
+                email: body.customer.email?.trim() || null,
                 source: body.source || null,
                 updatedAt: now,
             });
@@ -101,17 +128,12 @@ export async function POST(req: NextRequest) {
         }
 
         // New participant — create with default spins
-        const participation: EventParticipation & {
-            email?: string | null;
-            dob?: string | null;
-            source?: string | null;
-            updatedAt?: string;
-        } = {
+        const participation: EventParticipation = {
             eventId: body.eventId,
             phone,
             name: fullName,
-            email: body.customer.email || null,
-            dob: body.customer.dob || null,
+            dob,
+            email: body.customer.email?.trim() || null,
             source: body.source || null,
             totalSpins: DEFAULT_SPINS,
             usedSpins: 0,

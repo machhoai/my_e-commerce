@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import type { EventDoc, VoucherCampaign, VoucherCode, AuditLogDoc, PrizePoolEntry } from '@/types';
+import { todayVN } from '@/lib/event-engine';
 
 // ── Auth helper ─────────────────────────────────────────────────
 async function verifyAdmin(req: NextRequest) {
@@ -137,7 +138,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Determine initial status
-        const today = new Date().toISOString().slice(0, 10);
+        const today = todayVN();
         let status: EventDoc['status'] = 'upcoming';
         if (today >= body.startDate && today <= body.endDate) status = 'active';
         if (today > body.endDate) status = 'ended';

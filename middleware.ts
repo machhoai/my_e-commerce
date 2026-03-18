@@ -35,11 +35,32 @@ const COOKIE_MAX_AGE = 7 * 24 * 60 * 60;
  * 3. /admin/* lock: if user_role is not admin/super_admin → redirect to /403.
  * 4. For any other protected route hit, set/refresh the `last_visited_path` cookie.
  */
+// ── CORS headers for public API routes (external event apps) ──────────────
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
 export function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
     const sessionCookie = request.cookies.get('session');
     const hasSession = Boolean(sessionCookie?.value);
     const userRole = request.cookies.get(USER_ROLE_COOKIE)?.value ?? '';
+
+    // ── CORS: handle all /api/v1/* routes (preflight + actual requests) ─────
+    if (pathname.startsWith('/api/v1/')) {
+        // Preflight: respond immediately with CORS headers
+        if (request.method === 'OPTIONS') {
+            return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+        }
+        // Actual request: pass through but inject CORS headers into response
+        const response = NextResponse.next();
+        Object.entries(CORS_HEADERS).forEach(([key, value]) => {
+            response.headers.set(key, value);
+        });
+        return response;
+    }
 
     // ── 1. Root ("/") handling ──────────────────────────────────────────────
     if (pathname === '/') {
@@ -112,9 +133,11 @@ export const config = {
          * Match:
          *  - `/` (root — redirect to login or dashboard)
          *  - All protected dashboard routes (for last_visited_path tracking)
+         *  - /api/v1/* — public event API routes (for CORS preflight handling)
          *
-         * Exclude: _next/static, _next/image, favicon.ico, api routes (handled separately)
+         * Exclude: _next/static, _next/image, favicon.ico, other api routes (handled separately)
          */
         '/((?!_next/static|_next/image|favicon.ico|api/).*)',
+        '/api/v1/(.*)',
     ],
 };

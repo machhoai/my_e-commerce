@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
             codeLength: number;
             suffix: string;
             quantity: number;
+            imageUrl?: string;   // Firebase Storage URL (optional)
         };
 
         // Validation
@@ -86,6 +87,7 @@ export async function POST(req: NextRequest) {
             suffix: body.suffix?.toUpperCase().trim() || '',
             totalIssued: body.quantity,
             status: 'active',
+            ...(body.imageUrl ? { image: body.imageUrl } : {}),
             createdAt: now,
             createdBy: callerUid,
         };

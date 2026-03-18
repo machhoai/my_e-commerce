@@ -38,6 +38,17 @@ export interface ParticipationInfo {
 // ─── Constants ──────────────────────────────────────────────────
 const DEFAULT_SPINS = 3;
 
+/**
+ * Returns today's date string (YYYY-MM-DD) in Vietnam timezone (UTC+7).
+ * Using toISOString() is wrong for server-side date comparisons in VN
+ * because it returns UTC — which is 7 hours behind.
+ */
+export function todayVN(): string {
+    return new Date(Date.now() + 7 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+}
+
 // ─── fetchEventConfig ───────────────────────────────────────────
 /**
  * Fetches and validates an event by ID.
@@ -62,7 +73,7 @@ export async function fetchEventConfig(eventId: string): Promise<EventConfig> {
     }
 
     // Validate date range
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayVN();
     if (today < event.startDate) {
         throw new Error('EVENT_NOT_STARTED');
     }

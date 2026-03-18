@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import {
     Copy, Check, Code2, UserPlus, BarChart3,
-    Gamepad2, Settings2, Terminal,
+    Gamepad2, Settings2, Terminal, Download, ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -102,6 +102,7 @@ function Section({
 
 // ─── Main Component ─────────────────────────────────────────────
 export default function EventIntegrationGuide({ eventId, eventName }: EventIntegrationGuideProps) {
+    const [exportOpen, setExportOpen] = useState(false);
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://your-erp-domain.com';
 
     const envSnippet = `NEXT_PUBLIC_EVENT_ID=${eventId}`;
@@ -129,30 +130,40 @@ const res = await fetch('${baseUrl}/api/v1/events/register', {
   body: JSON.stringify({
     eventId: process.env.NEXT_PUBLIC_EVENT_ID,
     customer: {
-      phone: '0909123456',       // Primary key (required)
-      fullName: 'Nguyen Van A',  // Required
-      email: 'a@email.com',     // Optional
-      dob: '1995-10-25',        // Optional (YYYY-MM-DD)
+      phone: '0909123456',       // Primary key (bắt buộc) — 10 số, bắt đầu 03/05/07/08/09
+      fullName: 'Nguyen Van A',  // Bắt buộc
+      dob: '1995-10-25',        // Bắt buộc (YYYY-MM-DD)
+      email: 'a@email.com',     // Tùy chọn
     },
-    source: 'qr_code',          // Optional: 'qr_code' | 'social_media' | 'direct'
+    source: 'qr_code',          // Tùy chọn: 'qr_code' | 'social_media' | 'direct'
   }),
 });
 
 const data = await res.json();
-// Response:
+// Response (thành công):
 // {
 //   success: true,
-//   isNewUser: true,             // false if phone already registered
-//   spinsRemaining: 3,           // default allocated spins
+//   isNewUser: true,             // false nếu phone đã đăng ký
+//   spinsRemaining: 3,
 //   message: 'Đăng ký thành công'
-// }`;
+// }
+//
+// Response (lỗi validation):
+// { error: 'Số điện thoại không đúng định dạng (VD: 0912345678)' }  // 400
+// { error: 'customer.dob là bắt buộc (định dạng YYYY-MM-DD)' }          // 400`;
+
 
     const gachaSnippet = `// Execute a gacha spin (Server Action — call from server component or 'use server')
 import { executeGacha } from '@/actions/universal_gacha';
 
 const result = await executeGacha(
   process.env.NEXT_PUBLIC_EVENT_ID!,
-  { phone: '0909123456', name: 'Nguyen Van A' }
+  {
+    phone: '0909123456',      // 10 số, bắt đầu 03/05/07/08/09 (bắt buộc)
+    name: 'Nguyen Van A',     // Họ tên (bắt buộc)
+    dob: '1995-10-25',        // Ngày sinh YYYY-MM-DD (bắt buộc)
+    email: 'a@email.com',     // Email (tùy chọn)
+  }
 );
 
 // Response (GachaResult):
@@ -197,19 +208,135 @@ interface TrackResponse {
   id: string;             // analytics doc ID
 }`;
 
+    // ─── Export helpers ─────────────────────────────────────────
+    const generateContent = (format: 'md' | 'txt') => {
+        const fence = format === 'md' ? '```' : '---';
+        const lines: string[] = [
+            format === 'md' ? `# Tài liệu Tích hợp API` : `TÍCH HỢP API`,
+            format === 'md' ? `> Dành cho Developer xây dựng Event Frontend` : `Dành cho Developer xây dựng Event Frontend`,
+            '',
+            format === 'md' ? `**Event:** ${eventName || eventId}` : `Event: ${eventName || eventId}`,
+            format === 'md' ? `**Event ID:** \`${eventId}\`` : `Event ID: ${eventId}`,
+            format === 'md' ? `**Base URL:** \`${baseUrl}\`` : `Base URL: ${baseUrl}`,
+            '',
+            '---',
+            '',
+            format === 'md' ? `## 0. Cấu hình Môi trường` : `0. CẤU HÌNH MÔI TRƯỜNG`,
+            `Thêm Event ID vào file .env.local của custom event app.`,
+            '',
+            `${fence}${format === 'md' ? '.env' : ''}`,
+            envSnippet,
+            fence,
+            '',
+            `💡 Event ID này được tạo từ trang Quản lý Sự kiện trong ERP. Cả hai app cùng dùng chung Firebase project.`,
+            '',
+            '---',
+            '',
+            format === 'md' ? `## 1. Tracking Pageviews & Interactions` : `1. TRACKING PAGEVIEWS & INTERACTIONS`,
+            `Gửi analytics (pageview, click, scroll) về hệ thống ERP.`,
+            `Endpoint: POST /api/v1/events/track`,
+            '',
+            `${fence}${format === 'md' ? 'typescript' : ''}`,
+            trackSnippet,
+            fence,
+            '',
+            '---',
+            '',
+            format === 'md' ? `## 2. Đăng ký Khách hàng (Lead Collection)` : `2. ĐĂNG KÝ KHÁCH HÀNG (LEAD COLLECTION)`,
+            `Thu thập thông tin khách hàng và cấp lượt chơi mặc định.`,
+            `Endpoint: POST /api/v1/events/register`,
+            '',
+            `${fence}${format === 'md' ? 'typescript' : ''}`,
+            registerSnippet,
+            fence,
+            '',
+            `⚠️ Phone number là primary key. Nếu phone đã đăng ký trước đó, thông tin sẽ được cập nhật nhưng spins KHÔNG bị reset.`,
+            '',
+            '---',
+            '',
+            format === 'md' ? `## 3. Gacha Roll (Quay thưởng)` : `3. GACHA ROLL (QUAY THƯỞNG)`,
+            `Gọi Server Action sau khi hoạt ảnh mini-game kết thúc.`,
+            '',
+            `${fence}${format === 'md' ? 'typescript' : ''}`,
+            gachaSnippet,
+            fence,
+            '',
+            `🎰 Server Action chạy server-side. Toàn bộ logic gacha nằm trong Firestore transaction — không thể hack từ client.`,
+            '',
+            '---',
+            '',
+            format === 'md' ? `## 4. TypeScript Response Types` : `4. TYPESCRIPT RESPONSE TYPES`,
+            `Copy các interface này vào custom event app để type-safe.`,
+            '',
+            `${fence}${format === 'md' ? 'typescript' : ''}`,
+            responseTypesSnippet,
+            fence,
+            '',
+        ];
+        return lines.join('\n');
+    };
+
+    const handleExport = (format: 'md' | 'txt') => {
+        const content = generateContent(format);
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `event-integration-${eventId}.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setExportOpen(false);
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
             <div className="bg-gradient-to-br from-surface-800 to-surface-900 rounded-2xl p-6 text-white">
-                <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-accent-500/20 flex items-center justify-center">
-                        <Code2 className="w-5 h-5 text-accent-400" />
+                <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-accent-500/20 flex items-center justify-center">
+                            <Code2 className="w-5 h-5 text-accent-400" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-bold">Tài liệu Tích hợp API</h2>
+                            <p className="text-sm text-white/50">Dành cho Developer xây dựng Event Frontend</p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-lg font-bold">Tài liệu Tích hợp API</h2>
-                        <p className="text-sm text-white/50">Dành cho Developer xây dựng Event Frontend</p>
+
+                    {/* Export Button */}
+                    <div className="relative shrink-0">
+                        <button
+                            onClick={() => setExportOpen(prev => !prev)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-all"
+                        >
+                            <Download className="w-4 h-4" />
+                            Xuất tài liệu
+                            <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', exportOpen && 'rotate-180')} />
+                        </button>
+                        {exportOpen && (
+                            <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-xl border border-surface-200 overflow-hidden z-20">
+                                <button
+                                    onClick={() => handleExport('md')}
+                                    className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-surface-700 hover:bg-surface-50 transition-colors font-medium"
+                                >
+                                    <span className="text-xs font-bold font-mono bg-accent-100 text-accent-700 px-1.5 py-0.5 rounded">.md</span>
+                                    Markdown
+                                </button>
+                                <div className="border-t border-surface-100" />
+                                <button
+                                    onClick={() => handleExport('txt')}
+                                    className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-surface-700 hover:bg-surface-50 transition-colors font-medium"
+                                >
+                                    <span className="text-xs font-bold font-mono bg-surface-100 text-surface-600 px-1.5 py-0.5 rounded">.txt</span>
+                                    Plain Text
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
+
                 {eventName && (
                     <div className="mt-3 px-3 py-1.5 bg-white/5 rounded-lg text-xs font-mono text-white/70 inline-block">
                         Event: {eventName}

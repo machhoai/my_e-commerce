@@ -20,7 +20,7 @@
  */
 
 import { getAdminDb } from '@/lib/firebase-admin';
-import { DEFAULT_SPINS } from '@/lib/event-engine';
+import { DEFAULT_SPINS, todayVN } from '@/lib/event-engine';
 import { FieldValue } from 'firebase-admin/firestore';
 import type {
     EventDoc,
@@ -41,7 +41,7 @@ import type {
  */
 export async function executeGacha(
     eventId: string,
-    customerData: { phone: string; name: string },
+    customerData: { phone: string; name: string; dob: string; email?: string },
 ): Promise<GachaResult> {
     // ── Input validation ────────────────────────────────────────
     if (!eventId) {
@@ -52,20 +52,49 @@ export async function executeGacha(
         };
     }
 
-    const phone = customerData.phone?.trim();
+    const phone = customerData.phone?.trim().replace(/[\s\-]/g, '');
     const name = customerData.name?.trim();
+    const dob = customerData.dob?.trim();
+    const email = customerData.email?.trim() || null;
 
     if (!phone || !name) {
         return {
             success: false,
             status: 'ERROR',
-            message: 'Phone and name are required',
+            message: 'Phone và tên là bắt buộc',
+        };
+    }
+
+    // Validate SĐT Việt Nam
+    const VN_PHONE_REGEX = /^(0[35789][0-9]{8})$/;
+    if (!VN_PHONE_REGEX.test(phone)) {
+        return {
+            success: false,
+            status: 'ERROR',
+            message: 'Số điện thoại không đúng định dạng (VD: 0912345678)',
+        };
+    }
+
+    // Validate ngày sinh bắt buộc
+    if (!dob) {
+        return {
+            success: false,
+            status: 'ERROR',
+            message: 'Ngày sinh là bắt buộc',
+        };
+    }
+    const DOB_REGEX = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+    if (!DOB_REGEX.test(dob)) {
+        return {
+            success: false,
+            status: 'ERROR',
+            message: 'Ngày sinh không đúng định dạng (YYYY-MM-DD)',
         };
     }
 
     const db = getAdminDb();
     const now = new Date();
-    const todayStr = now.toISOString().slice(0, 10);
+    const todayStr = todayVN();
 
     try {
         // ── Run entire logic inside a Firestore transaction ─────
@@ -116,10 +145,13 @@ export async function executeGacha(
                     eventId,
                     phone,
                     name,
+                    dob,
+                    email,
                     totalSpins: DEFAULT_SPINS,
                     usedSpins: 0,
                     prizes: [],
                     createdAt: now.toISOString(),
+                    updatedAt: now.toISOString(),
                 };
             }
 

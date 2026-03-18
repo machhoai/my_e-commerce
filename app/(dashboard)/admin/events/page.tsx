@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
     BarChart3, CalendarDays, Plus, Loader2, CheckCircle2, AlertCircle,
     LayoutDashboard, FileText, Ticket, X, Code2,
-    TrendingUp, Ban, Play, Hash, Gift, ShieldCheck, Percent,
+    TrendingUp, Ban, Play, Hash, Gift, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import EventIntegrationGuide from '@/components/admin/EventIntegrationGuide';
@@ -17,7 +17,7 @@ import type {
 const TABS = [
     { key: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard },
     { key: 'events', label: 'Danh sách Sự kiện', icon: CalendarDays },
-    { key: 'audit', label: 'Lịch sử thao tác', icon: FileText },
+    { key: 'audit', label: 'Lịch sử hoạt động', icon: FileText },
     { key: 'integration', label: 'Tích hợp API', icon: Code2 },
 ] as const;
 
@@ -203,13 +203,86 @@ export default function EventsPage() {
 }
 
 // ═════════════════════════════════════════════════════════════════
+// SHARED: EVENT DETAIL PANEL
+// ═════════════════════════════════════════════════════════════════
+function EventDetailPanel({ event }: { event: EventWithStats }) {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const totalIssued = event.codesDistributed + event.codesUsed;
+    const isActive = event.status === 'active';
+    const isClosed = event.status === 'closed' || event.status === 'ended';
+
+    return (
+        <div className="space-y-4">
+            {/* KPI row */}
+            <div className="grid grid-cols-2 gap-3">
+                {[
+                    { label: 'Tổng mã', value: event.totalStock, icon: Hash, color: 'text-primary-600 bg-primary-50' },
+                    { label: 'Đã phát', value: totalIssued, icon: Gift, color: 'text-accent-600 bg-accent-50' },
+                    { label: 'Còn lại', value: event.codesAvailable, icon: Ticket, color: 'text-warning-600 bg-warning-50' },
+                    { label: 'Đã dùng', value: event.codesUsed, icon: CheckCircle2, color: 'text-success-600 bg-success-50' },
+                ].map(k => (
+                    <div key={k.label} className={cn('rounded-xl border p-4', isClosed ? 'bg-surface-50 border-surface-100' : 'bg-white border-surface-200')}>
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center', k.color)}>
+                                <k.icon className="w-3.5 h-3.5" />
+                            </div>
+                            <span className="text-xs font-medium text-surface-500">{k.label}</span>
+                        </div>
+                        <p className="text-2xl font-black text-surface-800">{k.value.toLocaleString()}</p>
+                    </div>
+                ))}
+            </div>
+
+            {/* Prize Pool */}
+            {(event.campaignStocks || []).length > 0 && (
+                <div className={cn('rounded-xl border overflow-hidden', isClosed ? 'border-surface-100' : 'border-surface-200')}>
+                    <div className="px-4 py-2.5 bg-surface-50 border-b border-surface-100 flex items-center gap-2">
+                        <Gift className="w-3.5 h-3.5 text-accent-500" />
+                        <span className="text-xs font-bold text-surface-700">Prize Pool</span>
+                    </div>
+                    <div className="divide-y divide-surface-50">
+                        {event.campaignStocks.map((cs, i) => {
+                            const used = isActive ? (event.dailyStats?.[todayStr]?.[cs.campaignId] || 0) : 0;
+                            const pct = cs.dailyLimit > 0 ? Math.min((used / cs.dailyLimit) * 100, 100) : 0;
+                            const colors = ['bg-accent-500','bg-primary-500','bg-warning-500','bg-success-500','bg-danger-400'];
+                            return (
+                                <div key={cs.campaignId} className="px-4 py-3">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <div className="flex items-center gap-2">
+                                            <div className={cn('w-2 h-2 rounded-full', colors[i % 5])} />
+                                            <span className="text-xs font-semibold text-surface-700">{cs.campaignName}</span>
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-100 text-surface-500">{REWARD_LABELS[cs.rewardType] || cs.rewardType} • {cs.rate}%</span>
+                                        </div>
+                                        <span className="text-xs text-surface-500">{cs.available}/{cs.totalStock}</span>
+                                    </div>
+                                    {isActive && (
+                                        <div className="ml-4">
+                                            <div className="h-1.5 bg-surface-100 rounded-full overflow-hidden">
+                                                <div className={cn('h-full rounded-full transition-all', pct >= 100 ? 'bg-danger-500' : pct >= 80 ? 'bg-warning-500' : colors[i % 5])} style={{ width: `${pct}%` }} />
+                                            </div>
+                                            <p className="text-[10px] text-surface-400 mt-0.5">Hôm nay: {used}/{cs.dailyLimit}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ═════════════════════════════════════════════════════════════════
 // TAB 1: DASHBOARD
 // ═════════════════════════════════════════════════════════════════
 function DashboardTab({ events }: { events: EventWithStats[] }) {
-    const [selectedId, setSelectedId] = useState('');
-    const selected = events.find(e => e.id === selectedId) || events[0];
-
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const activeGroup = events.filter(e => e.status === 'active' || e.status === 'upcoming');
+    const closedGroup = events.filter(e => e.status === 'closed' || e.status === 'ended');
+    const firstId = (activeGroup[0] || closedGroup[0])?.id || '';
+    const [selectedId, setSelectedId] = useState(firstId);
+    const [showClosed, setShowClosed] = useState(false);
+    const selected = events.find(e => e.id === selectedId);
 
     if (events.length === 0) {
         return (
@@ -221,88 +294,101 @@ function DashboardTab({ events }: { events: EventWithStats[] }) {
         );
     }
 
-    const totalIssued = selected ? selected.codesDistributed + selected.codesUsed : 0;
+    const EventSidebarCard = ({ evt }: { evt: EventWithStats }) => {
+        const isSelected = evt.id === selectedId;
+        const isClosed = evt.status === 'closed' || evt.status === 'ended';
+        return (
+            <button
+                onClick={() => setSelectedId(evt.id)}
+                className={cn(
+                    'w-full text-left px-3 py-2.5 rounded-xl transition-all border',
+                    isSelected
+                        ? 'bg-accent-50 border-accent-200 shadow-sm'
+                        : 'bg-white border-surface-100 hover:border-surface-200 hover:bg-surface-50',
+                    isClosed && 'opacity-60'
+                )}
+            >
+                <div className="flex items-start justify-between gap-2">
+                    <p className={cn('text-sm font-semibold leading-tight truncate', isSelected ? 'text-accent-700' : 'text-surface-800')}>{evt.name}</p>
+                    <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0', EVENT_STATUS_BADGE[evt.status])}>
+                        {EVENT_STATUS_LABELS[evt.status]}
+                    </span>
+                </div>
+                <p className="text-[10px] text-surface-400 mt-0.5">{evt.startDate} → {evt.endDate}</p>
+            </button>
+        );
+    };
 
     return (
-        <div className="space-y-6">
-            {/* Event Selector */}
-            <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-4">
-                <label className="text-sm font-semibold text-surface-700 mb-2 block">Chọn sự kiện</label>
-                <select
-                    value={selectedId || selected?.id || ''}
-                    onChange={e => setSelectedId(e.target.value)}
-                    className="w-full md:w-96 bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 p-2.5"
-                >
-                    {events.map(e => (
-                        <option key={e.id} value={e.id}>{e.name}</option>
-                    ))}
-                </select>
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 items-start">
+            {/* ── Sidebar ── */}
+            <div className="space-y-3">
+                {/* Active / Upcoming */}
+                {activeGroup.length > 0 && (
+                    <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-3">
+                        <div className="flex items-center gap-2 mb-2 px-1">
+                            <div className="w-2 h-2 rounded-full bg-success-500 animate-pulse" />
+                            <span className="text-[11px] font-bold text-surface-500 uppercase tracking-wide">Đang hoạt động</span>
+                        </div>
+                        <div className="space-y-1.5">
+                            {activeGroup.map(e => <EventSidebarCard key={e.id} evt={e} />)}
+                        </div>
+                    </div>
+                )}
+                {/* Closed / Ended */}
+                {closedGroup.length > 0 && (
+                    <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-3">
+                        <button
+                            onClick={() => setShowClosed(v => !v)}
+                            className="w-full flex items-center justify-between gap-2 px-1 mb-1"
+                        >
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-surface-400" />
+                                <span className="text-[11px] font-bold text-surface-400 uppercase tracking-wide">Đã đóng ({closedGroup.length})</span>
+                            </div>
+                            <ChevronDown className={cn('w-3.5 h-3.5 text-surface-400 transition-transform', showClosed && 'rotate-180')} />
+                        </button>
+                        {showClosed && (
+                            <div className="space-y-1.5 mt-2">
+                                {closedGroup.map(e => <EventSidebarCard key={e.id} evt={e} />)}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
-            {selected && (
-                <>
-                    {/* KPI Cards */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        {[
-                            { label: 'Tổng mã', value: selected.totalStock, icon: Hash, color: 'text-primary-600 bg-primary-50' },
-                            { label: 'Đã phát', value: totalIssued, icon: Gift, color: 'text-accent-600 bg-accent-50' },
-                            { label: 'Còn lại', value: selected.codesAvailable, icon: Ticket, color: 'text-warning-600 bg-warning-50' },
-                            { label: 'Đã sử dụng', value: selected.codesUsed, icon: CheckCircle2, color: 'text-success-600 bg-success-50' },
-                        ].map(k => (
-                            <div key={k.label} className="bg-white rounded-2xl border border-surface-200 shadow-sm p-5">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center', k.color)}>
-                                        <k.icon className="w-5 h-5" />
-                                    </div>
-                                    <span className="text-sm font-medium text-surface-500">{k.label}</span>
+            {/* ── Detail Panel ── */}
+            <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
+                {selected ? (
+                    <>
+                        {/* Header */}
+                        <div className={cn(
+                            'px-5 py-4 border-b',
+                            selected.status === 'active' ? 'bg-gradient-to-br from-success-50 to-white border-success-100'
+                            : selected.status === 'upcoming' ? 'bg-gradient-to-br from-primary-50 to-white border-primary-100'
+                            : 'bg-surface-50 border-surface-100'
+                        )}>
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <h3 className="text-base font-bold text-surface-800">{selected.name}</h3>
+                                    <p className="text-xs text-surface-500 mt-0.5">{selected.startDate} → {selected.endDate}</p>
                                 </div>
-                                <p className="text-3xl font-black text-surface-800">{k.value.toLocaleString()}</p>
+                                <span className={cn('text-xs font-bold px-2.5 py-1 rounded-lg border shrink-0', EVENT_STATUS_BADGE[selected.status])}>
+                                    {EVENT_STATUS_LABELS[selected.status]}
+                                </span>
                             </div>
-                        ))}
-                    </div>
-
-                    {/* Daily Progress per Campaign */}
-                    <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6">
-                        <div className="flex items-center gap-2 mb-4">
-                            <TrendingUp className="w-5 h-5 text-accent-500" />
-                            <h3 className="text-base font-bold text-surface-800">Tiến độ hôm nay ({todayStr})</h3>
                         </div>
-                        <div className="space-y-4">
-                            {(selected.campaignStocks || []).map(cs => {
-                                const used = selected.dailyStats?.[todayStr]?.[cs.campaignId] || 0;
-                                const pct = cs.dailyLimit > 0 ? Math.min((used / cs.dailyLimit) * 100, 100) : 0;
-                                return (
-                                    <div key={cs.campaignId}>
-                                        <div className="flex justify-between mb-1.5">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm font-semibold text-surface-700">{cs.campaignName}</span>
-                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-surface-100 text-surface-500">
-                                                    {REWARD_LABELS[cs.rewardType] || cs.rewardType} • {cs.rate}%
-                                                </span>
-                                            </div>
-                                            <span className="text-sm font-bold text-surface-600">
-                                                {used} / {cs.dailyLimit}
-                                            </span>
-                                        </div>
-                                        <div className="h-3 bg-surface-100 rounded-full overflow-hidden">
-                                            <div
-                                                className={cn(
-                                                    'h-full rounded-full transition-all duration-500',
-                                                    pct >= 100 ? 'bg-danger-500' : pct >= 80 ? 'bg-warning-500' : 'bg-accent-500'
-                                                )}
-                                                style={{ width: `${pct}%` }}
-                                            />
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                            {(!selected.campaignStocks || selected.campaignStocks.length === 0) && (
-                                <p className="text-sm text-surface-400">Chưa có chiến dịch trong prize pool.</p>
-                            )}
+                        <div className="p-5">
+                            <EventDetailPanel event={selected} />
                         </div>
+                    </>
+                ) : (
+                    <div className="p-12 text-center text-surface-400">
+                        <ChevronRight className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm font-medium">Chọn sự kiện để xem chi tiết</p>
                     </div>
-                </>
-            )}
+                )}
+            </div>
         </div>
     );
 }
@@ -324,6 +410,8 @@ function EventListTab({
     onError: (msg: string) => void;
 }) {
     const [showCreate, setShowCreate] = useState(false);
+    const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+    const [showClosedSection, setShowClosedSection] = useState(false);
     const [name, setName] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -706,89 +794,161 @@ function EventListTab({
                 </div>
             )}
 
-            {/* ── EVENTS TABLE ─────────────────────────────────── */}
-            <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
-                {events.length === 0 ? (
-                    <div className="p-12 text-center text-surface-400">
-                        <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                        <p className="font-medium">Chưa có sự kiện nào</p>
+            {/* ── EVENTS GROUPED ─────────────────────────────────── */}
+            {(() => {
+                const activeGroup = events.filter(e => e.status === 'active' || e.status === 'upcoming');
+                const closedGroup = events.filter(e => e.status === 'closed' || e.status === 'ended');
+
+                const toggleRow = (id: string) =>
+                    setSelectedEventId(prev => (prev === id ? null : id));
+
+                const EventRow = ({ evt, muted = false }: { evt: EventWithStats; muted?: boolean }) => (
+                    <>
+                        <tr
+                            onClick={() => toggleRow(evt.id)}
+                            className={cn(
+                                'cursor-pointer transition-colors',
+                                selectedEventId === evt.id ? 'bg-accent-50' : muted ? 'hover:bg-surface-50/40' : 'hover:bg-surface-50/60',
+                                muted && 'opacity-60'
+                            )}
+                        >
+                            <td className="px-4 py-3.5">
+                                <div className="flex items-center gap-2">
+                                    <ChevronRight className={cn('w-3.5 h-3.5 text-surface-400 shrink-0 transition-transform', selectedEventId === evt.id && 'rotate-90')} />
+                                    <div>
+                                        <p className="font-bold text-surface-800">{evt.name}</p>
+                                        <p className="text-[10px] text-surface-400 mt-0.5">{(evt.prizePool || []).length} chiến dịch</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td className="px-4 py-3.5">
+                                <div className="flex flex-wrap gap-1">
+                                    {(evt.prizePool || []).map(p => (
+                                        <span key={p.campaignId} className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-100 text-surface-600">
+                                            {p.campaignName || p.campaignId} ({p.rate}%)
+                                        </span>
+                                    ))}
+                                </div>
+                            </td>
+                            <td className="px-4 py-3.5 text-xs text-surface-500 whitespace-nowrap">{evt.startDate} → {evt.endDate}</td>
+                            <td className="px-4 py-3.5 text-center">
+                                <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border', EVENT_STATUS_BADGE[evt.status])}>
+                                    {EVENT_STATUS_LABELS[evt.status]}
+                                </span>
+                            </td>
+                            <td className="px-4 py-3.5 text-center">
+                                <div className="flex items-center justify-center gap-1.5 text-xs">
+                                    <span className="text-success-600 font-bold">{evt.codesAvailable}</span>
+                                    <span className="text-surface-300">/</span>
+                                    <span className="text-surface-500">{evt.totalStock}</span>
+                                </div>
+                            </td>
+                            <td className="px-4 py-3.5 text-right" onClick={e => e.stopPropagation()}>
+                                <div className="flex items-center justify-end gap-2">
+                                    {evt.status === 'upcoming' && (
+                                        <button
+                                            onClick={() => handleStatusUpdate(evt.id, 'active')}
+                                            disabled={statusUpdating === evt.id}
+                                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-success-50 text-success-600 hover:bg-success-100 border border-success-200"
+                                        >
+                                            <Play className="w-3.5 h-3.5" /> Bắt đầu
+                                        </button>
+                                    )}
+                                    {evt.status === 'active' && (
+                                        <button
+                                            onClick={() => handleStatusUpdate(evt.id, 'closed')}
+                                            disabled={statusUpdating === evt.id}
+                                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-danger-50 text-danger-600 hover:bg-danger-100 border border-danger-200"
+                                        >
+                                            <Ban className="w-3.5 h-3.5" /> Đóng
+                                        </button>
+                                    )}
+                                </div>
+                            </td>
+                        </tr>
+                        {selectedEventId === evt.id && (
+                            <tr>
+                                <td colSpan={6} className="px-6 py-4 bg-accent-50/40 border-t border-accent-100">
+                                    <EventDetailPanel event={evt} />
+                                </td>
+                            </tr>
+                        )}
+                    </>
+                );
+
+                const TableHead = () => (
+                    <thead className="text-xs text-surface-500 bg-surface-50/80 border-b border-surface-100">
+                        <tr>
+                            <th className="px-4 py-3.5 font-semibold">Tên sự kiện</th>
+                            <th className="px-4 py-3.5 font-semibold">Chiến dịch</th>
+                            <th className="px-4 py-3.5 font-semibold">Thời gian</th>
+                            <th className="px-4 py-3.5 font-semibold text-center">Trạng thái</th>
+                            <th className="px-4 py-3.5 font-semibold text-center">Kho mã</th>
+                            <th className="px-4 py-3.5 font-semibold text-right">Thao tác</th>
+                        </tr>
+                    </thead>
+                );
+
+                if (events.length === 0) {
+                    return (
+                        <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-12 text-center text-surface-400">
+                            <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                            <p className="font-medium">Chưa có sự kiện nào</p>
+                        </div>
+                    );
+                }
+
+                return (
+                    <div className="space-y-4">
+                        {/* Active / Upcoming */}
+                        {activeGroup.length > 0 && (
+                            <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
+                                <div className="px-5 py-3 border-b border-surface-100 flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-success-500 animate-pulse" />
+                                    <span className="text-sm font-bold text-surface-700">Đang hoạt động</span>
+                                    <span className="text-xs text-surface-400">({activeGroup.length} sự kiện)</span>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-left">
+                                        <TableHead />
+                                        <tbody className="divide-y divide-surface-100">
+                                            {activeGroup.map(evt => <EventRow key={evt.id} evt={evt} />)}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                        {/* Closed / Ended */}
+                        {closedGroup.length > 0 && (
+                            <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
+                                <button
+                                    onClick={() => setShowClosedSection(v => !v)}
+                                    className="w-full px-5 py-3 border-b border-surface-100 flex items-center gap-2 hover:bg-surface-50 transition-colors"
+                                >
+                                    <div className="w-2 h-2 rounded-full bg-surface-400" />
+                                    <span className="text-sm font-bold text-surface-500">Đã đóng / Kết thúc</span>
+                                    <span className="text-xs text-surface-400">({closedGroup.length} sự kiện)</span>
+                                    <ChevronDown className={cn('w-4 h-4 text-surface-400 ml-auto transition-transform', showClosedSection && 'rotate-180')} />
+                                </button>
+                                {showClosedSection && (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm text-left">
+                                            <TableHead />
+                                            <tbody className="divide-y divide-surface-100">
+                                                {closedGroup.map(evt => <EventRow key={evt.id} evt={evt} muted />)}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="text-xs text-surface-500 bg-surface-50/80 border-b border-surface-100">
-                                <tr>
-                                    <th className="px-4 py-3.5 font-semibold">Tên sự kiện</th>
-                                    <th className="px-4 py-3.5 font-semibold">Chiến dịch</th>
-                                    <th className="px-4 py-3.5 font-semibold">Thời gian</th>
-                                    <th className="px-4 py-3.5 font-semibold text-center">Trạng thái</th>
-                                    <th className="px-4 py-3.5 font-semibold text-center">Kho mã</th>
-                                    <th className="px-4 py-3.5 font-semibold text-right">Thao tác</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-surface-100">
-                                {events.map(evt => (
-                                    <tr key={evt.id} className="hover:bg-surface-50/60 transition-colors group">
-                                        <td className="px-4 py-3.5">
-                                            <p className="font-bold text-surface-800">{evt.name}</p>
-                                            <p className="text-[10px] text-surface-400 mt-0.5">{(evt.prizePool || []).length} chiến dịch</p>
-                                        </td>
-                                        <td className="px-4 py-3.5">
-                                            <div className="flex flex-wrap gap-1">
-                                                {(evt.prizePool || []).map(p => (
-                                                    <span key={p.campaignId} className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-100 text-surface-600">
-                                                        {p.campaignName || p.campaignId} ({p.rate}%)
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3.5 text-xs text-surface-500 whitespace-nowrap">
-                                            {evt.startDate} → {evt.endDate}
-                                        </td>
-                                        <td className="px-4 py-3.5 text-center">
-                                            <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border', EVENT_STATUS_BADGE[evt.status])}>
-                                                {EVENT_STATUS_LABELS[evt.status]}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3.5 text-center">
-                                            <div className="flex items-center justify-center gap-1.5 text-xs">
-                                                <span className="text-success-600 font-bold">{evt.codesAvailable}</span>
-                                                <span className="text-surface-300">/</span>
-                                                <span className="text-surface-500">{evt.totalStock}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3.5 text-right">
-                                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                {evt.status === 'upcoming' && (
-                                                    <button
-                                                        onClick={() => handleStatusUpdate(evt.id, 'active')}
-                                                        disabled={statusUpdating === evt.id}
-                                                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-success-50 text-success-600 hover:bg-success-100 border border-success-200"
-                                                    >
-                                                        <Play className="w-3.5 h-3.5" /> Bắt đầu
-                                                    </button>
-                                                )}
-                                                {evt.status === 'active' && (
-                                                    <button
-                                                        onClick={() => handleStatusUpdate(evt.id, 'closed')}
-                                                        disabled={statusUpdating === evt.id}
-                                                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-danger-50 text-danger-600 hover:bg-danger-100 border border-danger-200"
-                                                    >
-                                                        <Ban className="w-3.5 h-3.5" /> Đóng
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
+                );
+            })()}
         </div>
     );
 }
+
 
 // ═════════════════════════════════════════════════════════════════
 // TAB 3: AUDIT LOGS
@@ -845,8 +1005,19 @@ function AuditTab({ auditLogs }: { auditLogs: AuditLogDoc[] }) {
 // TAB 4: INTEGRATION GUIDE
 // ═════════════════════════════════════════════════════════════════
 function IntegrationTab({ events }: { events: EventWithStats[] }) {
-    const [selectedId, setSelectedId] = useState(events[0]?.id || '');
-    const selected = events.find(e => e.id === selectedId);
+    const activeEvents = events.filter(e => e.status === 'active');
+    const [selectedId, setSelectedId] = useState(activeEvents[0]?.id || '');
+    const selected = activeEvents.find(e => e.id === selectedId);
+
+    if (activeEvents.length === 0) {
+        return (
+            <div className="p-12 text-center text-surface-400">
+                <Code2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p className="font-medium text-surface-600">Không có sự kiện đang hoạt động</p>
+                <p className="text-xs mt-1">Chỉ sự kiện có trạng thái <span className="font-semibold text-success-600">Đang diễn ra</span> mới hiển thị ở đây.<br />Hãy kích hoạt sự kiện ở tab &quot;Danh sách Sự kiện&quot;.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-4">
@@ -858,7 +1029,7 @@ function IntegrationTab({ events }: { events: EventWithStats[] }) {
                     onChange={e => setSelectedId(e.target.value)}
                     className="w-full md:w-96 bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 p-2.5"
                 >
-                    {events.map(e => (
+                    {activeEvents.map(e => (
                         <option key={e.id} value={e.id}>{e.name}</option>
                     ))}
                 </select>

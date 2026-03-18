@@ -518,6 +518,7 @@ export interface VoucherCampaign {
     suffix: string;
     totalIssued: number;
     status: VoucherCampaignStatus;
+    image?: string;      // Firebase Storage URL (WebP, optional)
     createdAt?: string;
     createdBy?: string;
 }
@@ -581,10 +582,14 @@ export interface EventParticipation {
     eventId: string;
     phone: string;
     name: string;
+    dob: string;              // YYYY-MM-DD — bắt buộc
+    email?: string | null;    // tùy chọn
     totalSpins: number;       // default 3
     usedSpins: number;
     prizes: string[];         // voucher code IDs won
     createdAt: string;
+    updatedAt?: string;
+    source?: string | null;   // 'qr_code' | 'social_media' | 'direct' | ...
 }
 
 export type GachaStatus = 'WON_VOUCHER' | 'LUCK_NEXT_TIME' | 'NO_SPINS_LEFT' | 'ERROR';

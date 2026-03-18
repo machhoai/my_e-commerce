@@ -114,6 +114,8 @@ import { executeGacha } from '@/actions/universal_gacha';
 const result = await executeGacha('EVENT_ID', {
     phone: '0912345678',
     name: 'Nguyen Van A',
+    dob: '1995-10-25',      // Ngày sinh YYYY-MM-DD (bắt buộc)
+    email: 'a@email.com',   // Email (tùy chọn)
 });
 ```
 

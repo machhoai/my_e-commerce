@@ -1,12 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import imageCompression from 'browser-image-compression';
+import { storage } from '@/lib/firebase';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     BarChart3, PieChart as PieChartIcon, Ticket, Plus, Hash, Search,
     ShieldX, Loader2, CheckCircle2, AlertCircle, LayoutDashboard,
     Megaphone, Archive, Sparkles, CalendarDays, Tag, Gift,
     EyeOff, ArchiveRestore, X as XIcon, CheckSquare, Square,
+    ImagePlus, Upload,
 } from 'lucide-react';
 import { cn, generateSecureCode } from '@/lib/utils';
 import {
@@ -319,6 +323,15 @@ function CampaignTab({
     const [quantity, setQuantity] = useState(100);
     const [submitting, setSubmitting] = useState(false);
 
+    // ── Image upload state (deferred: compress on select, upload on submit) ──
+    const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string>('');
+    const [imageCompressing, setImageCompressing] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadStatus, setUploadStatus] = useState<'compressing' | 'uploading' | ''>('');
+    const [imageMsg, setImageMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     // Live preview
     const previewCode = useMemo(() => {
         const random = generateSecureCode(codeLength);
@@ -326,10 +339,78 @@ function CampaignTab({
         return parts.join('-');
     }, [prefix, codeLength, suffix]);
 
+    // ── Step 1: File selected → compress to WebP, no Firebase call yet ──────
+    const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+            setImageMsg({ type: 'err', text: 'Chỉ chấp nhận JPG, PNG hoặc WebP.' });
+            return;
+        }
+        if (file.size > 20 * 1024 * 1024) {
+            setImageMsg({ type: 'err', text: 'File quá lớn (tối đa 20 MB).' });
+            return;
+        }
+        setImageCompressing(true);
+        setUploadStatus('compressing');
+        setImageMsg(null);
+        if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
+        try {
+            const compressed = await imageCompression(file, {
+                maxSizeMB: 0.3,
+                maxWidthOrHeight: 1200,
+                useWebWorker: true,
+                fileType: 'image/webp',
+            });
+            setPendingImageFile(compressed);
+            setImagePreview(URL.createObjectURL(compressed));
+            setImageMsg({ type: 'ok', text: `Ảnh đã sẵn sàng (${(compressed.size / 1024).toFixed(0)} KB). Nhấn Tạo để hoàn tất.` });
+        } catch {
+            setImageMsg({ type: 'err', text: 'Nén ảnh thất bại. Vui lòng chọn lại.' });
+        } finally {
+            setImageCompressing(false);
+            setUploadStatus('');
+        }
+    };
+
+    // ── Step 2: Upload pending compressed file to Firebase Storage ────────────
+    const uploadPendingImage = (): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            if (!pendingImageFile) { resolve(''); return; }
+            setUploadStatus('uploading');
+            setUploadProgress(0);
+            const sRef = storageRef(storage, `vouchers/${Date.now()}.webp`);
+            const task = uploadBytesResumable(sRef, pendingImageFile);
+            task.on(
+                'state_changed',
+                snap => setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
+                reject,
+                async () => resolve(await getDownloadURL(task.snapshot.ref)),
+            );
+        });
+    };
+
+    const resetImageState = () => {
+        if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
+        setPendingImageFile(null);
+        setImagePreview('');
+        setUploadProgress(0);
+        setUploadStatus('');
+        setImageMsg(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitting(true);
         try {
+            // Upload image first (if pending), then submit campaign
+            let imageUrl = '';
+            if (pendingImageFile) {
+                imageUrl = await uploadPendingImage();
+                setUploadStatus('');
+            }
+
             const token = await getToken();
             const res = await fetch('/api/vouchers', {
                 method: 'POST',
@@ -337,6 +418,7 @@ function CampaignTab({
                 body: JSON.stringify({
                     name, description, rewardType, rewardValue,
                     validFrom, validTo, prefix, codeLength, suffix, quantity,
+                    ...(imageUrl ? { imageUrl } : {}),
                 }),
             });
             const data = await res.json();
@@ -345,11 +427,13 @@ function CampaignTab({
             setName(''); setDescription(''); setRewardValue(0);
             setValidFrom(''); setValidTo(''); setPrefix('');
             setCodeLength(6); setSuffix(''); setQuantity(100);
+            resetImageState();
             onSuccess();
         } catch (err: unknown) {
             onError(err instanceof Error ? err.message : 'Đã xảy ra lỗi');
         } finally {
             setSubmitting(false);
+            setUploadStatus('');
         }
     };
 
@@ -391,6 +475,87 @@ function CampaignTab({
                                     />
                                 </div>
                             </div>
+                        </div>
+
+                        {/* Image Upload */}
+                        <div>
+                            <h3 className="text-sm font-bold text-surface-700 flex items-center gap-2 mb-3 pb-2 border-b border-surface-100">
+                                <ImagePlus className="w-4 h-4 text-accent-500" />
+                                Hình ảnh chiến dịch
+                            </h3>
+                            {/* Drop / click zone */}
+                            <div
+                                onClick={() => !imageCompressing && fileInputRef.current?.click()}
+                                className={cn(
+                                    'relative w-full h-36 rounded-xl border-2 border-dashed overflow-hidden flex items-center justify-center cursor-pointer transition-colors',
+                                    imageCompressing
+                                        ? 'border-accent-300 bg-accent-50'
+                                        : 'border-surface-200 bg-surface-50 hover:border-accent-400 hover:bg-accent-50/40'
+                                )}
+                            >
+                                {imagePreview ? (
+                                    <img src={imagePreview} alt="preview" className="w-full h-full object-contain" />
+                                ) : (
+                                    <div className="flex flex-col items-center gap-2 text-surface-400">
+                                        <Upload className="w-7 h-7" />
+                                        <p className="text-xs font-medium">Nhấn để chọn ảnh</p>
+                                        <p className="text-[10px]">JPG, PNG, WebP — tối đa 20 MB</p>
+                                    </div>
+                                )}
+                                {/* Compression overlay */}
+                                {imageCompressing && (
+                                    <div className="absolute inset-0 bg-white/85 flex flex-col items-center justify-center gap-2">
+                                        <div className="w-5 h-5 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
+                                        <p className="text-xs font-bold text-accent-700">Đang nén ảnh...</p>
+                                    </div>
+                                )}
+                                {/* Upload overlay */}
+                                {!imageCompressing && uploadStatus === 'uploading' && (
+                                    <div className="absolute inset-0 bg-white/85 flex flex-col items-center justify-center gap-2">
+                                        <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                                        <p className="text-xs font-bold text-primary-700">Đang tải lên... {uploadProgress}%</p>
+                                        <div className="w-3/4 bg-surface-200 rounded-full h-1.5">
+                                            <div className="bg-primary-500 h-1.5 rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            {/* Hidden input */}
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                className="hidden"
+                                onChange={handleImageSelect}
+                            />
+                            {/* Action row */}
+                            <div className="flex items-center justify-between mt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={imageCompressing || submitting}
+                                    className="text-xs font-medium text-accent-600 hover:text-accent-800 flex items-center gap-1 disabled:opacity-40"
+                                >
+                                    <ImagePlus className="w-3.5 h-3.5" />
+                                    {imagePreview ? 'Đổi ảnh' : 'Chọn ảnh'}
+                                </button>
+                                {imagePreview && (
+                                    <button
+                                        type="button"
+                                        onClick={resetImageState}
+                                        className="text-xs text-danger-400 hover:text-danger-600"
+                                    >
+                                        Xóa ảnh
+                                    </button>
+                                )}
+                            </div>
+                            {/* Feedback message */}
+                            {imageMsg && (
+                                <p className={cn('text-xs mt-1.5 flex items-center gap-1', imageMsg.type === 'err' ? 'text-danger-600' : 'text-success-600')}>
+                                    {imageMsg.type === 'err' ? <AlertCircle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
+                                    {imageMsg.text}
+                                </p>
+                            )}
                         </div>
 
                         {/* Reward Config */}
@@ -528,13 +693,13 @@ function CampaignTab({
                 <div className="flex justify-end pt-4 border-t border-surface-100">
                     <button
                         type="submit"
-                        disabled={submitting}
+                        disabled={submitting || imageCompressing}
                         className="flex items-center gap-2 bg-surface-800 hover:bg-surface-900 disabled:bg-surface-300 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-semibold shadow-sm transition-colors"
                     >
                         {submitting ? (
                             <>
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                Đang tạo {quantity.toLocaleString()} mã...
+                                {uploadStatus === 'uploading' ? `Đang tải ảnh... ${uploadProgress}%` : `Đang tạo ${quantity.toLocaleString()} mã...`}
                             </>
                         ) : (
                             <>

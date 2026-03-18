@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import type { EventDoc, VoucherCode, VoucherCampaign, PrizePoolEntry } from '@/types';
 import { FieldValue } from 'firebase-admin/firestore';
+import { todayVN } from '@/lib/event-engine';
 
 // ── POST /api/events/play ───────────────────────────────────────
 // Gacha play endpoint — weighted random selection from prizePool
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
 
         const adminDb = getAdminDb();
         const now = new Date();
-        const todayStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+        const todayStr = todayVN(); // YYYY-MM-DD in UTC+7
 
         // ─── Run inside a Firestore transaction ─────────────────
         const result = await adminDb.runTransaction(async (tx) => {
