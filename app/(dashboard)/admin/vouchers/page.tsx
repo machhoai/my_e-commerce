@@ -10,7 +10,7 @@ import {
     ShieldX, Loader2, CheckCircle2, AlertCircle, LayoutDashboard,
     Megaphone, Archive, Sparkles, CalendarDays, Tag, Gift,
     EyeOff, ArchiveRestore, X as XIcon, CheckSquare, Square,
-    ImagePlus, Upload,
+    ImagePlus, Upload, Pause, Play, PlusCircle, FileDown, Printer, Dices,
 } from 'lucide-react';
 import { cn, generateSecureCode } from '@/lib/utils';
 import {
@@ -18,7 +18,7 @@ import {
     PieChart, Pie, Legend,
 } from 'recharts';
 import type {
-    VoucherCampaign, VoucherCode, VoucherRewardType,
+    VoucherCampaign, VoucherCode, VoucherRewardType, VoucherCampaignPurpose,
 } from '@/types';
 
 // ─── Constants ──────────────────────────────────────────────────
@@ -164,8 +164,11 @@ export default function VouchersPage() {
                     {tab === 'dashboard' && <DashboardTab campaigns={campaigns} codes={codes} />}
                     {tab === 'campaigns' && (
                         <CampaignTab
+                            campaigns={campaigns}
+                            codes={codes}
                             getToken={getToken}
-                            onSuccess={() => { fetchData(); showMsg('success', 'Tạo chiến dịch thành công!'); }}
+                            fetchData={fetchData}
+                            onSuccess={(m) => { fetchData(); showMsg('success', m || 'Thao tác thành công!'); }}
                             onError={(e) => showMsg('error', e)}
                         />
                     )}
@@ -303,12 +306,18 @@ function DashboardTab({ campaigns, codes }: { campaigns: VoucherCampaign[]; code
 // TAB 2: CAMPAIGN CREATION
 // ═════════════════════════════════════════════════════════════════
 function CampaignTab({
+    campaigns,
+    codes,
     getToken,
+    fetchData,
     onSuccess,
     onError,
 }: {
+    campaigns: VoucherCampaign[];
+    codes: VoucherCode[];
     getToken: () => Promise<string | undefined>;
-    onSuccess: () => void;
+    fetchData: () => void;
+    onSuccess: (msg?: string) => void;
     onError: (msg: string) => void;
 }) {
     const [name, setName] = useState('');
@@ -321,6 +330,7 @@ function CampaignTab({
     const [codeLength, setCodeLength] = useState(6);
     const [suffix, setSuffix] = useState('');
     const [quantity, setQuantity] = useState(100);
+    const [purpose, setPurpose] = useState<VoucherCampaignPurpose>('event');
     const [submitting, setSubmitting] = useState(false);
 
     // ── Image upload state (deferred: compress on select, upload on submit) ──
@@ -417,7 +427,7 @@ function CampaignTab({
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({
                     name, description, rewardType, rewardValue,
-                    validFrom, validTo, prefix, codeLength, suffix, quantity,
+                    validFrom, validTo, prefix, codeLength, suffix, quantity, purpose,
                     ...(imageUrl ? { imageUrl } : {}),
                 }),
             });
@@ -426,7 +436,7 @@ function CampaignTab({
             // Reset form
             setName(''); setDescription(''); setRewardValue(0);
             setValidFrom(''); setValidTo(''); setPrefix('');
-            setCodeLength(6); setSuffix(''); setQuantity(100);
+            setCodeLength(6); setSuffix(''); setQuantity(100); setPurpose('event');
             resetImageState();
             onSuccess();
         } catch (err: unknown) {
@@ -437,7 +447,55 @@ function CampaignTab({
         }
     };
 
+    // ── Campaign management actions ──────────────────────────────
+    const [addingCodesFor, setAddingCodesFor] = useState<string | null>(null);
+    const [addQty, setAddQty] = useState(100);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+    const handleAddCodes = async (campaignId: string) => {
+        if (addQty < 1 || addQty > 10000) { onError('Số lượng phải từ 1 đến 10.000'); return; }
+        setActionLoading(campaignId);
+        try {
+            const token = await getToken();
+            const res = await fetch('/api/vouchers', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ action: 'add_codes', campaignId, quantity: addQty }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Thất bại');
+            setAddingCodesFor(null);
+            setAddQty(100);
+            onSuccess(data.message);
+        } catch (err: unknown) {
+            onError(err instanceof Error ? err.message : 'Lỗi');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleToggleCampaign = async (campaignId: string, currentStatus: string) => {
+        const action = currentStatus === 'active' ? 'deactivate_campaign' : 'activate_campaign';
+        setActionLoading(campaignId);
+        try {
+            const token = await getToken();
+            const res = await fetch('/api/vouchers', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ action, campaignId }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Thất bại');
+            onSuccess(data.message);
+        } catch (err: unknown) {
+            onError(err instanceof Error ? err.message : 'Lỗi');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
     return (
+        <>
         <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
             <div className="px-6 py-5 border-b border-surface-100">
                 <h2 className="text-lg font-bold text-surface-800 flex items-center gap-2">
@@ -474,6 +532,35 @@ function CampaignTab({
                                         className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5 resize-none"
                                     />
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Purpose */}
+                        <div>
+                            <h3 className="text-sm font-bold text-surface-700 flex items-center gap-2 mb-3 pb-2 border-b border-surface-100">
+                                <Dices className="w-4 h-4 text-accent-500" />
+                                Mục đích sử dụng
+                            </h3>
+                            <div className="grid grid-cols-2 gap-3">
+                                {([['event', 'Sự kiện', Dices, 'Dùng cho sự kiện quay thưởng'], ['print', 'In ấn', Printer, 'In voucher trực tiếp, xuất Excel + QR']] as const).map(([val, label, Icon, desc]) => (
+                                    <button
+                                        key={val}
+                                        type="button"
+                                        onClick={() => setPurpose(val)}
+                                        className={cn(
+                                            'flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all',
+                                            purpose === val
+                                                ? 'border-accent-500 bg-accent-50/50 shadow-sm'
+                                                : 'border-surface-200 bg-surface-50 hover:border-surface-300'
+                                        )}
+                                    >
+                                        <Icon className={cn('w-5 h-5 mt-0.5 shrink-0', purpose === val ? 'text-accent-600' : 'text-surface-400')} />
+                                        <div>
+                                            <p className={cn('text-sm font-bold', purpose === val ? 'text-accent-700' : 'text-surface-700')}>{label}</p>
+                                            <p className="text-[10px] text-surface-400 mt-0.5">{desc}</p>
+                                        </div>
+                                    </button>
+                                ))}
                             </div>
                         </div>
 
@@ -711,6 +798,260 @@ function CampaignTab({
                 </div>
             </form>
         </div>
+        {/* end create form */}
+
+        {(() => {
+            // ── Campaign code counts helper ──────────────────────────────
+            const getCampaignCounts = (cid: string) => {
+                const campCodes = codes.filter(c => c.campaignId === cid);
+                return {
+                    total: campCodes.length,
+                    available: campCodes.filter(c => c.status === 'available').length,
+                    distributed: campCodes.filter(c => c.status === 'distributed').length,
+                    used: campCodes.filter(c => c.status === 'used').length,
+                };
+            };
+
+            const CAMP_STATUS_BADGE: Record<string, string> = {
+                active: 'bg-success-50 text-success-700 border-success-200',
+                paused: 'bg-warning-50 text-warning-700 border-warning-200',
+                ended: 'bg-surface-100 text-surface-600 border-surface-200',
+            };
+            const CAMP_STATUS_LABELS: Record<string, string> = {
+                active: 'Hoạt động',
+                paused: 'Tạm dừng',
+                ended: 'Kết thúc',
+            };
+            const PURPOSE_BADGE: Record<string, string> = {
+                event: 'bg-primary-50 text-primary-700 border-primary-200',
+                print: 'bg-accent-50 text-accent-700 border-accent-200',
+            };
+            const PURPOSE_LABELS: Record<string, string> = {
+                event: 'Sự kiện',
+                print: 'In ấn',
+            };
+
+            // Excel export handler for print campaigns (with actual QR images)
+            const handleExportExcel = async (camp: VoucherCampaign) => {
+                try {
+                    const QRCode = (await import('qrcode')).default;
+                    const ExcelJS = (await import('exceljs')).default;
+                    const campCodes = codes.filter(c => c.campaignId === camp.id);
+
+                    const workbook = new ExcelJS.Workbook();
+                    workbook.creator = 'Voucher Manager';
+                    const ws = workbook.addWorksheet('Vouchers');
+
+                    // Define columns
+                    const headers = ['Mã Voucher', 'Trạng thái', 'Loại thưởng', 'Giá trị', 'Hết hạn', 'SĐT nhận', 'Ngày phát', 'Ngày dùng', 'QR Code'];
+                    const headerRow = ws.addRow(headers);
+                    headerRow.font = { bold: true, size: 11 };
+                    headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+                    headerRow.height = 24;
+
+                    // Column widths
+                    ws.columns = [
+                        { width: 25 }, { width: 12 }, { width: 16 }, { width: 10 },
+                        { width: 14 }, { width: 15 }, { width: 18 }, { width: 18 }, { width: 18 },
+                    ];
+
+                    const statusLabels: Record<string, string> = {
+                        available: 'Có sẵn', distributed: 'Đã phát', used: 'Đã dùng', revoked: 'Thu hồi', expired: 'Hết hạn',
+                    };
+
+                    const QR_SIZE = 100; // pixels
+                    const ROW_HEIGHT = 80; // Excel row height in points
+
+                    for (let i = 0; i < campCodes.length; i++) {
+                        const code = campCodes[i];
+                        const rowNum = i + 2; // 1-indexed, header is row 1
+
+                        const row = ws.addRow([
+                            code.id,
+                            statusLabels[code.status] || code.status,
+                            REWARD_LABELS[code.rewardType] || code.rewardType,
+                            code.rewardValue,
+                            code.validTo,
+                            code.distributedToPhone || '',
+                            code.distributedAt || '',
+                            code.usedAt || '',
+                            '', // QR placeholder
+                        ]);
+                        row.height = ROW_HEIGHT;
+                        row.alignment = { vertical: 'middle' };
+
+                        // Generate QR as base64
+                        const qrDataUrl = await QRCode.toDataURL(code.id, {
+                            width: QR_SIZE,
+                            margin: 1,
+                        });
+                        const base64Data = qrDataUrl.replace(/^data:image\/png;base64,/, '');
+
+                        // Add image to workbook
+                        const imageId = workbook.addImage({
+                            base64: base64Data,
+                            extension: 'png',
+                        });
+
+                        // Place image in column I (index 8)
+                        ws.addImage(imageId, {
+                            tl: { col: 8, row: rowNum - 1 },
+                            ext: { width: QR_SIZE, height: QR_SIZE },
+                        });
+                    }
+
+                    // Style header cells
+                    headerRow.eachCell(cell => {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D3436' } };
+                        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+                        cell.border = {
+                            bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+                        };
+                    });
+
+                    // Write to file
+                    const buffer = await workbook.xlsx.writeBuffer();
+                    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    const safeName = camp.name.replace(/[^\w\sÀ-ỹ]/g, '').slice(0, 25);
+                    a.href = url;
+                    a.download = `Voucher_${safeName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                } catch (err) {
+                    onError(err instanceof Error ? err.message : 'Lỗi xuất Excel');
+                }
+            };
+
+            if (campaigns.length === 0) return null;
+            return (
+                <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
+                    <div className="px-6 py-5 border-b border-surface-100">
+                        <h2 className="text-lg font-bold text-surface-800 flex items-center gap-2">
+                            <Megaphone className="w-5 h-5 text-accent-500" />
+                            Danh sách chiến dịch ({campaigns.length})
+                        </h2>
+                        <p className="text-sm text-surface-500 mt-1">Quản lý, thêm mã, bật/tắt chiến dịch</p>
+                    </div>
+                    <div className="divide-y divide-surface-100">
+                        {campaigns.map(camp => {
+                            const counts = getCampaignCounts(camp.id);
+                            const isAdding = addingCodesFor === camp.id;
+                            const isLoading = actionLoading === camp.id;
+                            return (
+                                <div key={camp.id} className="px-6 py-4 hover:bg-surface-50/50 transition-colors">
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                                        {/* Info */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <p className="font-bold text-surface-800 truncate">{camp.name}</p>
+                                                <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border', CAMP_STATUS_BADGE[camp.status] || CAMP_STATUS_BADGE.ended)}>
+                                                    {CAMP_STATUS_LABELS[camp.status] || camp.status}
+                                                </span>
+                                                <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border', PURPOSE_BADGE[camp.purpose || 'event'])}>
+                                                    {(camp.purpose || 'event') === 'print' ? <Printer className="w-3 h-3 inline mr-0.5" /> : <Dices className="w-3 h-3 inline mr-0.5" />}
+                                                    {PURPOSE_LABELS[camp.purpose || 'event']}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-4 text-xs text-surface-500">
+                                                <span className="flex items-center gap-1">
+                                                    <Tag className="w-3 h-3" />
+                                                    {REWARD_LABELS[camp.rewardType]} • {camp.rewardValue}
+                                                </span>
+                                                <span className="flex items-center gap-1">
+                                                    <Hash className="w-3 h-3" />
+                                                    {counts.total} mã
+                                                    <span className="text-success-600">({counts.available} có sẵn)</span>
+                                                </span>
+                                                <span>
+                                                    {camp.validFrom} → {camp.validTo}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            {(camp.purpose === 'print') && (
+                                                <button
+                                                    onClick={() => handleExportExcel(camp)}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border bg-primary-50 text-primary-700 border-primary-200 hover:bg-primary-100 transition-colors"
+                                                >
+                                                    <FileDown className="w-3.5 h-3.5" />
+                                                    Xuất Excel
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => {
+                                                    if (isAdding) { setAddingCodesFor(null); }
+                                                    else { setAddingCodesFor(camp.id); setAddQty(100); }
+                                                }}
+                                                className={cn(
+                                                    'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors',
+                                                    isAdding
+                                                        ? 'bg-accent-100 text-accent-700 border-accent-300'
+                                                        : 'bg-surface-50 text-surface-600 border-surface-200 hover:bg-accent-50 hover:text-accent-700 hover:border-accent-200'
+                                                )}
+                                            >
+                                                <PlusCircle className="w-3.5 h-3.5" />
+                                                Thêm mã
+                                            </button>
+                                            <button
+                                                onClick={() => handleToggleCampaign(camp.id, camp.status)}
+                                                disabled={isLoading}
+                                                className={cn(
+                                                    'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-50',
+                                                    camp.status === 'active'
+                                                        ? 'bg-warning-50 text-warning-700 border-warning-200 hover:bg-warning-100'
+                                                        : 'bg-success-50 text-success-700 border-success-200 hover:bg-success-100'
+                                                )}
+                                            >
+                                                {isLoading ? (
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                ) : camp.status === 'active' ? (
+                                                    <Pause className="w-3.5 h-3.5" />
+                                                ) : (
+                                                    <Play className="w-3.5 h-3.5" />
+                                                )}
+                                                {camp.status === 'active' ? 'Tạm dừng' : 'Kích hoạt'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Inline Add Codes Form */}
+                                    {isAdding && (
+                                        <div className="mt-3 flex items-center gap-3 bg-accent-50/50 border border-accent-200 rounded-xl p-3 animate-in slide-in-from-top-1 duration-200">
+                                            <label className="text-xs font-medium text-accent-700 whitespace-nowrap">Số lượng:</label>
+                                            <input
+                                                type="number" min={1} max={10000}
+                                                value={addQty}
+                                                onChange={e => setAddQty(Number(e.target.value))}
+                                                className="w-28 bg-white border border-accent-200 text-sm rounded-lg p-2 focus:ring-accent-500 focus:border-accent-400"
+                                            />
+                                            <button
+                                                onClick={() => handleAddCodes(camp.id)}
+                                                disabled={isLoading}
+                                                className="flex items-center gap-1.5 px-4 py-2 bg-surface-800 hover:bg-surface-900 disabled:bg-surface-300 text-white text-xs font-semibold rounded-lg transition-colors"
+                                            >
+                                                {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                                                Tạo thêm
+                                            </button>
+                                            <button
+                                                onClick={() => setAddingCodesFor(null)}
+                                                className="text-xs text-surface-400 hover:text-surface-600"
+                                            >
+                                                Hủy
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        })()}
+        </>
     );
 }
 

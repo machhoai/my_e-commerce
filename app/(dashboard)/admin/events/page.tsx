@@ -6,6 +6,7 @@ import {
     BarChart3, CalendarDays, Plus, Loader2, CheckCircle2, AlertCircle,
     LayoutDashboard, FileText, Ticket, X, Code2, Users, Download, FileDown, Search,
     TrendingUp, Ban, Play, Hash, Gift, ChevronDown, ChevronRight, Dices, Trophy, Eye,
+    Pencil, PlusCircle, Sparkles, Zap, Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import EventIntegrationGuide from '@/components/admin/EventIntegrationGuide';
@@ -127,42 +128,95 @@ export default function EventsPage() {
         return <div className="p-8 text-center text-danger-500">Bạn không có quyền truy cập trang này.</div>;
     }
 
+    // Stats for header badges
+    const activeCount = events.filter(e => e.status === 'active').length;
+    const totalCustomers = Object.values(participations).reduce((s, arr) => s + arr.length, 0);
+
     return (
         <div className="space-y-6 mx-auto">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-surface-800 flex items-center gap-2">
-                        <CalendarDays className="w-7 h-7 text-accent-500" />
-                        Quản lý Sự kiện
-                    </h1>
-                    <p className="text-surface-500 mt-1">Tạo sự kiện, thiết lập prize pool, theo dõi phân phối.</p>
+            {/* ── Premium Header ── */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-surface-800 via-surface-900 to-surface-800 px-6 py-6 shadow-xl">
+                {/* Decorative pattern */}
+                <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+                <div className="absolute -top-20 -right-20 w-64 h-64 bg-accent-500/10 rounded-full blur-3xl" />
+                <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-primary-500/10 rounded-full blur-3xl" />
+
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-400 to-accent-600 flex items-center justify-center shadow-lg shadow-accent-500/25">
+                                <CalendarDays className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-bold text-white tracking-tight">Quản lý Sự kiện</h1>
+                                <p className="text-surface-400 text-sm">Thiết lập prize pool, theo dõi phân phối và quản lý chiến dịch</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-xl px-3 py-2 border border-white/10">
+                            <CalendarDays className="w-3.5 h-3.5 text-accent-400" />
+                            <span className="text-xs font-bold text-white">{events.length}</span>
+                            <span className="text-xs text-surface-400">sự kiện</span>
+                        </div>
+                        {activeCount > 0 && (
+                            <div className="flex items-center gap-2 bg-success-500/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-success-500/20">
+                                <Activity className="w-3.5 h-3.5 text-success-400 animate-pulse" />
+                                <span className="text-xs font-bold text-success-300">{activeCount}</span>
+                                <span className="text-xs text-success-400/80">đang chạy</span>
+                            </div>
+                        )}
+                        {totalCustomers > 0 && (
+                            <div className="flex items-center gap-2 bg-primary-500/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-primary-500/20">
+                                <Users className="w-3.5 h-3.5 text-primary-400" />
+                                <span className="text-xs font-bold text-primary-300">{totalCustomers}</span>
+                                <span className="text-xs text-primary-400/80">khách</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex gap-1 bg-surface-100 p-1 rounded-xl w-fit">
-                {TABS.map(t => (
-                    <button
-                        key={t.key}
-                        onClick={() => setTab(t.key)}
-                        className={cn(
-                            'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all',
-                            tab === t.key
-                                ? 'bg-white text-surface-800 shadow-sm'
-                                : 'text-surface-500 hover:text-surface-700'
-                        )}
-                    >
-                        <t.icon className="w-4 h-4" />
-                        {t.label}
-                    </button>
-                ))}
+            {/* ── Premium Tabs ── */}
+            <div className="flex gap-1 bg-surface-100/80 backdrop-blur-sm p-1.5 rounded-2xl w-fit shadow-sm border border-surface-200/50">
+                {TABS.map(t => {
+                    const isActive = tab === t.key;
+                    const counts: Record<string, number> = {
+                        events: events.length,
+                        audit: auditLogs.length,
+                        customers: totalCustomers,
+                    };
+                    const count = counts[t.key];
+                    return (
+                        <button
+                            key={t.key}
+                            onClick={() => setTab(t.key)}
+                            className={cn(
+                                'relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200',
+                                isActive
+                                    ? 'bg-white text-surface-800 shadow-md shadow-surface-200/50'
+                                    : 'text-surface-500 hover:text-surface-700 hover:bg-white/50'
+                            )}
+                        >
+                            <t.icon className={cn('w-4 h-4 transition-colors', isActive ? 'text-accent-500' : '')} />
+                            {t.label}
+                            {count != null && count > 0 && (
+                                <span className={cn(
+                                    'text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center transition-colors',
+                                    isActive ? 'bg-accent-100 text-accent-700' : 'bg-surface-200 text-surface-500'
+                                )}>
+                                    {count}
+                                </span>
+                            )}
+                        </button>
+                    );
+                })}
             </div>
 
             {/* Messages */}
             {msg && (
                 <div className={cn(
-                    'p-4 rounded-xl flex items-center gap-3 text-sm font-medium animate-in fade-in',
+                    'p-4 rounded-xl flex items-center gap-3 text-sm font-medium animate-in fade-in slide-in-from-top-2 duration-300',
                     msg.type === 'success'
                         ? 'bg-success-50 text-success-700 border border-success-200'
                         : 'bg-danger-50 text-danger-600 border border-danger-100'
@@ -174,9 +228,12 @@ export default function EventsPage() {
 
             {/* Tab Content */}
             {loading ? (
-                <div className="p-16 text-center text-surface-400">
-                    <div className="w-8 h-8 border-4 border-accent-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                    Đang tải dữ liệu...
+                <div className="flex flex-col items-center justify-center py-20">
+                    <div className="relative">
+                        <div className="w-12 h-12 rounded-full border-4 border-surface-200" />
+                        <div className="w-12 h-12 rounded-full border-4 border-accent-500 border-t-transparent animate-spin absolute inset-0" />
+                    </div>
+                    <p className="text-sm font-medium text-surface-400 mt-4">Đang tải dữ liệu...</p>
                 </div>
             ) : (
                 <>
@@ -220,21 +277,24 @@ function EventDetailPanel({ event }: { event: EventWithStats }) {
     return (
         <div className="space-y-4">
             {/* KPI row */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                    { label: 'Tổng mã', value: event.totalStock, icon: Hash, color: 'text-primary-600 bg-primary-50' },
-                    { label: 'Đã phát', value: totalIssued, icon: Gift, color: 'text-accent-600 bg-accent-50' },
-                    { label: 'Còn lại', value: event.codesAvailable, icon: Ticket, color: 'text-warning-600 bg-warning-50' },
-                    { label: 'Đã dùng', value: event.codesUsed, icon: CheckCircle2, color: 'text-success-600 bg-success-50' },
+                    { label: 'Tổng mã', value: event.totalStock, icon: Hash, gradient: 'from-primary-500 to-primary-600' },
+                    { label: 'Đã phát', value: totalIssued, icon: Gift, gradient: 'from-accent-500 to-accent-600' },
+                    { label: 'Còn lại', value: event.codesAvailable, icon: Ticket, gradient: 'from-warning-500 to-warning-600' },
+                    { label: 'Đã dùng', value: event.codesUsed, icon: CheckCircle2, gradient: 'from-success-500 to-success-600' },
                 ].map(k => (
-                    <div key={k.label} className={cn('rounded-xl border p-4', isClosed ? 'bg-surface-50 border-surface-100' : 'bg-white border-surface-200')}>
+                    <div key={k.label} className={cn(
+                        'rounded-xl border p-3.5 hover:shadow-sm transition-all duration-200',
+                        isClosed ? 'bg-surface-50 border-surface-100' : 'bg-white border-surface-200'
+                    )}>
                         <div className="flex items-center gap-2 mb-2">
-                            <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center', k.color)}>
-                                <k.icon className="w-3.5 h-3.5" />
+                            <div className={cn('w-7 h-7 rounded-lg bg-gradient-to-br flex items-center justify-center', k.gradient)}>
+                                <k.icon className="w-3.5 h-3.5 text-white" />
                             </div>
-                            <span className="text-xs font-medium text-surface-500">{k.label}</span>
+                            <span className="text-[11px] font-medium text-surface-500">{k.label}</span>
                         </div>
-                        <p className="text-2xl font-black text-surface-800">{k.value.toLocaleString()}</p>
+                        <p className="text-xl font-black text-surface-800">{k.value.toLocaleString()}</p>
                     </div>
                 ))}
             </div>
@@ -323,30 +383,40 @@ function DashboardTab({ events, participations, recentPlays }: {
         const isSelected = evt.id === selectedId;
         const isClosed = evt.status === 'closed' || evt.status === 'ended';
         const evtParts = participations[evt.id] || [];
+        const stockPct = evt.totalStock > 0 ? Math.round((evt.codesAvailable / evt.totalStock) * 100) : 0;
         return (
             <button
                 onClick={() => setSelectedId(evt.id)}
                 className={cn(
-                    'w-full text-left px-3 py-2.5 rounded-xl transition-all border',
+                    'w-full text-left px-3.5 py-3 rounded-xl transition-all duration-200 border group',
                     isSelected
-                        ? 'bg-accent-50 border-accent-200 shadow-sm'
-                        : 'bg-white border-surface-100 hover:border-surface-200 hover:bg-surface-50',
-                    isClosed && 'opacity-60'
+                        ? 'bg-gradient-to-r from-accent-50 to-white border-accent-200 shadow-md shadow-accent-100/50 scale-[1.02]'
+                        : 'bg-white border-surface-100 hover:border-accent-200 hover:shadow-sm hover:scale-[1.01]',
+                    isClosed && 'opacity-50'
                 )}
             >
                 <div className="flex items-start justify-between gap-2">
-                    <p className={cn('text-sm font-semibold leading-tight truncate', isSelected ? 'text-accent-700' : 'text-surface-800')}>{evt.name}</p>
-                    <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0', EVENT_STATUS_BADGE[evt.status])}>
+                    <p className={cn('text-sm font-bold leading-tight truncate', isSelected ? 'text-accent-700' : 'text-surface-800')}>{evt.name}</p>
+                    <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-lg border shrink-0', EVENT_STATUS_BADGE[evt.status])}>
                         {EVENT_STATUS_LABELS[evt.status]}
                     </span>
                 </div>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center justify-between gap-2 mt-2">
                     <p className="text-[10px] text-surface-400">{evt.startDate} → {evt.endDate}</p>
-                    {evtParts.length > 0 && (
-                        <span className="text-[10px] font-semibold text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded">
-                            {evtParts.length} KH
-                        </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                        {evtParts.length > 0 && (
+                            <span className="text-[10px] font-semibold text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded-lg">
+                                {evtParts.length} KH
+                            </span>
+                        )}
+                    </div>
+                </div>
+                {/* Mini stock bar */}
+                <div className="mt-2 h-1 bg-surface-100 rounded-full overflow-hidden">
+                    <div
+                        className={cn('h-full rounded-full transition-all', stockPct > 50 ? 'bg-success-400' : stockPct > 20 ? 'bg-warning-400' : 'bg-danger-400')}
+                        style={{ width: `${stockPct}%` }}
+                    />
                 </div>
             </button>
         );
@@ -359,11 +429,12 @@ function DashboardTab({ events, participations, recentPlays }: {
                 {/* Active / Upcoming */}
                 {activeGroup.length > 0 && (
                     <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-3">
-                        <div className="flex items-center gap-2 mb-2 px-1">
+                        <div className="flex items-center gap-2 mb-3 px-1">
                             <div className="w-2 h-2 rounded-full bg-success-500 animate-pulse" />
-                            <span className="text-[11px] font-bold text-surface-500 uppercase tracking-wide">Đang hoạt động</span>
+                            <span className="text-[11px] font-bold text-surface-600 uppercase tracking-wider">Đang hoạt động</span>
+                            <span className="text-[10px] text-surface-400 ml-auto">{activeGroup.length}</span>
                         </div>
-                        <div className="space-y-1.5">
+                        <div className="space-y-2">
                             {activeGroup.map(e => <EventSidebarCard key={e.id} evt={e} />)}
                         </div>
                     </div>
@@ -394,37 +465,44 @@ function DashboardTab({ events, participations, recentPlays }: {
             <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
                 {selected ? (
                     <>
-                        {/* Header */}
                         <div className={cn(
-                            'px-5 py-4 border-b',
-                            selected.status === 'active' ? 'bg-gradient-to-br from-success-50 to-white border-success-100'
-                                : selected.status === 'upcoming' ? 'bg-gradient-to-br from-primary-50 to-white border-primary-100'
-                                    : 'bg-surface-50 border-surface-100'
+                            'px-6 py-5 border-b relative overflow-hidden',
+                            selected.status === 'active' ? 'bg-gradient-to-br from-success-50 via-success-50/50 to-white border-success-100'
+                                : selected.status === 'upcoming' ? 'bg-gradient-to-br from-primary-50 via-primary-50/50 to-white border-primary-100'
+                                    : 'bg-gradient-to-br from-surface-50 to-white border-surface-100'
                         )}>
-                            <div className="flex items-start justify-between gap-3">
+                            {(selected.status === 'active') && (
+                                <div className="absolute -top-10 -right-10 w-32 h-32 bg-success-200/20 rounded-full blur-2xl" />
+                            )}
+                            <div className="relative z-10 flex items-start justify-between gap-3">
                                 <div>
-                                    <h3 className="text-base font-bold text-surface-800">{selected.name}</h3>
-                                    <p className="text-xs text-surface-500 mt-0.5">{selected.startDate} → {selected.endDate}</p>
+                                    <h3 className="text-lg font-bold text-surface-800">{selected.name}</h3>
+                                    <div className="flex items-center gap-3 mt-1">
+                                        <p className="text-xs text-surface-500 flex items-center gap-1">
+                                            <CalendarDays className="w-3 h-3" />
+                                            {selected.startDate} → {selected.endDate}
+                                        </p>
+                                    </div>
                                 </div>
-                                <span className={cn('text-xs font-bold px-2.5 py-1 rounded-lg border shrink-0', EVENT_STATUS_BADGE[selected.status])}>
+                                <span className={cn('text-xs font-bold px-3 py-1.5 rounded-xl border shrink-0', EVENT_STATUS_BADGE[selected.status])}>
                                     {EVENT_STATUS_LABELS[selected.status]}
                                 </span>
                             </div>
                         </div>
-                        <div className="p-5 space-y-4">
+                        <div className="p-5 space-y-5">
                             <EventDetailPanel event={selected} />
 
                             {/* ── Player KPIs ── */}
                             <div className="grid grid-cols-3 gap-3">
                                 {[
-                                    { label: 'Khách tham gia', value: pStats.totalPlayers, icon: Users, color: 'text-primary-600 bg-primary-50' },
-                                    { label: 'Lượt quay đã dùng', value: pStats.totalSpinsUsed, icon: Dices, color: 'text-accent-600 bg-accent-50' },
-                                    { label: 'Giải đã trúng', value: pStats.totalPrizesWon, icon: Trophy, color: 'text-warning-600 bg-warning-50' },
+                                    { label: 'Khách tham gia', value: pStats.totalPlayers, icon: Users, gradient: 'from-primary-500 to-primary-600', bgLight: 'bg-primary-50' },
+                                    { label: 'Lượt quay đã dùng', value: pStats.totalSpinsUsed, icon: Dices, gradient: 'from-accent-500 to-accent-600', bgLight: 'bg-accent-50' },
+                                    { label: 'Giải đã trúng', value: pStats.totalPrizesWon, icon: Trophy, gradient: 'from-warning-500 to-warning-600', bgLight: 'bg-warning-50' },
                                 ].map(k => (
-                                    <div key={k.label} className="rounded-xl border border-surface-200 bg-white p-4">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center', k.color)}>
-                                                <k.icon className="w-3.5 h-3.5" />
+                                    <div key={k.label} className="rounded-xl border border-surface-200 bg-white p-4 hover:shadow-md hover:border-surface-300 transition-all duration-200">
+                                        <div className="flex items-center gap-2.5 mb-3">
+                                            <div className={cn('w-8 h-8 rounded-lg bg-gradient-to-br flex items-center justify-center shadow-sm', k.gradient)}>
+                                                <k.icon className="w-4 h-4 text-white" />
                                             </div>
                                             <span className="text-xs font-medium text-surface-500">{k.label}</span>
                                         </div>
@@ -550,6 +628,27 @@ function EventListTab({
     const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
     const [showCampaignPicker, setShowCampaignPicker] = useState(false);
 
+    // ── Edit mode ────────────────────────────────────────────────
+    const [editingEvent, setEditingEvent] = useState<EventWithStats | null>(null);
+    const [addingStock, setAddingStock] = useState<string | null>(null);
+    const [addStockQty, setAddStockQty] = useState(100);
+    const [addStockLoading, setAddStockLoading] = useState(false);
+
+    const startEditEvent = (evt: EventWithStats) => {
+        setEditingEvent(evt);
+        setName(evt.name);
+        setStartDate(evt.startDate);
+        setEndDate(evt.endDate);
+        setPrizePool((evt.prizePool || []).map(p => ({ ...p })));
+        setShowCreate(true);
+    };
+
+    const cancelEdit = () => {
+        setEditingEvent(null);
+        setName(''); setStartDate(''); setEndDate('');
+        setPrizePool([]); setShowCreate(false);
+    };
+
     // Selected campaign IDs in pool
     const selectedCampIds = new Set(prizePool.map(p => p.campaignId));
 
@@ -618,26 +717,62 @@ function EventListTab({
         && prizePool.length > 0 && rateValid && allStockValid
         && prizePool.every(p => p.rate > 0 && p.dailyLimit > 0);
 
-    const handleCreate = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formValid) return;
         setSubmitting(true);
         try {
             const token = await getToken();
-            const res = await fetch('/api/events', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ name, startDate, endDate, prizePool }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Thao tác thất bại');
-            setName(''); setStartDate(''); setEndDate('');
-            setPrizePool([]); setShowCreate(false);
-            onSuccess(data.message || 'Tạo sự kiện thành công!');
+            if (editingEvent) {
+                // PATCH — edit existing event
+                const res = await fetch('/api/events', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ eventId: editingEvent.id, name, startDate, endDate, prizePool }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Thao tác thất bại');
+                cancelEdit();
+                onSuccess(data.message || 'Cập nhật sự kiện thành công!');
+            } else {
+                // POST — create new
+                const res = await fetch('/api/events', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ name, startDate, endDate, prizePool }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Thao tác thất bại');
+                setName(''); setStartDate(''); setEndDate('');
+                setPrizePool([]); setShowCreate(false);
+                onSuccess(data.message || 'Tạo sự kiện thành công!');
+            }
         } catch (err: unknown) {
             onError(err instanceof Error ? err.message : 'Đã xảy ra lỗi');
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    // ── Voucher suggestion: add stock to a campaign ──────────────
+    const handleAddStock = async (campaignId: string) => {
+        if (addStockQty < 1 || addStockQty > 10000) { onError('Số lượng phải từ 1 đến 10.000'); return; }
+        setAddStockLoading(true);
+        try {
+            const token = await getToken();
+            const res = await fetch('/api/vouchers', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ action: 'add_codes', campaignId, quantity: addStockQty }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Thất bại');
+            setAddingStock(null);
+            onSuccess(data.message || 'Tạo thêm mã thành công!');
+        } catch (err: unknown) {
+            onError(err instanceof Error ? err.message : 'Lỗi');
+        } finally {
+            setAddStockLoading(false);
         }
     };
 
@@ -664,18 +799,27 @@ function EventListTab({
     return (
         <div className="space-y-6">
             {/* Actions */}
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+                {editingEvent && (
+                    <button
+                        onClick={cancelEdit}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-surface-200 text-surface-700 transition-all"
+                    >
+                        <X className="w-4 h-4" />
+                        Hủy chỉnh sửa
+                    </button>
+                )}
                 <button
-                    onClick={() => setShowCreate(!showCreate)}
+                    onClick={() => { if (editingEvent) { cancelEdit(); } else { setShowCreate(!showCreate); } }}
                     className={cn(
                         'flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all',
-                        showCreate
+                        showCreate && !editingEvent
                             ? 'bg-surface-200 text-surface-700'
                             : 'bg-surface-800 hover:bg-surface-900 text-white shadow-sm'
                     )}
                 >
                     <Plus className="w-4 h-4" />
-                    {showCreate ? 'Ẩn Form' : 'Tạo sự kiện mới'}
+                    {showCreate && !editingEvent ? 'Ẩn Form' : 'Tạo sự kiện mới'}
                 </button>
             </div>
 
@@ -684,11 +828,11 @@ function EventListTab({
                 <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden animate-in slide-in-from-top-2 duration-300">
                     <div className="px-6 py-5 border-b border-surface-100">
                         <h2 className="text-lg font-bold text-surface-800 flex items-center gap-2">
-                            <Plus className="w-5 h-5 text-accent-500" />
-                            Tạo sự kiện mới
+                            {editingEvent ? <Pencil className="w-5 h-5 text-accent-500" /> : <Plus className="w-5 h-5 text-accent-500" />}
+                            {editingEvent ? `Chỉnh sửa: ${editingEvent.name}` : 'Tạo sự kiện mới'}
                         </h2>
                     </div>
-                    <form onSubmit={handleCreate} className="p-6 space-y-6">
+                    <form onSubmit={handleSubmit} className="p-6 space-y-6">
                         {/* Event Info */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                             <div className="space-y-1.5">
@@ -736,32 +880,44 @@ function EventListTab({
                                     {/* Campaign Picker Dropdown */}
                                     {showCampaignPicker && (
                                         <div className="absolute right-0 top-full mt-1 w-80 bg-white border border-surface-200 rounded-xl shadow-xl z-20 max-h-64 overflow-auto">
-                                            {campaigns.length === 0 ? (
-                                                <p className="p-4 text-sm text-surface-400 text-center">Không có chiến dịch nào</p>
-                                            ) : (
-                                                campaigns.map(c => (
+                                            {(() => {
+                                                const eventCampaigns = campaigns.filter(c => !c.purpose || c.purpose === 'event');
+                                                if (eventCampaigns.length === 0) return (
+                                                    <p className="p-4 text-sm text-surface-400 text-center">Không có chiến dịch nào (chỉ hiển thị chiến dịch &quot;Sự kiện&quot;)</p>
+                                                );
+                                                return eventCampaigns.map(c => {
+                                                    const isPaused = c.status === 'paused';
+                                                    return (
                                                     <label
                                                         key={c.id}
                                                         className={cn(
-                                                            'flex items-center gap-3 px-4 py-3 hover:bg-surface-50 cursor-pointer border-b z-50 border-surface-50 last:border-0 transition-colors',
+                                                            'flex items-center gap-3 px-4 py-3 border-b z-50 border-surface-50 last:border-0 transition-colors',
+                                                            isPaused
+                                                                ? 'opacity-50 cursor-not-allowed bg-surface-50'
+                                                                : 'hover:bg-surface-50 cursor-pointer',
                                                             selectedCampIds.has(c.id) && 'bg-accent-50/50'
                                                         )}
                                                     >
                                                         <input
                                                             type="checkbox"
                                                             checked={selectedCampIds.has(c.id)}
-                                                            onChange={() => toggleCampaign(c)}
-                                                            className="w-4 h-4 rounded border-surface-300 text-accent-500 focus:ring-accent-400"
+                                                            onChange={() => !isPaused && toggleCampaign(c)}
+                                                            disabled={isPaused}
+                                                            className="w-4 h-4 rounded border-surface-300 text-accent-500 focus:ring-accent-400 disabled:opacity-50"
                                                         />
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-semibold text-surface-800 truncate">{c.name}</p>
+                                                            <p className="text-sm font-semibold text-surface-800 truncate">
+                                                                {c.name}
+                                                                {isPaused && <span className="ml-1.5 text-[10px] font-bold text-warning-600 bg-warning-50 px-1 py-0.5 rounded border border-warning-200">Tạm dừng</span>}
+                                                            </p>
                                                             <p className="text-xs text-surface-400">
                                                                 {REWARD_LABELS[c.rewardType]} • {c.totalIssued} mã
                                                             </p>
                                                         </div>
                                                     </label>
-                                                ))
-                                            )}
+                                                    );
+                                                });
+                                            })()}
                                             <div className="sticky bottom-0 bg-white px-4 py-2 border-t border-surface-100">
                                                 <button
                                                     type="button"
@@ -906,17 +1062,84 @@ function EventListTab({
                             )}
                         </div>
 
+                        {/* Voucher Suggestion Banner */}
+                        {stockValidations.some(v => !v.valid) && (
+                            <div className="bg-warning-50 border border-warning-200 rounded-xl p-4 space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <AlertCircle className="w-4 h-4 text-warning-600" />
+                                    <p className="text-sm font-bold text-warning-700">Kho mã không đủ</p>
+                                </div>
+                                <div className="space-y-2">
+                                    {stockValidations.filter(v => !v.valid).map(v => {
+                                        const entry = prizePool.find(p => p.campaignId === v.campaignId);
+                                        const shortfall = v.maxIssuance - v.stock;
+                                        const isAddingThis = addingStock === v.campaignId;
+                                        return (
+                                            <div key={v.campaignId} className="flex flex-col sm:flex-row sm:items-center gap-2 bg-white rounded-lg border border-warning-100 p-3">
+                                                <div className="flex-1">
+                                                    <p className="text-xs font-semibold text-warning-800">
+                                                        {entry?.campaignName}: thiếu <span className="text-danger-600">{shortfall}</span> mã
+                                                    </p>
+                                                    <p className="text-[10px] text-warning-600">{v.message}</p>
+                                                </div>
+                                                {isAddingThis ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="number" min={1} max={10000}
+                                                            value={addStockQty}
+                                                            onChange={e => setAddStockQty(Number(e.target.value))}
+                                                            className="w-24 bg-white border border-warning-200 text-sm rounded-lg p-1.5 focus:ring-warning-400 focus:border-warning-400"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleAddStock(v.campaignId)}
+                                                            disabled={addStockLoading}
+                                                            className="flex items-center gap-1 px-3 py-1.5 bg-surface-800 hover:bg-surface-900 disabled:bg-surface-300 text-white text-xs font-semibold rounded-lg transition-colors"
+                                                        >
+                                                            {addStockLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                                                            Tạo
+                                                        </button>
+                                                        <button type="button" onClick={() => setAddingStock(null)} className="text-xs text-surface-400 hover:text-surface-600">Hủy</button>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setAddingStock(v.campaignId); setAddStockQty(shortfall > 0 ? shortfall : 100); }}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-warning-100 text-warning-700 hover:bg-warning-200 border border-warning-200 transition-colors"
+                                                    >
+                                                        <PlusCircle className="w-3.5 h-3.5" />
+                                                        Tạo thêm mã
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Submit */}
-                        <div className="flex justify-end pt-4 border-t border-surface-100">
+                        <div className="flex items-center justify-between pt-5 border-t border-surface-100">
+                            {editingEvent && (
+                                <button type="button" onClick={cancelEdit} className="text-sm text-surface-500 hover:text-surface-700 transition-colors">
+                                    Hủy chỉnh sửa
+                                </button>
+                            )}
                             <button
                                 type="submit"
                                 disabled={submitting || !formValid}
-                                className="flex items-center gap-2 bg-surface-800 hover:bg-surface-900 disabled:bg-surface-300 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-semibold shadow-sm transition-colors"
+                                className={cn(
+                                    'flex items-center gap-2 px-7 py-3 rounded-xl font-bold text-white shadow-lg transition-all duration-200',
+                                    'disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none',
+                                    editingEvent
+                                        ? 'bg-gradient-to-r from-accent-500 to-accent-600 hover:from-accent-600 hover:to-accent-700 shadow-accent-500/25'
+                                        : 'bg-gradient-to-r from-surface-800 to-surface-900 hover:from-surface-900 hover:to-black shadow-surface-800/25'
+                                )}
                             >
                                 {submitting ? (
-                                    <><Loader2 className="w-4 h-4 animate-spin" /> Đang tạo...</>
+                                    <><Loader2 className="w-4 h-4 animate-spin" /> {editingEvent ? 'Đang lưu...' : 'Đang tạo...'}</>
                                 ) : (
-                                    <><Plus className="w-4 h-4" /> Tạo sự kiện</>
+                                    <>{editingEvent ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />} {editingEvent ? 'Lưu thay đổi' : 'Tạo sự kiện'}</>
                                 )}
                             </button>
                         </div>
@@ -937,14 +1160,14 @@ function EventListTab({
                         <tr
                             onClick={() => toggleRow(evt.id)}
                             className={cn(
-                                'cursor-pointer transition-colors',
-                                selectedEventId === evt.id ? 'bg-accent-50' : muted ? 'hover:bg-surface-50/40' : 'hover:bg-surface-50/60',
-                                muted && 'opacity-60'
+                                'cursor-pointer transition-all duration-200',
+                                selectedEventId === evt.id ? 'bg-accent-50/60' : muted ? 'hover:bg-surface-50/40' : 'hover:bg-surface-50/60',
+                                muted && 'opacity-50'
                             )}
                         >
-                            <td className="px-4 py-3.5">
-                                <div className="flex items-center gap-2">
-                                    <ChevronRight className={cn('w-3.5 h-3.5 text-surface-400 shrink-0 transition-transform', selectedEventId === evt.id && 'rotate-90')} />
+                            <td className="px-5 py-4">
+                                <div className="flex items-center gap-2.5">
+                                    <ChevronRight className={cn('w-4 h-4 text-surface-400 shrink-0 transition-transform duration-200', selectedEventId === evt.id && 'rotate-90 text-accent-500')} />
                                     <div>
                                         <p className="font-bold text-surface-800">{evt.name}</p>
                                         <p className="text-[10px] text-surface-400 mt-0.5">{(evt.prizePool || []).length} chiến dịch</p>
@@ -961,20 +1184,38 @@ function EventListTab({
                                 </div>
                             </td>
                             <td className="px-4 py-3.5 text-xs text-surface-500 whitespace-nowrap">{evt.startDate} → {evt.endDate}</td>
-                            <td className="px-4 py-3.5 text-center">
-                                <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border', EVENT_STATUS_BADGE[evt.status])}>
+                            <td className="px-5 py-4">
+                                <span className={cn('text-[11px] font-bold px-2.5 py-1 rounded-lg border', EVENT_STATUS_BADGE[evt.status])}>
                                     {EVENT_STATUS_LABELS[evt.status]}
                                 </span>
                             </td>
-                            <td className="px-4 py-3.5 text-center">
-                                <div className="flex items-center justify-center gap-1.5 text-xs">
-                                    <span className="text-success-600 font-bold">{evt.codesAvailable}</span>
-                                    <span className="text-surface-300">/</span>
-                                    <span className="text-surface-500">{evt.totalStock}</span>
+                            <td className="px-5 py-4 text-center">
+                                <div className="flex flex-col items-center gap-1">
+                                    <div className="flex items-center gap-1.5 text-xs">
+                                        <span className="text-success-600 font-bold">{evt.codesAvailable}</span>
+                                        <span className="text-surface-300">/</span>
+                                        <span className="text-surface-500">{evt.totalStock}</span>
+                                    </div>
+                                    {evt.totalStock > 0 && (
+                                        <div className="w-16 h-1 bg-surface-100 rounded-full overflow-hidden">
+                                            <div
+                                                className={cn('h-full rounded-full', evt.codesAvailable / evt.totalStock > 0.5 ? 'bg-success-400' : evt.codesAvailable / evt.totalStock > 0.2 ? 'bg-warning-400' : 'bg-danger-400')}
+                                                style={{ width: `${Math.round((evt.codesAvailable / evt.totalStock) * 100)}%` }}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             </td>
-                            <td className="px-4 py-3.5 text-right" onClick={e => e.stopPropagation()}>
+                            <td className="px-5 py-4 text-right" onClick={e => e.stopPropagation()}>
                                 <div className="flex items-center justify-end gap-2">
+                                    {(evt.status === 'active' || evt.status === 'upcoming') && (
+                                        <button
+                                            onClick={() => startEditEvent(evt)}
+                                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-surface-50 text-surface-600 hover:bg-accent-50 hover:text-accent-700 border border-surface-200 hover:border-accent-200 transition-colors"
+                                        >
+                                            <Pencil className="w-3.5 h-3.5" /> Chỉnh sửa
+                                        </button>
+                                    )}
                                     {evt.status === 'upcoming' && (
                                         <button
                                             onClick={() => handleStatusUpdate(evt.id, 'active')}

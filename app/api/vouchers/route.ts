@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
             codeLength: number;
             suffix: string;
             quantity: number;
+            purpose?: 'print' | 'event';
             imageUrl?: string;   // Firebase Storage URL (optional)
         };
 
@@ -87,6 +88,7 @@ export async function POST(req: NextRequest) {
             suffix: body.suffix?.toUpperCase().trim() || '',
             totalIssued: body.quantity,
             status: 'active',
+            purpose: body.purpose || 'event',
             ...(body.imageUrl ? { image: body.imageUrl } : {}),
             createdAt: now,
             createdBy: callerUid,
@@ -149,43 +151,138 @@ export async function POST(req: NextRequest) {
 }
 
 // ── PATCH /api/vouchers ─────────────────────────────────────────
-// Revoke one or many voucher codes (bulk support)
+// Actions: revoke | add_codes | deactivate_campaign | activate_campaign
 export async function PATCH(req: NextRequest) {
     try {
         const callerUid = await verifyAdmin(req);
         if (!callerUid) return NextResponse.json({ error: 'Bị từ chối truy cập' }, { status: 403 });
 
-        const body = await req.json() as { codeId?: string; codeIds?: string[]; action: 'revoke' };
-
-        // Normalize to array
-        const ids: string[] = body.codeIds?.length ? body.codeIds : body.codeId ? [body.codeId] : [];
-        if (ids.length === 0) return NextResponse.json({ error: 'Thiếu mã voucher' }, { status: 400 });
-        if (ids.length > 500) return NextResponse.json({ error: 'Tối đa 500 mã mỗi lần' }, { status: 400 });
+        const body = await req.json() as {
+            action: 'revoke' | 'add_codes' | 'deactivate_campaign' | 'activate_campaign';
+            codeId?: string;
+            codeIds?: string[];
+            campaignId?: string;
+            quantity?: number;
+        };
 
         const adminDb = getAdminDb();
-        const skipped: string[] = [];
-        const revoked: string[] = [];
 
-        // Batch writes (already within 500 limit)
-        const batch = adminDb.batch();
-        for (const id of ids) {
-            const codeRef = adminDb.collection('voucher_codes').doc(id);
-            const codeSnap = await codeRef.get();
-            if (!codeSnap.exists) { skipped.push(id); continue; }
-            const status = (codeSnap.data() as VoucherCode).status;
-            if (status === 'used' || status === 'revoked') { skipped.push(id); continue; }
-            batch.update(codeRef, { status: 'revoked' });
-            revoked.push(id);
+        // ── Action: revoke ──────────────────────────────────────
+        if (body.action === 'revoke') {
+            const ids: string[] = body.codeIds?.length ? body.codeIds : body.codeId ? [body.codeId] : [];
+            if (ids.length === 0) return NextResponse.json({ error: 'Thiếu mã voucher' }, { status: 400 });
+            if (ids.length > 500) return NextResponse.json({ error: 'Tối đa 500 mã mỗi lần' }, { status: 400 });
+
+            const skipped: string[] = [];
+            const revoked: string[] = [];
+            const batch = adminDb.batch();
+            for (const id of ids) {
+                const codeRef = adminDb.collection('voucher_codes').doc(id);
+                const codeSnap = await codeRef.get();
+                if (!codeSnap.exists) { skipped.push(id); continue; }
+                const status = (codeSnap.data() as VoucherCode).status;
+                if (status === 'used' || status === 'revoked') { skipped.push(id); continue; }
+                batch.update(codeRef, { status: 'revoked' });
+                revoked.push(id);
+            }
+            if (revoked.length > 0) await batch.commit();
+
+            return NextResponse.json({
+                success: true,
+                revoked: revoked.length,
+                skipped: skipped.length,
+                message: `Đã vô hiệu hóa ${revoked.length} mã${skipped.length > 0 ? `, bỏ qua ${skipped.length} mã` : ''}.`,
+            });
         }
 
-        if (revoked.length > 0) await batch.commit();
+        // ── Action: add_codes ───────────────────────────────────
+        if (body.action === 'add_codes') {
+            if (!body.campaignId) return NextResponse.json({ error: 'Thiếu campaignId' }, { status: 400 });
+            const qty = body.quantity || 0;
+            if (qty < 1 || qty > 10000) return NextResponse.json({ error: 'Số lượng phải từ 1 đến 10.000' }, { status: 400 });
 
-        return NextResponse.json({
-            success: true,
-            revoked: revoked.length,
-            skipped: skipped.length,
-            message: `Đã vô hiệu hóa ${revoked.length} mã${skipped.length > 0 ? `, bỏ qua ${skipped.length} mã` : ''}.`,
-        });
+            const campRef = adminDb.collection('voucher_campaigns').doc(body.campaignId);
+            const campSnap = await campRef.get();
+            if (!campSnap.exists) return NextResponse.json({ error: 'Chiến dịch không tồn tại' }, { status: 404 });
+
+            const camp = campSnap.data() as VoucherCampaign;
+            const generatedCodes = new Set<string>();
+            const codeDocuments: VoucherCode[] = [];
+
+            // Fetch existing code IDs for this campaign to avoid duplicates
+            const existingSnap = await adminDb.collection('voucher_codes')
+                .where('campaignId', '==', body.campaignId).select().get();
+            existingSnap.docs.forEach(d => generatedCodes.add(d.id));
+
+            for (let i = 0; i < qty; i++) {
+                let code: string;
+                let attempts = 0;
+                do {
+                    const random = generateSecureCode(camp.codeLength || 6);
+                    const parts = [camp.prefix, random, camp.suffix].filter(Boolean);
+                    code = parts.join('-');
+                    attempts++;
+                } while (generatedCodes.has(code) && attempts < 10);
+
+                generatedCodes.add(code);
+                codeDocuments.push({
+                    id: code,
+                    campaignId: body.campaignId,
+                    campaignName: camp.name,
+                    rewardType: camp.rewardType,
+                    rewardValue: camp.rewardValue || 0,
+                    validTo: camp.validTo,
+                    status: 'available',
+                    distributedToPhone: null,
+                    distributedAt: null,
+                    usedAt: null,
+                    usedByStaffId: null,
+                });
+            }
+
+            // Batch write codes (chunked at 500)
+            const BATCH_LIMIT = 500;
+            for (let i = 0; i < codeDocuments.length; i += BATCH_LIMIT) {
+                const chunk = codeDocuments.slice(i, i + BATCH_LIMIT);
+                const batch = adminDb.batch();
+                for (const codeDoc of chunk) {
+                    batch.set(adminDb.collection('voucher_codes').doc(codeDoc.id), codeDoc);
+                }
+                await batch.commit();
+            }
+
+            // Update totalIssued on campaign
+            await campRef.update({ totalIssued: (camp.totalIssued || 0) + codeDocuments.length });
+
+            return NextResponse.json({
+                success: true,
+                totalGenerated: codeDocuments.length,
+                newTotal: (camp.totalIssued || 0) + codeDocuments.length,
+                message: `Đã tạo thêm ${codeDocuments.length} mã cho chiến dịch "${camp.name}".`,
+            });
+        }
+
+        // ── Action: deactivate_campaign ─────────────────────────
+        if (body.action === 'deactivate_campaign') {
+            if (!body.campaignId) return NextResponse.json({ error: 'Thiếu campaignId' }, { status: 400 });
+            const campRef = adminDb.collection('voucher_campaigns').doc(body.campaignId);
+            const campSnap = await campRef.get();
+            if (!campSnap.exists) return NextResponse.json({ error: 'Chiến dịch không tồn tại' }, { status: 404 });
+            await campRef.update({ status: 'paused' });
+            return NextResponse.json({ success: true, message: 'Đã vô hiệu hóa chiến dịch.' });
+        }
+
+        // ── Action: activate_campaign ───────────────────────────
+        if (body.action === 'activate_campaign') {
+            if (!body.campaignId) return NextResponse.json({ error: 'Thiếu campaignId' }, { status: 400 });
+            const campRef = adminDb.collection('voucher_campaigns').doc(body.campaignId);
+            const campSnap = await campRef.get();
+            if (!campSnap.exists) return NextResponse.json({ error: 'Chiến dịch không tồn tại' }, { status: 404 });
+            await campRef.update({ status: 'active' });
+            return NextResponse.json({ success: true, message: 'Đã kích hoạt lại chiến dịch.' });
+        }
+
+        return NextResponse.json({ error: 'Action không hợp lệ' }, { status: 400 });
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Lỗi hệ thống';
         return NextResponse.json({ error: message }, { status: 500 });

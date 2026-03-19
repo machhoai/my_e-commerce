@@ -82,8 +82,8 @@ export async function GET(req: NextRequest) {
             };
         });
 
-        // All active campaigns (available for selection)
-        const activeCampaigns = campaigns.filter(c => c.status === 'active');
+        // All campaigns (UI will mark paused ones as non-selectable)
+        const allCampaigns = campaigns;
 
         const auditLogs = auditSnap.docs.map(d => ({ id: d.id, ...d.data() } as AuditLogDoc));
 
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json({
             events,
-            campaigns: activeCampaigns,
+            campaigns: allCampaigns,
             auditLogs,
             participations: participationsByEvent,
             recentPlays,
@@ -207,16 +207,22 @@ export async function POST(req: NextRequest) {
 }
 
 // ── PATCH /api/events ───────────────────────────────────────────
-// Update event status (close, activate, etc.)
+// Full event editing: status, name, dates, prizePool
 export async function PATCH(req: NextRequest) {
     try {
         const caller = await verifyAdmin(req);
         if (!caller) return NextResponse.json({ error: 'Bị từ chối truy cập' }, { status: 403 });
 
-        const body = await req.json() as { eventId: string; status: EventDoc['status'] };
-        if (!body.eventId || !body.status) {
-            return NextResponse.json({ error: 'Thiếu thông tin' }, { status: 400 });
-        }
+        const body = await req.json() as {
+            eventId: string;
+            status?: EventDoc['status'];
+            name?: string;
+            startDate?: string;
+            endDate?: string;
+            prizePool?: PrizePoolEntry[];
+        };
+
+        if (!body.eventId) return NextResponse.json({ error: 'Thiếu eventId' }, { status: 400 });
 
         const adminDb = getAdminDb();
         const eventRef = adminDb.collection('events').doc(body.eventId);
@@ -225,9 +231,68 @@ export async function PATCH(req: NextRequest) {
             return NextResponse.json({ error: 'Sự kiện không tồn tại' }, { status: 404 });
         }
 
+        const existingEvent = eventSnap.data() as EventDoc;
+        const updateData: Record<string, unknown> = {};
+        const changes: string[] = [];
+
+        if (body.name !== undefined && body.name.trim()) {
+            updateData.name = body.name.trim();
+            changes.push(`đổi tên thành "${body.name.trim()}"`);
+        }
+        if (body.status !== undefined) {
+            updateData.status = body.status;
+            changes.push(`trạng thái → "${body.status}"`);
+        }
+        if (body.startDate !== undefined) {
+            updateData.startDate = body.startDate;
+            changes.push(`bắt đầu → ${body.startDate}`);
+        }
+        if (body.endDate !== undefined) {
+            updateData.endDate = body.endDate;
+            changes.push(`kết thúc → ${body.endDate}`);
+        }
+
+        // Validate & update prizePool
+        if (body.prizePool !== undefined) {
+            if (!body.prizePool.length) {
+                return NextResponse.json({ error: 'Cần ít nhất 1 chiến dịch trong pool' }, { status: 400 });
+            }
+            const totalRate = body.prizePool.reduce((sum, p) => sum + (p.rate || 0), 0);
+            if (totalRate > 100) {
+                return NextResponse.json({ error: `Tổng tỉ lệ trúng (${totalRate}%) vượt quá 100%` }, { status: 400 });
+            }
+
+            const sd = body.startDate || existingEvent.startDate;
+            const ed = body.endDate || existingEvent.endDate;
+            const totalDays = Math.ceil((new Date(ed).getTime() - new Date(sd).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+            for (const entry of body.prizePool) {
+                const campSnap = await adminDb.collection('voucher_campaigns').doc(entry.campaignId).get();
+                if (!campSnap.exists) {
+                    return NextResponse.json({ error: `Chiến dịch ${entry.campaignId} không tồn tại` }, { status: 404 });
+                }
+                const camp = campSnap.data() as VoucherCampaign;
+                const maxIssuance = (entry.dailyLimit || 0) * totalDays;
+                if (maxIssuance > camp.totalIssued) {
+                    return NextResponse.json({
+                        error: `Chiến dịch "${camp.name}": ${entry.dailyLimit}/ngày × ${totalDays} ngày = ${maxIssuance} > tổng mã ${camp.totalIssued}`,
+                    }, { status: 400 });
+                }
+                entry.campaignName = camp.name;
+                entry.rewardType = camp.rewardType;
+            }
+
+            updateData.prizePool = body.prizePool;
+            changes.push(`cập nhật ${body.prizePool.length} chiến dịch trong pool`);
+        }
+
+        if (Object.keys(updateData).length === 0) {
+            return NextResponse.json({ error: 'Không có trường nào để cập nhật' }, { status: 400 });
+        }
+
         const now = new Date().toISOString();
         const batch = adminDb.batch();
-        batch.update(eventRef, { status: body.status });
+        batch.update(eventRef, updateData);
 
         const auditRef = adminDb.collection('audit_logs').doc();
         batch.set(auditRef, {
@@ -237,12 +302,12 @@ export async function PATCH(req: NextRequest) {
             actorName: caller.name,
             timestamp: now,
             targetId: body.eventId,
-            details: `Cập nhật trạng thái sự kiện thành "${body.status}"`,
+            details: `Chỉnh sửa sự kiện: ${changes.join(', ')}`,
         });
 
         await batch.commit();
 
-        return NextResponse.json({ success: true, message: 'Cập nhật thành công' });
+        return NextResponse.json({ success: true, message: 'Cập nhật sự kiện thành công' });
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Lỗi hệ thống';
         return NextResponse.json({ error: message }, { status: 500 });

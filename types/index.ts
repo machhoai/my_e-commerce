@@ -511,6 +511,7 @@ export interface KpiRecordDoc {
 export type VoucherRewardType = 'discount_percent' | 'discount_fixed' | 'free_ticket' | 'free_item';
 export type VoucherCampaignStatus = 'active' | 'paused' | 'ended';
 export type VoucherCodeStatus = 'available' | 'distributed' | 'used' | 'revoked' | 'expired';
+export type VoucherCampaignPurpose = 'print' | 'event';
 
 export interface VoucherCampaign {
     id: string;
@@ -525,6 +526,7 @@ export interface VoucherCampaign {
     suffix: string;
     totalIssued: number;
     status: VoucherCampaignStatus;
+    purpose: VoucherCampaignPurpose;
     image?: string;      // Firebase Storage URL (WebP, optional)
     createdAt?: string;
     createdBy?: string;
@@ -615,3 +617,14 @@ export interface GachaResult {
     message?: string;
 }
 
+// ============================================================
+// Universal Scanner
+// ============================================================
+
+export type ScanResultType = 'PHONE' | 'VOUCHER' | 'PRODUCT' | 'NOT_FOUND';
+
+export interface ScanResult {
+    type: ScanResultType;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: any;
+}
