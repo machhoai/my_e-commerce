@@ -503,6 +503,7 @@ export default function ManagerSchedulePage() {
     if (!userDoc || (
         userDoc.role !== 'admin' &&
         userDoc.role !== 'store_manager' &&
+        userDoc.role !== 'manager' &&
         !hasPermission('page.scheduling.builder')
     )) {
         return (
