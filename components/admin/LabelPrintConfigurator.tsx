@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
     X, Printer, QrCode, Tag, Eye, Grid3X3,
-    AlignJustify, ChevronDown, Copy
+    AlignJustify, ChevronDown, Copy, Type, Image
 } from 'lucide-react';
 import type { ProductDoc } from '@/types/inventory';
 import { PrintableSheet } from './PrintableSheet';
@@ -12,6 +12,7 @@ import type { StyleConfig } from './LabelItem';
 
 const GRID_PRESETS = [
     { label: '2 × 2', cols: 2, rows: 2, desc: '4 tem / trang' },
+    { label: '2 × 3', cols: 2, rows: 3, desc: '6 tem / trang' },
     { label: '3 × 4', cols: 3, rows: 4, desc: '12 tem / trang' },
     { label: '4 × 7', cols: 4, rows: 7, desc: '28 tem / trang' },
 ];
@@ -42,8 +43,10 @@ interface Props {
 export function LabelPrintConfigurator({ selectedProducts, onClose }: Props) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://joyworld.vn';
 
-    const [gridPreset, setGridPreset] = useState(1);
+    const [gridPreset, setGridPreset] = useState(2);
     const [qrSize, setQrSize] = useState(80);
+    const [fontSize, setFontSize] = useState(9);
+    const [logoHeight, setLogoHeight] = useState(18);
     const [styleConfig, setStyleConfig] = useState<StyleConfig>({
         showLogo: true, showName: true, showSku: true, showPublicUrlText: false,
     });
@@ -57,23 +60,26 @@ export function LabelPrintConfigurator({ selectedProducts, onClose }: Props) {
     }, []);
 
     const finalProductsToPrint = useMemo(() => {
-        if (!printFullPagePerItem) return selectedProducts;
-
+        const sorted = [...selectedProducts].sort((a, b) => {
+            const codeA = (a.companyCode || a.barcode || '').toLowerCase();
+            const codeB = (b.companyCode || b.barcode || '').toLowerCase();
+            return codeA.localeCompare(codeB);
+        });
+        if (!printFullPagePerItem) return sorted;
         const itemsPerPage = cols * rows;
-        return selectedProducts.flatMap(product => Array(itemsPerPage).fill(product));
+        return sorted.flatMap(product => Array(itemsPerPage).fill(product));
     }, [selectedProducts, printFullPagePerItem, cols, rows]);
 
     const totalPages = Math.ceil(finalProductsToPrint.length / (cols * rows));
 
     const handlePrint = () => window.print();
 
-    // SỬA Ở ĐÂY: Dùng Fragment (<>...</>) để bọc cả Modal (trên màn hình) và Bản in (ẩn)
     const modalContent = (
-        <div className='jw-print-root'>
-            <div className="jw-screen-only fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3">
+        <div className="jw-print-root">
+            {/* THÊM VŨ KHÍ: print:hidden ĐỂ ẨN SẠCH GIAO DIỆN MODAL KHI BẤM IN */}
+            <div className="jw-screen-only print:hidden fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
 
-                    {/* Header */}
                     <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-primary-600 to-accent-600">
                         <div className="flex items-center gap-3 text-white">
                             <Printer className="w-5 h-5" />
@@ -87,10 +93,7 @@ export function LabelPrintConfigurator({ selectedProducts, onClose }: Props) {
                         </button>
                     </div>
 
-                    {/* Body */}
                     <div className="flex-1 flex overflow-hidden">
-
-                        {/* Bảng điều khiển */}
                         <div className="w-72 shrink-0 border-r border-slate-100 overflow-y-auto flex flex-col">
                             <div className="p-5 space-y-6 flex-1">
                                 <section>
@@ -98,9 +101,9 @@ export function LabelPrintConfigurator({ selectedProducts, onClose }: Props) {
                                         <Copy className="w-4 h-4 text-primary-500" />
                                         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Chế độ In</h3>
                                     </div>
-                                    <Toggle checked={printFullPagePerItem} onChange={setPrintFullPagePerItem} label={`Lặp full trang (${cols * rows} tem/mã)`} />
+                                    <Toggle checked={printFullPagePerItem} onChange={setPrintFullPagePerItem} label={`Lặp full trang (${cols * rows} tem)`} />
                                     <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
-                                        {printFullPagePerItem ? `Mỗi sản phẩm sẽ được in phủ kín 1 tờ A4 (${cols * rows} tem giống hệt nhau).` : "In nối tiếp danh sách các sản phẩm khác nhau."}
+                                        {printFullPagePerItem ? `Mỗi sản phẩm sẽ in phủ kín 1 tờ A4 (${cols * rows} tem giống nhau).` : "In nối tiếp các sản phẩm khác nhau."}
                                     </p>
                                 </section>
 
@@ -130,6 +133,24 @@ export function LabelPrintConfigurator({ selectedProducts, onClose }: Props) {
 
                                 <section>
                                     <div className="flex items-center gap-2 mb-3">
+                                        <Type className="w-4 h-4 text-primary-500" />
+                                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Cỡ chữ</h3>
+                                        <span className="ml-auto text-xs font-bold text-primary-600">{fontSize}px</span>
+                                    </div>
+                                    <input type="range" min={6} max={100} step={1} value={fontSize} onChange={e => setFontSize(Number(e.target.value))} className="w-full h-2 rounded-full accent-primary-600 cursor-pointer" />
+                                </section>
+
+                                <section>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Image className="w-4 h-4 text-primary-500" />
+                                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Cỡ logo</h3>
+                                        <span className="ml-auto text-xs font-bold text-primary-600">{logoHeight}px</span>
+                                    </div>
+                                    <input type="range" min={10} max={100} step={2} value={logoHeight} onChange={e => setLogoHeight(Number(e.target.value))} className="w-full h-2 rounded-full accent-primary-600 cursor-pointer" />
+                                </section>
+
+                                <section>
+                                    <div className="flex items-center gap-2 mb-3">
                                         <AlignJustify className="w-4 h-4 text-primary-500" />
                                         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nội dung tem</h3>
                                     </div>
@@ -149,7 +170,6 @@ export function LabelPrintConfigurator({ selectedProducts, onClose }: Props) {
                             </div>
                         </div>
 
-                        {/* Preview */}
                         <div className="flex-1 bg-slate-100 overflow-auto flex flex-col">
                             <div className="px-5 py-3 border-b border-slate-200 bg-white/80 flex items-center gap-2">
                                 <Eye className="w-4 h-4 text-slate-400" />
@@ -160,10 +180,9 @@ export function LabelPrintConfigurator({ selectedProducts, onClose }: Props) {
                                 <div className="bg-white shadow-2xl rounded-sm border border-slate-300"
                                     style={{ width: '210mm', minHeight: '297mm', padding: '8mm', boxSizing: 'border-box', transform: 'scale(0.5)', transformOrigin: 'top center', marginBottom: 'calc((297mm * 0.5) - 297mm)' }}
                                 >
-                                    {/* Preview chỉ render 1 trang (cắt mảng bằng cols * rows) */}
                                     <PrintableSheet
                                         products={finalProductsToPrint.slice(0, cols * rows)}
-                                        cols={cols} rows={rows} qrSize={qrSize} styleConfig={styleConfig} siteUrl={siteUrl} previewMode
+                                        cols={cols} rows={rows} qrSize={qrSize} fontSize={fontSize} logoHeight={logoHeight} styleConfig={styleConfig} siteUrl={siteUrl} previewMode
                                     />
                                 </div>
                             </div>
@@ -172,12 +191,14 @@ export function LabelPrintConfigurator({ selectedProducts, onClose }: Props) {
                 </div>
             </div>
 
-            {/* 2. KHU VỰC BẢN IN THỰC TẾ (Ẩn trên màn hình, bung ra khi in) */}
+            {/* BẢN IN THỰC TẾ: Ẩn trên màn hình, bung ra khi in */}
             <PrintableSheet
                 products={finalProductsToPrint}
                 cols={cols}
                 rows={rows}
                 qrSize={qrSize}
+                fontSize={fontSize}
+                logoHeight={logoHeight}
                 styleConfig={styleConfig}
                 siteUrl={siteUrl}
                 previewMode={false}

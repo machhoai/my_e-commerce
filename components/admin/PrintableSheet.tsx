@@ -9,6 +9,8 @@ interface PrintableSheetProps {
     cols: number;
     rows: number;
     qrSize: number;
+    fontSize: number;
+    logoHeight: number;
     styleConfig: StyleConfig;
     siteUrl: string;
     previewMode?: boolean;
@@ -23,12 +25,11 @@ function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 export function PrintableSheet({
-    products, cols, rows, qrSize, styleConfig, siteUrl, previewMode = false,
+    products, cols, rows, qrSize, fontSize, logoHeight, styleConfig, siteUrl, previewMode = false,
 }: PrintableSheetProps) {
     const perPage = cols * rows;
     const pages = chunk(products, perPage);
 
-    // BỘ CSS PRINT TỐI ƯU VÀ MẠNH NHẤT
     useEffect(() => {
         const id = 'jw-print-style';
         if (document.getElementById(id)) return;
@@ -38,30 +39,45 @@ export function PrintableSheet({
             @media screen {
                 .jw-print-only { display: none !important; }
             }
+            
             @media print {
-                /* 1. "Xóa sổ" toàn bộ khung Next.js (Sidebar, Topbar...) khỏi luồng in */
-                body > *:not(.jw-print-only):not(:has(.jw-print-only)) {
-                    display: none !important;
+                /* ẨN TOÀN BỘ KHUNG GIAO DIỆN CỦA WEB */
+                body > *:not(.jw-print-root) { 
+                    display: none !important; 
+                }
+                
+                body > .jw-print-root { 
+                    display: block !important; 
                 }
 
-                /* 2. Ép trình duyệt mở khóa chiều cao vô cực để đọc được n trang */
-                html, body, :has(.jw-print-only) {
+                /* HỦY DIỆT MODAL NẾU TAILWIND CHƯA LÀM SẠCH */
+                .jw-screen-only, .print\\:hidden {
+                    display: none !important;
+                    opacity: 0 !important;
+                    visibility: hidden !important;
+                    pointer-events: none !important;
+                }
+                
+                /* MỞ KHÓA CHIỀU CAO ĐỂ TRÌNH DUYỆT TÍNH TOÁN NHIỀU TRANG */
+                html, body {
                     height: auto !important;
                     min-height: 100% !important;
                     overflow: visible !important;
                     background: white !important;
-                }
-
-                /* 3. Bản in PHẢI nằm ở luồng tĩnh (static), tuyệt đối không dùng absolute/fixed */
-                .jw-print-only {
-                    display: block !important;
-                    position: static !important;
-                    width: 100% !important;
                     margin: 0 !important;
                     padding: 0 !important;
                 }
 
-                /* 4. Khổ A4, lề 8mm */
+                /* ĐẶT BẢN IN LÊN GÓC TRÊN CÙNG BÊN TRÁI CỦA GIẤY */
+                .jw-print-only {
+                    display: block !important;
+                    position: absolute !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100% !important;
+                }
+
+                /* KHỔ GIẤY A4, LỀ AN TOÀN 8mm */
                 @page { 
                     size: A4 portrait; 
                     margin: 8mm; 
@@ -85,7 +101,7 @@ export function PrintableSheet({
         width: '100%',
     };
 
-    const cellHeight = rows === 2 ? '135mm' : rows === 4 ? '68mm' : '38mm';
+    const cellHeight = rows === 2 ? '135mm' : rows === 3 ? '90mm' : rows === 4 ? '68mm' : '38mm';
 
     const content = (
         <div style={sheetStyle}>
@@ -93,7 +109,6 @@ export function PrintableSheet({
                 <div
                     key={pageIdx}
                     style={{
-                        // Ép ngắt trang chuẩn xác sau mỗi cụm (VD: cứ đủ 4 tem là ngắt)
                         pageBreakAfter: pageIdx < pages.length - 1 ? 'always' : 'auto',
                         breakAfter: pageIdx < pages.length - 1 ? 'page' : 'auto',
                         paddingBottom: '2mm',
@@ -106,11 +121,12 @@ export function PrintableSheet({
                                     product={product}
                                     styleConfig={styleConfig}
                                     qrSize={qrSize}
+                                    fontSize={fontSize}
+                                    logoHeight={logoHeight}
                                     siteUrl={siteUrl}
                                 />
                             </div>
                         ))}
-                        {/* Đệm các ô trống */}
                         {pageIdx === pages.length - 1 &&
                             Array.from({ length: perPage - pageProducts.length }).map((_, i) => (
                                 <div

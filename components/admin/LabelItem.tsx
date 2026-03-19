@@ -14,10 +14,12 @@ interface LabelItemProps {
     product: ProductDoc;
     styleConfig: StyleConfig;
     qrSize: number;
+    fontSize: number;
+    logoHeight: number;
     siteUrl: string;
 }
 
-export function LabelItem({ product, styleConfig, qrSize, siteUrl }: LabelItemProps) {
+export function LabelItem({ product, styleConfig, qrSize, fontSize, logoHeight, siteUrl }: LabelItemProps) {
     const slug = product.companyCode || product.barcode || '';
     const publicUrl = `${siteUrl}/p/${slug}`;
 
@@ -45,21 +47,21 @@ export function LabelItem({ product, styleConfig, qrSize, siteUrl }: LabelItemPr
                 <img
                     src="/logo.png"
                     alt="Joyworld"
-                    style={{ height: '18px', objectFit: 'contain', maxWidth: '80px' }}
+                    style={{ height: `${logoHeight}px`, objectFit: 'contain', maxWidth: `${logoHeight * 4.5}px` }}
                 />
             )}
 
             {/* Product Name */}
             {styleConfig.showName && (
                 <p style={{
-                    fontSize: '9px',
+                    fontSize: `${fontSize}px`,
                     fontWeight: 700,
                     textAlign: 'center',
                     lineHeight: 1.25,
                     maxWidth: '100%',
                     overflow: 'hidden',
                     display: '-webkit-box',
-                    WebkitLineClamp: 2,
+                    WebkitLineClamp: 3,
                     WebkitBoxOrient: 'vertical',
                     color: '#111827',
                     margin: 0,
@@ -79,7 +81,7 @@ export function LabelItem({ product, styleConfig, qrSize, siteUrl }: LabelItemPr
             {/* SKU / Company Code */}
             {styleConfig.showSku && slug && (
                 <p style={{
-                    fontSize: '8px',
+                    fontSize: `${Math.max(fontSize - 1, 6)}px`,
                     fontWeight: 700,
                     color: '#374151',
                     letterSpacing: '0.05em',
@@ -93,7 +95,7 @@ export function LabelItem({ product, styleConfig, qrSize, siteUrl }: LabelItemPr
             {/* Public URL text */}
             {styleConfig.showPublicUrlText && slug && (
                 <p style={{
-                    fontSize: '6px',
+                    fontSize: `${Math.max(fontSize - 3, 5)}px`,
                     color: '#6b7280',
                     textAlign: 'center',
                     wordBreak: 'break-all',

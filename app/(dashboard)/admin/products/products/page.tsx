@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
@@ -581,6 +581,8 @@ export default function ProductManagementPage() {
                 cols={3}
                 rows={4}
                 qrSize={80}
+                fontSize={9}
+                logoHeight={18}
                 styleConfig={{ showLogo: true, showName: true, showSku: true, showPublicUrlText: false }}
                 siteUrl={process.env.NEXT_PUBLIC_SITE_URL || 'https://joyworld.vn'}
             />
