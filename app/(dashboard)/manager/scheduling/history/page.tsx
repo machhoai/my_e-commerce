@@ -12,6 +12,7 @@ import { processTableData } from '@/lib/processTableData';
 import DataTableToolbar, { SortableHeader } from '@/components/DataTableToolbar';
 import DataTablePagination from '@/components/DataTablePagination';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
+import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 
 interface EmployeeStats {
     uid: string;
@@ -29,6 +30,7 @@ interface EmployeeStats {
 
 function ManagerHistoryPageContent() {
     const { user, userDoc, hasPermission } = useAuth();
+    const [profileUid, setProfileUid] = useState<string | null>(null);
     const { params, setParam, setParams, clearAll, toggleSort: urlToggleSort, activeFilterCount, setPage, setPageSize } = useTableParams();
 
     const [currentMonth, setCurrentMonth] = useState<Date>(() => {
@@ -387,7 +389,14 @@ function ManagerHistoryPageContent() {
                                                         isDanger ? "bg-danger-50/30" : isWarning ? "bg-warning-50/30" : ""
                                                     )}>
                                                         <td className="px-6 py-4 gap-1 font-medium text-surface-800 flex flex-col">
-                                                            {stat.name}
+                                                            <span
+                                                                className={cn(
+                                                                    hasPermission('action.hr.view_employee_profile') && 'cursor-pointer hover:underline'
+                                                                )}
+                                                                onClick={() => { if (hasPermission('action.hr.view_employee_profile')) setProfileUid(stat.uid); }}
+                                                            >
+                                                                {stat.name}
+                                                            </span>
                                                             <div className="flex flex-wrap gap-1">
                                                                 {stat.role === 'manager' && <span className="text-[10px] w-fit bg-accent-100 text-accent-700 px-1.5 py-0.5 rounded font-bold uppercase truncate">Quản lý</span>}
                                                                 {stat.role === 'store_manager' && <span className="text-[10px] w-fit bg-accent-100 text-accent-700 px-1.5 py-0.5 rounded font-bold uppercase truncate">Trưởng cửa hàng</span>}
@@ -467,6 +476,14 @@ function ManagerHistoryPageContent() {
                     </>
                 );
             })()}
+
+            {profileUid && (
+                <EmployeeProfilePopup
+                    employeeUid={profileUid}
+                    storeId={userDoc?.role === 'admin' ? selectedAdminStoreId : userDoc?.storeId}
+                    onClose={() => setProfileUid(null)}
+                />
+            )}
         </div>
     );
 }

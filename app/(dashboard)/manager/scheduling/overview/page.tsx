@@ -14,11 +14,13 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { registerVietnameseFont } from '@/lib/pdf-font';
+import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 
 type ViewMode = 'employee' | 'shift';
 
 export default function GlobalOverviewPage() {
     const { user, userDoc, hasPermission, loading: authLoading, effectiveStoreId: contextStoreId, managedStoreIds } = useAuth();
+    const [profileUid, setProfileUid] = useState<string | null>(null);
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date()));
     const [weekDays, setWeekDays] = useState<Date[]>([]);
     const [loading, setLoading] = useState(true);
@@ -841,10 +843,15 @@ export default function GlobalOverviewPage() {
                                                             userIdx === users.length - 1 ? 'border-b-0' : ''
                                                         )}>
                                                             <div className="flex items-center gap-1.5">
-                                                                <span className={cn(
-                                                                    'font-semibold truncate',
-                                                                    u.role === 'store_manager' ? 'text-danger-600' : u.role === 'manager' ? 'text-warning-600' : u.type === 'FT' ? 'text-primary-600' : 'text-success-600'
-                                                                )} title={u.name}>{shortName(u.name)}</span>
+                                                                <span
+                                                                    className={cn(
+                                                                        'font-semibold truncate',
+                                                                        u.role === 'store_manager' ? 'text-danger-600' : u.role === 'manager' ? 'text-warning-600' : u.type === 'FT' ? 'text-primary-600' : 'text-success-600',
+                                                                        hasPermission('action.hr.view_employee_profile') && 'cursor-pointer hover:underline'
+                                                                    )}
+                                                                    title={u.name}
+                                                                    onClick={(e) => { if (hasPermission('action.hr.view_employee_profile')) { e.stopPropagation(); setProfileUid(u.uid); } }}
+                                                                >{shortName(u.name)}</span>
                                                                 {u.isActive === false && <span className="text-[9px] px-1 py-0.5 rounded bg-danger-100 text-danger-600 font-bold shrink-0">Vô hiệu</span>}
                                                             </div>
                                                             {isAdmin && u.storeId && (
@@ -982,10 +989,15 @@ export default function GlobalOverviewPage() {
                                                                                             ? 'bg-warning-50 border border-warning-200 hover:bg-warning-100'
                                                                                             : 'bg-white border border-surface-200 hover:bg-surface-50'
                                                                                         }`}>
-                                                                                        <span className={cn(
-                                                                                            'font-semibold truncate',
-                                                                                            u.isActive === false ? 'text-surface-400' : u.role === 'store_manager' ? 'text-danger-600' : u.role === 'manager' ? 'text-warning-600' : u.type === 'FT' ? 'text-primary-600' : 'text-success-600'
-                                                                                        )} title={u.name}>{shortName(u.name)}</span>
+                                                                                        <span
+                                                                                            className={cn(
+                                                                                                'font-semibold truncate',
+                                                                                                u.isActive === false ? 'text-surface-400' : u.role === 'store_manager' ? 'text-danger-600' : u.role === 'manager' ? 'text-warning-600' : u.type === 'FT' ? 'text-primary-600' : 'text-success-600',
+                                                                                                hasPermission('action.hr.view_employee_profile') && 'cursor-pointer hover:underline'
+                                                                                            )}
+                                                                                            title={u.name}
+                                                                                            onClick={(e) => { if (hasPermission('action.hr.view_employee_profile')) { e.stopPropagation(); setProfileUid(u.uid); } }}
+                                                                                        >{shortName(u.name)}</span>
                                                                                         {isUserForceAssigned && (
                                                                                             <span title="Quản lý gán ca"><UserCog className="w-3 h-3 text-warning-500 shrink-0" /></span>
                                                                                         )}
@@ -1080,6 +1092,14 @@ export default function GlobalOverviewPage() {
                     </>
                 );
             })()}
+
+            {profileUid && (
+                <EmployeeProfilePopup
+                    employeeUid={profileUid}
+                    storeId={userDoc?.role === 'admin' ? selectedAdminStoreId : (contextStoreId || userDoc?.storeId)}
+                    onClose={() => setProfileUid(null)}
+                />
+            )}
         </div>
     );
 }

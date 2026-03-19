@@ -13,12 +13,14 @@ import DataTableToolbar, { SortableHeader } from '@/components/DataTableToolbar'
 import DataTablePagination from '@/components/DataTablePagination';
 import Portal from '@/components/Portal';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
+import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 
 function ManagerUsersPageContent() {
     const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId, managedStoreIds } = useAuth();
     const { params, setParam, setParams, clearAll, toggleSort, activeFilterCount, setPage, setPageSize } = useTableParams();
     const [employees, setEmployees] = useState<UserDoc[]>([]);
     const [loading, setLoading] = useState(true);
+    const [profileUid, setProfileUid] = useState<string | null>(null);
 
     // Modal states
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -512,7 +514,13 @@ function ManagerUsersPageContent() {
                                                 return (
                                                     <tr key={e.uid} className={`group transition-colors ${!isActive ? 'opacity-40 bg-surface-50/50' : 'hover:bg-primary-50/30'}`}>
                                                         <td className="px-5 py-3.5 whitespace-nowrap">
-                                                            <div className={`font-semibold transition-colors ${!isActive ? 'text-surface-400' : 'text-surface-900 group-hover:text-primary-700'}`}>
+                                                            <div
+                                                                className={cn(
+                                                                    `font-semibold transition-colors ${!isActive ? 'text-surface-400' : 'text-surface-900 group-hover:text-primary-700'}`,
+                                                                    hasPermission('action.hr.view_employee_profile') && 'cursor-pointer hover:underline'
+                                                                )}
+                                                                onClick={() => { if (hasPermission('action.hr.view_employee_profile')) setProfileUid(e.uid); }}
+                                                            >
                                                                 {e.name}
                                                             </div>
                                                             <div className="text-surface-400 text-xs mt-0.5 font-medium">{e.phone}</div>
@@ -839,6 +847,14 @@ function ManagerUsersPageContent() {
                     </>
                 );
             })()}
+
+            {profileUid && (
+                <EmployeeProfilePopup
+                    employeeUid={profileUid}
+                    storeId={contextStoreId || userDoc?.storeId}
+                    onClose={() => setProfileUid(null)}
+                />
+            )}
         </div>
     );
 }

@@ -18,6 +18,7 @@ import DataTableToolbar, { SortableHeader } from '@/components/DataTableToolbar'
 import DataTablePagination from '@/components/DataTablePagination';
 import Portal from '@/components/Portal';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
+import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 
 function ManagerKpiStatsPageContent() {
     const { user, userDoc, getToken, hasPermission } = useAuth();
@@ -40,6 +41,7 @@ function ManagerKpiStatsPageContent() {
     const [error, setError] = useState('');
     const [exporting, setExporting] = useState('');
     const [expandedUid, setExpandedUid] = useState<string | null>(null);
+    const [profileUid, setProfileUid] = useState<string | null>(null);
     const [statusFilter, setStatusFilter] = useState<'' | 'SELF_SCORED' | 'OFFICIAL'>('');
 
     // Export dialog state
@@ -459,7 +461,16 @@ function ManagerKpiStatsPageContent() {
                                                         ) : null}
                                                     </td>
                                                     <td className="p-3 text-surface-400 font-bold">{(currentPage - 1) * currentPageSize + i + 1}</td>
-                                                    <td className="p-3 font-medium text-surface-800">{emp.name}</td>
+                                                    <td className="p-3 font-medium text-surface-800">
+                                                        <span
+                                                            className={cn(
+                                                                hasPermission('action.hr.view_employee_profile') && 'cursor-pointer hover:underline'
+                                                            )}
+                                                            onClick={(e) => { if (hasPermission('action.hr.view_employee_profile')) { e.stopPropagation(); setProfileUid(emp.uid); } }}
+                                                        >
+                                                            {emp.name}
+                                                        </span>
+                                                    </td>
                                                     {hasRecords ? (
                                                         <>
                                                             <td className="p-3 text-center font-bold text-surface-600">{stats.count}</td>
@@ -689,6 +700,14 @@ function ManagerKpiStatsPageContent() {
                         </div>
                     </div>
                 </Portal>
+            )}
+
+            {profileUid && (
+                <EmployeeProfilePopup
+                    employeeUid={profileUid}
+                    storeId={effectiveStoreId}
+                    onClose={() => setProfileUid(null)}
+                />
             )}
         </div>
     );

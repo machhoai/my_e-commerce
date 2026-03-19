@@ -106,6 +106,13 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         group: 'Nhân sự & Lịch',
         type: 'page',
     },
+    {
+        key: 'action.hr.view_employee_profile',
+        label: 'Xem Hồ Sơ Nhân Viên',
+        description: 'Xem popup hồ sơ nhân viên (thông tin, KPI, lịch ca)',
+        group: 'Nhân sự & Lịch',
+        type: 'action',
+    },
 
     // ── Kho cửa hàng ──────────────────────────────────────────
     {
