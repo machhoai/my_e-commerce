@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import type { EventDoc, VoucherCampaign, VoucherCode, AuditLogDoc, PrizePoolEntry } from '@/types';
+import type { EventDoc, VoucherCampaign, VoucherCode, AuditLogDoc, EventParticipation, PrizePoolEntry } from '@/types';
 import { todayVN } from '@/lib/event-engine';
 
 // ── Auth helper ─────────────────────────────────────────────────
@@ -16,6 +16,7 @@ async function verifyAdmin(req: NextRequest) {
 
 // ── GET /api/events ─────────────────────────────────────────────
 // Returns events with joined campaign info + stock counts per campaign
+// + participations grouped by eventId + recent plays
 export async function GET(req: NextRequest) {
     try {
         const caller = await verifyAdmin(req);
@@ -23,15 +24,24 @@ export async function GET(req: NextRequest) {
 
         const adminDb = getAdminDb();
 
-        const [eventSnap, campaignSnap, codeSnap, auditSnap] = await Promise.all([
+        const [eventSnap, campaignSnap, codeSnap, auditSnap, participationSnap] = await Promise.all([
             adminDb.collection('events').orderBy('createdAt', 'desc').get(),
             adminDb.collection('voucher_campaigns').get(),
             adminDb.collection('voucher_codes').get(),
             adminDb.collection('audit_logs').orderBy('timestamp', 'desc').limit(200).get(),
+            adminDb.collection('event_participations').get(),
         ]);
 
         const campaigns = campaignSnap.docs.map(d => ({ id: d.id, ...d.data() } as VoucherCampaign));
         const codes = codeSnap.docs.map(d => ({ id: d.id, ...d.data() } as VoucherCode));
+
+        // Group participations by eventId
+        const participationsByEvent: Record<string, EventParticipation[]> = {};
+        participationSnap.docs.forEach(d => {
+            const p = d.data() as EventParticipation;
+            if (!participationsByEvent[p.eventId]) participationsByEvent[p.eventId] = [];
+            participationsByEvent[p.eventId].push(p);
+        });
 
         const events = eventSnap.docs.map(d => {
             const evt = { id: d.id, ...d.data() } as EventDoc;
@@ -77,7 +87,16 @@ export async function GET(req: NextRequest) {
 
         const auditLogs = auditSnap.docs.map(d => ({ id: d.id, ...d.data() } as AuditLogDoc));
 
-        return NextResponse.json({ events, campaigns: activeCampaigns, auditLogs });
+        // Recent plays: last 20 ISSUE_VOUCHER entries
+        const recentPlays = auditLogs.filter(l => l.action === 'ISSUE_VOUCHER').slice(0, 20);
+
+        return NextResponse.json({
+            events,
+            campaigns: activeCampaigns,
+            auditLogs,
+            participations: participationsByEvent,
+            recentPlays,
+        });
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Lỗi hệ thống';
         return NextResponse.json({ error: message }, { status: 500 });
