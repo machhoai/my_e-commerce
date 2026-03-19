@@ -314,7 +314,7 @@ export default function UniversalScannerModal() {
             <button
                 onClick={open}
                 className={cn(
-                    'fixed bottom-6 right-6 z-40 w-14 h-14 rounded-2xl',
+                    'fixed bottom-6 right-6 sm:hidden z-40 w-14 h-14 rounded-2xl',
                     'bg-gradient-to-br from-accent-500 to-accent-600 text-white',
                     'shadow-xl shadow-accent-500/30 hover:shadow-accent-500/50',
                     'hover:scale-110 active:scale-95 transition-all duration-200',
@@ -338,7 +338,7 @@ export default function UniversalScannerModal() {
                     {/* Modal Panel */}
                     <div className={cn(
                         'relative z-10 w-full sm:max-w-md bg-white overflow-hidden',
-                        'rounded-t-3xl sm:rounded-3xl',
+                        'sm:rounded-3xl',
                         'shadow-2xl shadow-black/20',
                         'max-h-[90vh] flex flex-col',
                         'animate-in slide-in-from-bottom-4 duration-300',

@@ -754,16 +754,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             </span>
                         )}
                     </button>
-                    <Link
-                        href="/scan"
-                        className={cn(
-                            "w-14 h-14 bg-gradient-to-br from-accent-600 to-accent-700 text-white rounded-full shadow-xl shadow-accent-600/40 flex items-center justify-center hover:from-accent-700 hover:to-accent-800 active:scale-90 transition-all outline-none",
-                            pathname === '/scan' && "ring-3 ring-accent-300 ring-offset-2"
-                        )}
-                        aria-label="Quét mã sản phẩm"
-                    >
-                        <ScanBarcode className="w-6 h-6" />
-                    </Link>
                 </div>
             )}
         </div>
