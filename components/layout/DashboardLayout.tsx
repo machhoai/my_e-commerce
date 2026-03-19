@@ -741,9 +741,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {/* Mobile FAB Group */}
             {!mobileOpen && (
-                <div className="md:hidden fixed bottom-5 right-5 z-30 flex flex-col items-center gap-2.5">
+                <div className="md:hidden fixed bottom-24 right-[30px] z-30 flex flex-col items-center gap-2.5">
                     <button
-                        className="relative w-10 h-10 bg-surface-900/90 backdrop-blur-sm text-white rounded-full shadow-lg shadow-surface-900/30 flex items-center justify-center hover:bg-surface-800 active:scale-90 transition-all outline-none"
+                        className="relative w-10 h-10 bg-surface-900/90 backdrop-blur-sm text-white rounded-full flex items-center justify-center hover:bg-surface-800 active:scale-90 transition-all outline-none"
                         onClick={() => setMobileOpen(true)}
                         aria-label="Mở menu"
                     >
