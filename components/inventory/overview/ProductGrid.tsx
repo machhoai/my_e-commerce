@@ -1,7 +1,8 @@
-﻿'use client';
+'use client';
 
 import { useState, useMemo } from 'react';
-import { Search, ArrowUpDown, Package, SlidersHorizontal, Warehouse, ShoppingCart, Check, X, Pencil } from 'lucide-react';
+import Link from 'next/link';
+import { Search, ArrowUpDown, Package, SlidersHorizontal, Warehouse, ShoppingCart, Check, X, Pencil, ExternalLink } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -250,10 +251,12 @@ function ProductGridCard({
         setEditingMin(false);
     };
 
+    const detailHref = `/admin/products/${product.companyCode || product.barcode}`;
+
     return (
         <Card className="group border-surface-200 shadow-sm overflow-hidden hover:shadow-md hover:border-success-200 transition-all flex flex-col relative">
-            {/* Card Header/Image */}
-            <div className="relative aspect-[4/3] bg-surface-100 overflow-hidden ring-1 ring-surface-900/5">
+            {/* Card Header/Image — click to view detail */}
+            <Link href={detailHref} className="relative aspect-[4/3] bg-surface-100 overflow-hidden ring-1 ring-surface-900/5 block">
                 {product.image ? (
                     <img
                         src={product.image}
@@ -280,7 +283,14 @@ function ProductGridCard({
                         <ShoppingCart className="w-2.5 h-2.5" /> Đã thêm
                     </div>
                 )}
-            </div>
+
+                {/* Detail link hint on hover */}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <span className="bg-white/90 backdrop-blur-sm text-surface-700 text-[11px] font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 shadow">
+                        <ExternalLink className="w-3 h-3" /> Xem chi tiết
+                    </span>
+                </div>
+            </Link>
 
             {/* Card Body */}
             <CardContent className="p-4 flex flex-col flex-1">
@@ -295,9 +305,21 @@ function ProductGridCard({
                     )}
                 </div>
 
-                <h3 className="font-semibold text-surface-800 text-sm leading-tight line-clamp-2 min-h-[2.5rem] mt-0.5 group-hover:text-success-700 transition-colors">
-                    {product.name}
-                </h3>
+                <div className="flex items-start justify-between gap-1">
+                    <Link href={detailHref}>
+                        <h3 className="font-semibold text-surface-800 text-sm leading-tight line-clamp-2 min-h-[2.5rem] mt-0.5 group-hover:text-success-700 transition-colors hover:underline underline-offset-2">
+                            {product.name}
+                        </h3>
+                    </Link>
+                    <Link
+                        href={detailHref}
+                        title="Xem chi tiết sản phẩm"
+                        className="shrink-0 mt-0.5 text-surface-300 hover:text-primary-500 transition-colors"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                    </Link>
+                </div>
 
                 <div className="mt-auto pt-4 space-y-3">
                     {/* Stock Text */}

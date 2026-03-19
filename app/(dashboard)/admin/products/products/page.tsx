@@ -1,11 +1,12 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     Package, Plus, Pencil, X, Save, Search, CheckCircle2, AlertCircle,
     ToggleLeft, ToggleRight, Tag, Barcode, DollarSign, MapPin, Layers, ImagePlus, Upload,
-    ArrowUpDown, ArrowUp, ArrowDown
+    ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, Printer
 } from 'lucide-react';
 import type { ProductDoc } from '@/types/inventory';
 import Portal from '@/components/Portal';
@@ -14,6 +15,8 @@ import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebas
 import imageCompression from 'browser-image-compression';
 import ExcelImportModal from '@/components/inventory/ExcelImportModal';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
+import { PrintableSheet } from '@/components/admin/PrintableSheet';
+import { LabelPrintConfigurator } from '@/components/admin/LabelPrintConfigurator';
 
 interface Category { id: string; name: string; }
 
@@ -40,8 +43,28 @@ export default function ProductManagementPage() {
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
 
-    // Image state — deferred upload pattern:
-    // compress on select → upload only inside handleSave
+    // Selection + print state
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [printOpen, setPrintOpen] = useState(false);
+
+    const toggleSelect = (id: string) =>
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+
+    const toggleSelectAll = (products: ProductDoc[]) =>
+        setSelectedIds(prev =>
+            prev.size === products.length
+                ? new Set()
+                : new Set(products.map(p => p.id))
+        );
+
+    const selectedProducts = products.filter(p => selectedIds.has(p.id));
+
+    // Image state â€” deferred upload pattern:
+    // compress on select â†’ upload only inside handleSave
     const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string>('');
     const [imageCompressing, setImageCompressing] = useState(false);
@@ -103,7 +126,7 @@ export default function ProductManagementPage() {
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    // ── Step 1: File selected → compress only, NO Firebase call ───
+    // Step 1: File selected â†’ compress only, NO Firebase call â”€â”€â”€
     const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -133,7 +156,7 @@ export default function ProductManagementPage() {
             });
 
             console.log(
-                `[ImageCompress] ${(file.size / 1024).toFixed(0)} KB → ${(compressed.size / 1024).toFixed(0)} KB`,
+                `[ImageCompress] ${(file.size / 1024).toFixed(0)} KB -> ${(compressed.size / 1024).toFixed(0)} KB`,
                 `(saved ${(((file.size - compressed.size) / file.size) * 100).toFixed(0)}%)`
             );
 
@@ -172,7 +195,7 @@ export default function ProductManagementPage() {
         });
     };
 
-    // ── Step 2: Save → upload pending image first, then save doc ─
+    // â”€â”€ Step 2: Save â†’ upload pending image first, then save doc â”€
     const handleSave = async () => {
         if (!form.name?.trim()) { setMessage({ type: 'error', text: 'Tên sản phẩm không được để trống' }); return; }
         setSaving(true);
@@ -264,7 +287,7 @@ export default function ProductManagementPage() {
 
     const updateForm = (key: string, value: any) => setForm(f => ({ ...f, [key]: value }));
 
-    // ─── KPI Cards ──────────────────────────────────────────────────────────
+    // KPI Cards
     const activeCount = products.filter(p => p.isActive).length;
     const inactiveCount = products.filter(p => !p.isActive).length;
     const withImage = products.filter(p => p.image).length;
@@ -393,6 +416,16 @@ export default function ProductManagementPage() {
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="text-left text-[11px] text-surface-500 uppercase tracking-wider bg-surface-50/80 border-b border-surface-200">
+                                    {/* Select-all checkbox */}
+                                    <th className="pl-4 pr-2 py-3.5">
+                                        <input
+                                            type="checkbox"
+                                            checked={filtered.length > 0 && filtered.every(p => selectedIds.has(p.id))}
+                                            onChange={() => toggleSelectAll(filtered)}
+                                            title="Chọn tất cả"
+                                            className="w-4 h-4 accent-primary-600 rounded cursor-pointer"
+                                        />
+                                    </th>
                                     <th className="px-5 py-3.5">
                                         <button onClick={() => handleSort('name')} className="flex items-center gap-1.5 hover:text-surface-800 transition-colors font-bold">
                                             Sản phẩm <SortIcon col="name" />
@@ -434,7 +467,16 @@ export default function ProductManagementPage() {
                             </thead>
                             <tbody className="divide-y divide-surface-100">
                                 {filtered.map(p => (
-                                    <tr key={p.id} className={`group transition-colors ${!p.isActive ? 'opacity-40 bg-surface-50/50' : 'hover:bg-primary-50/30'}`}>
+                                    <tr key={p.id} className={`group transition-colors ${!p.isActive ? 'opacity-40 bg-surface-50/50' : selectedIds.has(p.id) ? 'bg-primary-50/40' : 'hover:bg-primary-50/30'}`}>
+                                        {/* Per-row checkbox */}
+                                        <td className="pl-4 pr-2 py-3">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIds.has(p.id)}
+                                                onChange={() => toggleSelect(p.id)}
+                                                className="w-4 h-4 accent-primary-600 rounded cursor-pointer"
+                                            />
+                                        </td>
                                         <td className="px-5 py-3">
                                             <div className="flex items-center gap-3">
                                                 {p.image ? (
@@ -445,8 +487,23 @@ export default function ProductManagementPage() {
                                                     </div>
                                                 )}
                                                 <div className="min-w-0">
-                                                    <span className="font-semibold text-surface-800 truncate block">{p.name}</span>
-                                                    {p.origin && <span className="text-[10px] text-surface-400">📍 {p.origin}</span>}
+                                                    <div className="flex items-center gap-1.5">
+                                                        <Link
+                                                            href={`/admin/products/${p.companyCode || p.barcode}`}
+                                                            className="font-semibold text-surface-800 truncate hover:text-primary-600 hover:underline underline-offset-2 transition-colors"
+                                                        >
+                                                            {p.name}
+                                                        </Link>
+                                                        <Link
+                                                            href={`/admin/products/${p.companyCode || p.barcode}`}
+                                                            title="Xem chi tiết"
+                                                            className="text-surface-300 hover:text-primary-500 transition-colors shrink-0"
+                                                            onClick={e => e.stopPropagation()}
+                                                        >
+                                                            <ExternalLink className="w-3 h-3" />
+                                                        </Link>
+                                                    </div>
+                                                    {p.origin && <span className="text-[10px] text-surface-400">{p.origin}</span>}
                                                 </div>
                                             </div>
                                         </td>
@@ -494,6 +551,47 @@ export default function ProductManagementPage() {
                     </div>
                 )}
             </div>
+
+            {/* Floating "In Tem" action (appears when products are selected) */}
+            {selectedIds.size > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 bg-white border border-surface-200 rounded-2xl shadow-2xl px-5 py-3">
+                    <span className="text-sm font-semibold text-surface-700">
+                        Đã chọn <span className="text-primary-600 font-black">{selectedIds.size}</span> sản phẩm
+                    </span>
+                    <button
+                        onClick={() => setPrintOpen(true)}
+                        className="flex items-center gap-2 bg-gradient-to-r from-primary-600 to-accent-600 hover:from-primary-700 hover:to-accent-700 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md shadow-primary-500/20 transition-all active:scale-95"
+                    >
+                        <Printer className="w-4 h-4" />
+                        In Tem ({selectedIds.size})
+                    </button>
+                    <button
+                        onClick={() => setSelectedIds(new Set())}
+                        className="text-surface-400 hover:text-surface-600 p-1.5 rounded-xl hover:bg-surface-100 transition-colors"
+                        title="Bá» chá»n táº¥t cáº£"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
+
+            {/* PrintableSheet â€” always in DOM, hidden on screen, visible on print */}
+            <PrintableSheet
+                products={selectedProducts}
+                cols={3}
+                rows={4}
+                qrSize={80}
+                styleConfig={{ showLogo: true, showName: true, showSku: true, showPublicUrlText: false }}
+                siteUrl={process.env.NEXT_PUBLIC_SITE_URL || 'https://joyworld.vn'}
+            />
+
+            {/* ── Label Print Configurator Modal ── */}
+            {printOpen && (
+                <LabelPrintConfigurator
+                    selectedProducts={selectedProducts}
+                    onClose={() => setPrintOpen(false)}
+                />
+            )}
 
             {/* Add/Edit Modal */}
             {modalOpen && (
