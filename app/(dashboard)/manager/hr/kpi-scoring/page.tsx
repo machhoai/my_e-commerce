@@ -235,7 +235,7 @@ export default function ManagerKpiScoringPage() {
     ).length;
 
 
-    if (!userDoc || (userDoc.role !== 'admin' && userDoc.role !== 'store_manager' && userDoc.role !== 'super_admin' && !hasPermission('page.hr.kpi_scoring'))) {
+    if (!userDoc || !hasPermission('page.hr.kpi_scoring')) {
         return <div className="p-8 text-center text-danger-500 font-bold">Không có quyền truy cập.</div>;
     }
 

@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { UserDoc, EmployeeType, UserRole, StoreDoc, CustomRoleDoc } from '@/types';
-import { Users, Search, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Plus, MailPlus, KeyRound, Building2, Shield, Award } from 'lucide-react';
+import { Users, Search, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Plus, MailPlus, KeyRound, Building2, Shield, Award, UserX, RotateCcw, Briefcase, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTableParams } from '@/hooks/useTableParams';
 import { processTableData } from '@/lib/processTableData';
@@ -70,8 +70,8 @@ function ManagerUsersPageContent() {
             key: 'status',
             label: 'Trạng thái',
             options: [
-                { value: 'true', label: 'Hoạt động' },
-                { value: 'false', label: 'Vô hiệu' },
+                { value: 'true', label: 'Đang làm việc' },
+                { value: 'false', label: 'Nghỉ việc' },
             ],
         },
     ];
@@ -303,6 +303,13 @@ function ManagerUsersPageContent() {
     // Build storeId → name lookup map for rendering the Store column in the table
     const storeMap = new Map(stores.map(s => [s.id, s.name]));
 
+    // Compute counts for stat cards (always from full list)
+    const activeEmployees = employees.filter(e => e.isActive !== false);
+    const inactiveEmployees = employees.filter(e => e.isActive === false);
+
+    // Default status filter to 'true' (active) when not set in URL
+    const statusFilterValue = params.status !== undefined && params.status !== '' ? params.status : 'true';
+
     const isKpiSort = params.sort === 'kpi';
     const roleFilterValue = params.role || '';
     const isCustomRoleFilter = roleFilterValue.startsWith('custom:');
@@ -316,7 +323,7 @@ function ManagerUsersPageContent() {
             filters: [
                 { field: 'type' as keyof UserDoc, value: params.type || '' },
                 ...(!isCustomRoleFilter && roleFilterValue ? [{ field: 'role' as keyof UserDoc, value: roleFilterValue }] : []),
-                { field: 'isActive' as keyof UserDoc, value: params.status || '' },
+                { field: 'isActive' as keyof UserDoc, value: statusFilterValue },
             ],
             sortField: isKpiSort ? undefined : (params.sort as keyof UserDoc) || undefined,
             sortOrder: params.order as 'asc' | 'desc',
@@ -408,33 +415,33 @@ function ManagerUsersPageContent() {
                         {/* Toolbar */}
 
 
-                        {/* KPI Stats Cards */}
+                        {/* Stats Cards */}
                         <div className="grid grid-cols-3 gap-3">
-                            <div className="bg-white rounded-xl border border-surface-200 shadow-sm p-4">
+                            <div className="group bg-gradient-to-br from-success-50 to-white rounded-xl border border-success-100 shadow-sm p-4 hover:shadow-md hover:scale-[1.02] transition-all duration-300 cursor-default">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-success-100 flex items-center justify-center">
+                                    <div className="w-10 h-10 rounded-xl bg-success-100 group-hover:bg-success-200 flex items-center justify-center transition-colors">
                                         <UserCheck className="w-5 h-5 text-success-600" />
                                     </div>
                                     <div>
-                                        <p className="text-2xl font-black text-surface-800">{employees.filter(e => e.isActive !== false).length}</p>
-                                        <p className="text-xs text-surface-500 font-medium">Hoạt động</p>
+                                        <p className="text-2xl font-black text-surface-800">{activeEmployees.length}</p>
+                                        <p className="text-xs text-surface-500 font-medium">Đang làm việc</p>
                                     </div>
                                 </div>
                             </div>
-                            <div className="bg-white rounded-xl border border-surface-200 shadow-sm p-4">
+                            <div className="group bg-gradient-to-br from-warning-50 to-white rounded-xl border border-warning-100 shadow-sm p-4 hover:shadow-md hover:scale-[1.02] transition-all duration-300 cursor-default">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-surface-100 flex items-center justify-center">
-                                        <UserMinus className="w-5 h-5 text-surface-500" />
+                                    <div className="w-10 h-10 rounded-xl bg-warning-100 group-hover:bg-warning-200 flex items-center justify-center transition-colors">
+                                        <UserX className="w-5 h-5 text-warning-600" />
                                     </div>
                                     <div>
-                                        <p className="text-2xl font-black text-surface-800">{employees.filter(e => e.isActive === false).length}</p>
-                                        <p className="text-xs text-surface-500 font-medium">Vô hiệu</p>
+                                        <p className="text-2xl font-black text-surface-800">{inactiveEmployees.length}</p>
+                                        <p className="text-xs text-surface-500 font-medium">Nghỉ việc</p>
                                     </div>
                                 </div>
                             </div>
-                            <div className="bg-white rounded-xl border border-surface-200 shadow-sm p-4">
+                            <div className="group bg-gradient-to-br from-primary-50 to-white rounded-xl border border-primary-100 shadow-sm p-4 hover:shadow-md hover:scale-[1.02] transition-all duration-300 cursor-default">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center">
+                                    <div className="w-10 h-10 rounded-xl bg-primary-100 group-hover:bg-primary-200 flex items-center justify-center transition-colors">
                                         <Users className="w-5 h-5 text-primary-600" />
                                     </div>
                                     <div>
@@ -451,7 +458,7 @@ function ManagerUsersPageContent() {
                                 onSearchChange={(v) => setParam('q', v)}
                                 searchPlaceholder="Tìm theo tên hoặc số điện thoại..."
                                 filters={tableFilters}
-                                filterValues={{ type: params.type || '', role: params.role || '', status: params.status || '' }}
+                                filterValues={{ type: params.type || '', role: params.role || '', status: statusFilterValue }}
                                 onFilterChange={(key, value) => setParam(key, value)}
                                 sortOptions={tableSortOptions}
                                 currentSort={params.sort}
@@ -498,13 +505,23 @@ function ManagerUsersPageContent() {
                                     <tbody className="divide-y divide-surface-100">
                                         {loading ? (
                                             <tr>
-                                                <td colSpan={userDoc?.role === 'admin' ? 7 : 6} className="py-12 text-center">
+                                                <td colSpan={userDoc?.role === 'admin' ? 8 : 7} className="py-12 text-center">
                                                     <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
                                                 </td>
                                             </tr>
                                         ) : filteredEmployees.length === 0 ? (
                                             <tr>
-                                                <td colSpan={userDoc?.role === 'admin' ? 7 : 6} className="py-12 text-center text-surface-400">Không tìm thấy nhân viên nào</td>
+                                                <td colSpan={userDoc?.role === 'admin' ? 8 : 7} className="py-16 text-center">
+                                                    <div className="flex flex-col items-center gap-3">
+                                                        <div className="w-16 h-16 rounded-full bg-surface-100 flex items-center justify-center">
+                                                            <Users className="w-7 h-7 text-surface-400" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-semibold text-surface-500">Không tìm thấy nhân viên nào</p>
+                                                            <p className="text-xs text-surface-400 mt-1">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
                                             </tr>
                                         ) : (
                                             paginatedEmployees.map((e) => {
@@ -512,18 +529,31 @@ function ManagerUsersPageContent() {
                                                 const isSubmitting = actionLoading === e.uid;
 
                                                 return (
-                                                    <tr key={e.uid} className={`group transition-colors ${!isActive ? 'opacity-40 bg-surface-50/50' : 'hover:bg-primary-50/30'}`}>
+                                                    <tr key={e.uid} className={`group transition-all duration-200 ${!isActive ? 'bg-surface-50/50 hover:bg-surface-100/70' : 'hover:bg-primary-50/30'}`}>
                                                         <td className="px-5 py-3.5 whitespace-nowrap">
-                                                            <div
-                                                                className={cn(
-                                                                    `font-semibold transition-colors ${!isActive ? 'text-surface-400' : 'text-surface-900 group-hover:text-primary-700'}`,
-                                                                    hasPermission('action.hr.view_employee_profile') && 'cursor-pointer hover:underline'
-                                                                )}
-                                                                onClick={() => { if (hasPermission('action.hr.view_employee_profile')) setProfileUid(e.uid); }}
-                                                            >
-                                                                {e.name}
+                                                            <div className="flex items-center gap-3">
+                                                                {/* Avatar initials */}
+                                                                <div className={cn(
+                                                                    'w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-transform group-hover:scale-110',
+                                                                    isActive
+                                                                        ? 'bg-gradient-to-br from-primary-400 to-accent-500 text-white shadow-sm'
+                                                                        : 'bg-surface-200 text-surface-500'
+                                                                )}>
+                                                                    {e.name.split(' ').slice(-1)[0]?.[0]?.toUpperCase() || '?'}
+                                                                </div>
+                                                                <div>
+                                                                    <div
+                                                                        className={cn(
+                                                                            `font-semibold transition-colors ${!isActive ? 'text-surface-400' : 'text-surface-900 group-hover:text-primary-700'}`,
+                                                                            hasPermission('action.hr.view_employee_profile') && 'cursor-pointer hover:underline'
+                                                                        )}
+                                                                        onClick={() => { if (hasPermission('action.hr.view_employee_profile')) setProfileUid(e.uid); }}
+                                                                    >
+                                                                        {e.name}
+                                                                    </div>
+                                                                    <div className="text-surface-400 text-xs mt-0.5 font-medium">{e.phone}</div>
+                                                                </div>
                                                             </div>
-                                                            <div className="text-surface-400 text-xs mt-0.5 font-medium">{e.phone}</div>
                                                         </td>
                                                         <td className="px-4 py-3.5">
                                                             <span className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-lg border ${e.type === 'FT' ? 'bg-primary-50 text-primary-700 border-primary-200' : 'bg-accent-50 text-accent-700 border-accent-200'}`}>
@@ -585,10 +615,10 @@ function ManagerUsersPageContent() {
                                                                 );
                                                             })()}
                                                         </td>
-                                                        <td className="px-4 py-3.5">
+                                                        <td className="px-4 py-3.5 text-center">
                                                             <span className={`inline-flex truncate items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border ${isActive ? 'bg-success-50 text-success-600 border-success-200' : 'bg-surface-50 text-surface-500 border-surface-200'}`}>
                                                                 <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-success-500 animate-pulse' : 'bg-surface-400'}`}></span>
-                                                                {isActive ? 'Hoạt động' : 'Vô hiệu'}
+                                                                {isActive ? 'Đang làm việc' : 'Nghỉ việc'}
                                                             </span>
                                                         </td>
                                                         <td className="px-4 py-3.5 text-right">
@@ -601,29 +631,39 @@ function ManagerUsersPageContent() {
                                                                 >
                                                                     Sửa
                                                                 </button>
-                                                                <button
-                                                                    onClick={() => handleToggleActive(e.uid, isActive, e.name)}
-                                                                    disabled={isSubmitting || actionLoading !== null}
-                                                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${isActive
-                                                                        ? 'bg-danger-50 text-danger-600 hover:bg-danger-100 border-danger-200 focus:ring-danger-500/30'
-                                                                        : 'bg-success-50 text-success-600 hover:bg-success-100 border-success-200'
-                                                                        }`}
-                                                                    title={isActive ? 'Deactivate Employee (Soft Delete)' : 'Reactivate Employee'}
-                                                                >
-                                                                    {isSubmitting ? (
-                                                                        <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                                                                    ) : isActive ? (
-                                                                        <span className="truncate flex items-center gap-1.5">
-                                                                            <UserMinus className="w-3.5 h-3.5" />
-                                                                            Vô hiệu hóa
-                                                                        </span>
-                                                                    ) : (
-                                                                        <span className="truncate flex items-center gap-1.5">
-                                                                            <UserCheck className="w-3.5 h-3.5" />
-                                                                            Kích hoạt
-                                                                        </span>
-                                                                    )}
-                                                                </button>
+                                                                {isActive ? (
+                                                                    <button
+                                                                        onClick={() => handleToggleActive(e.uid, true, e.name)}
+                                                                        disabled={isSubmitting || actionLoading !== null}
+                                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed bg-danger-50 text-danger-600 hover:bg-danger-100 border-danger-200"
+                                                                        title="Cho nghỉ việc"
+                                                                    >
+                                                                        {isSubmitting ? (
+                                                                            <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                                                        ) : (
+                                                                            <span className="truncate flex items-center gap-1.5">
+                                                                                <UserMinus className="w-3.5 h-3.5" />
+                                                                                Cho nghỉ việc
+                                                                            </span>
+                                                                        )}
+                                                                    </button>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => handleToggleActive(e.uid, false, e.name)}
+                                                                        disabled={isSubmitting || actionLoading !== null}
+                                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed bg-success-50 text-success-600 hover:bg-success-100 border-success-200"
+                                                                        title="Kích hoạt lại nhân viên"
+                                                                    >
+                                                                        {isSubmitting ? (
+                                                                            <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                                                        ) : (
+                                                                            <span className="truncate flex items-center gap-1.5">
+                                                                                <RotateCcw className="w-3.5 h-3.5" />
+                                                                                Kích hoạt lại
+                                                                            </span>
+                                                                        )}
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         </td>
                                                     </tr>

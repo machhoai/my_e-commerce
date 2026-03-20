@@ -1,9 +1,12 @@
-﻿'use client';
+'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { KpiCriteriaScore } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { X, ClipboardCheck, Layers, Save, AlertCircle, Minus, Plus } from 'lucide-react';
+import {
+    X, ClipboardCheck, Layers, Save, AlertCircle, ChevronDown,
+    ArrowRight, Zap, Copy, MessageSquare,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Portal from '@/components/Portal';
 
@@ -30,21 +33,26 @@ export default function OfficialScoringModal({
     const [scores, setScores] = useState<KpiCriteriaScore[]>([]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+    const [activeNoteIdx, setActiveNoteIdx] = useState<number | null>(null);
 
     useEffect(() => {
         if (isOpen && details) {
-            // Pre-fill officialScore with selfScore (or maxScore if self=0)
             setScores(details.map(d => ({
                 ...d,
                 officialScore: d.selfScore > 0 ? d.selfScore : d.maxScore,
             })));
             setError('');
+            setExpandedGroups(new Set(templateGroups.map((_, i) => i)));
+            setActiveNoteIdx(null);
         }
-    }, [isOpen, details]);
+    }, [isOpen, details, templateGroups]);
+
+    const officialTotal = useMemo(() => scores.reduce((s, d) => s + (d.officialScore || 0), 0), [scores]);
 
     if (!isOpen) return null;
 
-    const officialTotal = scores.reduce((s, d) => s + (d.officialScore || 0), 0);
+    const diff = officialTotal - selfTotal;
 
     const updateScore = (idx: number, val: number) => {
         const next = [...scores];
@@ -58,7 +66,23 @@ export default function OfficialScoringModal({
         setScores(next);
     };
 
-    // Group criteria back to template groups for structured display
+    const copySelfScores = () => {
+        setScores(prev => prev.map(s => ({ ...s, officialScore: s.selfScore > 0 ? s.selfScore : s.maxScore })));
+    };
+
+    const setAllMax = () => {
+        setScores(prev => prev.map(s => ({ ...s, officialScore: s.maxScore })));
+    };
+
+    const toggleGroup = (idx: number) => {
+        setExpandedGroups(prev => {
+            const next = new Set(prev);
+            next.has(idx) ? next.delete(idx) : next.add(idx);
+            return next;
+        });
+    };
+
+    // Group criteria back to template groups
     const grouped: GroupedCriteria[] = templateGroups.map(g => ({
         groupName: g.name,
         criteria: g.criteria.map(c => scores.find(s => s.criteriaName === c.name) || {
@@ -81,98 +105,225 @@ export default function OfficialScoringModal({
         } catch (err) { setError(err instanceof Error ? err.message : 'Lỗi chấm điểm'); } finally { setSaving(false); }
     };
 
+    const scoreColor = (v: number) => v >= 80 ? 'text-success-600' : v >= 50 ? 'text-warning-600' : 'text-danger-600';
+    const ringColor = officialTotal >= 80 ? 'stroke-success-500' : officialTotal >= 50 ? 'stroke-warning-500' : 'stroke-danger-500';
+
+    const radius = 28;
+    const circumference = 2 * Math.PI * radius;
+    const progress = (officialTotal / 100) * circumference;
+    const selfProgress = (selfTotal / 100) * circumference;
+
     return (
         <Portal>
-            <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-                    {/* Header */}
-                    <div className="p-5 border-b border-surface-100 shrink-0">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h2 className="text-lg font-bold text-surface-800 flex items-center gap-2">
-                                    <ClipboardCheck className="w-5 h-5 text-accent-500" />
-                                    Chấm điểm chính thức
-                                </h2>
-                                <p className="text-sm text-surface-500 mt-0.5">Nhân viên: <span className="font-semibold text-surface-700">{employeeName}</span></p>
+            <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+                 onClick={onClose}>
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 fade-in duration-200"
+                     onClick={e => e.stopPropagation()}>
+                    {/* ── Header ── */}
+                    <div className="px-5 pt-5 pb-4 border-b border-surface-100 shrink-0">
+                        <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-4">
+                                {/* Dual progress ring */}
+                                <div className="relative w-[72px] h-[72px] shrink-0">
+                                    <svg className="w-full h-full -rotate-90" viewBox="0 0 64 64">
+                                        {/* Self-score ring (outer, faded) */}
+                                        <circle cx="32" cy="32" r={radius} fill="none" strokeWidth="4"
+                                            className="stroke-surface-100" />
+                                        <circle cx="32" cy="32" r={radius} fill="none" strokeWidth="4"
+                                            strokeLinecap="round" className="stroke-primary-200"
+                                            strokeDasharray={circumference}
+                                            strokeDashoffset={circumference - selfProgress} />
+                                        {/* Official ring (inner, bold) */}
+                                        <circle cx="32" cy="32" r={22} fill="none" strokeWidth="5"
+                                            className="stroke-surface-50" />
+                                        <circle cx="32" cy="32" r={22} fill="none" strokeWidth="5"
+                                            strokeLinecap="round"
+                                            className={cn(ringColor, 'transition-all duration-500')}
+                                            strokeDasharray={2 * Math.PI * 22}
+                                            strokeDashoffset={(2 * Math.PI * 22) - ((officialTotal / 100) * 2 * Math.PI * 22)} />
+                                    </svg>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <span className={cn('text-sm font-black', scoreColor(officialTotal))}>{officialTotal}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-surface-800 flex items-center gap-2">
+                                        <ClipboardCheck className="w-5 h-5 text-accent-500" />
+                                        Chấm chính thức
+                                    </h2>
+                                    <p className="text-sm text-surface-500 mt-0.5">
+                                        <span className="font-semibold text-surface-700">{employeeName}</span>
+                                    </p>
+                                </div>
                             </div>
-                            <button onClick={onClose} className="p-2 rounded-lg hover:bg-surface-100 text-surface-400"><X className="w-5 h-5" /></button>
+                            <button onClick={onClose} className="p-2 rounded-lg hover:bg-surface-100 text-surface-400 -mr-1 -mt-1 transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
                         </div>
-                        {/* Self-score badge */}
-                        <div className="mt-3 flex items-center gap-3 text-xs">
-                            <span className="px-2.5 py-1 rounded-lg bg-primary-50 text-primary-700 font-bold border border-primary-200">
-                                NV tự chấm: {selfTotal}/100
-                            </span>
-                            <span className={cn('px-2.5 py-1 rounded-lg font-bold border',
-                                officialTotal >= 80 ? 'bg-success-50 text-success-700 border-success-200' :
-                                    officialTotal >= 50 ? 'bg-warning-50 text-warning-700 border-warning-200' :
-                                        'bg-danger-50 text-danger-700 border-danger-200'
+
+                        {/* Score comparison + quick actions */}
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary-50 border border-primary-200">
+                                <span className="text-[11px] text-primary-500">NV tự chấm</span>
+                                <span className="text-xs font-black text-primary-700">{selfTotal}</span>
+                            </div>
+                            <ArrowRight className="w-3.5 h-3.5 text-surface-300" />
+                            <div className={cn('flex items-center gap-1.5 px-2.5 py-1 rounded-lg border',
+                                officialTotal >= 80 ? 'bg-success-50 border-success-200' :
+                                officialTotal >= 50 ? 'bg-warning-50 border-warning-200' :
+                                                     'bg-danger-50 border-danger-200'
                             )}>
-                                Điểm chính thức: {officialTotal}/100
-                            </span>
+                                <span className="text-[11px] text-surface-500">Chính thức</span>
+                                <span className={cn('text-xs font-black', scoreColor(officialTotal))}>{officialTotal}</span>
+                            </div>
+                            {diff !== 0 && (
+                                <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded-full',
+                                    diff > 0 ? 'bg-success-100 text-success-700' : 'bg-danger-100 text-danger-700'
+                                )}>
+                                    {diff > 0 ? '+' : ''}{diff}
+                                </span>
+                            )}
+
+                            <div className="flex-1" />
+                            <button onClick={copySelfScores}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-primary-50 text-primary-600 border border-primary-200 hover:bg-primary-100 transition-colors active:scale-[0.97]">
+                                <Copy className="w-3 h-3" /> Lấy điểm NV
+                            </button>
+                            <button onClick={setAllMax}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-success-50 text-success-600 border border-success-200 hover:bg-success-100 transition-colors active:scale-[0.97]">
+                                <Zap className="w-3 h-3" /> Tối đa
+                            </button>
                         </div>
                     </div>
 
-                    {/* Body */}
-                    <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                    {/* ── Body ── */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
                         {error && (
-                            <div className="bg-danger-50 text-danger-600 p-2.5 rounded-lg flex items-center gap-2 text-sm border border-danger-100">
+                            <div className="bg-danger-50 text-danger-600 p-2.5 rounded-xl flex items-center gap-2 text-sm border border-danger-100">
                                 <AlertCircle className="w-4 h-4 shrink-0" />{error}
                             </div>
                         )}
 
-                        {grouped.map((group, gi) => (
-                            <div key={gi} className="border border-surface-200 rounded-xl p-3 bg-surface-50/50">
-                                <p className="text-xs font-bold text-accent-700 mb-2 flex items-center gap-1.5">
-                                    <Layers className="w-3.5 h-3.5" />
-                                    {group.groupName}
-                                </p>
-                                <div className="space-y-2">
-                                    {group.criteria.map((c) => {
-                                        const idx = scores.findIndex(s => s.criteriaName === c.criteriaName);
-                                        if (idx === -1) return null;
-                                        const s = scores[idx];
-                                        return (
-                                            <div key={c.criteriaName} className="bg-white rounded-lg p-3 border border-surface-100 space-y-2">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-medium text-surface-700 truncate">{c.criteriaName}</p>
-                                                        <div className="flex items-center gap-2 mt-0.5">
-                                                            <span className="text-[10px] text-surface-400">Tối đa: {c.maxScore}đ</span>
-                                                            {s.selfScore > 0 && <span className="text-[10px] text-primary-500 font-semibold">NV: {s.selfScore}đ</span>}
+                        {grouped.map((group, gi) => {
+                            const isExpanded = expandedGroups.has(gi);
+                            const groupOfficial = group.criteria.reduce((s, c) => s + (c.officialScore || 0), 0);
+                            const groupSelf = group.criteria.reduce((s, c) => s + (c.selfScore || 0), 0);
+                            const groupMax = group.criteria.reduce((s, c) => s + c.maxScore, 0);
+                            const groupDiff = groupOfficial - groupSelf;
+
+                            return (
+                                <div key={gi} className="border border-surface-200 rounded-xl overflow-hidden bg-surface-50/30">
+                                    {/* Group header */}
+                                    <button
+                                        onClick={() => toggleGroup(gi)}
+                                        className="w-full flex items-center gap-2 px-3.5 py-2.5 hover:bg-surface-50 transition-colors"
+                                    >
+                                        <Layers className="w-3.5 h-3.5 text-accent-600 shrink-0" />
+                                        <span className="text-xs font-bold text-accent-800 flex-1 text-left">{group.groupName}</span>
+                                        <div className="flex items-center gap-1.5 text-[10px]">
+                                            <span className="font-bold text-primary-500">{groupSelf}</span>
+                                            <ArrowRight className="w-2.5 h-2.5 text-surface-300" />
+                                            <span className={cn('font-black', scoreColor(Math.round((groupOfficial / Math.max(groupMax, 1)) * 100)))}>{groupOfficial}</span>
+                                            <span className="text-surface-400">/{groupMax}</span>
+                                            {groupDiff !== 0 && (
+                                                <span className={cn('font-bold', groupDiff > 0 ? 'text-success-500' : 'text-danger-500')}>
+                                                    ({groupDiff > 0 ? '+' : ''}{groupDiff})
+                                                </span>
+                                            )}
+                                        </div>
+                                        <ChevronDown className={cn('w-3.5 h-3.5 text-surface-400 transition-transform duration-200', isExpanded && 'rotate-180')} />
+                                    </button>
+
+                                    {/* Criteria */}
+                                    {isExpanded && (
+                                        <div className="px-3 pb-3 space-y-1.5">
+                                            {group.criteria.map((c) => {
+                                                const idx = scores.findIndex(s => s.criteriaName === c.criteriaName);
+                                                if (idx === -1) return null;
+                                                const s = scores[idx];
+                                                const itemDiff = (s.officialScore || 0) - (s.selfScore || 0);
+                                                const showNote = activeNoteIdx === idx;
+                                                const pct = s.maxScore > 0 ? ((s.officialScore || 0) / s.maxScore) * 100 : 0;
+
+                                                return (
+                                                    <div key={c.criteriaName} className="bg-white rounded-xl p-3 border border-surface-100 hover:border-accent-200 transition-colors">
+                                                        {/* Title + self score ref */}
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <div className="flex-1 min-w-0 mr-3">
+                                                                <p className="text-sm font-medium text-surface-700">{c.criteriaName}</p>
+                                                                <div className="flex items-center gap-2 mt-0.5">
+                                                                    <span className="text-[10px] text-surface-400">Tối đa: {c.maxScore}</span>
+                                                                    <span className="text-[10px] text-primary-500 font-semibold">NV: {s.selfScore}</span>
+                                                                    {itemDiff !== 0 && (
+                                                                        <span className={cn('text-[10px] font-bold',
+                                                                            itemDiff > 0 ? 'text-success-500' : 'text-danger-500'
+                                                                        )}>
+                                                                            {itemDiff > 0 ? '+' : ''}{itemDiff}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                                <button onClick={() => updateScore(idx, s.officialScore - 1)}
+                                                                    className="w-8 h-8 rounded-lg bg-surface-50 hover:bg-danger-50 hover:text-danger-600 text-surface-500 font-bold flex items-center justify-center transition-all duration-150 active:scale-90 border border-surface-100 hover:border-danger-200">
+                                                                    −
+                                                                </button>
+                                                                <input type="number" min={0} max={c.maxScore}
+                                                                    value={s.officialScore}
+                                                                    onChange={e => updateScore(idx, parseInt(e.target.value) || 0)}
+                                                                    className="w-14 text-center text-sm font-black border border-surface-200 rounded-lg py-1.5 outline-none focus:ring-2 focus:ring-accent-500/30 focus:border-accent-400 transition-all" />
+                                                                <button onClick={() => updateScore(idx, s.officialScore + 1)}
+                                                                    className="w-8 h-8 rounded-lg bg-surface-50 hover:bg-success-50 hover:text-success-600 text-surface-500 font-bold flex items-center justify-center transition-all duration-150 active:scale-90 border border-surface-100 hover:border-success-200">
+                                                                    +
+                                                                </button>
+                                                            </div>
                                                         </div>
+
+                                                        {/* Slider */}
+                                                        <div className="flex items-center gap-2.5">
+                                                            <input type="range" min={0} max={c.maxScore} value={s.officialScore || 0}
+                                                                onChange={e => updateScore(idx, parseInt(e.target.value))}
+                                                                className="flex-1 h-1.5 rounded-full appearance-none cursor-pointer accent-accent-500
+                                                                    [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent-500 [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-125
+                                                                    [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-surface-200" />
+                                                            <button onClick={() => setActiveNoteIdx(showNote ? null : idx)}
+                                                                className={cn('p-1 rounded transition-colors',
+                                                                    showNote || s.note ? 'text-accent-500 bg-accent-50' : 'text-surface-300 hover:text-surface-500'
+                                                                )}>
+                                                                <MessageSquare className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Progress bar */}
+                                                        <div className="w-full h-1 rounded-full bg-surface-100 mt-2 overflow-hidden">
+                                                            <div className={cn('h-full rounded-full transition-all duration-300',
+                                                                pct >= 80 ? 'bg-success-400' : pct >= 50 ? 'bg-warning-400' : 'bg-danger-400'
+                                                            )} style={{ width: `${pct}%` }} />
+                                                        </div>
+
+                                                        {/* Note field — toggled */}
+                                                        {showNote && (
+                                                            <input value={s.note || ''} onChange={e => updateNote(idx, e.target.value)}
+                                                                placeholder="Nhận xét (tùy chọn)..."
+                                                                autoFocus
+                                                                className="w-full text-xs border border-surface-200 rounded-lg px-3 py-2 mt-2 outline-none focus:ring-2 focus:ring-accent-500/20 focus:border-accent-400 text-surface-600 placeholder:text-surface-300 transition-all" />
+                                                        )}
                                                     </div>
-                                                    <div className="flex items-center gap-1 shrink-0">
-                                                        <button onClick={() => updateScore(idx, s.officialScore - 1)}
-                                                            className="w-8 h-8 rounded-lg bg-surface-100 hover:bg-danger-100 hover:text-danger-600 text-surface-600 font-bold flex items-center justify-center transition-colors">
-                                                            <Minus className="w-3.5 h-3.5" />
-                                                        </button>
-                                                        <input type="number" min={0} max={c.maxScore}
-                                                            value={s.officialScore}
-                                                            onChange={e => updateScore(idx, parseInt(e.target.value) || 0)}
-                                                            className="w-14 text-center text-sm font-bold border border-surface-200 rounded-lg py-1.5 outline-none focus:ring-2 focus:ring-accent-500/20" />
-                                                        <button onClick={() => updateScore(idx, s.officialScore + 1)}
-                                                            className="w-8 h-8 rounded-lg bg-surface-100 hover:bg-success-100 hover:text-success-600 text-surface-600 font-bold flex items-center justify-center transition-colors">
-                                                            <Plus className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                {/* Note field */}
-                                                <input value={s.note || ''} onChange={e => updateNote(idx, e.target.value)} placeholder="Ghi chú (tùy chọn)..."
-                                                    className="w-full text-xs border border-surface-100 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-accent-500/20 text-surface-500" />
-                                            </div>
-                                        );
-                                    })}
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
-                    {/* Footer */}
-                    <div className="p-5 border-t border-surface-100 shrink-0">
+                    {/* ── Footer ── */}
+                    <div className="p-4 border-t border-surface-100 shrink-0 bg-surface-50/50">
                         <button onClick={handleSubmit} disabled={saving}
-                            className="w-full bg-accent-600 hover:bg-accent-700 disabled:opacity-50 text-white py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors">
+                            className="w-full bg-gradient-to-r from-accent-600 to-accent-700 hover:from-accent-700 hover:to-accent-800 disabled:opacity-50 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] shadow-lg shadow-accent-600/25">
                             {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
-                            Lưu điểm chính thức
+                            Lưu điểm chính thức · {officialTotal}/100
                         </button>
                     </div>
                 </div>

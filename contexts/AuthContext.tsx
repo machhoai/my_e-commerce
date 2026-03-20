@@ -116,8 +116,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         setRoleDefaultRoute(null);
                     }
                 } else {
-                    setPermissions(new Set());
-                    setRoleDefaultRoute(null);
+                    // No customRoleId — try loading permissions from the system role doc
+                    // System roles (manager, store_manager, employee) are stored in
+                    // custom_roles collection with doc ID matching the role name.
+                    try {
+                        const sysRoleSnap = await getDoc(doc(db, 'custom_roles', data.role));
+                        if (sysRoleSnap.exists()) {
+                            const sysRoleData = sysRoleSnap.data() as CustomRoleDoc;
+                            setPermissions(new Set<string>(sysRoleData.permissions ?? []));
+                            setRoleDefaultRoute(sysRoleData.defaultRoute || null);
+                        } else {
+                            setPermissions(new Set());
+                            setRoleDefaultRoute(null);
+                        }
+                    } catch {
+                        setPermissions(new Set());
+                        setRoleDefaultRoute(null);
+                    }
                 }
 
                 // ── Resolve office managed stores ───────────────────────
