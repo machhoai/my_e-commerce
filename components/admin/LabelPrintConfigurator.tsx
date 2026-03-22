@@ -157,7 +157,7 @@ export function LabelPrintConfigurator({ selectedProducts, onClose }: Props) {
                                     <div className="space-y-4">
                                         <Toggle checked={styleConfig.showLogo} onChange={v => updateStyle('showLogo', v)} label="Logo Joyworld" icon={<span className="text-base">🏷️</span>} />
                                         <Toggle checked={styleConfig.showName} onChange={v => updateStyle('showName', v)} label="Tên sản phẩm" icon={<Tag className="w-4 h-4 text-slate-400" />} />
-                                        <Toggle checked={styleConfig.showSku} onChange={v => updateStyle('showSku', v)} label="Mã nội bộ (SKU)" icon={<span className="text-base font-mono text-slate-400 text-xs">#</span>} />
+                                        <Toggle checked={styleConfig.showSku} onChange={v => updateStyle('showSku', v)} label="Mã nội bộ (SKU)" icon={<span className="font-mono text-slate-400 text-xs">#</span>} />
                                         <Toggle checked={styleConfig.showPublicUrlText} onChange={v => updateStyle('showPublicUrlText', v)} label="URL văn bản" icon={<Eye className="w-4 h-4 text-slate-400" />} />
                                     </div>
                                 </section>

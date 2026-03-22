@@ -99,6 +99,17 @@ export function middleware(request: NextRequest) {
         }
     }
 
+    // ── 3b. /dashboard — any authenticated role may access (PWA home) ─────────
+    if (pathname.startsWith('/dashboard')) {
+        if (!hasSession) {
+            return NextResponse.redirect(new URL('/login', request.url));
+        }
+        // Pass through — all authenticated roles allowed.
+        // Do NOT update last_visited_path; PWA users would return here on
+        // every launch, while desktop users' last real path stays untouched.
+        return NextResponse.next();
+    }
+
     // ── 4. Protected routes: track last_visited_path ───────────────────────
     const isProtected = PROTECTED_ROUTE_PREFIXES.some(prefix =>
         pathname.startsWith(prefix)

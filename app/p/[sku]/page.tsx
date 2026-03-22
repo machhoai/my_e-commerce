@@ -125,7 +125,7 @@ export default async function PublicProductPage(
                         </div>
                     )}
                     {/* SKU badge */}
-                    <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-slate-500 text-[11px] font-mono px-2.5 py-1 rounded-full border border-slate-200 shadow-sm">
+                    <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-slate-500 text-[15px] font-bold font-mono px-2.5 py-1 rounded-full border border-slate-200 shadow-sm">
                         {product.sku}
                     </span>
                 </div>

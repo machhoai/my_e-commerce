@@ -5,6 +5,7 @@ import { Inter } from "next/font/google";
 import "./global.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import InstallPWA from "@/components/InstallPWA";
+import PwaRedirect from "@/components/PwaRedirect";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -77,6 +78,7 @@ export default function RootLayout({
                 <AuthProvider>
                     {children}
                     <InstallPWA />
+                    <PwaRedirect />
                 </AuthProvider>
             </body>
         </html>
