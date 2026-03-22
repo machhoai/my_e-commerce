@@ -5,26 +5,33 @@
  *
  * Logic:
  * • If the app is running in PWA standalone mode (installed on home screen)
- *   AND the user is authenticated → redirect to /dashboard.
+ *   AND the user is authenticated
+ *   AND the user has a role allowed to use the mobile dashboard
+ *   → redirect to /dashboard.
  * • If already on /dashboard, do nothing (avoid redirect loop).
- * • Uses matchMedia('(display-mode: standalone)') for Chrome/Android.
- * • Also checks navigator.standalone (iOS Safari PWA).
+ *
+ * Allowed roles: admin, super_admin, store_manager
  */
 
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
+// Roles that are allowed to be redirected to the mobile dashboard
+const DASHBOARD_ROLES = new Set(['admin', 'super_admin', 'store_manager']);
+
 export default function PwaRedirect() {
     const router = useRouter();
     const pathname = usePathname();
-    const { user, loading } = useAuth();
+    const { user, userDoc, loading } = useAuth();
 
     useEffect(() => {
-        // Wait until auth state resolves
+        // Wait until auth state fully resolves (including userDoc)
         if (loading) return;
         // Must be authenticated
-        if (!user) return;
+        if (!user || !userDoc) return;
+        // Only allowed roles
+        if (!DASHBOARD_ROLES.has(userDoc.role)) return;
         // Already on dashboard — nothing to do
         if (pathname.startsWith('/dashboard')) return;
 
@@ -37,7 +44,7 @@ export default function PwaRedirect() {
         if (isStandalone) {
             router.replace('/dashboard');
         }
-    }, [user, loading, pathname, router]);
+    }, [user, userDoc, loading, pathname, router]);
 
     return null;
 }

@@ -99,14 +99,17 @@ export function middleware(request: NextRequest) {
         }
     }
 
-    // ── 3b. /dashboard — any authenticated role may access (PWA home) ─────────
+    // ── 3b. /dashboard — PWA mobile home (admin + store_manager only) ─────────
     if (pathname.startsWith('/dashboard')) {
         if (!hasSession) {
             return NextResponse.redirect(new URL('/login', request.url));
         }
-        // Pass through — all authenticated roles allowed.
-        // Do NOT update last_visited_path; PWA users would return here on
-        // every launch, while desktop users' last real path stays untouched.
+        const DASHBOARD_ROLES = new Set(['admin', 'super_admin', 'store_manager']);
+        if (!DASHBOARD_ROLES.has(userRole)) {
+            return NextResponse.redirect(new URL('/403', request.url));
+        }
+        // Do NOT update last_visited_path so desktop users' last real path
+        // stays untouched when they close the PWA.
         return NextResponse.next();
     }
 
