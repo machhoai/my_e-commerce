@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, where, getDoc, doc } from 'firebase/firestore';
 import {
-    QrCode, PlusSquare, ClipboardList, LayoutGrid,
+    QrCode, PlusSquare, ClipboardList, ClipboardCheck, LayoutGrid,
     ChevronRight, ChevronDown, ChevronLeft,
     Clock, CheckCircle2, AlertTriangle,
     Users, TrendingUp, Activity,
@@ -1270,27 +1270,224 @@ function RevenueTab() {
 }
 
 function InventoryTab() {
+    const { user, userDoc, effectiveStoreId } = useAuth();
+
+    type MergedProd = { id: string; name: string; companyCode: string; category: string; currentStock: number; minStock: number; stockStatus: 'safe' | 'low' | 'out'; image: string; unit: string };
+    type Order = { id: string; status: string; timestamp: string; items: { productName: string; requestedQty: number; unit: string }[]; createdByName: string };
+
+    const [products, setProducts] = useState<MergedProd[]>([]);
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const storeId = effectiveStoreId || userDoc?.storeId || '';
+
+    const fetchAll = useCallback(async () => {
+        if (!user || !storeId) { setLoading(false); return; }
+        setLoading(true); setError(null);
+        try {
+            const token = await user.getIdToken();
+            const h = { Authorization: `Bearer ${token}` };
+            const [prodRes, balRes, ordRes] = await Promise.all([
+                fetch('/api/inventory/products', { headers: h }),
+                fetch(`/api/inventory/balances?locationType=STORE&locationId=${storeId}`, { headers: h }),
+                fetch(`/api/inventory/orders?storeId=${storeId}`, { headers: h }),
+            ]);
+            const [prodData, balData, ordData] = await Promise.all([prodRes.json(), balRes.json(), ordRes.json()]);
+
+            const prods = Array.isArray(prodData) ? prodData.filter((p: { isActive?: boolean }) => p.isActive !== false) : [];
+            const bals: { productId: string; currentStock: number }[] = Array.isArray(balData) ? balData : [];
+
+            const merged: MergedProd[] = prods.map((p: { id: string; name: string; companyCode?: string; category?: string; minStock?: number; image?: string; unit?: string }) => {
+                const bal = bals.find(b => b.productId === p.id);
+                const stock = bal?.currentStock ?? 0;
+                const min = p.minStock ?? 0;
+                return {
+                    id: p.id, name: p.name, companyCode: p.companyCode || '',
+                    category: p.category || '', currentStock: stock, minStock: min,
+                    stockStatus: stock === 0 ? 'out' : stock <= min ? 'low' : 'safe',
+                    image: p.image || '', unit: p.unit || '',
+                };
+            });
+            setProducts(merged);
+            setOrders(Array.isArray(ordData) ? ordData : []);
+        } catch (e) {
+            setError('Không thể tải dữ liệu kho');
+            console.error('[InventoryTab]', e);
+        } finally { setLoading(false); }
+    }, [user, storeId]);
+
+    useEffect(() => { fetchAll(); }, [fetchAll]);
+
+    const outProds = products.filter(p => p.stockStatus === 'out');
+    const lowProds = products.filter(p => p.stockStatus === 'low');
+    const pendingOrders = orders.filter(o => o.status === 'PENDING_OFFICE' || o.status === 'PENDING' || o.status === 'APPROVED_BY_OFFICE' || o.status === 'IN_TRANSIT');
+
+    const STATUS_LABEL: Record<string, string> = {
+        PENDING_OFFICE: 'Chờ VP duyệt', APPROVED_BY_OFFICE: 'VP đã duyệt',
+        IN_TRANSIT: 'Đang giao', COMPLETED: 'Hoàn tất', REJECTED: 'Từ chối',
+        CANCELED: 'Đã hủy', PENDING: 'Chờ duyệt', DISPATCHED: 'Đã xuất kho',
+    };
+    const STATUS_COLOR: Record<string, string> = {
+        PENDING_OFFICE: 'bg-amber-50 text-amber-700', APPROVED_BY_OFFICE: 'bg-sky-50 text-sky-700',
+        IN_TRANSIT: 'bg-violet-50 text-violet-700', COMPLETED: 'bg-emerald-50 text-emerald-700',
+        REJECTED: 'bg-red-50 text-red-700', CANCELED: 'bg-gray-100 text-gray-400',
+        PENDING: 'bg-amber-50 text-amber-700', DISPATCHED: 'bg-emerald-50 text-emerald-700',
+    };
+
+    if (!storeId && !loading) {
+        return (
+            <div className="flex flex-col items-center justify-center py-12 gap-2">
+                <Package className="w-10 h-10 text-gray-200" />
+                <p className="text-sm text-gray-400">Chưa có cửa hàng được chọn</p>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col gap-3">
-            <MetricCard
-                value="1,204"
-                sub="Đang theo dõi trong kho"
-                icon={Package}
-                colorClass="bg-sky-50 text-sky-500"
-            />
-            <MetricCard
-                value="18 SKU"
-                sub="Dưới ngưỡng tồn tối thiểu"
-                icon={PackagePlus}
-                colorClass="bg-rose-50 text-rose-500"
-                alert
-            />
-            <MetricCard
-                value="3"
-                sub="Chờ xác nhận từ kho tổng"
-                icon={ArrowLeftRight}
-                colorClass="bg-orange-50 text-orange-500"
-            />
+            {/* KPI row */}
+            <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-3 flex flex-col items-center gap-1">
+                    <span className="w-9 h-9 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center">
+                        <Package className="w-5 h-5" strokeWidth={1.75} />
+                    </span>
+                    <p className="text-2xl font-bold text-gray-900 leading-tight">
+                        {loading ? '…' : products.length}
+                    </p>
+                    <p className="text-[10px] text-gray-400 font-medium text-center">SKU theo dõi</p>
+                </div>
+                <div className={cn('rounded-2xl border shadow-sm p-3 flex flex-col items-center gap-1', (outProds.length + lowProds.length) > 0 ? 'bg-amber-50 border-amber-100' : 'bg-white border-gray-100')}>
+                    <span className="w-9 h-9 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center">
+                        <PackagePlus className="w-5 h-5" strokeWidth={1.75} />
+                    </span>
+                    <p className="text-2xl font-bold text-gray-900 leading-tight">
+                        {loading ? '…' : outProds.length + lowProds.length}
+                    </p>
+                    <p className="text-[10px] text-gray-400 font-medium text-center">Cần bổ sung</p>
+                </div>
+                <div className={cn('rounded-2xl border shadow-sm p-3 flex flex-col items-center gap-1', pendingOrders.length > 0 ? 'bg-violet-50 border-violet-100' : 'bg-white border-gray-100')}>
+                    <span className="w-9 h-9 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center">
+                        <ArrowLeftRight className="w-5 h-5" strokeWidth={1.75} />
+                    </span>
+                    <p className="text-2xl font-bold text-gray-900 leading-tight">
+                        {loading ? '…' : pendingOrders.length}
+                    </p>
+                    <p className="text-[10px] text-gray-400 font-medium text-center">Đơn đang xử lý</p>
+                </div>
+            </div>
+
+            {error && (
+                <div className="rounded-2xl bg-rose-50 border border-rose-100 px-4 py-3 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <p className="text-xs text-rose-600">{error}</p>
+                    <button onClick={fetchAll} className="ml-auto text-xs font-semibold text-rose-600 underline">Thử lại</button>
+                </div>
+            )}
+
+            {/* Low / Out stock alert list */}
+            {!loading && (outProds.length > 0 || lowProds.length > 0) && (
+                <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                        <p className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                            Hàng cần nhập bổ sung
+                        </p>
+                        <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                            {outProds.length + lowProds.length} sản phẩm
+                        </span>
+                    </div>
+                    <div className="divide-y divide-gray-50 max-h-[200px] overflow-y-auto">
+                        {[...outProds, ...lowProds].slice(0, 15).map(p => (
+                            <div key={p.id} className="flex items-center gap-3 px-4 py-2.5">
+                                <span className={cn(
+                                    'w-2 h-2 rounded-full flex-shrink-0',
+                                    p.stockStatus === 'out' ? 'bg-red-500' : 'bg-amber-400',
+                                )} />
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-[12px] font-semibold text-gray-800 truncate">{p.name}</p>
+                                    <p className="text-[10px] text-gray-400">
+                                        Tồn: <span className={cn('font-bold', p.stockStatus === 'out' ? 'text-red-500' : 'text-amber-500')}>{p.currentStock}</span>
+                                        {' '}/ Min: {p.minStock} {p.unit}
+                                    </p>
+                                </div>
+                                <span className={cn(
+                                    'text-[10px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0',
+                                    p.stockStatus === 'out' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600',
+                                )}>
+                                    {p.stockStatus === 'out' ? 'Hết hàng' : 'Sắp hết'}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Pending orders */}
+            {!loading && pendingOrders.length > 0 && (
+                <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                        <p className="text-xs font-bold text-gray-700">Đơn đặt hàng đang xử lý</p>
+                        <span className="text-[10px] font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">
+                            {pendingOrders.length} đơn
+                        </span>
+                    </div>
+                    <div className="divide-y divide-gray-50">
+                        {pendingOrders.slice(0, 5).map(order => (
+                            <div key={order.id} className="px-4 py-3 flex items-start gap-3">
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                                        <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-md', STATUS_COLOR[order.status] || 'bg-gray-100 text-gray-500')}>
+                                            {STATUS_LABEL[order.status] || order.status}
+                                        </span>
+                                        <span className="text-[10px] text-gray-400">
+                                            {new Date(order.timestamp).toLocaleDateString('vi-VN')}
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] text-gray-600">
+                                        <span className="font-semibold text-gray-800">{order.items.length}</span> sản phẩm
+                                        {' · '}
+                                        <span className="font-semibold text-gray-800">{order.items.reduce((s, i) => s + i.requestedQty, 0)}</span> đơn vị
+                                    </p>
+                                </div>
+                                <ClipboardList className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Empty state when all is good */}
+            {!loading && outProds.length === 0 && lowProds.length === 0 && pendingOrders.length === 0 && products.length > 0 && (
+                <div className="rounded-2xl bg-emerald-50 border border-emerald-100 px-4 py-6 flex flex-col items-center gap-2">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+                    <p className="text-sm font-semibold text-emerald-700">Kho đang ổn định</p>
+                    <p className="text-xs text-emerald-500">{products.length} SKU, không có hàng cần nhập bổ sung</p>
+                </div>
+            )}
+
+            {/* Loading skeleton */}
+            {loading && (
+                <div className="flex flex-col gap-2">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="h-16 rounded-2xl bg-gray-100 animate-pulse" />
+                    ))}
+                </div>
+            )}
+
+            {/* Quick link to full inventory page */}
+            <button
+                onClick={() => window.location.href = '/manager/inventory/order'}
+                className="flex items-center justify-between px-4 py-3 rounded-2xl bg-white border border-gray-100 shadow-sm active:scale-[0.98] transition-transform"
+            >
+                <div className="flex items-center gap-2.5">
+                    <span className="w-8 h-8 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center">
+                        <Package className="w-4 h-4" strokeWidth={1.75} />
+                    </span>
+                    <span className="text-sm font-semibold text-gray-800">Xem toàn bộ kho hàng</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-300" />
+            </button>
         </div>
     );
 }
@@ -1550,7 +1747,7 @@ export default function MobileView() {
             items: [
                 { icon: Users, label: 'Danh sách NV', route: '/manager/hr/users', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.users' },
                 { icon: TrendingUp, label: 'KPI Thống kê', route: '/manager/hr/kpi-stats', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_stats' },
-                { icon: QrCode, label: 'Chấm công QR', route: '/scan', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.users' },
+                { icon: ClipboardCheck, label: 'KPI Chấm điểm', route: '/manager/hr/kpi-scoring', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_scoring' },
             ],
         },
         {

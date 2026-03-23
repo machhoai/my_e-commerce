@@ -68,7 +68,7 @@
 
         /* ── Design Tokens ─────────────────────────────────── */
         /* Primary: B.Duck Yellow (#FFD100) shades            */
-        --t-primary-50:  49 100% 97%;
+        --t-primary-50: 49 100% 97%;
         --t-primary-100: 49 100% 92%;
         --t-primary-200: 48 100% 82%;
         --t-primary-300: 47 100% 70%;
@@ -81,7 +81,7 @@
         --t-primary-950: 26 70% 14%;
 
         /* Accent: B.Duck Orange (#FF7900) shades            */
-        --t-accent-50:  30 100% 97%;
+        --t-accent-50: 30 100% 97%;
         --t-accent-100: 28 100% 92%;
         --t-accent-200: 26 100% 83%;
         --t-accent-300: 24 100% 72%;
@@ -94,7 +94,7 @@
         --t-accent-950: 10 65% 14%;
 
         /* Success: Active, confirmed, positive states       */
-        --t-success-50:  152 81% 96%;
+        --t-success-50: 152 81% 96%;
         --t-success-100: 149 80% 90%;
         --t-success-200: 152 76% 80%;
         --t-success-300: 156 72% 67%;
@@ -107,7 +107,7 @@
         --t-success-950: 166 91% 9%;
 
         /* Warning: Alerts, low stock, caution               */
-        --t-warning-50:  48 100% 96%;
+        --t-warning-50: 48 100% 96%;
         --t-warning-100: 48 96% 89%;
         --t-warning-200: 48 97% 77%;
         --t-warning-300: 46 97% 65%;
@@ -120,7 +120,7 @@
         --t-warning-950: 21 92% 14%;
 
         /* Danger: Errors, destructive actions               */
-        --t-danger-50:  0 86% 97%;
+        --t-danger-50: 0 86% 97%;
         --t-danger-100: 0 93% 94%;
         --t-danger-200: 0 96% 89%;
         --t-danger-300: 0 94% 82%;
@@ -133,7 +133,7 @@
         --t-danger-950: 0 75% 15%;
 
         /* Surface: Sidebar, dark backgrounds                */
-        --t-surface-50:  210 40% 98%;
+        --t-surface-50: 210 40% 98%;
         --t-surface-100: 210 40% 96%;
         --t-surface-200: 214 32% 91%;
         --t-surface-300: 213 27% 84%;
@@ -261,6 +261,10 @@
     scrollbar-color: rgba(156, 163, 175, 0.4) transparent;
 }
 
+#qr-shaded-region {
+    display: none !important;
+}
+
 /* Dành cho Chrome, Safari, Edge (WebKit) */
 .custom-scrollbar::-webkit-scrollbar {
     width: 2px;
@@ -313,6 +317,7 @@
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
+
 .mobile-content::-webkit-scrollbar {
     display: none;
 }
@@ -350,10 +355,12 @@
     transition: color 0.15s ease;
     -webkit-tap-highlight-color: transparent;
 }
+
 .mobile-nav-item:active {
     color: #3b82f6;
     transform: scale(0.92);
 }
+
 .mobile-nav-item.active {
     color: #3b82f6;
 }

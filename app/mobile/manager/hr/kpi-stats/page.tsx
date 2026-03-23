@@ -251,10 +251,10 @@ export default function MobileKpiStatsPage() {
 
             {/* ── Summary cards ────────────────────────────────────────── */}
             <div className="grid grid-cols-3 gap-2 mb-3">
-                <div className="bg-gradient-to-br from-primary-50 to-blue-50 rounded-xl border border-primary-100 p-3">
-                    <Users className="w-3.5 h-3.5 text-primary-500 mb-1" />
-                    <p className="text-xl font-black text-primary-800">{allEmployees.length}</p>
-                    <p className="text-[8px] font-bold text-primary-400 uppercase">Nhân viên</p>
+                <div className="bg-gradient-to-br from-primary-200 to-blue-200 rounded-xl border border-primary-100 p-3">
+                    <Users className="w-3.5 h-3.5 text-primary-700 mb-1" />
+                    <p className="text-xl font-black text-primary-700">{allEmployees.length}</p>
+                    <p className="text-[8px] font-bold text-primary-700 uppercase">Nhân viên</p>
                 </div>
                 <div className="bg-gradient-to-br from-teal-50 to-emerald-50 rounded-xl border border-teal-100 p-3">
                     <Award className="w-3.5 h-3.5 text-teal-500 mb-1" />
@@ -274,7 +274,7 @@ export default function MobileKpiStatsPage() {
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
                     <input value={search} onChange={e => setSearch(e.target.value)}
                         placeholder="Tìm nhân viên..."
-                        className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg bg-white text-[11px] text-gray-700 outline-none focus:border-primary-400" />
+                        className="w-full flex h-9 pl-8 pr-3 py-2 border border-gray-200 rounded-lg bg-white text-[11px] text-gray-700 outline-none focus:border-primary-400" />
                     {search && <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2"><X className="w-3 h-3 text-gray-400" /></button>}
                 </div>
                 <button onClick={() => setFilterSheetOpen(true)}

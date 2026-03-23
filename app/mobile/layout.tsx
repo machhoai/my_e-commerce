@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import AuthGuard from '@/components/layout/AuthGuard';
+import UniversalScannerModal from '@/components/scanner/UniversalScannerModal';
 
 export default function MobileLayout({
     children,
@@ -19,7 +20,11 @@ export default function MobileLayout({
 
     return (
         <AuthGuard>
-            {children}
+            <div className="no-scrollbar">
+                {children}
+                {/* Floating QR/Barcode scanner — always accessible on mobile */}
+                <UniversalScannerModal />
+            </div>
         </AuthGuard>
     );
 }
