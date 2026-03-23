@@ -109,14 +109,7 @@ export async function DELETE() {
             sameSite: 'lax',
         });
 
-        // Clear last_visited_path so the next login won't resurrect a stale destination
-        cookieStore.set('last_visited_path', '', {
-            maxAge: 0,
-            httpOnly: false, // non-httpOnly so client JS can also clear it
-            secure: process.env.NODE_ENV === 'production',
-            path: '/',
-            sameSite: 'lax',
-        });
+
 
         return NextResponse.json({ status: 'success' });
     } catch (error) {

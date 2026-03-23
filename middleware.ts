@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PROTECTED_ROUTE_PREFIXES } from '@/lib/routing';
 
-// Paths that are public (no auth needed, no last_visited tracking)
+// Paths that are public (no auth needed)
 const PUBLIC_PATHS = new Set(['/login', '/change-password', '/403']);
-
-// Cookie name for storing the last visited protected route
-const LAST_VISITED_COOKIE = 'last_visited_path';
 
 // Cookie name storing the user's base role (plain text, set at login for Edge middleware)
 const USER_ROLE_COOKIE = 'user_role';
@@ -16,8 +13,17 @@ const ADMIN_ROLES = new Set(['admin', 'super_admin']);
 // 7 days in seconds
 const COOKIE_MAX_AGE = 7 * 24 * 60 * 60;
 
+// ── Device detection ─────────────────────────────────────────────────────────
+const MOBILE_UA_REGEX =
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS|FxiOS/i;
+
+// Paths that bypass device-based routing (served from app root, not desktop/mobile)
+const DEVICE_BYPASS_PREFIXES = ['/api', '/_next', '/p/', '/403'];
+const DEVICE_BYPASS_EXTENSIONS = /\.(png|ico|svg|jpg|jpeg|webp|gif|js|css|woff2?|ttf|eot|map|json|webmanifest)$/i;
+
 /**
- * Next.js Edge Middleware: Smart session check, /admin hardlock, last-visited tracking.
+ * Next.js Edge Middleware: Smart session check, /admin hardlock, last-visited tracking,
+ * AND device-based routing (desktop/mobile rewrite).
  *
  * ARCHITECTURE NOTE:
  * This app uses a hybrid auth model — Firebase Client Auth (IndexedDB) with a server-side
@@ -34,6 +40,7 @@ const COOKIE_MAX_AGE = 7 * 24 * 60 * 60;
  *    redirect to: last_visited_path cookie → OR → /employee/dashboard (safe fallback).
  * 3. /admin/* lock: if user_role is not admin/super_admin → redirect to /403.
  * 4. For any other protected route hit, set/refresh the `last_visited_path` cookie.
+ * 5. Device-based rewrite: mobile UA → /mobile/*, desktop/tablet → /desktop/*.
  */
 // ── CORS headers for public API routes (external event apps) ──────────────
 const CORS_HEADERS = {
@@ -67,25 +74,14 @@ export function middleware(request: NextRequest) {
         if (!hasSession) {
             return NextResponse.redirect(new URL('/login', request.url));
         }
-        // Has session → restore last visited or safe fallback
-        const lastVisited = request.cookies.get(LAST_VISITED_COOKIE)?.value;
-        const destination = lastVisited || '/employee/dashboard';
-        return NextResponse.redirect(new URL(destination, request.url));
+        // Has session → always go to dashboard
+        return NextResponse.redirect(new URL('/dashboard', request.url));
     }
 
     // ── 2. /login — fast redirect for already-authenticated users ─────────
-    // If the user already has a session cookie, redirect them away from /login.
-    // We use `user_role` + `last_visited_path` to pick the right destination.
-    // The login page client-side logic is STILL the authoritative handler for
-    // defaultDashboard/roleDefaultRoute, but this server-side shortcut avoids
-    // the infinite spinner caused by Firebase Auth resolving while /login renders.
+    // If the user already has a session cookie, redirect them to /dashboard.
     if (pathname === '/login' && hasSession) {
-        const lastVisited = request.cookies.get(LAST_VISITED_COOKIE)?.value;
-        // If userRole is known and is admin, send to last_visited or /admin/users.
-        // Otherwise, send to last_visited or the safe universal fallback.
-        const adminFallback = ADMIN_ROLES.has(userRole) ? '/admin/users' : '/employee/dashboard';
-        const destination = lastVisited || adminFallback;
-        return NextResponse.redirect(new URL(destination, request.url));
+        return NextResponse.redirect(new URL('/dashboard', request.url));
     }
 
     // ── 3. /admin hardlock — only admin & super_admin allowed ──────────────
@@ -99,46 +95,69 @@ export function middleware(request: NextRequest) {
         }
     }
 
-    // ── 3b. /dashboard — PWA mobile home (admin + store_manager only) ─────────
+    // ── 3b. /dashboard — all authenticated users can access ───────────────
     if (pathname.startsWith('/dashboard')) {
         if (!hasSession) {
             return NextResponse.redirect(new URL('/login', request.url));
         }
-        const DASHBOARD_ROLES = new Set(['admin', 'super_admin', 'store_manager']);
-        if (!DASHBOARD_ROLES.has(userRole)) {
-            return NextResponse.redirect(new URL('/403', request.url));
-        }
-        // Do NOT update last_visited_path so desktop users' last real path
-        // stays untouched when they close the PWA.
-        return NextResponse.next();
+        // Fall through to device-rewrite below ↓
     }
 
-    // ── 4. Protected routes: track last_visited_path ───────────────────────
+    // ── 4. Protected routes ────────────────────────────────────────────────
     const isProtected = PROTECTED_ROUTE_PREFIXES.some(prefix =>
         pathname.startsWith(prefix)
     );
 
-    if (isProtected && !PUBLIC_PATHS.has(pathname)) {
-        const response = NextResponse.next();
+    let response: NextResponse;
 
-        // Refresh the last_visited_path cookie
-        response.cookies.set(LAST_VISITED_COOKIE, pathname, {
-            maxAge: COOKIE_MAX_AGE,
-            httpOnly: false, // Must be readable by client JS (login page redirect logic)
-            secure: process.env.NODE_ENV === 'production',
-            path: '/',
-            sameSite: 'lax',
-        });
+    if (isProtected && !PUBLIC_PATHS.has(pathname)) {
+        response = NextResponse.next();
 
         response.headers.set(
             'x-session-status',
             hasSession ? 'active' : 'none'
         );
-
-        return response;
+    } else {
+        response = NextResponse.next();
     }
 
-    return NextResponse.next();
+    // ── 5. Device-based rewrite (desktop ↔ mobile) ────────────────────────
+    // Skip rewrite for paths that should be served from app root directly
+    const shouldBypass =
+        DEVICE_BYPASS_PREFIXES.some(prefix => pathname.startsWith(prefix)) ||
+        DEVICE_BYPASS_EXTENSIONS.test(pathname) ||
+        pathname.startsWith('/desktop') ||
+        pathname.startsWith('/mobile');
+
+    if (!shouldBypass) {
+        const ua = request.headers.get('user-agent') || '';
+        const isMobile = MOBILE_UA_REGEX.test(ua);
+        const rewritePrefix = isMobile ? '/mobile' : '/desktop';
+        const rewriteUrl = new URL(rewritePrefix + pathname + request.nextUrl.search, request.url);
+
+        // Create a rewrite response and copy over any cookies/headers set above
+        const rewriteResponse = NextResponse.rewrite(rewriteUrl);
+
+        // Copy cookies from the original response (last_visited_path, etc.)
+        response.cookies.getAll().forEach(cookie => {
+            rewriteResponse.cookies.set(cookie.name, cookie.value, {
+                maxAge: COOKIE_MAX_AGE,
+                httpOnly: false,
+                secure: process.env.NODE_ENV === 'production',
+                path: '/',
+                sameSite: 'lax',
+            });
+        });
+
+        // Copy custom headers
+        response.headers.forEach((value, key) => {
+            rewriteResponse.headers.set(key, value);
+        });
+
+        return rewriteResponse;
+    }
+
+    return response;
 }
 
 export const config = {

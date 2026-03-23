@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useMemo } from 'react';
 import {
@@ -6,7 +6,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import type { MergedProduct } from '@/app/(dashboard)/admin/inventory/overview/page';
+import type { MergedProduct } from '@/app/desktop/(dashboard)/admin/inventory/overview/page';
 
 interface InventoryChartsProps {
     merged: MergedProduct[];

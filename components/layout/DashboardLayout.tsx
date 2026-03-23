@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ShoppingCart, ClipboardList, Ticket, CalendarDays } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ShoppingCart, ClipboardList, Ticket, CalendarDays, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -134,6 +134,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const isStoreContext = !isAdmin && !isSuperAdmin && !isOfficeContext && !isCentralContext;
 
     const routes = [
+        {
+            label: 'Dashboard',
+            href: '/dashboard',
+            icon: LayoutGrid,
+            show: isAdmin || isSuperAdmin || (isStoreContext && userDoc?.role === 'store_manager'),
+            group: 'Cá Nhân',
+        },
         {
             label: 'Lịch Của Tôi',
             href: '/employee/dashboard',

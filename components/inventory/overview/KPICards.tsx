@@ -1,9 +1,9 @@
-﻿'use client';
+'use client';
 
 import { Package, TrendingUp, AlertTriangle, XCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import type { MergedProduct } from '@/app/(dashboard)/admin/inventory/overview/page';
+import type { MergedProduct } from '@/app/desktop/(dashboard)/admin/inventory/overview/page';
 
 interface KPICardsProps {
     merged: MergedProduct[];
