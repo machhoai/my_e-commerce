@@ -1346,6 +1346,8 @@ function CodeInventoryTab({
                                     <th className="px-4 py-3.5 font-semibold text-center">Trạng thái</th>
                                     <th className="px-4 py-3.5 font-semibold">SĐT nhận</th>
                                     <th className="px-4 py-3.5 font-semibold">Hết hạn</th>
+                                    <th className="px-4 py-3.5 font-semibold">Thời gian dùng</th>
+                                    <th className="px-4 py-3.5 font-semibold">Người kích hoạt</th>
                                     {view === 'active' && (
                                         <th className="px-4 py-3.5 font-semibold text-right">Thao tác</th>
                                     )}
@@ -1394,6 +1396,12 @@ function CodeInventoryTab({
                                                 {c.distributedToPhone || <span className="text-surface-300">—</span>}
                                             </td>
                                             <td className="px-4 py-3.5 text-surface-500 text-xs">{c.validTo}</td>
+                                            <td className="px-4 py-3.5 text-surface-500 text-xs">
+                                                {c.usedAt ? new Date(c.usedAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : <span className="text-surface-300">—</span>}
+                                            </td>
+                                            <td className="px-4 py-3.5 text-surface-500 text-xs">
+                                                {(c as any).usedByStaffName || c.usedByStaffId ? <span className="font-medium text-surface-700">{(c as any).usedByStaffName || c.usedByStaffId}</span> : <span className="text-surface-300">—</span>}
+                                            </td>
                                             {view === 'active' && (
                                                 <td className="px-4 py-3.5 text-right">
                                                     {canRevoke && (

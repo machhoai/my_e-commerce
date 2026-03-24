@@ -67,9 +67,30 @@ export default function VoucherDetailsCard({ voucher, onRedeemed, onClose }: Vou
             <div className="p-5 space-y-4">
                 {/* Header */}
                 <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-accent-100 to-accent-50 mb-3">
-                        <Ticket className="w-7 h-7 text-accent-600" />
-                    </div>
+                    {/* Animated status icon */}
+                    {isUsable ? (
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-success-100 to-success-50 mb-3 animate-pulse">
+                            <ShieldCheck className="w-8 h-8 text-success-600" />
+                        </div>
+                    ) : voucher.status === 'used' ? (
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-surface-200 to-surface-100 mb-3">
+                            <Ticket className="w-8 h-8 text-surface-400 line-through" />
+                            <style jsx>{`@keyframes stamp{0%{transform:scale(0) rotate(-30deg);opacity:0}60%{transform:scale(1.2) rotate(5deg);opacity:1}100%{transform:scale(1) rotate(0deg);opacity:1}}`}</style>
+                            <div className="absolute inset-0 flex items-center justify-center" style={{ animation: 'stamp 0.5s ease-out forwards' }}>
+                                <div className="w-10 h-10 rounded-full border-[3px] border-surface-400 flex items-center justify-center rotate-[-15deg] opacity-60">
+                                    <span className="text-[8px] font-black text-surface-500 uppercase tracking-widest">Đã dùng</span>
+                                </div>
+                            </div>
+                        </div>
+                    ) : isExpired ? (
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-warning-100 to-warning-50 mb-3 animate-bounce" style={{ animationDuration: '2s' }}>
+                            <AlertTriangle className="w-8 h-8 text-warning-600" />
+                        </div>
+                    ) : (
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-danger-100 to-danger-50 mb-3">
+                            <AlertTriangle className="w-8 h-8 text-danger-500" />
+                        </div>
+                    )}
                     <h3 className="text-lg font-bold text-surface-800">Chi tiết Voucher</h3>
                     {voucher.campaignName && (
                         <p className="text-sm text-surface-500 mt-0.5">{voucher.campaignName}</p>
@@ -77,7 +98,7 @@ export default function VoucherDetailsCard({ voucher, onRedeemed, onClose }: Vou
                 </div>
 
                 {/* Status pills */}
-                <div className="flex justify-center gap-2">
+                {/* <div className="flex justify-center gap-2">
                     <span className={cn(
                         'text-[11px] font-bold px-2.5 py-1 rounded-lg border',
                         voucher.status === 'distributed' ? 'bg-success-50 text-success-700 border-success-200'
@@ -91,7 +112,37 @@ export default function VoucherDetailsCard({ voucher, onRedeemed, onClose }: Vou
                             Hết hạn
                         </span>
                     )}
-                </div>
+                </div> */}
+
+                {/* Reason banner for unusable vouchers */}
+                {!isUsable && (
+                    <div className={cn(
+                        'flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl border text-xs',
+                        isExpired
+                            ? 'bg-warning-50 border-warning-200 text-warning-800'
+                            : voucher.status === 'used'
+                                ? 'bg-surface-50 border-surface-200 text-surface-600'
+                                : 'bg-danger-50 border-danger-200 text-danger-700'
+                    )}>
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                        <div>
+                            <p className="font-bold">
+                                {voucher.status === 'used'
+                                    ? 'Voucher đã được sử dụng'
+                                    : isExpired
+                                        ? 'Voucher đã hết hạn'
+                                        : 'Voucher không khả dụng'}
+                            </p>
+                            <p className="mt-0.5 opacity-75">
+                                {voucher.status === 'used' && voucher.usedAt
+                                    ? `Đã sử dụng lúc ${new Date(voucher.usedAt).toLocaleString('vi-VN')}`
+                                    : isExpired
+                                        ? `Hạn sử dụng đến ${voucher.validTo}. Voucher đã quá hạn và không thể sử dụng.`
+                                        : 'Voucher này không ở trạng thái có thể sử dụng.'}
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 {/* Details List */}
                 <div className="bg-surface-50 rounded-xl border border-surface-100 divide-y divide-surface-100">

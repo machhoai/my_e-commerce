@@ -29,9 +29,26 @@ export async function GET(req: NextRequest) {
         ]);
 
         const campaigns = campaignSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const codes = codeSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const rawCodes = codeSnap.docs.map(d => ({ id: d.id, ...d.data() })) as (VoucherCode & { usedByStaffName?: string })[];
 
-        return NextResponse.json({ campaigns, codes });
+        // Enrich codes with staff names for usedByStaffId
+        const staffIds = [...new Set(rawCodes.map(c => c.usedByStaffId).filter(Boolean))] as string[];
+        if (staffIds.length > 0) {
+            const staffMap = new Map<string, string>();
+            // Firestore 'in' supports max 30 per query
+            for (let i = 0; i < staffIds.length; i += 30) {
+                const chunk = staffIds.slice(i, i + 30);
+                const snap = await adminDb.collection('users').where('__name__', 'in', chunk).select('name').get();
+                snap.docs.forEach(d => staffMap.set(d.id, d.data().name || d.id));
+            }
+            rawCodes.forEach(c => {
+                if (c.usedByStaffId && staffMap.has(c.usedByStaffId)) {
+                    c.usedByStaffName = staffMap.get(c.usedByStaffId);
+                }
+            });
+        }
+
+        return NextResponse.json({ campaigns, codes: rawCodes });
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Lỗi hệ thống';
         return NextResponse.json({ error: message }, { status: 500 });
