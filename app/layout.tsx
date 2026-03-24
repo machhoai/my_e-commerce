@@ -13,7 +13,7 @@ export const viewport: Viewport = {
     width: 'device-width',
     initialScale: 1,
     maximumScale: 1,
-    themeColor: '#3b82f6', // Chuyển theme_color từ manifest lên đây để đổi màu thanh trạng thái (status bar)
+    themeColor: '#FFB800', // Primary color — đồng bộ với manifest theme_color
 };
 
 // 2. Cấu hình Metadata chính
