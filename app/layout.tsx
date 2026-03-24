@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     manifest: "/manifest.webmanifest",
     appleWebApp: {
         capable: true, // Bắt buộc để chạy standalone trên iOS
-        title: 'B.Duck', // Chỗ này lúc nãy bạn để 'Lịch Làm', mình đổi lại cho hợp với tên dự án nhé
+        title: 'B.Duck Cityfuns', // Chỗ này lúc nãy bạn để 'Lịch Làm', mình đổi lại cho hợp với tên dự án nhé
         statusBarStyle: 'default',
     },
     formatDetection: {

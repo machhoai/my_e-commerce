@@ -2,27 +2,28 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
     return {
-        name: "B.Duck",
-        short_name: "B.Duck",
-        description: "Ứng dụng đăng ký và quản lý điểm ca làm việc",
+        name: "B.Duck Cityfuns",
+        short_name: "B.Duck Cityfuns",
+        description: "Ứng dụng nội bộ Joy World Entertainment",
         scope: '/',
-        start_url: '/employee/dashboard',
+        start_url: '/',
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#ffffff',
         theme_color: '#3b82f6',
         icons: [
             {
-                src: '/Artboard.png', // Fallback to existing icon if standard ones are missing
+                src: '/logo-square.png',
                 sizes: '192x192',
                 type: 'image/png',
+                purpose: 'any',
             },
             {
-                src: '/logo-square.png', // Assuming user will add it or we create one
+                src: '/logo-square.png',
                 sizes: '512x512',
                 type: 'image/png',
-                purpose: 'maskable'
-            }
+                purpose: 'any',
+            },
         ],
     };
 }

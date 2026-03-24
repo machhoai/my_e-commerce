@@ -7,8 +7,12 @@
  * • If the app is running in PWA standalone mode (installed on home screen)
  *   AND the user is authenticated
  *   AND the user has a role allowed to use the mobile dashboard
+ *   AND the user is on the root "/" or "/login" page (entry points only)
  *   → redirect to /dashboard.
- * • If already on /dashboard, do nothing (avoid redirect loop).
+ *
+ * IMPORTANT: This should ONLY redirect from entry-point routes (/ and /login).
+ * It must NOT redirect from other in-app routes, otherwise the user cannot
+ * navigate to any page other than /dashboard in PWA standalone mode.
  *
  * Allowed roles: admin, super_admin, store_manager
  */
@@ -19,6 +23,9 @@ import { useAuth } from '@/contexts/AuthContext';
 
 // Roles that are allowed to be redirected to the mobile dashboard
 const DASHBOARD_ROLES = new Set(['admin', 'super_admin', 'store_manager']);
+
+// Only redirect from these entry-point paths (PWA launch / manual login visit)
+const REDIRECT_FROM_PATHS = new Set(['/', '/login']);
 
 export default function PwaRedirect() {
     const router = useRouter();
@@ -32,8 +39,8 @@ export default function PwaRedirect() {
         if (!user || !userDoc) return;
         // Only allowed roles
         if (!DASHBOARD_ROLES.has(userDoc.role)) return;
-        // Already on dashboard — nothing to do
-        if (pathname.startsWith('/dashboard')) return;
+        // Only redirect from entry-point pages (root or login)
+        if (!REDIRECT_FROM_PATHS.has(pathname)) return;
 
         // Detect PWA standalone mode
         const isStandalone =
