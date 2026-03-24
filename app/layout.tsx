@@ -13,7 +13,11 @@ export const viewport: Viewport = {
     width: 'device-width',
     initialScale: 1,
     maximumScale: 1,
-    themeColor: '#FFB800', // Primary color — đồng bộ với manifest theme_color
+    viewportFit: 'cover', // Bắt buộc để app tràn viền lên tận tai thỏ/đục lỗ
+    themeColor: [
+        { media: '(prefers-color-scheme: light)', color: '#FFB800' },
+        { media: '(prefers-color-scheme: dark)', color: '#FFB800' },
+    ],  
 };
 
 // 2. Cấu hình Metadata chính

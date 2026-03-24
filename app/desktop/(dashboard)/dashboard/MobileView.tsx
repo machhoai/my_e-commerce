@@ -17,6 +17,8 @@ import {
     // Revenue tab icons
     BarChart3, Banknote, ArrowUpDown, Coins, XCircle, RefreshCw,
     Wifi, WifiOff, CalendarDays, CalendarRange,
+    // Extra icons for new routes
+    FileText, Repeat, LayoutDashboard,
 } from 'lucide-react';
 import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -1687,7 +1689,38 @@ export default function MobileView() {
         userDoc?.role === 'employee' || (!isAdmin && hasPermission('page.scheduling.overview'));
 
     // Quick access items with permission keys — items without permKey are always visible
-    const allQuickAccessItems = [
+    // Employee-specific items (visible when role is 'employee')
+    const isEmployee = userDoc?.role === 'employee';
+
+    const employeeQuickAccessItems = [
+        {
+            icon: LayoutDashboard,
+            label: 'Lịch của tôi',
+            colorClass: 'bg-blue-300 text-blue-900',
+            route: '/employee/dashboard',
+        },
+        {
+            icon: PlusSquare,
+            label: 'Đăng ký ca',
+            colorClass: 'bg-emerald-300 text-emerald-900',
+            route: '/employee/register',
+        },
+        {
+            icon: TrendingUp,
+            label: 'KPI của tôi',
+            colorClass: 'bg-amber-300 text-amber-900',
+            route: '/employee/kpi-stats',
+        },
+        {
+            icon: Repeat,
+            label: 'Bàn giao hàng',
+            colorClass: 'bg-violet-300 text-violet-900',
+            route: '/employee/inventory/handover',
+        },
+    ];
+
+    // Manager/Admin quick access items
+    const managerQuickAccessItems = [
         {
             icon: Calendar,
             label: 'Lịch làm',
@@ -1705,7 +1738,7 @@ export default function MobileView() {
         {
             icon: Package,
             label: 'Kho cửa hàng',
-            colorClass: 'bg-violet-300 text-violet-900',
+            colorClass: 'bg-emerald-300 text-emerald-900',
             route: '/manager/inventory/order',
             permKeys: ['page.manager.inventory'],
         },
@@ -1718,11 +1751,16 @@ export default function MobileView() {
         },
     ];
 
+    // Choose which quick access items to show based on role
+    const allQuickAccessItems = isEmployee
+        ? employeeQuickAccessItems
+        : managerQuickAccessItems.filter(item =>
+            isAdmin || !item.permKeys || item.permKeys.some(k => hasPermission(k))
+        );
+
     // Filter quick access by permissions (admin sees all), always append 'Tất cả'
     const quickAccessItems = [
-        ...allQuickAccessItems.filter(item =>
-            isAdmin || !item.permKeys || item.permKeys.some(k => hasPermission(k))
-        ),
+        ...allQuickAccessItems,
         {
             icon: LayoutGrid,
             label: 'Tất cả',
@@ -1733,6 +1771,18 @@ export default function MobileView() {
 
     // ── All navigation groups — filtered by permission ────────────────────────
     const rawNavGroups = [
+        // ── Employee-specific section ──────────────────────────────────
+        ...(isEmployee ? [{
+            group: 'Nhân viên',
+            items: [
+                { icon: LayoutDashboard, label: 'Lịch của tôi', route: '/employee/dashboard', color: 'bg-blue-50 text-blue-600' },
+                { icon: PlusSquare, label: 'Đăng ký ca', route: '/employee/register', color: 'bg-blue-50 text-blue-600' },
+                { icon: TrendingUp, label: 'KPI của tôi', route: '/employee/kpi-stats', color: 'bg-amber-50 text-amber-600' },
+                { icon: Repeat, label: 'Bàn giao hàng', route: '/employee/inventory/handover', color: 'bg-emerald-50 text-emerald-600' },
+                { icon: FileText, label: 'Tiêu hao hàng', route: '/employee/inventory/usage', color: 'bg-emerald-50 text-emerald-600' },
+            ],
+        }] : []),
+        // ── Scheduling (manager+) ───────────────────────────────────────
         {
             group: 'Vận hành',
             items: [
@@ -1742,35 +1792,44 @@ export default function MobileView() {
                 { icon: Activity, label: 'Lịch sử ca', route: '/manager/scheduling/history', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.history' },
             ],
         },
+        // ── HR (manager+) ──────────────────────────────────────────────
         {
             group: 'Nhân sự',
             items: [
                 { icon: Users, label: 'Danh sách NV', route: '/manager/hr/users', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.users' },
                 { icon: TrendingUp, label: 'KPI Thống kê', route: '/manager/hr/kpi-stats', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_stats' },
                 { icon: ClipboardCheck, label: 'KPI Chấm điểm', route: '/manager/hr/kpi-scoring', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_scoring' },
+                { icon: Settings, label: 'Mẫu KPI', route: '/manager/settings/kpi-templates', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_templates' },
             ],
         },
+        // ── Store Inventory (manager+) ─────────────────────────────────
         {
-            group: 'Kho bãi',
+            group: 'Kho cửa hàng',
             items: [
-                { icon: Package, label: 'Kho cửa hàng', route: '/manager/inventory/order', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: ArrowLeftRight, label: 'Chuyển kho', route: '/manager/inventory/transfer', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: Package, label: 'Đặt hàng', route: '/manager/inventory/order', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
                 { icon: PackagePlus, label: 'Nhập hàng', route: '/manager/inventory/receive', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: ArrowLeftRight, label: 'Chuyển kho', route: '/manager/inventory/transfer', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
                 { icon: ClipboardList, label: 'Sổ kho', route: '/manager/inventory/ledger', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: LayoutGrid, label: 'Quầy hàng', route: '/manager/inventory/counters', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: Repeat, label: 'Bàn giao', route: '/manager/inventory/handover', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: FileText, label: 'Tiêu hao', route: '/manager/inventory/usage', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: Package, label: 'Xuất kho', route: '/manager/inventory/dispatch', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
             ],
         },
+        // ── Revenue (office+) ─────────────────────────────────────────
         {
             group: 'Doanh thu',
             items: [
                 { icon: DollarSign, label: 'Báo cáo', route: '/office/revenue', color: 'bg-amber-50 text-amber-600', permKey: 'page.office.revenue' },
             ],
         },
+        // ── Cá nhân  (always visible) ─────────────────────────────────
         {
-            group: 'Cá nhân', // Always visible — no permKey
+            group: 'Cá nhân',
             items: [
                 { icon: User, label: 'Hồ sơ', route: '/profile', color: 'bg-gray-100 text-gray-600' },
                 { icon: Bell, label: 'Thông báo', route: '/notifications', color: 'bg-gray-100 text-gray-600' },
-                { icon: Settings, label: 'Cài đặt', route: '/manager/settings', color: 'bg-gray-100 text-gray-600', permKey: 'page.manager.settings' },
+                { icon: Settings, label: 'Cài đặt CH', route: '/manager/settings', color: 'bg-gray-100 text-gray-600', permKey: 'page.manager.settings' },
             ],
         },
     ];
