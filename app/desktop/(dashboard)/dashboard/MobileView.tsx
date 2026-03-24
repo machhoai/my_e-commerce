@@ -1035,7 +1035,7 @@ function RevenueTab() {
 
     const chartData = useMemo(() =>
         [...data].sort((a, b) => a.forDate.localeCompare(b.forDate)).map(d => ({
-            date: d.forDate.slice(5), 'Thực thu': d.realMoney, 'Tiền mặt': d.cashRealMoney, 'Chuyển khoản': d.transferRealMoney,
+            date: d.forDate.slice(5), 'Thực thu': d.sysMoney, 'Tiền mặt': d.cashRealMoney, 'Chuyển khoản': d.transferRealMoney,
         })), [data]);
 
     const paymentPieData = useMemo(() => {
@@ -1111,9 +1111,9 @@ function RevenueTab() {
                         <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
                         <p className="text-[10px] font-bold uppercase tracking-widest text-primary-100">Thực thu</p>
                         <p className="text-3xl font-extrabold text-white mt-1 tracking-tight leading-tight">
-                            {fmtShort(dailyPanel?.shopSummary?.shopRealMoney ?? kpis.totalReal)}
+                            {fmtShort(dailyPanel?.shopSummary?.shopRealMoney ?? kpis.totalSys)}
                         </p>
-                        <p className="text-xs text-primary-200 mt-1">{fmtVND(dailyPanel?.shopSummary?.shopRealMoney ?? kpis.totalReal)}</p>
+                        <p className="text-xs text-primary-200 mt-1">{fmtVND(dailyPanel?.shopSummary?.shopRealMoney ?? kpis.totalSys)}</p>
                     </div>
 
                     {/* KPI grid */}

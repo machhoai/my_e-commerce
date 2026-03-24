@@ -262,7 +262,7 @@ export default function RevenueClient() {
 
     const chartData = useMemo(() =>
         [...data].sort((a, b) => a.forDate.localeCompare(b.forDate)).map(d => ({
-            date: d.forDate.slice(5), 'Thực thu': d.realMoney, 'Tiền mặt': d.cashRealMoney, 'Chuyển khoản': d.transferRealMoney,
+            date: d.forDate.slice(5), 'Thực thu': d.sysMoney, 'Tiền mặt': d.cashRealMoney, 'Chuyển khoản': d.transferRealMoney,
         })), [data]);
 
     const coinChartData = useMemo(() =>
@@ -445,7 +445,7 @@ export default function RevenueClient() {
 
                         {/* THỰC THU — hero card */}
                         <div className="col-span-2 sm:col-span-4 lg:w-fit lg:shrink-0">
-                            <KPICard hero title="Thực thu" value={fmtVND(dailyPanel?.shopSummary?.shopRealMoney ?? kpis.totalReal)}
+                            <KPICard hero title="Thực thu" value={fmtVND(dailyPanel?.shopSummary?.totalMoney ?? kpis.totalSys)}
                                 sub=""
                                 icon={<DollarSign className="size-5 text-white" />} accent="bg-success-500" />
                         </div>

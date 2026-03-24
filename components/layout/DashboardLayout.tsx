@@ -487,7 +487,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         >
                             <div className="p-[2px] rounded-full bg-gradient-to-br from-success-400 via-primary-500 to-accent-500">
                                 <Avatar className="size-9">
-                                    <AvatarImage src="/placeholder-user.jpg" alt="User" />
+                                    <AvatarImage src={userDoc.avatar || ''} alt="User" />
                                     <AvatarFallback className="bg-surface-100 text-surface-700 text-xs font-bold">
                                         {getInitials(userDoc.name)}
                                     </AvatarFallback>
@@ -536,7 +536,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <div className="relative shrink-0">
                             <div className="p-[2px] rounded-full bg-gradient-to-br from-success-400 via-primary-500 to-accent-500">
                                 <Avatar className="size-10">
-                                    <AvatarImage src="/placeholder-user.jpg" alt="User" />
+                                    <AvatarImage src={userDoc.avatar || ''} alt="User" />
                                     <AvatarFallback className="bg-surface-100 text-surface-700 text-sm font-bold">
                                         {getInitials(userDoc.name)}
                                     </AvatarFallback>

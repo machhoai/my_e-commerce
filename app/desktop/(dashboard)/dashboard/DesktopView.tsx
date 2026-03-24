@@ -469,6 +469,7 @@ function RevenueSection() {
         let totalReal = data.reduce((s, d) => s + d.realMoney, 0);
         let totalCash = data.reduce((s, d) => s + d.cashRealMoney, 0);
         let totalTransfer = data.reduce((s, d) => s + d.transferRealMoney, 0);
+        let totalSys = data.reduce((s, d) => s + d.sysMoney, 0);
         const totalCoins = data.reduce((s, d) => s + d.sellCoinAmount, 0);
         const totalRefund = dailyPanel?.shopSummary?.refundMoney ?? data.reduce((s, d) => s + d.cashErrorMoney, 0);
         const peakDay = data.length > 0 ? data.reduce((max, d) => d.realMoney > max.realMoney ? d : max, data[0]) : null;
@@ -479,11 +480,11 @@ function RevenueSection() {
             if (pmCash) totalCash = pmCash.totalRealMoney;
             if (pmTrans) totalTransfer = pmTrans.totalRealMoney;
         }
-        return { totalReal, totalCash, totalTransfer, totalCoins, totalRefund, peakDay };
+        return { totalReal, totalSys, totalCash, totalTransfer, totalCoins, totalRefund, peakDay };
     }, [data, dailyPanel]);
 
     const isMultiDay = data.length > 1;
-    const chartData = useMemo(() => [...data].sort((a, b) => a.forDate.localeCompare(b.forDate)).map(d => ({ date: d.forDate.slice(5), 'Thực thu': d.realMoney, 'Tiền mặt': d.cashRealMoney, 'Chuyển khoản': d.transferRealMoney })), [data]);
+    const chartData = useMemo(() => [...data].sort((a, b) => a.forDate.localeCompare(b.forDate)).map(d => ({ date: d.forDate.slice(5), 'Thực thu': d.sysMoney, 'Tiền mặt': d.cashRealMoney, 'Chuyển khoản': d.transferRealMoney })), [data]);
     const paymentPieData = useMemo(() => {
         if (dailyPanel?.paymentStats?.length) return dailyPanel.paymentStats.map(p => ({ name: p.paymentCategoryName, value: p.totalRealMoney })).filter(d => d.value > 0);
         return [{ name: 'Tiền mặt', value: kpis.totalCash }, { name: 'Chuyển khoản', value: kpis.totalTransfer }].filter(d => d.value > 0);
@@ -530,13 +531,13 @@ function RevenueSection() {
                         <div className="lg:col-span-2 relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary-600 to-primary-800 p-6 shadow-lg">
                             <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
                             <p className="text-xs font-bold uppercase tracking-widest text-primary-100">Thực thu</p>
-                            <p className="text-4xl font-extrabold text-white mt-2 tracking-tight">{fmtShort(kpis.totalReal)}</p>
-                            <p className="text-sm text-primary-200 mt-2">{fmtVND(kpis.totalReal)}</p>
+                            <p className="text-4xl font-extrabold text-white mt-2 tracking-tight">{fmtShort(kpis.totalSys)}</p>
+                            <p className="text-sm text-primary-200 mt-2">{fmtVND(kpis.totalSys)}</p>
                         </div>
                         <div className="lg:col-span-3 grid grid-cols-2 gap-4">
                             {[
-                                { l: 'Tiền mặt', v: fmtShort(kpis.totalCash), s: `${kpis.totalReal > 0 ? ((kpis.totalCash / kpis.totalReal) * 100).toFixed(0) : 0}%`, ic: Banknote, bg: 'bg-blue-50', c: 'text-blue-600' },
-                                { l: 'Chuyển khoản', v: fmtShort(kpis.totalTransfer), s: `${kpis.totalReal > 0 ? ((kpis.totalTransfer / kpis.totalReal) * 100).toFixed(0) : 0}%`, ic: ArrowUpDown, bg: 'bg-violet-50', c: 'text-violet-600' },
+                                { l: 'Tiền mặt', v: fmtShort(kpis.totalCash), s: `${kpis.totalSys > 0 ? ((kpis.totalCash / kpis.totalSys) * 100).toFixed(0) : 0}%`, ic: Banknote, bg: 'bg-blue-50', c: 'text-blue-600' },
+                                { l: 'Chuyển khoản', v: fmtShort(kpis.totalTransfer), s: `${kpis.totalSys > 0 ? ((kpis.totalTransfer / kpis.totalReal) * 100).toFixed(0) : 0}%`, ic: ArrowUpDown, bg: 'bg-violet-50', c: 'text-violet-600' },
                                 { l: 'Xu bán', v: fmtV(kpis.totalCoins), s: `${fmtShort(data[0]?.sellCoinPrice || 0)}/xu`, ic: Coins, bg: 'bg-amber-50', c: 'text-amber-600' },
                                 isMultiDay ? { l: 'Ngày cao nhất', v: kpis.peakDay ? fmtShort(kpis.peakDay.realMoney) : '—', s: kpis.peakDay?.forDate || '', ic: TrendingUp, bg: 'bg-pink-50', c: 'text-pink-600' }
                                     : { l: 'Đã hủy', v: fmtShort(kpis.totalRefund), s: kpis.totalRefund > 0 ? 'Giao dịch hủy' : 'Không có', ic: XCircle, bg: 'bg-red-50', c: 'text-red-600' },
@@ -740,13 +741,15 @@ export default function DesktopView() {
             {visibleTabs.length > 0 && (
                 <>
                     <div className="flex items-center gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
-                        {visibleTabs.map((tab) => { const Ic = tab.icon; return (
-                            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                                className={cn('flex items-center gap-2 px-5 py-2.5 text-sm rounded-lg font-medium transition-all duration-200',
-                                    activeTab === tab.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
-                                <Ic className="w-4 h-4" />{tab.label}
-                            </button>
-                        ); })}
+                        {visibleTabs.map((tab) => {
+                            const Ic = tab.icon; return (
+                                <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                                    className={cn('flex items-center gap-2 px-5 py-2.5 text-sm rounded-lg font-medium transition-all duration-200',
+                                        activeTab === tab.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
+                                    <Ic className="w-4 h-4" />{tab.label}
+                                </button>
+                            );
+                        })}
                     </div>
                     <div>
                         {activeTab === 'operation' && <OperationSection effectiveStoreId={effectiveStoreId} />}

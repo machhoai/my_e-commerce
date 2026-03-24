@@ -151,6 +151,10 @@ export default function MobileOfficeRevenuePage() {
         return { totalReal, totalSys, totalCash, totalTransfer, totalCoins, totalRefund, peakDay };
     }, [data, dailyPanel]);
 
+    useEffect(() => {
+        console.log(data);
+    }, [data]);
+
     const isMultiDay = data.length > 1;
     const chartData = useMemo(() => [...data].sort((a, b) => a.forDate.localeCompare(b.forDate)).map(d => ({ date: d.forDate.slice(5), 'Thực thu': d.realMoney, 'Tiền mặt': d.cashRealMoney, 'Chuyển khoản': d.transferRealMoney })), [data]);
     const paymentPieData = useMemo(() => {
@@ -291,8 +295,8 @@ export default function MobileOfficeRevenuePage() {
                         <div className="relative flex items-center justify-between">
                             <div>
                                 <p className="text-[9px] font-bold uppercase tracking-widest text-primary-200">Thực thu</p>
-                                <p className="text-2xl font-black text-white tracking-tight mt-1">{fmtShort(kpis.totalReal)}</p>
-                                <p className="text-[10px] text-primary-200 mt-0.5">{fmtVND(kpis.totalReal)}</p>
+                                <p className="text-2xl font-black text-white tracking-tight mt-1">{fmtShort(kpis.totalSys)}</p>
+                                <p className="text-[10px] text-primary-200 mt-0.5">{fmtVND(kpis.totalSys)}</p>
                             </div>
                             <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
                                 <DollarSign className="w-5 h-5 text-white" />
