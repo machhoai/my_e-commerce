@@ -24,7 +24,7 @@ export default function MobileManagerHrKpiScoringPage() {
     const [selectedStoreId, setSelectedStoreId] = useState('');
 
     // effectiveStoreId: store-fixed users use their storeId; others use picker
-    const effectiveStoreId = needsStorePicker ? selectedStoreId : (userDoc?.storeId ?? ctxStoreId ?? '');
+    const effectiveStoreId = needsStorePicker ? selectedStoreId : (ctxStoreId || userDoc?.storeId || '');
 
     const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()));
     const [selectedShiftId, setSelectedShiftId] = useState('');

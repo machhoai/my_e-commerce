@@ -43,7 +43,7 @@ function getRoleBadgeColor(info: UserInfo): string {
 }
 
 export default function ManagerRegistrationOverviewPage() {
-    const { user, userDoc, hasPermission } = useAuth();
+    const { user, userDoc, hasPermission, effectiveStoreId: contextStoreId } = useAuth();
 
     const [settings, setSettings] = useState<StoreSettings | null>(null);
 
@@ -93,7 +93,7 @@ export default function ManagerRegistrationOverviewPage() {
     }, [isAdmin, user, getToken]);
 
     // Effective storeId: admin uses selected store, others use their own
-    const effectiveStoreId = isAdmin ? selectedAdminStoreId : (userDoc?.storeId ?? '');
+    const effectiveStoreId = isAdmin ? selectedAdminStoreId : (contextStoreId || userDoc?.storeId || '');
 
     // ─── Fetch Settings + Registrations + Users ──────────────────────────────
     useEffect(() => {

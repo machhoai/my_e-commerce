@@ -14,7 +14,7 @@ import {
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function ManagerKpiScoringPage() {
-    const { user, userDoc, getToken, hasPermission } = useAuth();
+    const { user, userDoc, getToken, hasPermission, effectiveStoreId: contextStoreId } = useAuth();
 
     const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()));
     const [selectedShiftId, setSelectedShiftId] = useState('');
@@ -36,7 +36,7 @@ export default function ManagerKpiScoringPage() {
         if (typeof window !== 'undefined') return localStorage.getItem('globalSelectedStoreId') || '';
         return '';
     });
-    const effectiveStoreId = userDoc?.role === 'admin' ? selectedStoreId : userDoc?.storeId ?? '';
+    const effectiveStoreId = userDoc?.role === 'admin' ? selectedStoreId : (contextStoreId || userDoc?.storeId || '');
 
     // Official scoring modal state
     const [scoreModal, setScoreModal] = useState<{

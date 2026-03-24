@@ -32,7 +32,7 @@ function saveWeeklyDraft(storeId: string, weekStart: Date, draft: WeeklyDraft) {
 }
 
 export default function MobileSchedulingBuilderPage() {
-    const { user, userDoc, hasPermission } = useAuth();
+    const { user, userDoc, hasPermission, effectiveStoreId: contextStoreId } = useAuth();
 
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date(Date.now() + 7 * 86400000)));
     const weekDays = getWeekDays(currentWeekStart);
@@ -69,7 +69,7 @@ export default function MobileSchedulingBuilderPage() {
     const [storeSheetOpen, setStoreSheetOpen] = useState(false);
 
     const isAdmin = userDoc?.role === 'admin';
-    const effectiveStoreId = isAdmin ? selectedAdminStoreId : userDoc?.storeId ?? '';
+    const effectiveStoreId = isAdmin ? selectedAdminStoreId : (contextStoreId || userDoc?.storeId || '');
 
     useEffect(() => {
         if (typeof window !== 'undefined' && selectedAdminStoreId) localStorage.setItem('globalSelectedStoreId', selectedAdminStoreId);
@@ -95,8 +95,9 @@ export default function MobileSchedulingBuilderPage() {
                     const res = await fetch('/api/stores', { headers: { Authorization: `Bearer ${token}` } });
                     const data = await res.json();
                     setStores(Array.isArray(data) ? data : []);
-                } else if (userDoc?.storeId) {
-                    const snap = await getDoc(doc(db, 'stores', userDoc.storeId));
+                } else if (contextStoreId || userDoc?.storeId) {
+                    const sid = contextStoreId || userDoc?.storeId || '';
+                    const snap = await getDoc(doc(db, 'stores', sid));
                     if (snap.exists()) {
                         const s = snap.data() as StoreDoc;
                         setCounters((s.settings as any)?.counters || []);

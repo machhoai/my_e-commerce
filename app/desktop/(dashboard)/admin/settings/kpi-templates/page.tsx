@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function KpiTemplatesPage() {
-    const { user, userDoc, getToken } = useAuth();
+    const { user, userDoc, getToken, effectiveStoreId: contextStoreId } = useAuth();
 
     const [templates, setTemplates] = useState<KpiTemplateDoc[]>([]);
     const [counters, setCounters] = useState<CounterDoc[]>([]);
@@ -28,7 +28,7 @@ export default function KpiTemplatesPage() {
         if (typeof window !== 'undefined') return localStorage.getItem('globalSelectedStoreId') || '';
         return '';
     });
-    const effectiveStoreId = userDoc?.role === 'admin' ? selectedStoreId : userDoc?.storeId ?? '';
+    const effectiveStoreId = userDoc?.role === 'admin' ? selectedStoreId : (contextStoreId || userDoc?.storeId || '');
 
     // Form state
     const [formMode, setFormMode] = useState<'create' | 'edit'>('create');

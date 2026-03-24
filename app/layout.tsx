@@ -15,8 +15,8 @@ export const viewport: Viewport = {
     maximumScale: 1,
     viewportFit: 'cover', // Bắt buộc để app tràn viền lên tận tai thỏ/đục lỗ
     themeColor: [
-        { media: '(prefers-color-scheme: light)', color: '#FFB800' },
-        { media: '(prefers-color-scheme: dark)', color: '#FFB800' },
+        { media: '(prefers-color-scheme: light)', color: '#E6A800' },
+        { media: '(prefers-color-scheme: dark)', color: '#E6A800' },
     ],  
 };
 

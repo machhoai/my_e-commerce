@@ -14,7 +14,7 @@ import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader
 import SelfScoringModal from '@/components/kpi/SelfScoringModal';
 
 export default function EmployeeKpiStatsPage() {
-    const { user, userDoc, getToken } = useAuth();
+    const { user, userDoc, getToken, effectiveStoreId: contextStoreId } = useAuth();
 
     // ── Filters ──
     const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()));
@@ -47,7 +47,7 @@ export default function EmployeeKpiStatsPage() {
         counterId: string;
     }>({ isOpen: false, template: null, shiftId: '', date: '', counterId: '' });
 
-    const storeId = userDoc?.storeId ?? '';
+    const storeId = contextStoreId || userDoc?.storeId || '';
 
     // ── Load store config (shifts, counters) ──
     useEffect(() => {

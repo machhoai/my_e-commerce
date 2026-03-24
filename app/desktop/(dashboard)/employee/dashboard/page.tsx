@@ -11,7 +11,7 @@ import SelfScoringModal from '@/components/kpi/SelfScoringModal';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function EmployeeDashboardPage() {
-    const { user, userDoc, getToken } = useAuth();
+    const { user, userDoc, getToken, effectiveStoreId: contextStoreId } = useAuth();
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date()));
     const weekDays = getWeekDays(currentWeekStart);
 
@@ -38,10 +38,11 @@ export default function EmployeeDashboardPage() {
         setLoading(true);
 
         const fetchCountersAndSettings = async () => {
-            if (!userDoc?.storeId) return;
+            const storeId = contextStoreId || userDoc?.storeId;
+            if (!storeId) return;
             try {
                 // Fetch settings embedded in store doc
-                const storeRef = doc(db, 'stores', userDoc.storeId);
+                const storeRef = doc(db, 'stores', storeId);
                 const storeSnap = await getDoc(storeRef);
 
                 if (storeSnap.exists()) {
@@ -66,10 +67,11 @@ export default function EmployeeDashboardPage() {
 
         // Fetch KPI templates for the store
         const fetchKpiTemplates = async () => {
-            if (!userDoc?.storeId) return;
+            const fetchStoreId = contextStoreId || userDoc?.storeId;
+            if (!fetchStoreId) return;
             try {
                 const token = await getToken();
-                const res = await fetch(`/api/kpi-templates?storeId=${userDoc.storeId}`, { headers: { Authorization: `Bearer ${token}` } });
+                const res = await fetch(`/api/kpi-templates?storeId=${fetchStoreId}`, { headers: { Authorization: `Bearer ${token}` } });
                 const data = await res.json();
                 setKpiTemplates(Array.isArray(data) ? data : []);
             } catch { /* noop */ }
@@ -376,7 +378,7 @@ export default function EmployeeDashboardPage() {
                     shiftId={selfScoreModal.shiftId}
                     date={selfScoreModal.date}
                     counterId={selfScoreModal.counterId}
-                    storeId={userDoc?.storeId ?? ''}
+                    storeId={contextStoreId || userDoc?.storeId || ''}
                     onSuccess={() => { }}
                 />
             )}

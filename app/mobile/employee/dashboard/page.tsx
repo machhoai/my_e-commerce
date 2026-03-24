@@ -22,7 +22,7 @@ function shortenName(fullName: string): string {
 
 export default function MobileEmployeeDashboardPage() {
     const router = useRouter();
-    const { user, userDoc, getToken } = useAuth();
+    const { user, userDoc, loading: authLoading, hasPermission, getToken, effectiveStoreId: contextStoreId } = useAuth();
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date()));
     const weekDays = getWeekDays(currentWeekStart);
 
@@ -39,7 +39,7 @@ export default function MobileEmployeeDashboardPage() {
         isOpen: boolean; template: KpiTemplateDoc | null; shiftId: string; date: string; counterId: string;
     }>({ isOpen: false, template: null, shiftId: '', date: '', counterId: '' });
 
-    const storeId = userDoc?.storeId ?? '';
+    const storeId = contextStoreId || userDoc?.storeId || '';
 
     useEffect(() => {
         if (!user) return;

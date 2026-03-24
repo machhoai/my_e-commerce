@@ -21,7 +21,7 @@ import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader
 import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 
 function ManagerKpiStatsPageContent() {
-    const { user, userDoc, getToken, hasPermission } = useAuth();
+    const { user, userDoc, getToken, hasPermission, effectiveStoreId: contextStoreId } = useAuth();
     const { params, setParam, setParams, clearAll, toggleSort, activeFilterCount, setPage, setPageSize } = useTableParams();
     const [selectedMonth, setSelectedMonth] = useState(() => {
         const now = new Date();
@@ -33,7 +33,7 @@ function ManagerKpiStatsPageContent() {
         if (typeof window !== 'undefined') return localStorage.getItem('globalSelectedStoreId') || '';
         return '';
     });
-    const effectiveStoreId = userDoc?.role === 'admin' ? selectedStoreId : userDoc?.storeId ?? '';
+    const effectiveStoreId = userDoc?.role === 'admin' ? selectedStoreId : (contextStoreId || userDoc?.storeId || '');
 
     const [records, setRecords] = useState<KpiRecordDoc[]>([]);
     const [allEmployees, setAllEmployees] = useState<UserDoc[]>([]);

@@ -25,7 +25,7 @@ const roleDot = (i: UserInfo) => i.role === 'store_manager' ? 'bg-red-500' : i.r
 const roleBadge = (i: UserInfo) => i.role === 'store_manager' ? 'bg-red-50 text-red-700 border-red-200' : i.role === 'manager' ? 'bg-amber-50 text-amber-700 border-amber-200' : i.type === 'FT' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200';
 
 export default function MobileSchedulingRegisterPage() {
-    const { user, userDoc, hasPermission } = useAuth();
+    const { user, userDoc, hasPermission, effectiveStoreId: contextStoreId } = useAuth();
 
     const [settings, setSettings] = useState<StoreSettings | null>(null);
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
@@ -65,7 +65,7 @@ export default function MobileSchedulingRegisterPage() {
         })();
     }, [isAdmin, user, getToken]);
 
-    const effectiveStoreId = isAdmin ? selectedAdminStoreId : (userDoc?.storeId ?? '');
+    const effectiveStoreId = isAdmin ? selectedAdminStoreId : (contextStoreId || userDoc?.storeId || '');
     const selectedStoreName = useMemo(() => {
         if (!selectedAdminStoreId) return 'Chọn cửa hàng';
         return stores.find(s => s.id === selectedAdminStoreId)?.name ?? selectedAdminStoreId;

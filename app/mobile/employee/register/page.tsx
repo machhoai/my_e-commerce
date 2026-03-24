@@ -13,7 +13,7 @@ import {
 import MobilePageShell from '@/components/mobile/MobilePageShell';
 
 export default function MobileEmployeeRegisterPage() {
-    const { user, userDoc } = useAuth();
+    const { user, userDoc, effectiveStoreId: contextStoreId } = useAuth();
 
     const [settings, setSettings] = useState<StoreSettings | null>(null);
     const strictShiftLimit = settings?.strictShiftLimit ?? true;
@@ -40,7 +40,7 @@ export default function MobileEmployeeRegisterPage() {
     const [activeEmployeeList, setActiveEmployeeList] = useState<Set<string>>(new Set());
     const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
 
-    const storeId = userDoc?.storeId ?? '';
+    const storeId = contextStoreId || userDoc?.storeId || '';
 
     // Real-time store settings
     useEffect(() => {

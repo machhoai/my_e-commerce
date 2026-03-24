@@ -591,14 +591,15 @@ function InventorySection() {
 
 // ─── Personal Schedule for employees ────────────────────────────────────────
 function PersonalScheduleSection() {
-    const { user, userDoc } = useAuth();
+    const { user, userDoc, effectiveStoreId: contextStoreId } = useAuth();
+    const storeId = contextStoreId || userDoc?.storeId || '';
     const [todayShifts, setTodayShifts] = useState<{ shiftId: string; counterId: string }[]>([]);
     const [nextShift, setNextShift] = useState<{ date: string; shiftId: string } | null>(null);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
     useEffect(() => {
-        if (!user || !userDoc?.storeId) { setLoading(false); return; }
+        if (!user || !storeId) { setLoading(false); return; }
         let cancelled = false;
         (async () => {
             setLoading(true);
@@ -613,7 +614,7 @@ function PersonalScheduleSection() {
                 if (cancelled) return;
                 const myScheds = schedSnap.docs
                     .map(d => d.data() as ScheduleDoc)
-                    .filter(s => s.storeId === userDoc.storeId && s.employeeIds?.includes(userDoc.uid));
+                    .filter(s => s.storeId === storeId && s.employeeIds?.includes(userDoc?.uid ?? ''));
 
                 const todayS = myScheds.filter(s => s.date === today).map(s => ({ shiftId: s.shiftId, counterId: s.counterId }));
                 setTodayShifts(todayS);

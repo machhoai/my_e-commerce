@@ -46,7 +46,7 @@ function initials(name: string) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function MobileManagerSchedulingHistoryPage() {
     const router = useRouter();
-    const { user, userDoc, hasPermission } = useAuth();
+    const { user, userDoc, hasPermission, effectiveStoreId: contextStoreId } = useAuth();
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
 
     // ── Month navigation ──────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ export default function MobileManagerSchedulingHistoryPage() {
     const fetchHistory = useCallback(async () => {
         if (!user || !userDoc) return;
         setLoading(true); setError('');
-        const effectiveStoreId = isAdmin ? selectedStoreId : (userDoc.storeId ?? '');
+        const effectiveStoreId = isAdmin ? selectedStoreId : (contextStoreId || userDoc?.storeId || '');
         try {
             let settingsData: SettingsDoc | null = null;
             if (effectiveStoreId) {
@@ -456,7 +456,7 @@ export default function MobileManagerSchedulingHistoryPage() {
             {profileUid && (
                 <EmployeeProfilePopup
                     employeeUid={profileUid}
-                    storeId={isAdmin ? selectedStoreId : userDoc?.storeId}
+                    storeId={isAdmin ? selectedStoreId : (contextStoreId || userDoc?.storeId)}
                     onClose={() => setProfileUid(null)}
                 />
             )}

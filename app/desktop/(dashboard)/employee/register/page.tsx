@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,7 +13,7 @@ import {
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function EmployeeRegisterPage() {
-    const { user, userDoc } = useAuth();
+    const { user, userDoc, effectiveStoreId: contextStoreId } = useAuth();
 
     // ─── Settings (real-time via onSnapshot) ────────────────────────────────
     const [settings, setSettings] = useState<StoreSettings | null>(null);
@@ -50,7 +50,7 @@ export default function EmployeeRegisterPage() {
 
     // ─── REAL-TIME LISTENER: Store Settings (onSnapshot) ────────────────────
     // This replaces the one-time getDoc and reacts instantly when admin closes registration
-    const storeId = userDoc?.storeId ?? '';
+    const storeId = contextStoreId || userDoc?.storeId || '';
     const snapshotUnsubRef = useRef<(() => void) | null>(null);
 
     useEffect(() => {

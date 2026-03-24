@@ -38,7 +38,7 @@ function monthLabel(m: string) {
 }
 
 export default function MobileKpiStatsPage() {
-    const { user, userDoc, getToken, hasPermission } = useAuth();
+    const { user, userDoc, getToken, hasPermission, effectiveStoreId: contextStoreId } = useAuth();
 
     // ── Month navigation ─────────────────────────────────────────────────────
     const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -58,7 +58,7 @@ export default function MobileKpiStatsPage() {
         return '';
     });
     const [storeSheetOpen, setStoreSheetOpen] = useState(false);
-    const effectiveStoreId = userDoc?.role === 'admin' ? selectedStoreId : userDoc?.storeId ?? '';
+    const effectiveStoreId = userDoc?.role === 'admin' ? selectedStoreId : (contextStoreId || userDoc?.storeId || '');
 
     // ── Data ─────────────────────────────────────────────────────────────────
     const [records, setRecords] = useState<KpiRecordDoc[]>([]);

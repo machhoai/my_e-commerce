@@ -82,7 +82,8 @@ function QuickAccessItem({
 // View A: Personal Schedule + KPI (for Staff / employee role) — real Firestore data
 // ─────────────────────────────────────────────────────────────────────────────
 function PersonalScheduleView({ onNavigate, onNavigateRegister }: { onNavigate: () => void; onNavigateRegister: () => void }) {
-    const { user, userDoc } = useAuth();
+    const { user, userDoc, effectiveStoreId: contextStoreId } = useAuth();
+    const storeId = contextStoreId || userDoc?.storeId || '';
     const [todayShift, setTodayShift] = useState<string | null>(null);
     const [nextShift, setNextShift] = useState<{ dayLabel: string; shiftId: string } | null>(null);
     const [monthlyShifts, setMonthlyShifts] = useState<number>(0);
@@ -91,7 +92,7 @@ function PersonalScheduleView({ onNavigate, onNavigateRegister }: { onNavigate: 
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (!user?.uid || !userDoc?.storeId) { setLoading(false); return; }
+        if (!user?.uid || !storeId) { setLoading(false); return; }
         let cancelled = false;
         (async () => {
             setLoading(true);
@@ -106,7 +107,7 @@ function PersonalScheduleView({ onNavigate, onNavigateRegister }: { onNavigate: 
 
                 const schedSnap = await getDocs(query(
                     collection(db, 'schedules'),
-                    where('storeId', '==', userDoc.storeId),
+                    where('storeId', '==', storeId),
                     where('date', '>=', toLocalISO(monday)),
                     where('date', '<=', toLocalISO(sunday)),
                 ));
@@ -150,7 +151,7 @@ function PersonalScheduleView({ onNavigate, onNavigateRegister }: { onNavigate: 
                 const kpiSnap = await getDocs(query(
                     collection(db, 'kpi_records'),
                     where('userId', '==', user.uid),
-                    where('storeId', '==', userDoc.storeId),
+                    where('storeId', '==', storeId),
                     where('date', '>=', monthStart),
                     where('date', '<=', monthEnd),
                 ));

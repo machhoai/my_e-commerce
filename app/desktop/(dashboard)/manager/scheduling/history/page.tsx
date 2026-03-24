@@ -29,7 +29,7 @@ interface EmployeeStats {
 }
 
 function ManagerHistoryPageContent() {
-    const { user, userDoc, hasPermission } = useAuth();
+    const { user, userDoc, hasPermission, effectiveStoreId: contextStoreId } = useAuth();
     const [profileUid, setProfileUid] = useState<string | null>(null);
     const { params, setParam, setParams, clearAll, toggleSort: urlToggleSort, activeFilterCount, setPage, setPageSize } = useTableParams();
 
@@ -132,7 +132,7 @@ function ManagerHistoryPageContent() {
         if (!user || !userDoc) return;
 
         // Admin: filter by selected store if chosen, otherwise show all
-        const effectiveStoreId = userDoc.role === 'admin' ? selectedAdminStoreId : userDoc.storeId;
+        const effectiveStoreId = userDoc.role === 'admin' ? selectedAdminStoreId : (contextStoreId || userDoc.storeId || '');
 
         async function fetchHistory() {
             setLoading(true);

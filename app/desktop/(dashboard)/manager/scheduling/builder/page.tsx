@@ -58,7 +58,7 @@ function saveWeeklyDraft(storeId: string, weekStart: Date, draft: WeeklyDraft): 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function ManagerSchedulePage() {
-    const { user, userDoc, hasPermission } = useAuth();
+    const { user, userDoc, hasPermission, effectiveStoreId: contextStoreId } = useAuth();
 
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000)));
     const weekDays = getWeekDays(currentWeekStart);
@@ -105,7 +105,7 @@ export default function ManagerSchedulePage() {
         return '';
     });
 
-    const effectiveStoreId = userDoc?.role === 'admin' ? selectedAdminStoreId : userDoc?.storeId ?? '';
+    const effectiveStoreId = userDoc?.role === 'admin' ? selectedAdminStoreId : (contextStoreId || userDoc?.storeId || '');
 
     useEffect(() => {
         if (typeof window !== 'undefined' && selectedAdminStoreId) {
@@ -123,8 +123,8 @@ export default function ManagerSchedulePage() {
                     const res = await fetch('/api/stores', { headers: { 'Authorization': `Bearer ${token}` } });
                     const storeData = await res.json();
                     setStores(Array.isArray(storeData) ? storeData : []);
-                } else if (userDoc?.storeId) {
-                    const storeSnap = await getDoc(doc(db, 'stores', userDoc.storeId));
+                } else if (effectiveStoreId) {
+                    const storeSnap = await getDoc(doc(db, 'stores', effectiveStoreId));
                     if (storeSnap.exists()) {
                         const sData = storeSnap.data() as StoreDoc;
                         const countersData = (sData.settings as any)?.counters || [];
