@@ -340,12 +340,17 @@ export interface UserDoc {
     idCard?: string;
     bankAccount?: string;
     education?: string;
+    gender?: string;           // Giới tính (from CCCD QR)
+    permanentAddress?: string; // Địa chỉ thường trú (from CCCD QR)
+    idCardFrontPhoto?: string; // WebP base64 — front of CCCD
+    idCardBackPhoto?: string;  // WebP base64 — back of CCCD
 
     // Permissions
     canManageHR?: boolean;
     customRoleId?: string; // Points to a document in 'custom_roles' collection
     fcmToken?: string; // Firebase Cloud Messaging registration token
     defaultDashboard?: string; // User-configurable preferred landing page (e.g. '/office/revenue')
+    avatar?: string; // WebP base64 data URI for profile portrait
 }
 
 export interface NotificationDoc {

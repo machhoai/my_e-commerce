@@ -18,15 +18,20 @@ const nextConfig: NextConfig = {
     env: {
         NEXT_PUBLIC_BUILD_VERSION: buildVer,
     },
+    // Allow large API request bodies (base64 ID card photos)
+    experimental: {
+        serverActions: {
+            bodySizeLimit: '10mb',
+        },
+    },
     images: {
         remotePatterns: [
             {
                 protocol: 'https',
-                hostname: 'production-cdn.pharmacity.io', // <--- Thêm domain này
+                hostname: 'production-cdn.pharmacity.io',
                 port: '',
-                pathname: '/**', // Cho phép tải ảnh từ bất kỳ đường dẫn nào trên domain này
+                pathname: '/**',
             },
-            // Nếu có các domain khác, bạn thêm vào đây
         ],
     },
 };

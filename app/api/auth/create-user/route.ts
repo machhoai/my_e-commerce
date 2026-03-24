@@ -3,6 +3,10 @@ import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { phoneToEmail, defaultPassword } from '@/lib/utils';
 import { UserDoc } from '@/types';
 
+// Allow large payloads for base64 ID card photos
+export const maxDuration = 30;
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
     try {
         const token = req.headers.get('Authorization')?.split('Bearer ')[1];
@@ -31,6 +35,7 @@ export async function POST(req: NextRequest) {
         const {
             name, phone, type, dob, jobTitle,
             email: realEmail, idCard, bankAccount, education,
+            gender, permanentAddress, idCardFrontPhoto, idCardBackPhoto,
             canManageHR,
             // Workplace assignment
             workplaceType: bodyWorkplaceType,
@@ -41,6 +46,8 @@ export async function POST(req: NextRequest) {
             name: string; phone: string; type: UserDoc['type'];
             dob?: string; jobTitle?: string; email?: string;
             idCard?: string; bankAccount?: string; education?: string;
+            gender?: string; permanentAddress?: string;
+            idCardFrontPhoto?: string; idCardBackPhoto?: string;
             canManageHR?: boolean;
             workplaceType?: 'STORE' | 'OFFICE' | 'CENTRAL';
             storeId?: string; officeId?: string; warehouseId?: string;
@@ -102,6 +109,10 @@ export async function POST(req: NextRequest) {
             ...(idCard && { idCard }),
             ...(bankAccount && { bankAccount }),
             ...(education && { education }),
+            ...(gender && { gender }),
+            ...(permanentAddress && { permanentAddress }),
+            ...(idCardFrontPhoto && { idCardFrontPhoto }),
+            ...(idCardBackPhoto && { idCardBackPhoto }),
             ...(isAdmin && canManageHR !== undefined && { canManageHR: Boolean(canManageHR) }),
         };
 

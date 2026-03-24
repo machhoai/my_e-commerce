@@ -5,7 +5,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { UserDoc } from '@/types';
-import { User, Mail, Phone, Calendar, Briefcase, CreditCard, GraduationCap, ShieldCheck } from 'lucide-react';
+import {
+    User, Mail, Phone, Calendar, Briefcase, CreditCard, GraduationCap,
+    ShieldCheck, Camera, Loader2,
+} from 'lucide-react';
+import SmartPortraitCamera from '@/components/shared/SmartPortraitCamera';
+import { convertBase64ToWebP } from '@/lib/utils/image';
 
 export default function ProfilePage() {
     const { user } = useAuth();
@@ -18,6 +23,11 @@ export default function ProfilePage() {
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
 
+    // Camera / Avatar
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+    const [isProcessing, setIsProcessing] = useState(false);
+
     useEffect(() => {
         const fetchProfile = async () => {
             if (!user) return;
@@ -25,7 +35,9 @@ export default function ProfilePage() {
                 const docRef = doc(db, 'users', user.uid);
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
-                    setProfileData(docSnap.data() as UserDoc);
+                    const data = docSnap.data() as UserDoc;
+                    setProfileData(data);
+                    if (data.avatar) setAvatarUrl(data.avatar);
                 }
             } catch (error) {
                 console.error("Lỗi khi tải hồ sơ:", error);
@@ -55,7 +67,7 @@ export default function ProfilePage() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify(editData) // employee can only update themselves
+                body: JSON.stringify(editData)
             });
 
             const data = await res.json();
@@ -81,6 +93,30 @@ export default function ProfilePage() {
                 education: profileData.education || '',
             });
             setIsEditing(true);
+        }
+    };
+
+    // ── Camera capture handler ───────────────────────────────────────────────
+    const handleCapture = async (base64Image: string) => {
+        setIsCameraOpen(false);
+        setIsProcessing(true);
+        try {
+            const webpImage = await convertBase64ToWebP(base64Image, 0.8);
+            setAvatarUrl(webpImage);
+
+            if (user) {
+                const token = await user.getIdToken();
+                await fetch('/api/auth/update-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ avatar: webpImage }),
+                });
+                setProfileData(prev => prev ? { ...prev, avatar: webpImage } : null);
+            }
+        } catch (err) {
+            console.error('Avatar update failed:', err);
+        } finally {
+            setIsProcessing(false);
         }
     };
 
@@ -119,9 +155,31 @@ export default function ProfilePage() {
                 <div className="p-6 sm:p-8">
                     {/* Basic Info Read-Only Header */}
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 mb-8 pb-8 border-b border-surface-100">
-                        <div className="w-24 h-24 bg-gradient-to-br from-primary-100 to-accent-100 text-primary-600 rounded-full flex justify-center items-center shrink-0">
-                            <span className="text-3xl font-bold uppercase">{profileData.name?.charAt(0) || 'U'}</span>
-                        </div>
+                        {/* Avatar with camera overlay */}
+                        <button
+                            onClick={() => setIsCameraOpen(true)}
+                            className="relative w-24 h-24 rounded-full shrink-0 group cursor-pointer"
+                            disabled={isProcessing}
+                        >
+                            {avatarUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={avatarUrl} alt="Avatar" className="w-24 h-24 rounded-full object-cover" />
+                            ) : (
+                                <div className="w-24 h-24 bg-gradient-to-br from-primary-100 to-accent-100 text-primary-600 rounded-full flex justify-center items-center">
+                                    <span className="text-3xl font-bold uppercase">{profileData.name?.charAt(0) || 'U'}</span>
+                                </div>
+                            )}
+
+                            {/* Camera badge */}
+                            <div className="absolute -bottom-0.5 -right-0.5 w-8 h-8 rounded-full bg-primary-600 border-[3px] border-white flex items-center justify-center shadow-md opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all">
+                                {isProcessing ? (
+                                    <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
+                                ) : (
+                                    <Camera className="w-3.5 h-3.5 text-white" />
+                                )}
+                            </div>
+                        </button>
+
                         <div className="flex-1 space-y-2">
                             <h2 className="text-2xl font-bold text-surface-900">{profileData.name}</h2>
                             <div className="flex flex-wrap gap-3">
@@ -135,6 +193,9 @@ export default function ProfilePage() {
                                     {profileData.type === 'FT' ? 'Toàn thời gian' : 'Bán thời gian'}
                                 </span>
                             </div>
+                            {isProcessing && (
+                                <p className="text-xs text-primary-600 font-medium animate-pulse">Đang xử lý ảnh...</p>
+                            )}
                         </div>
                         {!isEditing && (
                             <button
@@ -266,6 +327,14 @@ export default function ProfilePage() {
                     </form>
                 </div>
             </div>
+
+            {/* ═══ CAMERA FULLSCREEN ═══ */}
+            {isCameraOpen && (
+                <SmartPortraitCamera
+                    onCapture={handleCapture}
+                    onClose={() => setIsCameraOpen(false)}
+                />
+            )}
         </div>
     );
 }

@@ -9,10 +9,13 @@ import { cn } from '@/lib/utils';
 import {
     User, Mail, Phone, Calendar, Briefcase, CreditCard, GraduationCap,
     ShieldCheck, Home, ChevronRight, LogOut, Edit3, X, Loader2,
-    CheckCircle2, AlertTriangle, Lock,
+    CheckCircle2, AlertTriangle, Lock, Camera, ScanLine, ImageIcon, MapPin,
 } from 'lucide-react';
 import MobilePageShell from '@/components/mobile/MobilePageShell';
 import BottomSheet from '@/components/shared/BottomSheet';
+import SmartPortraitCamera from '@/components/shared/SmartPortraitCamera';
+import CCCDCamera, { CCCDScanResult } from '@/components/hr/CCCDCamera';
+import { convertBase64ToWebP } from '@/lib/utils/image';
 
 const ROLE_LABELS: Record<string, string> = {
     admin: 'Quản trị viên',
@@ -36,12 +39,25 @@ export default function MobileProfilePage() {
     const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
 
+    // Camera / Avatar
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    // CCCD Scanner
+    const [isCCCDOpen, setIsCCCDOpen] = useState(false);
+    const [cccdProcessing, setCccdProcessing] = useState(false);
+
     useEffect(() => {
         if (!user) return;
         (async () => {
             try {
                 const snap = await getDoc(doc(db, 'users', user.uid));
-                if (snap.exists()) setProfileData(snap.data() as UserDoc);
+                if (snap.exists()) {
+                    const data = snap.data() as UserDoc;
+                    setProfileData(data);
+                    if (data.avatar) setAvatarUrl(data.avatar);
+                }
             } catch { /* noop */ }
             finally { setLoading(false); }
         })();
@@ -84,7 +100,62 @@ export default function MobileProfilePage() {
         try { await logout(); } catch { setLoggingOut(false); }
     };
 
+    // ── CCCD scan handler ────────────────────────────────────────────────────
+    const handleCCCDScanComplete = async (result: CCCDScanResult) => {
+        setIsCCCDOpen(false);
+        setCccdProcessing(true);
+        try {
+            if (user) {
+                const token = await user.getIdToken();
+                const payload = {
+                    name: result.parsedData.name,
+                    idCard: result.parsedData.idCard,
+                    dob: result.parsedData.dob,
+                    gender: result.parsedData.gender,
+                    permanentAddress: result.parsedData.permanentAddress,
+                    idCardFrontPhoto: result.frontPhotoWebP,
+                    idCardBackPhoto: result.backPhotoWebP,
+                };
+                const res = await fetch('/api/auth/update-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify(payload),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Cập nhật thất bại');
+                setProfileData(prev => prev ? { ...prev, ...payload } : null);
+                setMessage({ type: 'success', text: 'Cập nhật CCCD thành công!' });
+            }
+        } catch (err) {
+            console.error('CCCD update failed:', err);
+            setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Cập nhật CCCD thất bại' });
+        } finally {
+            setCccdProcessing(false);
+        }
+    };
+    const handleCapture = async (base64Image: string) => {
+        setIsCameraOpen(false);
+        setIsProcessing(true);
+        try {
+            const webpImage = await convertBase64ToWebP(base64Image, 0.8);
+            setAvatarUrl(webpImage);
 
+            // Upload to server
+            if (user) {
+                const token = await user.getIdToken();
+                await fetch('/api/auth/update-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ avatar: webpImage }),
+                });
+                setProfileData(prev => prev ? { ...prev, avatar: webpImage } : null);
+            }
+        } catch (err) {
+            console.error('Avatar update failed:', err);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
 
     // ── Loading / Error ──────────────────────────────────────────────────────
     if (loading) {
@@ -118,13 +189,15 @@ export default function MobileProfilePage() {
             items: [
                 { icon: <Phone className="w-4 h-4" />, label: 'Số điện thoại', value: profileData.phone || '—', locked: true },
                 { icon: <User className="w-4 h-4" />, label: 'Số CCCD', value: profileData.idCard || '—', locked: true },
+                { icon: <User className="w-4 h-4" />, label: 'Giới tính', value: profileData.gender || '—', locked: true },
             ],
         },
         {
             title: 'Thông tin cá nhân',
             items: [
                 { icon: <Mail className="w-4 h-4" />, label: 'Email', value: profileData.email || 'Chưa cung cấp' },
-                { icon: <Calendar className="w-4 h-4" />, label: 'Ngày sinh', value: profileData.dob || 'Chưa cung cấp' },
+                { icon: <Calendar className="w-4 h-4" />, label: 'Ngày sinh', value: profileData.dob || 'Chưa cung cấp', locked: true },
+                { icon: <MapPin className="w-4 h-4" />, label: 'Địa chỉ thường trú', value: profileData.permanentAddress || 'Chưa cung cấp', locked: true },
                 { icon: <CreditCard className="w-4 h-4" />, label: 'Ngân hàng', value: profileData.bankAccount || 'Chưa cung cấp' },
                 { icon: <GraduationCap className="w-4 h-4" />, label: 'Học vấn', value: profileData.education || 'Chưa cung cấp' },
             ],
@@ -140,9 +213,31 @@ export default function MobileProfilePage() {
         }>
             {/* ── Profile header ───────────────────────────────────────── */}
             <div className="flex flex-col items-center pt-2 pb-4">
-                <div className="w-20 h-20 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center shadow-lg shadow-primary-200 mb-3">
-                    <span className="text-2xl font-black text-white uppercase">{firstName.charAt(0)}</span>
-                </div>
+                {/* Avatar with camera overlay */}
+                <button
+                    onClick={() => setIsCameraOpen(true)}
+                    className="relative w-20 h-20 rounded-full mb-3 group"
+                    disabled={isProcessing}
+                >
+                    {avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={avatarUrl} alt="Avatar" className="w-20 h-20 rounded-full object-cover shadow-lg shadow-primary-200" />
+                    ) : (
+                        <div className="w-20 h-20 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center shadow-lg shadow-primary-200">
+                            <span className="text-2xl font-black text-white uppercase">{firstName.charAt(0)}</span>
+                        </div>
+                    )}
+
+                    {/* Camera badge */}
+                    <div className="absolute -bottom-0.5 -right-0.5 w-7 h-7 rounded-full bg-primary-600 border-[2.5px] border-white flex items-center justify-center shadow-md group-active:scale-90 transition-transform">
+                        {isProcessing ? (
+                            <Loader2 className="w-3 h-3 text-white animate-spin" />
+                        ) : (
+                            <Camera className="w-3 h-3 text-white" />
+                        )}
+                    </div>
+                </button>
+
                 <h2 className="text-lg font-black text-gray-800">{profileData.name}</h2>
                 <div className="flex items-center gap-1.5 mt-1.5 flex-wrap justify-center">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-primary-50 text-primary-700 border border-primary-100">
@@ -155,6 +250,10 @@ export default function MobileProfilePage() {
                         {profileData.type === 'FT' ? 'Toàn thời gian' : 'Bán thời gian'}
                     </span>
                 </div>
+
+                {isProcessing && (
+                    <p className="text-[10px] text-primary-600 font-medium mt-2 animate-pulse">Đang xử lý ảnh...</p>
+                )}
             </div>
 
             {/* ── Info sections ────────────────────────────────────────── */}
@@ -180,8 +279,49 @@ export default function MobileProfilePage() {
                 ))}
             </div>
 
+            {/* ── CCCD Photos ──────────────────────────────────────────── */}
+            {(profileData.idCardFrontPhoto || profileData.idCardBackPhoto) && (
+                <div className="mt-3">
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1.5">Ảnh CCCD</p>
+                    <div className="flex gap-2">
+                        {profileData.idCardFrontPhoto && (
+                            <div className="flex-1 rounded-xl border border-gray-100 overflow-hidden bg-white shadow-sm">
+                                <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider px-2.5 py-1 bg-gray-50 flex items-center gap-1">
+                                    <ImageIcon className="w-2.5 h-2.5" /> Mặt trước
+                                </div>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={profileData.idCardFrontPhoto} alt="CCCD Front" className="w-full h-24 object-cover" />
+                            </div>
+                        )}
+                        {profileData.idCardBackPhoto && (
+                            <div className="flex-1 rounded-xl border border-gray-100 overflow-hidden bg-white shadow-sm">
+                                <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider px-2.5 py-1 bg-gray-50 flex items-center gap-1">
+                                    <ImageIcon className="w-2.5 h-2.5" /> Mặt sau
+                                </div>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={profileData.idCardBackPhoto} alt="CCCD Back" className="w-full h-24 object-cover" />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* ── Actions ─────────────────────────────────────────────── */}
             <div className="mt-4 space-y-2">
+                {/* CCCD Scanner button */}
+                <button onClick={() => setIsCCCDOpen(true)}
+                    disabled={cccdProcessing}
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-white rounded-xl border border-accent-100 shadow-sm active:scale-[0.99] transition-all"
+                >
+                    <div className="w-8 h-8 rounded-lg bg-accent-50 flex items-center justify-center">
+                        {cccdProcessing ? <Loader2 className="w-4 h-4 text-accent-600 animate-spin" /> : <ScanLine className="w-4 h-4 text-accent-600" />}
+                    </div>
+                    <span className="flex-1 text-left text-xs font-bold text-gray-700">
+                        {cccdProcessing ? 'Đang xử lý CCCD...' : profileData.idCard ? 'Quét lại CCCD' : 'Quét CCCD để cập nhật thông tin'}
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                </button>
+
                 <button onClick={startEditing}
                     className="w-full flex items-center gap-3 px-4 py-3 bg-white rounded-xl border border-gray-100 shadow-sm active:scale-[0.99] transition-all">
                     <div className="w-8 h-8 rounded-lg bg-primary-50 flex items-center justify-center"><Edit3 className="w-4 h-4 text-primary-600" /></div>
@@ -196,6 +336,22 @@ export default function MobileProfilePage() {
                     <ChevronRight className="w-4 h-4 text-red-300" />
                 </button>
             </div>
+
+            {/* ═══ CAMERA FULLSCREEN ═══ */}
+            {isCameraOpen && (
+                <SmartPortraitCamera
+                    onCapture={handleCapture}
+                    onClose={() => setIsCameraOpen(false)}
+                />
+            )}
+
+            {/* ═══ CCCD CAMERA ═══ */}
+            {isCCCDOpen && (
+                <CCCDCamera
+                    onScanComplete={handleCCCDScanComplete}
+                    onClose={() => setIsCCCDOpen(false)}
+                />
+            )}
 
             {/* ═══ EDIT BOTTOMSHEET ═══ */}
             <BottomSheet isOpen={editSheetOpen} onClose={() => setEditSheetOpen(false)} title="Chỉnh sửa hồ sơ">
@@ -215,10 +371,9 @@ export default function MobileProfilePage() {
                             className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-700 bg-gray-50 outline-none focus:border-primary-400" />
                     </div>
 
-                    <div>
-                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Ngày sinh</label>
-                        <input type="date" value={editData.dob || ''} onChange={e => handleEditChange('dob', e.target.value)}
-                            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-700 bg-gray-50 outline-none focus:border-primary-400" />
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[10px] text-amber-700 font-medium mb-1">
+                        <ScanLine className="w-3.5 h-3.5 shrink-0" />
+                        Thông tin CCCD (tên, ngày sinh, giới tính, địa chỉ) chỉ cập nhật qua quét CCCD
                     </div>
 
                     {['admin', 'store_manager', 'manager'].includes(profileData.role) && (

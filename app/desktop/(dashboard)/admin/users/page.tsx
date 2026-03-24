@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { UserDoc, UserRole, EmployeeType, StoreDoc, OfficeDoc, WarehouseDoc, CustomRoleDoc } from '@/types';
-import { Users, Plus, ShieldAlert, KeyRound, MailPlus, Search, ShieldCheck, Building2, AlertCircle, CheckCircle2, Shield } from 'lucide-react';
+import { Users, Plus, ShieldAlert, KeyRound, MailPlus, Search, ShieldCheck, Building2, AlertCircle, CheckCircle2, Shield, ScanLine, ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTableParams } from '@/hooks/useTableParams';
 import { processTableData } from '@/lib/processTableData';
@@ -13,6 +13,7 @@ import DataTableToolbar, { SortableHeader } from '@/components/DataTableToolbar'
 import DataTablePagination from '@/components/DataTablePagination';
 import Portal from '@/components/Portal';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
+import CCCDCamera, { CCCDScanResult } from '@/components/hr/CCCDCamera';
 
 const ROLE_LABELS: Record<string, string> = {
     admin: 'Quản trị viên',
@@ -87,6 +88,14 @@ function AdminUsersPageContent() {
     const [newOfficeId, setNewOfficeId] = useState('');
     const [newWarehouseId, setNewWarehouseId] = useState('');
     const [newCustomRoleId, setNewCustomRoleId] = useState('');
+
+    // CCCD Scanner states
+    const [isCCCDOpen, setIsCCCDOpen] = useState(false);
+    const [cccdScanned, setCccdScanned] = useState(false);
+    const [newGender, setNewGender] = useState('');
+    const [newPermanentAddress, setNewPermanentAddress] = useState('');
+    const [newIdCardFrontPhoto, setNewIdCardFrontPhoto] = useState('');
+    const [newIdCardBackPhoto, setNewIdCardBackPhoto] = useState('');
 
     // Derive the location type for the FORM's workplace selector (based on newWorkplaceType)
     const formLocationType = newWorkplaceType;
@@ -204,6 +213,8 @@ function AdminUsersPageContent() {
         setNewName(''); setNewPhone(''); setNewRole('employee'); setNewType('PT');
         setNewDob(''); setNewJobTitle(''); setNewEmail(''); setNewIdCard('');
         setNewBankAccount(''); setNewEducation(''); setNewCanManageHR(false); setNewCustomRoleId('');
+        setNewGender(''); setNewPermanentAddress(''); setNewIdCardFrontPhoto(''); setNewIdCardBackPhoto('');
+        setCccdScanned(false);
         setNewStoreId(selectedLocationType === 'STORE' ? selectedLocationId : '');
         setNewOfficeId(selectedLocationType === 'OFFICE' ? selectedLocationId : '');
         setNewWarehouseId(selectedLocationType === 'CENTRAL' ? selectedLocationId : '');
@@ -214,6 +225,19 @@ function AdminUsersPageContent() {
         );
         setEditUid(null);
         setIsCreateModalOpen(false);
+    };
+
+    // ── CCCD Scan handler ─────────────────────────────────────────────────────
+    const handleCCCDScanComplete = (result: CCCDScanResult) => {
+        setIsCCCDOpen(false);
+        setCccdScanned(true);
+        setNewName(result.parsedData.name);
+        setNewIdCard(result.parsedData.idCard);
+        setNewDob(result.parsedData.dob);
+        setNewGender(result.parsedData.gender);
+        setNewPermanentAddress(result.parsedData.permanentAddress);
+        setNewIdCardFrontPhoto(result.frontPhotoWebP);
+        setNewIdCardBackPhoto(result.backPhotoWebP);
     };
 
     const openCreateModal = () => {
@@ -227,6 +251,9 @@ function AdminUsersPageContent() {
         setNewDob(u.dob || ''); setNewJobTitle(u.jobTitle || ''); setNewEmail(u.email || '');
         setNewIdCard(u.idCard || ''); setNewBankAccount(u.bankAccount || ''); setNewEducation(u.education || '');
         setNewCanManageHR(u.canManageHR || false);
+        setNewGender(u.gender || ''); setNewPermanentAddress(u.permanentAddress || '');
+        setNewIdCardFrontPhoto(u.idCardFrontPhoto || ''); setNewIdCardBackPhoto(u.idCardBackPhoto || '');
+        setCccdScanned(!!u.idCard);
         setNewWorkplaceType(u.workplaceType || 'STORE');
         setNewStoreId(u.storeId || ''); setNewOfficeId(u.officeId || ''); setNewWarehouseId(u.warehouseId || '');
         setNewCustomRoleId(u.customRoleId || '');
@@ -248,6 +275,10 @@ function AdminUsersPageContent() {
                 name: newName, phone: newPhone, role: newRole, type: newType,
                 dob: newDob, jobTitle: newJobTitle, email: newEmail,
                 idCard: newIdCard, bankAccount: newBankAccount, education: newEducation,
+                gender: newGender || undefined,
+                permanentAddress: newPermanentAddress || undefined,
+                idCardFrontPhoto: newIdCardFrontPhoto || undefined,
+                idCardBackPhoto: newIdCardBackPhoto || undefined,
                 canManageHR: newCanManageHR,
                 workplaceType: newWorkplaceType,
                 storeId: newWorkplaceType === 'STORE' ? (newStoreId || undefined) : undefined,
@@ -600,20 +631,70 @@ function AdminUsersPageContent() {
                             </div>
 
                             <form onSubmit={handleCreateOrUpdateUser} className="p-6 space-y-5">
+                                {/* CCCD Scanner Button */}
+                                {!editUid && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsCCCDOpen(true)}
+                                        className={cn(
+                                            'w-full flex items-center justify-center gap-3 py-3.5 rounded-xl border-2 border-dashed font-semibold text-sm transition-all',
+                                            cccdScanned
+                                                ? 'bg-success-50 border-success-300 text-success-700 hover:bg-success-100'
+                                                : 'bg-accent-50 border-accent-300 text-accent-700 hover:bg-accent-100 animate-pulse'
+                                        )}
+                                    >
+                                        <ScanLine className="w-5 h-5" />
+                                        {cccdScanned ? '✓ Đã quét CCCD — Bấm để quét lại' : 'Quét CCCD để nhập liệu tự động'}
+                                    </button>
+                                )}
+
+                                {/* CCCD Photo previews */}
+                                {(newIdCardFrontPhoto || newIdCardBackPhoto) && (
+                                    <div className="flex gap-3">
+                                        {newIdCardFrontPhoto && (
+                                            <div className="flex-1 rounded-xl border border-surface-200 overflow-hidden bg-surface-50">
+                                                <div className="text-[10px] font-bold text-surface-500 uppercase tracking-wider px-3 py-1.5 bg-surface-100 flex items-center gap-1.5">
+                                                    <ImageIcon className="w-3 h-3" /> Mặt trước
+                                                </div>
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img src={newIdCardFrontPhoto} alt="CCCD Front" className="w-full h-28 object-cover" />
+                                            </div>
+                                        )}
+                                        {newIdCardBackPhoto && (
+                                            <div className="flex-1 rounded-xl border border-surface-200 overflow-hidden bg-surface-50">
+                                                <div className="text-[10px] font-bold text-surface-500 uppercase tracking-wider px-3 py-1.5 bg-surface-100 flex items-center gap-1.5">
+                                                    <ImageIcon className="w-3 h-3" /> Mặt sau
+                                                </div>
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img src={newIdCardBackPhoto} alt="CCCD Back" className="w-full h-28 object-cover" />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     {/* Left col - Basic info */}
                                     <div className="space-y-4">
                                         <h4 className="font-semibold text-surface-800 text-sm border-b pb-2">Thông tin cơ bản</h4>
                                         {[
-                                            { label: 'Họ và Tên *', value: newName, setter: setNewName, placeholder: 'Nguyễn Văn A', required: true },
+                                            { label: 'Họ và Tên *', value: newName, setter: setNewName, placeholder: 'Nguyễn Văn A', required: true, readOnly: cccdScanned },
                                             { label: 'Số điện thoại *', value: newPhone, setter: setNewPhone, placeholder: '0901234567', required: true, disabled: !!editUid },
                                         ].map(f => (
                                             <div key={f.label} className="space-y-1.5">
-                                                <label className="text-sm font-medium text-surface-700">{f.label}</label>
+                                                <label className={cn('text-sm font-medium', (f as any).readOnly ? 'text-success-600' : 'text-surface-700')}>
+                                                    {f.label}
+                                                    {(f as any).readOnly && <span className="text-[10px] ml-1 text-success-500">(từ CCCD)</span>}
+                                                </label>
                                                 <input
                                                     required={f.required} disabled={f.disabled} placeholder={f.placeholder}
                                                     value={f.value} onChange={e => f.setter(e.target.value)}
-                                                    className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5 disabled:bg-surface-100 disabled:text-surface-400"
+                                                    readOnly={(f as any).readOnly}
+                                                    className={cn(
+                                                        'w-full border text-sm rounded-lg block p-2.5',
+                                                        (f as any).readOnly
+                                                            ? 'bg-success-50 border-success-200 text-success-800 cursor-not-allowed'
+                                                            : 'bg-surface-50 border-surface-200 focus:ring-accent-500 focus:border-accent-400 disabled:bg-surface-100 disabled:text-surface-400'
+                                                    )}
                                                 />
                                             </div>
                                         ))}
@@ -774,19 +855,30 @@ function AdminUsersPageContent() {
                                     <div className="space-y-4">
                                         <h4 className="font-semibold text-surface-800 text-sm border-b pb-2">Thông tin bổ sung</h4>
                                         {[
-                                            { label: 'Ngày sinh', value: newDob, setter: setNewDob, type: 'date' },
+                                            { label: 'Ngày sinh', value: newDob, setter: setNewDob, type: 'date', readOnly: cccdScanned },
+                                            { label: 'Giới tính', value: newGender, setter: setNewGender, placeholder: 'Nam / Nữ', readOnly: cccdScanned },
+                                            { label: 'Địa chỉ thường trú', value: newPermanentAddress, setter: setNewPermanentAddress, placeholder: 'Tỉnh, Huyện...', readOnly: cccdScanned },
                                             { label: 'Chức danh', value: newJobTitle, setter: setNewJobTitle, placeholder: 'VD: Nhân viên phục vụ' },
                                             { label: 'Email thực', value: newEmail, setter: setNewEmail, placeholder: 'email@example.com', type: 'email' },
-                                            { label: 'CCCD/CMND', value: newIdCard, setter: setNewIdCard, placeholder: '0123456789' },
+                                            { label: 'CCCD/CMND', value: newIdCard, setter: setNewIdCard, placeholder: '0123456789', readOnly: cccdScanned },
                                             { label: 'Tài khoản ngân hàng', value: newBankAccount, setter: setNewBankAccount, placeholder: '123456789' },
                                             { label: 'Học vấn', value: newEducation, setter: setNewEducation, placeholder: 'Đại học, Cao đẳng...' },
                                         ].map(f => (
                                             <div key={f.label} className="space-y-1.5">
-                                                <label className="text-sm font-medium text-surface-700">{f.label}</label>
+                                                <label className={cn('text-sm font-medium', (f as any).readOnly ? 'text-success-600' : 'text-surface-700')}>
+                                                    {f.label}
+                                                    {(f as any).readOnly && <span className="text-[10px] ml-1 text-success-500">(từ CCCD)</span>}
+                                                </label>
                                                 <input
-                                                    type={f.type || 'text'} placeholder={f.placeholder}
+                                                    type={(f as any).type || 'text'} placeholder={(f as any).placeholder}
                                                     value={f.value} onChange={e => f.setter(e.target.value)}
-                                                    className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5"
+                                                    readOnly={(f as any).readOnly}
+                                                    className={cn(
+                                                        'w-full border text-sm rounded-lg block p-2.5',
+                                                        (f as any).readOnly
+                                                            ? 'bg-success-50 border-success-200 text-success-800 cursor-not-allowed'
+                                                            : 'bg-surface-50 border-surface-200 focus:ring-accent-500 focus:border-accent-400'
+                                                    )}
                                                 />
                                             </div>
                                         ))}
@@ -811,6 +903,14 @@ function AdminUsersPageContent() {
                         </div>
                     </div>
                 </Portal>
+            )}
+
+            {/* CCCD Camera Modal */}
+            {isCCCDOpen && (
+                <CCCDCamera
+                    onScanComplete={handleCCCDScanComplete}
+                    onClose={() => setIsCCCDOpen(false)}
+                />
             )}
         </div >
     );

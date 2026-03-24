@@ -1,8 +1,18 @@
 import { NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 
+// Allow large payloads for base64 ID card photos
+export const maxDuration = 30;
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: Request) {
     try {
+        // Check content-length to prevent abuse (10MB limit)
+        const contentLength = parseInt(request.headers.get('content-length') || '0');
+        if (contentLength > 10 * 1024 * 1024) {
+            return NextResponse.json({ error: 'Payload quá lớn (tối đa 10MB)' }, { status: 413 });
+        }
+
         const authHeader = request.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
             return NextResponse.json({ error: 'Không được phép' }, { status: 401 });
@@ -68,6 +78,11 @@ export async function POST(request: Request) {
         if (body.jobTitle !== undefined) updateData.jobTitle = body.jobTitle;
         if (body.email !== undefined) updateData.email = body.email;
         if (body.idCard !== undefined) updateData.idCard = body.idCard;
+        if (body.avatar !== undefined) updateData.avatar = body.avatar;
+        if (body.gender !== undefined) updateData.gender = body.gender;
+        if (body.permanentAddress !== undefined) updateData.permanentAddress = body.permanentAddress;
+        if (body.idCardFrontPhoto !== undefined) updateData.idCardFrontPhoto = body.idCardFrontPhoto;
+        if (body.idCardBackPhoto !== undefined) updateData.idCardBackPhoto = body.idCardBackPhoto;
 
 
 
