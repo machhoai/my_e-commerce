@@ -136,6 +136,7 @@ const res = await fetch('${baseUrl}/api/v1/events/register', {
       email: 'a@email.com',     // Tùy chọn
     },
     source: 'qr_code',          // Tùy chọn: 'qr_code' | 'social_media' | 'direct'
+    location: 'Hồ Chí Minh',   // Tùy chọn
   }),
 });
 

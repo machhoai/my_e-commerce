@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
             userAgent?: string;
             timestamp?: string;
             metadata?: Record<string, unknown>;
+            location?: string;     // e.g. 'Quận 1, TP.HCM'
         };
 
         // Validation
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
             userAgent: body.userAgent || req.headers.get('user-agent') || '',
             timestamp: body.timestamp || new Date().toISOString(),
             metadata: body.metadata || {},
+            location: body.location?.trim() || '',
             ip: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '',
             createdAt: new Date().toISOString(),
         });

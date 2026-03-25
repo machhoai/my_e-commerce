@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     Link as LinkIcon, MousePointerClick, Smartphone, Globe,
     Plus, Copy, BarChart2, ExternalLink, X, Check, Loader2,
@@ -51,6 +52,7 @@ function formatNumber(n: number): string {
 
 export default function MobileTrackingPage() {
     const { user } = useAuth();
+    const router = useRouter();
 
     const [links, setLinks] = useState<TrackingLink[]>([]);
     const [stats, setStats] = useState<TrackingStats>({
@@ -264,6 +266,12 @@ export default function MobileTrackingPage() {
                                             <span className="inline-flex items-center gap-0.5"><Smartphone className="w-2.5 h-2.5" />{formatNumber(link.uniqueDevices)}</span>
                                             <span className="inline-flex items-center gap-0.5"><ArrowUpRight className="w-2.5 h-2.5" />{link.topSource}</span>
                                         </div>
+
+                                        {/* Xem chi tiết */}
+                                        <button onClick={() => router.push(`/office/tracking/${link.slug}`)}
+                                            className="w-full mt-2 py-1.5 rounded-lg bg-indigo-50 text-[10px] font-bold text-indigo-600 active:scale-[0.98] transition-all flex items-center justify-center gap-1">
+                                            <BarChart2 className="w-3 h-3" /> Xem chi tiết
+                                        </button>
                                     </div>
                                 </div>
                             ))

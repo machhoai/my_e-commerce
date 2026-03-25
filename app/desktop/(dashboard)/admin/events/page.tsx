@@ -6,7 +6,7 @@ import {
     BarChart3, CalendarDays, Plus, Loader2, CheckCircle2, AlertCircle,
     LayoutDashboard, FileText, Ticket, X, Code2, Users, Download, FileDown, Search,
     TrendingUp, Ban, Play, Hash, Gift, ChevronDown, ChevronRight, Dices, Trophy, Eye,
-    Pencil, PlusCircle, Sparkles, Zap, Activity,
+    Pencil, PlusCircle, Sparkles, Zap, Activity, MapPin,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import EventIntegrationGuide from '@/components/admin/EventIntegrationGuide';
@@ -1431,6 +1431,7 @@ const CUSTOMER_EXPORT_COLUMNS = [
     { key: 'prizesWon', label: 'Số giải trúng' },
     { key: 'prizes', label: 'Mã voucher trúng' },
     { key: 'source', label: 'Nguồn' },
+    { key: 'location', label: 'Địa điểm' },
     { key: 'createdAt', label: 'Ngày tham gia' },
 ];
 
@@ -1455,7 +1456,8 @@ function CustomerDataTab({ events, participations }: {
         return allParticipations.filter(p =>
             p.name.toLowerCase().includes(q) ||
             p.phone.includes(q) ||
-            (p.email && p.email.toLowerCase().includes(q))
+            (p.email && p.email.toLowerCase().includes(q)) ||
+            (p.location && p.location.toLowerCase().includes(q))
         );
     }, [allParticipations, search]);
 
@@ -1481,6 +1483,7 @@ function CustomerDataTab({ events, participations }: {
             prizesWon: p.prizes.length,
             prizes: p.prizes.join(', '),
             source: p.source || '',
+            location: p.location || '',
             createdAt: p.createdAt ? new Date(p.createdAt).toLocaleString('vi-VN') : '',
         })),
         [filtered]
@@ -1562,11 +1565,12 @@ function CustomerDataTab({ events, participations }: {
 
             {/* KPI Summary */}
             {allParticipations.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                     {[
                         { l: 'Tổng KH', v: allParticipations.length.toLocaleString(), c: 'text-primary-700 font-bold' },
                         { l: 'Tổng lượt quay', v: allParticipations.reduce((s, p) => s + p.usedSpins, 0).toLocaleString(), c: 'text-accent-700' },
                         { l: 'Giải trúng', v: allParticipations.reduce((s, p) => s + p.prizes.length, 0).toLocaleString(), c: 'text-warning-700' },
+                        { l: 'Có địa điểm', v: allParticipations.filter(p => p.location).length.toLocaleString(), c: 'text-info-700' },
                         { l: 'Có email', v: allParticipations.filter(p => p.email).length.toLocaleString(), c: 'text-success-700' },
                     ].map(({ l, v, c }) => (
                         <div key={l} className="bg-white rounded-2xl border border-surface-100 shadow-sm p-3">
@@ -1602,6 +1606,7 @@ function CustomerDataTab({ events, participations }: {
                                     <th className="px-4 py-3 font-semibold text-center">Lượt quay</th>
                                     <th className="px-4 py-3 font-semibold text-center">Giải</th>
                                     <th className="px-4 py-3 font-semibold">Nguồn</th>
+                                    <th className="px-4 py-3 font-semibold">Địa điểm</th>
                                     <th className="px-4 py-3 font-semibold">Ngày tham gia</th>
                                 </tr>
                             </thead>
@@ -1630,6 +1635,15 @@ function CustomerDataTab({ events, participations }: {
                                         <td className="px-4 py-3">
                                             {p.source ? (
                                                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-surface-100 text-surface-600">{p.source}</span>
+                                            ) : (
+                                                <span className="text-xs text-surface-400">—</span>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {p.location ? (
+                                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-info-50 text-info-700 border border-info-200 inline-flex items-center gap-1">
+                                                    <MapPin className="w-3 h-3" />{p.location}
+                                                </span>
                                             ) : (
                                                 <span className="text-xs text-surface-400">—</span>
                                             )}

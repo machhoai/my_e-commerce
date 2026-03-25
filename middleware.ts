@@ -18,7 +18,7 @@ const MOBILE_UA_REGEX =
     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS|FxiOS/i;
 
 // Paths that bypass device-based routing (served from app root, not desktop/mobile)
-const DEVICE_BYPASS_PREFIXES = ['/api', '/_next', '/p/', '/403'];
+const DEVICE_BYPASS_PREFIXES = ['/api', '/_next', '/p/', '/r/', '/403'];
 const DEVICE_BYPASS_EXTENSIONS = /\.(png|ico|svg|jpg|jpeg|webp|gif|js|css|woff2?|ttf|eot|map|json|webmanifest)$/i;
 
 /**

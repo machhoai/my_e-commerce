@@ -604,6 +604,7 @@ export interface EventParticipation {
     createdAt: string;
     updatedAt?: string;
     source?: string | null;   // 'qr_code' | 'social_media' | 'direct' | ...
+    location?: string | null; // e.g. 'Quận 1, TP.HCM'
 }
 
 export type GachaStatus = 'WON_VOUCHER' | 'LUCK_NEXT_TIME' | 'NO_SPINS_LEFT' | 'ERROR';

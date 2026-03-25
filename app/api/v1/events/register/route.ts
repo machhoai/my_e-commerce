@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
                 email?: string;    // tùy chọn
             };
             source?: string;       // e.g. 'qr_code', 'social_media', 'direct'
+            location?: string;     // e.g. 'Quận 1, TP.HCM'
         };
 
         // ── Phone format validator (VN: 10 digits, starts 03/05/07/08/09) ──
@@ -114,6 +115,7 @@ export async function POST(req: NextRequest) {
                 dob,
                 email: body.customer.email?.trim() || null,
                 source: body.source || null,
+                location: body.location?.trim() || null,
                 updatedAt: now,
             });
 
@@ -135,6 +137,7 @@ export async function POST(req: NextRequest) {
             dob,
             email: body.customer.email?.trim() || null,
             source: body.source || null,
+            location: body.location?.trim() || null,
             totalSpins: DEFAULT_SPINS,
             usedSpins: 0,
             prizes: [],
