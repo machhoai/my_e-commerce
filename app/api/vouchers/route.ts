@@ -188,8 +188,34 @@ export async function POST(req: NextRequest) {
     }
 }
 
+// ── Parallel batch execution helper ──────────────────────────────
+// Executes Firestore batch commits up to `maxConcurrent` at a time
+async function runParallelBatches(
+    db: FirebaseFirestore.Firestore,
+    operations: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, unknown>; type: 'set' | 'update' }>,
+    maxConcurrent = 15,
+) {
+    const BATCH_LIMIT = 500;
+    const batches: FirebaseFirestore.WriteBatch[] = [];
+    for (let i = 0; i < operations.length; i += BATCH_LIMIT) {
+        const chunk = operations.slice(i, i + BATCH_LIMIT);
+        const batch = db.batch();
+        for (const op of chunk) {
+            if (op.type === 'set') batch.set(op.ref, op.data);
+            else batch.update(op.ref, op.data);
+        }
+        batches.push(batch);
+    }
+    // Throttle: execute maxConcurrent batches at a time
+    for (let i = 0; i < batches.length; i += maxConcurrent) {
+        await Promise.all(batches.slice(i, i + maxConcurrent).map(b => b.commit()));
+    }
+    return operations.length;
+}
+
 // ── PATCH /api/vouchers ─────────────────────────────────────────
-// Actions: revoke | add_codes | deactivate_campaign | activate_campaign
+// Actions: revoke | add_codes | update_expiry | deactivate_campaign | activate_campaign
+// All bulk operations use parallel batching (15 concurrent Firestore batch commits)
 export async function PATCH(req: NextRequest) {
     try {
         const callerUid = await verifyAdmin(req);
@@ -201,44 +227,53 @@ export async function PATCH(req: NextRequest) {
             codeIds?: string[];
             campaignId?: string;
             quantity?: number;
-            validTo?: string; // ISO date for update_expiry
+            validTo?: string;
+            // Chunking params
+            limit?: number;
+            lastDocId?: string;
         };
 
         const adminDb = getAdminDb();
 
-        // ── Action: revoke ──────────────────────────────────────
+        // ── Action: revoke (up to 5000 IDs per call) ────────────
         if (body.action === 'revoke') {
             const ids: string[] = body.codeIds?.length ? body.codeIds : body.codeId ? [body.codeId] : [];
             if (ids.length === 0) return NextResponse.json({ error: 'Thiếu mã voucher' }, { status: 400 });
-            if (ids.length > 500) return NextResponse.json({ error: 'Tối đa 500 mã mỗi lần' }, { status: 400 });
+            if (ids.length > 5000) return NextResponse.json({ error: 'Tối đa 5000 mã mỗi lần' }, { status: 400 });
+
+            // Batch-read docs in chunks of 30 (Firestore 'in' limit)
+            const docMap = new Map<string, FirebaseFirestore.DocumentSnapshot>();
+            for (let i = 0; i < ids.length; i += 30) {
+                const chunk = ids.slice(i, i + 30);
+                const snap = await adminDb.collection('voucher_codes')
+                    .where('__name__', 'in', chunk).get();
+                snap.docs.forEach(d => docMap.set(d.id, d));
+            }
 
             const skipped: string[] = [];
-            const revoked: string[] = [];
-            const batch = adminDb.batch();
+            const ops: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, unknown>; type: 'set' | 'update' }> = [];
             for (const id of ids) {
-                const codeRef = adminDb.collection('voucher_codes').doc(id);
-                const codeSnap = await codeRef.get();
-                if (!codeSnap.exists) { skipped.push(id); continue; }
-                const status = (codeSnap.data() as VoucherCode).status;
+                const doc = docMap.get(id);
+                if (!doc || !doc.exists) { skipped.push(id); continue; }
+                const status = (doc.data() as VoucherCode).status;
                 if (status === 'used' || status === 'revoked') { skipped.push(id); continue; }
-                batch.update(codeRef, { status: 'revoked' });
-                revoked.push(id);
+                ops.push({ ref: doc.ref, data: { status: 'revoked' }, type: 'update' });
             }
-            if (revoked.length > 0) await batch.commit();
+            if (ops.length > 0) await runParallelBatches(adminDb, ops);
 
             return NextResponse.json({
                 success: true,
-                revoked: revoked.length,
+                revoked: ops.length,
                 skipped: skipped.length,
-                message: `Đã vô hiệu hóa ${revoked.length} mã${skipped.length > 0 ? `, bỏ qua ${skipped.length} mã` : ''}.`,
+                message: `Đã vô hiệu hóa ${ops.length} mã${skipped.length > 0 ? `, bỏ qua ${skipped.length} mã` : ''}.`,
             });
         }
 
-        // ── Action: add_codes ───────────────────────────────────
+        // ── Action: add_codes (chunked by quantity) ─────────────
         if (body.action === 'add_codes') {
             if (!body.campaignId) return NextResponse.json({ error: 'Thiếu campaignId' }, { status: 400 });
             const qty = body.quantity || 0;
-            if (qty < 1 || qty > 1000000) return NextResponse.json({ error: 'Số lượng phải từ 1 đến 1.000.000' }, { status: 400 });
+            if (qty < 1 || qty > 50000) return NextResponse.json({ error: 'Số lượng phải từ 1 đến 50.000 mỗi batch' }, { status: 400 });
 
             const campRef = adminDb.collection('voucher_campaigns').doc(body.campaignId);
             const campSnap = await campRef.get();
@@ -248,11 +283,7 @@ export async function PATCH(req: NextRequest) {
             const generatedCodes = new Set<string>();
             const codeDocuments: VoucherCode[] = [];
 
-            // Fetch existing code IDs for this campaign to avoid duplicates
-            const existingSnap = await adminDb.collection('voucher_codes')
-                .where('campaignId', '==', body.campaignId).select().get();
-            existingSnap.docs.forEach(d => generatedCodes.add(d.id));
-
+            // Generate codes
             for (let i = 0; i < qty; i++) {
                 let code: string;
                 let attempts = 0;
@@ -279,62 +310,83 @@ export async function PATCH(req: NextRequest) {
                 });
             }
 
-            // Batch write codes (chunked at 500)
-            const BATCH_LIMIT = 500;
-            for (let i = 0; i < codeDocuments.length; i += BATCH_LIMIT) {
-                const chunk = codeDocuments.slice(i, i + BATCH_LIMIT);
-                const batch = adminDb.batch();
-                for (const codeDoc of chunk) {
-                    batch.set(adminDb.collection('voucher_codes').doc(codeDoc.id), codeDoc);
-                }
-                await batch.commit();
-            }
+            // Parallel batch write
+            const ops = codeDocuments.map(doc => ({
+                ref: adminDb.collection('voucher_codes').doc(doc.id),
+                data: doc as unknown as Record<string, unknown>,
+                type: 'set' as const,
+            }));
+            await runParallelBatches(adminDb, ops);
 
-            // Update totalIssued on campaign
-            await campRef.update({ totalIssued: (camp.totalIssued || 0) + codeDocuments.length });
+            // Atomically increment totalIssued
+            const { FieldValue } = await import('firebase-admin/firestore');
+            await campRef.update({ totalIssued: FieldValue.increment(codeDocuments.length) });
 
             return NextResponse.json({
                 success: true,
-                totalGenerated: codeDocuments.length,
-                newTotal: (camp.totalIssued || 0) + codeDocuments.length,
+                generatedCount: codeDocuments.length,
+                campaignId: body.campaignId,
                 message: `Đã tạo thêm ${codeDocuments.length} mã cho chiến dịch "${camp.name}".`,
             });
         }
 
-        // ── Action: update_expiry ────────────────────────────────
+        // ── Action: update_expiry (cursor-based chunking) ───────
         if (body.action === 'update_expiry') {
             if (!body.campaignId) return NextResponse.json({ error: 'Thiếu campaignId' }, { status: 400 });
             if (!body.validTo) return NextResponse.json({ error: 'Thiếu ngày hết hạn mới' }, { status: 400 });
 
-            const campRef = adminDb.collection('voucher_campaigns').doc(body.campaignId);
-            const campSnap = await campRef.get();
-            if (!campSnap.exists) return NextResponse.json({ error: 'Chiến dịch không tồn tại' }, { status: 404 });
+            const limit = Math.min(Math.max(body.limit || 5000, 100), 10000);
 
-            const camp = campSnap.data() as VoucherCampaign;
+            // Update campaign validTo only on first chunk (no cursor)
+            if (!body.lastDocId) {
+                const campRef = adminDb.collection('voucher_campaigns').doc(body.campaignId);
+                const campSnap = await campRef.get();
+                if (!campSnap.exists) return NextResponse.json({ error: 'Chiến dịch không tồn tại' }, { status: 404 });
+                await campRef.update({ validTo: body.validTo });
+            }
 
-            // Update campaign validTo
-            await campRef.update({ validTo: body.validTo });
-
-            // Update validTo on all non-used, non-revoked codes
-            const codesSnap = await adminDb.collection('voucher_codes')
+            // Build cursor-paginated query
+            let q: FirebaseFirestore.Query = adminDb.collection('voucher_codes')
                 .where('campaignId', '==', body.campaignId)
                 .where('status', 'in', ['available', 'distributed'])
-                .get();
+                .orderBy('__name__')
+                .limit(limit);
 
-            const BATCH_LIMIT = 500;
-            for (let i = 0; i < codesSnap.docs.length; i += BATCH_LIMIT) {
-                const chunk = codesSnap.docs.slice(i, i + BATCH_LIMIT);
-                const batch = adminDb.batch();
-                for (const doc of chunk) {
-                    batch.update(doc.ref, { validTo: body.validTo });
+            if (body.lastDocId) {
+                const cursorRef = adminDb.collection('voucher_codes').doc(body.lastDocId);
+                const cursorSnap = await cursorRef.get();
+                if (cursorSnap.exists) {
+                    q = q.startAfter(cursorSnap);
                 }
-                await batch.commit();
             }
+
+            const snapshot = await q.get();
+            if (snapshot.empty) {
+                return NextResponse.json({
+                    success: true,
+                    updatedCount: 0,
+                    nextCursor: null,
+                    isComplete: true,
+                    message: 'Không còn mã nào cần cập nhật.',
+                });
+            }
+
+            // Parallel batch update
+            const ops = snapshot.docs.map(doc => ({
+                ref: doc.ref,
+                data: { validTo: body.validTo } as Record<string, unknown>,
+                type: 'update' as const,
+            }));
+            await runParallelBatches(adminDb, ops);
+
+            const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+            const isComplete = snapshot.docs.length < limit;
 
             return NextResponse.json({
                 success: true,
-                updatedCodes: codesSnap.size,
-                message: `Đã gia hạn chiến dịch "${camp.name}" đến ${body.validTo}. Cập nhật ${codesSnap.size} mã.`,
+                updatedCount: snapshot.docs.length,
+                nextCursor: isComplete ? null : lastDoc.id,
+                isComplete,
             });
         }
 

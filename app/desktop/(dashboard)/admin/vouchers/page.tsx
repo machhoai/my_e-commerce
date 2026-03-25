@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import imageCompression from 'browser-image-compression';
@@ -11,8 +11,11 @@ import {
     Megaphone, Archive, Sparkles, CalendarDays, Tag, Gift,
     EyeOff, ArchiveRestore, X as XIcon, CheckSquare, Square,
     ImagePlus, Upload, Pause, Play, PlusCircle, FileDown, Printer, Dices,
+    ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import { cn, generateSecureCode } from '@/lib/utils';
+import { useBatchProcessor } from '@/hooks/useBatchProcessor';
+import BatchProgressModal from '@/components/shared/BatchProgressModal';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
     PieChart, Pie, Legend,
@@ -343,6 +346,8 @@ function CampaignTab({
     const [quantity, setQuantity] = useState(100);
     const [purpose, setPurpose] = useState<VoucherCampaignPurpose>('event');
     const [submitting, setSubmitting] = useState(false);
+    const [batchTitle, setBatchTitle] = useState('');
+    const batch = useBatchProcessor();
 
     // ── Image upload state (deferred: compress on select, upload on submit) ──
     const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
@@ -420,6 +425,7 @@ function CampaignTab({
         setImageMsg(null);
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
+    const BATCH_CHUNK = 10000;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -432,18 +438,35 @@ function CampaignTab({
                 setUploadStatus('');
             }
 
+            // POST creates campaign + initial codes (capped at BATCH_CHUNK)
+            const initialQty = Math.min(quantity, BATCH_CHUNK);
             const token = await getToken();
             const res = await fetch('/api/vouchers', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({
                     name, description, rewardType, rewardValue,
-                    validFrom, validTo, prefix, codeLength, suffix, quantity, purpose,
+                    validFrom, validTo, prefix, codeLength, suffix, quantity: initialQty, purpose,
                     ...(imageUrl ? { imageUrl } : {}),
                 }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Thao tác thất bại');
+
+            // If more codes needed, batch-process the rest with progress bar
+            const remaining = quantity - initialQty;
+            if (remaining > 0 && data.campaignId) {
+                setSubmitting(false);
+                setBatchTitle(`Tạo ${quantity.toLocaleString()} mã voucher`);
+                await batch.processByQuantity(
+                    '/api/vouchers',
+                    { action: 'add_codes', campaignId: data.campaignId },
+                    remaining,
+                    BATCH_CHUNK,
+                    getToken,
+                );
+            }
+
             // Reset form
             setName(''); setDescription(''); setRewardValue(0);
             setValidFrom(''); setValidTo(''); setPrefix('');
@@ -467,23 +490,23 @@ function CampaignTab({
 
     const handleAddCodes = async (campaignId: string) => {
         if (addQty < 1 || addQty > 1000000) { onError('Số lượng phải từ 1 đến 1.000.000'); return; }
-        setActionLoading(campaignId);
-        try {
-            const token = await getToken();
-            const res = await fetch('/api/vouchers', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ action: 'add_codes', campaignId, quantity: addQty }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Thất bại');
-            setAddingCodesFor(null);
+        const campName = campaigns.find(c => c.id === campaignId)?.name || '';
+        setBatchTitle(`Thêm ${addQty.toLocaleString()} mã cho "${campName}"`);
+        setAddingCodesFor(null);
+
+        const result = await batch.processByQuantity(
+            '/api/vouchers',
+            { action: 'add_codes', campaignId },
+            addQty,
+            BATCH_CHUNK,
+            getToken,
+        );
+
+        if (result.success) {
             setAddQty(100);
-            onSuccess(data.message);
-        } catch (err: unknown) {
-            onError(err instanceof Error ? err.message : 'Lỗi');
-        } finally {
-            setActionLoading(null);
+            onSuccess(`Đã tạo thêm ${result.totalProcessed.toLocaleString()} mã.`);
+        } else if (result.error) {
+            onError(result.error);
         }
     };
 
@@ -509,23 +532,24 @@ function CampaignTab({
 
     const handleUpdateExpiry = async (campaignId: string) => {
         if (!newValidTo) { onError('Vui lòng chọn ngày hết hạn mới'); return; }
-        setActionLoading(campaignId);
-        try {
-            const token = await getToken();
-            const res = await fetch('/api/vouchers', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ action: 'update_expiry', campaignId, validTo: newValidTo }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Thất bại');
-            setUpdatingExpiryFor(null);
+        const campName = campaigns.find(c => c.id === campaignId)?.name || '';
+        const stats = campaignStats[campaignId];
+        const expectedTotal = stats ? (stats.available + stats.distributed) : 0;
+        setBatchTitle(`Gia hạn "${campName}" đến ${newValidTo}`);
+        setUpdatingExpiryFor(null);
+
+        const result = await batch.processByCursor(
+            '/api/vouchers',
+            { action: 'update_expiry', campaignId, validTo: newValidTo },
+            expectedTotal,
+            getToken,
+        );
+
+        if (result.success) {
             setNewValidTo('');
-            onSuccess(data.message);
-        } catch (err: unknown) {
-            onError(err instanceof Error ? err.message : 'Lỗi');
-        } finally {
-            setActionLoading(null);
+            onSuccess(`Đã cập nhật ${result.totalProcessed.toLocaleString()} mã.`);
+        } else if (result.error) {
+            onError(result.error);
         }
     };
 
@@ -1139,6 +1163,12 @@ function CampaignTab({
                 </div>
             );
         })()}
+        {/* Batch Progress Modal */}
+        <BatchProgressModal
+            state={batch}
+            onClose={() => { batch.reset(); fetchData(); }}
+            title={batchTitle}
+        />
         </>
     );
 }
@@ -1162,6 +1192,25 @@ function CodeInventoryTab({
     const [filterStatus, setFilterStatus] = useState('');
     const [revoking, setRevoking] = useState(false);
     const [selected, setSelected] = useState<Set<string>>(new Set());
+
+    // Sort state
+    type SortKey = 'id' | 'campaignName' | 'reward' | 'status' | 'phone' | 'validTo' | 'usedAt' | 'staff';
+    const [sortKey, setSortKey] = useState<SortKey | null>(null);
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+    const handleSort = (key: SortKey) => {
+        if (sortKey === key) {
+            setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortKey(key);
+            setSortDir('asc');
+        }
+    };
+
+    const SortIcon = ({ col }: { col: SortKey }) => {
+        if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 text-surface-300" />;
+        return sortDir === 'asc' ? <ArrowUp className="w-3 h-3 text-accent-500" /> : <ArrowDown className="w-3 h-3 text-accent-500" />;
+    };
 
     // Paginated data
     const [codes, setCodes] = useState<(VoucherCode & { usedByStaffName?: string })[]>([]);
@@ -1216,6 +1265,7 @@ function CodeInventoryTab({
     // Refetch when filters change
     useEffect(() => {
         setSelected(new Set());
+        setSortKey(null);
         fetchCodes({
             campaignId: filterCampaign || undefined,
             status: filterStatus || undefined,
@@ -1261,6 +1311,27 @@ function CodeInventoryTab({
             return c && c.status !== 'used' && c.status !== 'revoked';
         });
     }, [selected, codes]);
+
+    // Sorted codes
+    const sortedCodes = useMemo(() => {
+        if (!sortKey) return codes;
+        const sorted = [...codes].sort((a, b) => {
+            let aVal = '';
+            let bVal = '';
+            switch (sortKey) {
+                case 'id': aVal = a.id; bVal = b.id; break;
+                case 'campaignName': aVal = a.campaignName || ''; bVal = b.campaignName || ''; break;
+                case 'reward': aVal = `${a.rewardType}-${a.rewardValue}`; bVal = `${b.rewardType}-${b.rewardValue}`; break;
+                case 'status': aVal = a.status; bVal = b.status; break;
+                case 'phone': aVal = a.distributedToPhone || ''; bVal = b.distributedToPhone || ''; break;
+                case 'validTo': aVal = a.validTo || ''; bVal = b.validTo || ''; break;
+                case 'usedAt': aVal = a.usedAt || ''; bVal = b.usedAt || ''; break;
+                case 'staff': aVal = a.usedByStaffName || a.usedByStaffId || ''; bVal = b.usedByStaffName || b.usedByStaffId || ''; break;
+            }
+            return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        });
+        return sorted;
+    }, [codes, sortKey, sortDir]);
 
     const handleBulkRevoke = async () => {
         if (revocableSelected.length === 0) return;
@@ -1390,19 +1461,51 @@ function CodeInventoryTab({
                                                 : <Square className="w-4 h-4 text-surface-400" />}
                                         </button>
                                     </th>
-                                    <th className="px-4 py-3.5 font-semibold">Mã</th>
-                                    <th className="px-4 py-3.5 font-semibold">Chiến dịch</th>
-                                    <th className="px-4 py-3.5 font-semibold">Thưởng</th>
-                                    <th className="px-4 py-3.5 font-semibold text-center">Trạng thái</th>
-                                    <th className="px-4 py-3.5 font-semibold">SĐT nhận</th>
-                                    <th className="px-4 py-3.5 font-semibold">Hết hạn</th>
-                                    <th className="px-4 py-3.5 font-semibold">Thời gian dùng</th>
-                                    <th className="px-4 py-3.5 font-semibold">Người kích hoạt</th>
+                                    <th className="px-4 py-3.5 font-semibold">
+                                        <button onClick={() => handleSort('id')} className="flex items-center gap-1 hover:text-surface-800 transition-colors">
+                                            Mã <SortIcon col="id" />
+                                        </button>
+                                    </th>
+                                    <th className="px-4 py-3.5 font-semibold">
+                                        <button onClick={() => handleSort('campaignName')} className="flex items-center gap-1 hover:text-surface-800 transition-colors">
+                                            Chiến dịch <SortIcon col="campaignName" />
+                                        </button>
+                                    </th>
+                                    <th className="px-4 py-3.5 font-semibold">
+                                        <button onClick={() => handleSort('reward')} className="flex items-center gap-1 hover:text-surface-800 transition-colors">
+                                            Thưởng <SortIcon col="reward" />
+                                        </button>
+                                    </th>
+                                    <th className="px-4 py-3.5 font-semibold text-center">
+                                        <button onClick={() => handleSort('status')} className="flex items-center gap-1 mx-auto hover:text-surface-800 transition-colors">
+                                            Trạng thái <SortIcon col="status" />
+                                        </button>
+                                    </th>
+                                    <th className="px-4 py-3.5 font-semibold">
+                                        <button onClick={() => handleSort('phone')} className="flex items-center gap-1 hover:text-surface-800 transition-colors">
+                                            SĐT nhận <SortIcon col="phone" />
+                                        </button>
+                                    </th>
+                                    <th className="px-4 py-3.5 font-semibold">
+                                        <button onClick={() => handleSort('validTo')} className="flex items-center gap-1 hover:text-surface-800 transition-colors">
+                                            Hết hạn <SortIcon col="validTo" />
+                                        </button>
+                                    </th>
+                                    <th className="px-4 py-3.5 font-semibold">
+                                        <button onClick={() => handleSort('usedAt')} className="flex items-center gap-1 hover:text-surface-800 transition-colors">
+                                            Thời gian dùng <SortIcon col="usedAt" />
+                                        </button>
+                                    </th>
+                                    <th className="px-4 py-3.5 font-semibold">
+                                        <button onClick={() => handleSort('staff')} className="flex items-center gap-1 hover:text-surface-800 transition-colors">
+                                            Người kích hoạt <SortIcon col="staff" />
+                                        </button>
+                                    </th>
                                     <th className="px-4 py-3.5 font-semibold text-right">Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-surface-100">
-                                {codes.map(c => {
+                                {sortedCodes.map(c => {
                                     const isSelected = selected.has(c.id);
                                     const canRevoke = c.status === 'available' || c.status === 'distributed';
                                     return (

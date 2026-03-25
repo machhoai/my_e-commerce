@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import type { EventDoc, VoucherCampaign, VoucherCode, AuditLogDoc, EventParticipation, PrizePoolEntry } from '@/types';
+import type { EventDoc, VoucherCampaign, AuditLogDoc, EventParticipation, PrizePoolEntry } from '@/types';
 import { todayVN } from '@/lib/event-engine';
 
 // ── Auth helper ─────────────────────────────────────────────────
@@ -14,9 +14,39 @@ async function verifyAdmin(req: NextRequest) {
     return { uid: decoded.uid, name: callerSnap.data()?.name || 'Admin' };
 }
 
+// ── Helper: aggregate voucher counts per campaign (zero doc reads) ──
+async function getCampaignCounts(
+    db: FirebaseFirestore.Firestore,
+    campaignId: string,
+): Promise<{ available: number; distributed: number; used: number; revoked: number }> {
+    const base = db.collection('voucher_codes').where('campaignId', '==', campaignId);
+    const [availSnap, distSnap, usedSnap, revokedSnap] = await Promise.all([
+        base.where('status', '==', 'available').count().get(),
+        base.where('status', '==', 'distributed').count().get(),
+        base.where('status', '==', 'used').count().get(),
+        base.where('status', '==', 'revoked').count().get(),
+    ]);
+    return {
+        available: availSnap.data().count,
+        distributed: distSnap.data().count,
+        used: usedSnap.data().count,
+        revoked: revokedSnap.data().count,
+    };
+}
+
+// ── Helper: sum all values from event.dailyStats ──
+function sumDailyStats(dailyStats: Record<string, Record<string, number>> | undefined): number {
+    if (!dailyStats) return 0;
+    return Object.values(dailyStats).reduce(
+        (total, dayMap) => total + Object.values(dayMap).reduce((s, v) => s + v, 0),
+        0,
+    );
+}
+
 // ── GET /api/events ─────────────────────────────────────────────
-// Returns events with joined campaign info + stock counts per campaign
+// Returns events with joined campaign info + aggregated stock counts
 // + participations grouped by eventId + recent plays
+// ⚡ Uses .count().get() aggregation — zero voucher doc reads
 export async function GET(req: NextRequest) {
     try {
         const caller = await verifyAdmin(req);
@@ -24,16 +54,16 @@ export async function GET(req: NextRequest) {
 
         const adminDb = getAdminDb();
 
-        const [eventSnap, campaignSnap, codeSnap, auditSnap, participationSnap] = await Promise.all([
+        // No longer fetching voucher_codes — uses .count().get() instead
+        const [eventSnap, campaignSnap, auditSnap, participationSnap] = await Promise.all([
             adminDb.collection('events').orderBy('createdAt', 'desc').get(),
             adminDb.collection('voucher_campaigns').get(),
-            adminDb.collection('voucher_codes').get(),
             adminDb.collection('audit_logs').orderBy('timestamp', 'desc').limit(200).get(),
             adminDb.collection('event_participations').get(),
         ]);
 
         const campaigns = campaignSnap.docs.map(d => ({ id: d.id, ...d.data() } as VoucherCampaign));
-        const codes = codeSnap.docs.map(d => ({ id: d.id, ...d.data() } as VoucherCode));
+        const campaignMap = new Map(campaigns.map(c => [c.id, c]));
 
         // Group participations by eventId
         const participationsByEvent: Record<string, EventParticipation[]> = {};
@@ -43,47 +73,70 @@ export async function GET(req: NextRequest) {
             participationsByEvent[p.eventId].push(p);
         });
 
-        const events = eventSnap.docs.map(d => {
-            const evt = { id: d.id, ...d.data() } as EventDoc;
+        // Collect all unique campaign IDs referenced by events
+        const allEventDocs = eventSnap.docs.map(d => ({ id: d.id, ...d.data() } as EventDoc));
+        const uniqueCampaignIds = [...new Set(
+            allEventDocs.flatMap(evt => (evt.prizePool || []).map(p => p.campaignId))
+        )];
 
-            // Aggregate stats across all campaigns in prizePool
-            const poolCampaignIds = (evt.prizePool || []).map(p => p.campaignId);
-            const eventCodes = codes.filter(c => poolCampaignIds.includes(c.campaignId));
+        // Batch aggregate counts for all campaigns in parallel (5 at a time)
+        const countsMap = new Map<string, { available: number; distributed: number; used: number; revoked: number }>();
+        const BATCH = 5;
+        for (let i = 0; i < uniqueCampaignIds.length; i += BATCH) {
+            const chunk = uniqueCampaignIds.slice(i, i + BATCH);
+            const results = await Promise.all(chunk.map(id => getCampaignCounts(adminDb, id)));
+            chunk.forEach((id, idx) => countsMap.set(id, results[idx]));
+        }
+
+        const events = allEventDocs.map(evt => {
+            // Sum dailyStats for total distributed
+            const totalDistributed = sumDailyStats(evt.dailyStats);
 
             // Build campaign names string
             const campaignNames = (evt.prizePool || []).map(p => {
-                const camp = campaigns.find(c => c.id === p.campaignId);
+                const camp = campaignMap.get(p.campaignId);
                 return camp?.name || p.campaignId;
             }).join(', ');
+
+            // Aggregate event-level stats from per-campaign counts
+            let totalStock = 0;
+            let codesAvailable = 0;
+            let codesUsed = 0;
+            let codesRevoked = 0;
+
+            const campaignStocks = (evt.prizePool || []).map(p => {
+                const camp = campaignMap.get(p.campaignId);
+                const counts = countsMap.get(p.campaignId) || { available: 0, distributed: 0, used: 0, revoked: 0 };
+                const stock = camp?.totalIssued || 0;
+
+                totalStock += stock;
+                codesAvailable += counts.available;
+                codesUsed += counts.used;
+                codesRevoked += counts.revoked;
+
+                return {
+                    campaignId: p.campaignId,
+                    campaignName: camp?.name || p.campaignId,
+                    rewardType: p.rewardType,
+                    rate: p.rate,
+                    dailyLimit: p.dailyLimit,
+                    totalStock: stock,
+                    available: counts.available,
+                    distributed: counts.distributed,
+                };
+            });
 
             return {
                 ...evt,
                 campaignNames,
-                totalStock: eventCodes.length,
-                codesAvailable: eventCodes.filter(c => c.status === 'available').length,
-                codesDistributed: eventCodes.filter(c => c.status === 'distributed').length,
-                codesUsed: eventCodes.filter(c => c.status === 'used').length,
-                codesRevoked: eventCodes.filter(c => c.status === 'revoked').length,
-                // Per-campaign stock details for dashboard
-                campaignStocks: (evt.prizePool || []).map(p => {
-                    const camp = campaigns.find(c => c.id === p.campaignId);
-                    const campCodes = codes.filter(c => c.campaignId === p.campaignId);
-                    return {
-                        campaignId: p.campaignId,
-                        campaignName: camp?.name || p.campaignId,
-                        rewardType: p.rewardType,
-                        rate: p.rate,
-                        dailyLimit: p.dailyLimit,
-                        totalStock: camp?.totalIssued || 0,
-                        available: campCodes.filter(c => c.status === 'available').length,
-                        distributed: campCodes.filter(c => c.status === 'distributed').length,
-                    };
-                }),
+                totalStock,
+                codesAvailable,
+                codesDistributed: totalDistributed,
+                codesUsed,
+                codesRevoked,
+                campaignStocks,
             };
         });
-
-        // All campaigns (UI will mark paused ones as non-selectable)
-        const allCampaigns = campaigns;
 
         const auditLogs = auditSnap.docs.map(d => ({ id: d.id, ...d.data() } as AuditLogDoc));
 
@@ -92,7 +145,7 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json({
             events,
-            campaigns: allCampaigns,
+            campaigns,
             auditLogs,
             participations: participationsByEvent,
             recentPlays,

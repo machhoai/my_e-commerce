@@ -237,13 +237,14 @@ export default function EventsPage() {
                 </div>
             ) : (
                 <>
-                    {tab === 'dashboard' && <DashboardTab events={events} participations={participations} recentPlays={recentPlays} />}
+                    {tab === 'dashboard' && <DashboardTab events={events} participations={participations} recentPlays={recentPlays} getToken={getToken} />}
                     {tab === 'events' && (
                         <EventListTab
                             events={events}
                             campaigns={campaigns}
                             getToken={getToken}
                             onSuccess={(msg) => { fetchData(); showMsg('success', msg); }}
+                            showMsg={showMsg}
                             onError={(e) => showMsg('error', e)}
                         />
                     )}
@@ -340,12 +341,206 @@ function EventDetailPanel({ event }: { event: EventWithStats }) {
 }
 
 // ═════════════════════════════════════════════════════════════════
-// TAB 1: DASHBOARD
+// SHARED: PAGINATED VOUCHER TABLE
 // ═════════════════════════════════════════════════════════════════
-function DashboardTab({ events, participations, recentPlays }: {
+interface VoucherRow {
+    id: string;
+    campaignId: string;
+    campaignName?: string;
+    rewardType: string;
+    rewardValue: number;
+    status: string;
+    distributedToPhone: string | null;
+    distributedAt: string | null;
+    usedAt: string | null;
+    usedByStaffId: string | null;
+    usedByStaffName?: string;
+    validTo: string;
+}
+
+function EventVouchersTable({ eventId, campaignStocks, getToken }: {
+    eventId: string;
+    campaignStocks: CampaignStock[];
+    getToken: () => Promise<string | undefined>;
+}) {
+    const [vouchers, setVouchers] = useState<VoucherRow[]>([]);
+    const [lastDocId, setLastDocId] = useState<string | null>(null);
+    const [hasMore, setHasMore] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
+    const [filterCampaign, setFilterCampaign] = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
+
+    const STATUS_COLORS: Record<string, string> = {
+        available: 'bg-primary-50 text-primary-700 border-primary-200',
+        distributed: 'bg-accent-50 text-accent-700 border-accent-200',
+        used: 'bg-success-50 text-success-700 border-success-200',
+        revoked: 'bg-danger-50 text-danger-700 border-danger-200',
+    };
+
+    const STATUS_LABELS: Record<string, string> = {
+        available: 'Chưa phát',
+        distributed: 'Đã phát',
+        used: 'Đã dùng',
+        revoked: 'Vô hiệu',
+    };
+
+    const fetchVouchers = useCallback(async (cursor: string | null = null, reset = false) => {
+        if (reset) {
+            setInitialLoading(true);
+        } else {
+            setLoading(true);
+        }
+        try {
+            const token = await getToken();
+            const params = new URLSearchParams({ eventId, pageSize: '20' });
+            if (cursor) params.set('lastDocId', cursor);
+            if (filterCampaign) params.set('campaignId', filterCampaign);
+            if (filterStatus) params.set('status', filterStatus);
+
+            const res = await fetch(`/api/events/vouchers?${params}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) throw new Error('Không thể tải danh sách voucher');
+            const data = await res.json();
+
+            if (reset || !cursor) {
+                setVouchers(data.vouchers || []);
+            } else {
+                setVouchers(prev => [...prev, ...(data.vouchers || [])]);
+            }
+            setLastDocId(data.lastDocId);
+            setHasMore(data.hasMore);
+        } catch {
+            // Silently handle — the main page already has error handling
+        } finally {
+            setLoading(false);
+            setInitialLoading(false);
+        }
+    }, [eventId, filterCampaign, filterStatus, getToken]);
+
+    // Reset and fetch when filters change
+    useEffect(() => {
+        setVouchers([]);
+        setLastDocId(null);
+        setHasMore(false);
+        fetchVouchers(null, true);
+    }, [fetchVouchers]);
+
+    return (
+        <div className="rounded-xl border border-surface-200 overflow-hidden">
+            <div className="px-4 py-2.5 bg-surface-50 border-b border-surface-100 flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                    <Ticket className="w-3.5 h-3.5 text-primary-500" />
+                    <span className="text-xs font-bold text-surface-700">Danh sách Voucher</span>
+                    {vouchers.length > 0 && (
+                        <span className="text-[10px] font-semibold text-surface-400">
+                            ({vouchers.length}{hasMore ? '+' : ''})
+                        </span>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    <select
+                        value={filterCampaign}
+                        onChange={e => setFilterCampaign(e.target.value)}
+                        className="text-[11px] bg-white border border-surface-200 rounded-lg px-2 py-1 focus:ring-accent-500 focus:border-accent-400"
+                    >
+                        <option value="">Tất cả chiến dịch</option>
+                        {campaignStocks.map(cs => (
+                            <option key={cs.campaignId} value={cs.campaignId}>{cs.campaignName}</option>
+                        ))}
+                    </select>
+                    <select
+                        value={filterStatus}
+                        onChange={e => setFilterStatus(e.target.value)}
+                        className="text-[11px] bg-white border border-surface-200 rounded-lg px-2 py-1 focus:ring-accent-500 focus:border-accent-400"
+                    >
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="available">Chưa phát</option>
+                        <option value="distributed">Đã phát</option>
+                        <option value="used">Đã dùng</option>
+                        <option value="revoked">Vô hiệu</option>
+                    </select>
+                </div>
+            </div>
+
+            {initialLoading ? (
+                <div className="flex items-center justify-center py-10">
+                    <div className="relative">
+                        <div className="w-8 h-8 rounded-full border-3 border-surface-200" />
+                        <div className="w-8 h-8 rounded-full border-3 border-accent-500 border-t-transparent animate-spin absolute inset-0" />
+                    </div>
+                    <p className="text-xs text-surface-400 ml-3">Đang tải voucher...</p>
+                </div>
+            ) : vouchers.length === 0 ? (
+                <div className="p-8 text-center text-surface-400">
+                    <Ticket className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-xs font-medium">Không có voucher nào</p>
+                </div>
+            ) : (
+                <>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                            <thead className="bg-surface-50/50 border-b border-surface-100">
+                                <tr>
+                                    <th className="px-3 py-2 text-left font-semibold text-surface-500">Mã voucher</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-surface-500">Chiến dịch</th>
+                                    <th className="px-3 py-2 text-center font-semibold text-surface-500">Trạng thái</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-surface-500">SĐT nhận</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-surface-500">Ngày phát</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-surface-500">Ngày dùng</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-surface-500">Nhân viên dùng</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-surface-50">
+                                {vouchers.map(v => (
+                                    <tr key={v.id} className="hover:bg-surface-50/40">
+                                        <td className="px-3 py-2 font-mono font-semibold text-surface-700">{v.id}</td>
+                                        <td className="px-3 py-2 text-surface-600">{v.campaignName || v.campaignId}</td>
+                                        <td className="px-3 py-2 text-center">
+                                            <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-lg border', STATUS_COLORS[v.status] || 'bg-surface-100 text-surface-500')}>
+                                                {STATUS_LABELS[v.status] || v.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-2 text-surface-500 font-mono">{v.distributedToPhone || '—'}</td>
+                                        <td className="px-3 py-2 text-surface-500">
+                                            {v.distributedAt ? new Date(v.distributedAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
+                                        </td>
+                                        <td className="px-3 py-2 text-surface-500">
+                                            {v.usedAt ? new Date(v.usedAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
+                                        </td>
+                                        <td className="px-3 py-2 text-surface-500">{v.usedByStaffName || v.usedByStaffId || '—'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    {hasMore && (
+                        <div className="px-4 py-3 border-t border-surface-100 bg-surface-50/50 text-center">
+                            <button
+                                onClick={() => fetchVouchers(lastDocId)}
+                                disabled={loading}
+                                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-semibold bg-white border border-surface-200 hover:border-accent-300 hover:bg-accent-50 text-surface-700 hover:text-accent-700 transition-all disabled:opacity-50"
+                            >
+                                {loading ? (
+                                    <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang tải...</>
+                                ) : (
+                                    <><ChevronDown className="w-3.5 h-3.5" /> Tải thêm</>
+                                )}
+                            </button>
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
+    );
+}
+
+function DashboardTab({ events, participations, recentPlays, getToken }: {
     events: EventWithStats[];
     participations: Record<string, EventParticipation[]>;
     recentPlays: AuditLogDoc[];
+    getToken: () => Promise<string | undefined>;
 }) {
     const activeGroup = events.filter(e => e.status === 'active' || e.status === 'upcoming');
     const closedGroup = events.filter(e => e.status === 'closed' || e.status === 'ended');
@@ -588,6 +783,13 @@ function DashboardTab({ events, participations, recentPlays }: {
                                     </div>
                                 </div>
                             )}
+
+                            {/* ── Paginated Voucher List ── */}
+                            <EventVouchersTable
+                                eventId={selected.id}
+                                campaignStocks={selected.campaignStocks || []}
+                                getToken={getToken}
+                            />
                         </div>
                     </>
                 ) : (
@@ -610,13 +812,18 @@ function EventListTab({
     getToken,
     onSuccess,
     onError,
+    showMsg,
 }: {
     events: EventWithStats[];
     campaigns: VoucherCampaign[];
     getToken: () => Promise<string | undefined>;
     onSuccess: (msg: string) => void;
     onError: (msg: string) => void;
+    showMsg: (type: 'success' | 'error', text: string) => void;
 }) {
+    // Local campaigns state — allows updating totalIssued after adding stock without full reload
+    const [localCampaigns, setLocalCampaigns] = useState(campaigns);
+    useEffect(() => setLocalCampaigns(campaigns), [campaigns]);
     const [showCreate, setShowCreate] = useState(false);
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
     const [showClosedSection, setShowClosedSection] = useState(false);
@@ -699,7 +906,7 @@ function EventListTab({
     // Validation 2: per-campaign stock check
     const stockValidations = useMemo(() => {
         return prizePool.map(entry => {
-            const camp = campaigns.find(c => c.id === entry.campaignId);
+            const camp = localCampaigns.find(c => c.id === entry.campaignId);
             const stock = camp?.totalIssued || 0;
             const maxIssuance = (entry.dailyLimit || 0) * totalDays;
             const valid = totalDays > 0 ? maxIssuance <= stock : true;
@@ -713,7 +920,7 @@ function EventListTab({
                     : 'Chọn ngày để kiểm tra',
             };
         });
-    }, [prizePool, campaigns, totalDays]);
+    }, [prizePool, localCampaigns, totalDays]);
 
     const allStockValid = stockValidations.every(v => v.valid);
     const formValid = name.trim() && startDate && endDate && startDate <= endDate
@@ -758,6 +965,7 @@ function EventListTab({
     };
 
     // ── Voucher suggestion: add stock to a campaign ──────────────
+    // Updates totalIssued locally so the form is NOT reset by a full reload
     const handleAddStock = async (campaignId: string) => {
         if (addStockQty < 1 || addStockQty > 1000000) { onError('Số lượng phải từ 1 đến 1.000.000'); return; }
         setAddStockLoading(true);
@@ -770,8 +978,12 @@ function EventListTab({
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Thất bại');
+            // Update local campaigns totalIssued — no full reload needed
+            setLocalCampaigns(prev => prev.map(c =>
+                c.id === campaignId ? { ...c, totalIssued: c.totalIssued + addStockQty } : c
+            ));
             setAddingStock(null);
-            onSuccess(data.message || 'Tạo thêm mã thành công!');
+            showMsg('success', data.message || 'Tạo thêm mã thành công!');
         } catch (err: unknown) {
             onError(err instanceof Error ? err.message : 'Lỗi');
         } finally {
@@ -884,7 +1096,7 @@ function EventListTab({
                                     {showCampaignPicker && (
                                         <div className="absolute right-0 top-full mt-1 w-80 bg-white border border-surface-200 rounded-xl shadow-xl z-20 max-h-64 overflow-auto">
                                             {(() => {
-                                                const eventCampaigns = campaigns.filter(c => !c.purpose || c.purpose === 'event');
+                                                const eventCampaigns = localCampaigns.filter(c => !c.purpose || c.purpose === 'event');
                                                 if (eventCampaigns.length === 0) return (
                                                     <p className="p-4 text-sm text-surface-400 text-center">Không có chiến dịch nào (chỉ hiển thị chiến dịch &quot;Sự kiện&quot;)</p>
                                                 );
@@ -1131,7 +1343,7 @@ function EventListTab({
                                 <p className="text-xs text-primary-600">Cập nhật ngày hết hạn của chiến dịch voucher cho phù hợp với sự kiện.</p>
                                 <div className="space-y-2">
                                     {prizePool.map(entry => {
-                                        const camp = campaigns.find(c => c.id === entry.campaignId);
+                                        const camp = localCampaigns.find(c => c.id === entry.campaignId);
                                         if (!camp) return null;
                                         const isExpired = camp.validTo < endDate;
                                         const isRenewing = renewingCampaign === camp.id;
