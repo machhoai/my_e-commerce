@@ -97,23 +97,6 @@ export default function VoucherDetailsCard({ voucher, onRedeemed, onClose }: Vou
                     )}
                 </div>
 
-                {/* Status pills */}
-                {/* <div className="flex justify-center gap-2">
-                    <span className={cn(
-                        'text-[11px] font-bold px-2.5 py-1 rounded-lg border',
-                        voucher.status === 'distributed' ? 'bg-success-50 text-success-700 border-success-200'
-                            : voucher.status === 'used' ? 'bg-surface-100 text-surface-600 border-surface-200'
-                                : 'bg-danger-50 text-danger-700 border-danger-200',
-                    )}>
-                        {voucher.status === 'distributed' ? 'Chưa sử dụng' : voucher.status === 'used' ? 'Đã sử dụng' : voucher.status}
-                    </span>
-                    {isExpired && (
-                        <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg border bg-warning-50 text-warning-700 border-warning-200">
-                            Hết hạn
-                        </span>
-                    )}
-                </div> */}
-
                 {/* Reason banner for unusable vouchers */}
                 {!isUsable && (
                     <div className={cn(

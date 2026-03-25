@@ -6,6 +6,7 @@ import "./global.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import InstallPWA from "@/components/InstallPWA";
 import PwaRedirect from "@/components/PwaRedirect";
+import SilentPwaUpdater from "@/components/shared/SilentPwaUpdater";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -17,7 +18,7 @@ export const viewport: Viewport = {
     themeColor: [
         { media: '(prefers-color-scheme: light)', color: '#E6A800' },
         { media: '(prefers-color-scheme: dark)', color: '#E6A800' },
-    ],  
+    ],
 };
 
 // 2. Cấu hình Metadata chính
@@ -31,7 +32,7 @@ export const metadata: Metadata = {
             { url: "/bduck.png", type: "image/png" },
         ],
         apple: [
-            { url: "/logo.png" },
+            { url: "/summer_logo.png" },
         ],
     },
     manifest: "/manifest.webmanifest",
@@ -50,7 +51,7 @@ export const metadata: Metadata = {
         siteName: "B.Duck Cityfuns Vietnam",
         images: [
             {
-                url: "/Artboard.png",
+                url: "/summer_backdrops.png",
                 width: 1200,
                 height: 630,
                 alt: "B.Duck Cityfuns Vietnam Thumbnail",
@@ -63,7 +64,7 @@ export const metadata: Metadata = {
         card: "summary_large_image",
         title: "B.Duck Cityfuns Vietnam",
         description: "Be Playful • Be Fun • B.Duck",
-        images: ["/Artboard.png"],
+        images: ["/summer_backdrops.png"],
     },
 };
 
@@ -83,6 +84,7 @@ export default function RootLayout({
                     {children}
                     <InstallPWA />
                     <PwaRedirect />
+                    <SilentPwaUpdater />
                 </AuthProvider>
             </body>
         </html>

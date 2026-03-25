@@ -12,6 +12,7 @@ import {
     CheckCircle2, AlertTriangle, Lock, Camera, ScanLine, ImageIcon, MapPin,
 } from 'lucide-react';
 import MobilePageShell from '@/components/mobile/MobilePageShell';
+import HardResetButton from '@/components/shared/HardResetButton';
 import BottomSheet from '@/components/shared/BottomSheet';
 import SmartPortraitCamera from '@/components/shared/SmartPortraitCamera';
 import CCCDCamera, { CCCDScanResult } from '@/components/hr/CCCDCamera';
@@ -329,12 +330,19 @@ export default function MobileProfilePage() {
                     <ChevronRight className="w-4 h-4 text-gray-400" />
                 </button>
 
+                <HardResetButton />
+
                 <button onClick={() => setLogoutConfirmOpen(true)}
                     className="w-full flex items-center gap-3 px-4 py-3 bg-white rounded-xl border border-red-100 shadow-sm active:scale-[0.99] transition-all">
                     <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center"><LogOut className="w-4 h-4 text-red-600" /></div>
                     <span className="flex-1 text-left text-xs font-bold text-red-600">Đăng xuất</span>
                     <ChevronRight className="w-4 h-4 text-red-300" />
                 </button>
+
+                {/* Build version */}
+                <p className="text-center text-[9px] text-gray-300 pt-2">
+                    Phiên bản: {process.env.NEXT_PUBLIC_BUILD_VERSION || 'dev'}
+                </p>
             </div>
 
             {/* ═══ CAMERA FULLSCREEN ═══ */}

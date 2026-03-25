@@ -22,6 +22,16 @@ const serwist = new Serwist({
 serwist.addEventListeners();
 
 // ==========================================
+// CLIENT-TRIGGERED SKIP WAITING
+// ==========================================
+// Allow the SilentPwaUpdater component to tell a waiting SW to activate immediately.
+self.addEventListener('message', (event) => {
+    if (event.data?.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
+});
+
+// ==========================================
 // PUSH NOTIFICATIONS & FIREBASE CLOUD MESSAGING
 // ==========================================
 
