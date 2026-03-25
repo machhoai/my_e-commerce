@@ -21,6 +21,5 @@ export const PROTECTED_ROUTE_PREFIXES = [
     '/employee',
     '/notifications',
     '/profile',
-    '/scan',
     '/dashboard',
 ];
