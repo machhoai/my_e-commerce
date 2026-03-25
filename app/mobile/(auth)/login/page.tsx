@@ -54,15 +54,23 @@ export default function MobileLoginPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="min-h-screen bg-gray-50 flex flex-col relative overflow-hidden">
+            {/* ── Summer background ── */}
+            <img
+                src="/summer_backdrops.png"
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover opacity-15 pointer-events-none"
+                draggable={false}
+            />
+
             {/* ── Header branding ── */}
-            <div className="flex-1 flex flex-col items-center justify-center px-6 pt-12 pb-6">
+            <div className="flex-1 flex flex-col items-center justify-center px-6 pt-12 pb-6 relative z-10">
                 {/* Logo */}
                 <div className="mb-6">
                     <img
-                        src="/bduck.png"
+                        src="/summer_logo.png"
                         alt="B.Duck"
-                        className="w-20 h-20 object-contain"
+                        className="w-24 h-24 object-contain drop-shadow-lg"
                         draggable={false}
                     />
                 </div>

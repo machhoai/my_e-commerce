@@ -62,55 +62,20 @@ export default function LoginPage() {
     return (
         <div className="min-h-screen flex">
 
-            {/* ══════════════════════════════════════
-                LEFT PANEL — Artboard background
-            ══════════════════════════════════════ */}
-            <div className="hidden lg:flex lg:w-[55%] relative flex-col items-center justify-end pb-16 overflow-hidden">
+            <img
+                src="/summer_backdrops.png"
+                alt="B.Duck Cityfuns"
+                className="absolute inset-0 w-full h-full object-cover object-center"
+                draggable={false}
+            />
 
-                {/* Full-cover artboard image */}
-                <img
-                    src="/Artboard.png"
-                    alt="B.Duck Cityfuns"
-                    className="absolute inset-0 w-full h-full object-cover object-center"
-                    draggable={false}
-                />
-
-                {/* Dark gradient overlay — heavier at bottom so text reads */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                {/* Left-to-right fade to blend into right panel */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/60" />
-
-                {/* Logo centred vertically */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 z-10">
-                    <img
-                        src="/logo.png"
-                        alt="B.Duck Cityfuns Vietnam"
-                        className="w-64 xl:w-72 object-contain drop-shadow-2xl"
-                        draggable={false}
-                    />
-                    {/* Feature pills */}
-                    <div className="flex flex-wrap justify-center gap-2 max-w-xs">
-                        {['Quản lý ca làm', 'Kho hàng', 'Nhân sự', 'Doanh thu'].map(feat => (
-                            <span
-                                key={feat}
-                                className="px-3 py-1 rounded-full bg-black/30 backdrop-blur-sm border border-white/20 text-white/80 text-xs font-medium"
-                            >
-                                {feat}
-                            </span>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Bottom caption */}
-                <p className="relative z-10 text-white/50 text-xs tracking-widest uppercase">
-                    Hệ thống quản lý nội bộ
-                </p>
-            </div>
+            {/* Dark gradient overlay — heavier at bottom so text reads */}
+            <div className="absolute inset-0 bg-black/50" />
 
             {/* ══════════════════════════════════════
                 RIGHT PANEL — Login form
             ══════════════════════════════════════ */}
-            <div className="flex-1 flex flex-col items-center justify-center bg-surface-950 p-6 sm:p-10 relative">
+            <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 relative">
 
                 {/* Subtle background glow */}
                 <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-primary-500/5 blur-3xl pointer-events-none" />
@@ -121,9 +86,9 @@ export default function LoginPage() {
                     {/* Brand mark — shown always on mobile, hidden on lg (left panel shows logo) */}
                     <div className="flex flex-col items-center mb-8 lg:mb-10">
                         <img
-                            src="/bduck.png"
+                            src="/summer_logo.png"
                             alt="B.Duck"
-                            className="w-20 h-20 object-contain"
+                            className="w-40 h-40 object-contain rounded-3xl"
                             draggable={false}
                         />
                         {/* Only visible on mobile where left panel is hidden */}
@@ -150,7 +115,7 @@ export default function LoginPage() {
 
                         {/* Phone */}
                         <div className="space-y-1.5">
-                            <label className="text-xs font-semibold text-surface-400 uppercase tracking-wider">
+                            <label className="text-xs font-semibold text-surface-200 uppercase tracking-wider">
                                 Số điện thoại
                             </label>
                             <div className="relative group">
@@ -171,7 +136,7 @@ export default function LoginPage() {
 
                         {/* Password */}
                         <div className="space-y-1.5">
-                            <label className="text-xs font-semibold text-surface-400 uppercase tracking-wider">
+                            <label className="text-xs font-semibold text-surface-200 uppercase tracking-wider">
                                 Mật khẩu
                             </label>
                             <div className="relative group">
@@ -195,7 +160,7 @@ export default function LoginPage() {
                                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                 </button>
                             </div>
-                            <p className="text-xs text-surface-600 mt-1">
+                            <p className="text-xs text-surface-300 mt-1">
                                 Mật khẩu mặc định: 6 số cuối số điện thoại
                             </p>
                         </div>
@@ -220,7 +185,7 @@ export default function LoginPage() {
                         </button>
                     </form>
 
-                    <p className="text-center text-xs text-surface-600 mt-8">
+                    <p className="text-center text-xs text-white/50 mt-8">
                         © 2026 B.Duck Cityfuns Vietnam · Hệ thống quản lý nội bộ
                     </p>
                 </div>
