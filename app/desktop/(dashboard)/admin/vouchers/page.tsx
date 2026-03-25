@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import imageCompression from 'browser-image-compression';
@@ -58,14 +58,24 @@ type InventoryView = 'active' | 'archived';
 const BAR_COLORS = ['#94a3b8', '#3b82f6', '#22c55e', '#ef4444'];
 const PIE_COLORS = ['#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
+// ─── Stats type from server ─────────────────────────────────────
+interface VoucherStats {
+    total: number;
+    available: number;
+    distributed: number;
+    used: number;
+    revoked: number;
+}
+
 // ─── Main Page ──────────────────────────────────────────────────
 export default function VouchersPage() {
     const { user, userDoc, loading: authLoading, hasPermission } = useAuth();
     const [tab, setTab] = useState<TabKey>('dashboard');
 
-    // Data
+    // Data — no more global codes array!
     const [campaigns, setCampaigns] = useState<VoucherCampaign[]>([]);
-    const [codes, setCodes] = useState<VoucherCode[]>([]);
+    const [campaignStats, setCampaignStats] = useState<Record<string, VoucherStats>>({});
+    const [globalStats, setGlobalStats] = useState<VoucherStats>({ total: 0, available: 0, distributed: 0, used: 0, revoked: 0 });
     const [loading, setLoading] = useState(true);
 
     // Messages
@@ -77,18 +87,19 @@ export default function VouchersPage() {
 
     const getToken = useCallback(async () => user ? await user.getIdToken() : undefined, [user]);
 
-    // Fetch data
-    const fetchData = useCallback(async () => {
+    // Fetch campaigns + aggregate stats (zero doc reads)
+    const fetchStats = useCallback(async () => {
         try {
             setLoading(true);
             const token = await getToken();
-            const res = await fetch('/api/vouchers', {
+            const res = await fetch('/api/vouchers?mode=stats', {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (!res.ok) throw new Error('Không thể tải dữ liệu');
             const data = await res.json();
             setCampaigns(data.campaigns || []);
-            setCodes(data.codes || []);
+            setCampaignStats(data.campaignStats || {});
+            setGlobalStats(data.globalStats || { total: 0, available: 0, distributed: 0, used: 0, revoked: 0 });
         } catch {
             showMsg('error', 'Không thể tải dữ liệu voucher');
         } finally {
@@ -98,9 +109,9 @@ export default function VouchersPage() {
 
     useEffect(() => {
         if (user && (userDoc?.role === 'admin' || userDoc?.role === 'super_admin' || hasPermission('page.admin.vouchers'))) {
-            fetchData();
+            fetchStats();
         }
-    }, [user, userDoc, hasPermission, fetchData]);
+    }, [user, userDoc, hasPermission, fetchStats]);
 
     // Auth guards
     if (authLoading) return <div className="p-8 text-center">Đang tải...</div>;
@@ -161,23 +172,22 @@ export default function VouchersPage() {
                 </div>
             ) : (
                 <>
-                    {tab === 'dashboard' && <DashboardTab campaigns={campaigns} codes={codes} />}
+                    {tab === 'dashboard' && <DashboardTab campaigns={campaigns} globalStats={globalStats} campaignStats={campaignStats} />}
                     {tab === 'campaigns' && (
                         <CampaignTab
                             campaigns={campaigns}
-                            codes={codes}
+                            campaignStats={campaignStats}
                             getToken={getToken}
-                            fetchData={fetchData}
-                            onSuccess={(m) => { fetchData(); showMsg('success', m || 'Thao tác thành công!'); }}
+                            fetchData={fetchStats}
+                            onSuccess={(m) => { fetchStats(); showMsg('success', m || 'Thao tác thành công!'); }}
                             onError={(e) => showMsg('error', e)}
                         />
                     )}
                     {tab === 'codes' && (
                         <CodeInventoryTab
-                            codes={codes}
                             campaigns={campaigns}
                             getToken={getToken}
-                            onRevoke={() => { fetchData(); showMsg('success', 'Đã vô hiệu hóa mã voucher'); }}
+                            onRevoke={() => { fetchStats(); showMsg('success', 'Đã vô hiệu hóa mã voucher'); }}
                             onError={(e) => showMsg('error', e)}
                         />
                     )}
@@ -188,38 +198,39 @@ export default function VouchersPage() {
 }
 
 // ═════════════════════════════════════════════════════════════════
-// TAB 1: DASHBOARD
+// TAB 1: DASHBOARD (uses server-side aggregate stats — zero doc reads)
 // ═════════════════════════════════════════════════════════════════
-function DashboardTab({ campaigns, codes }: { campaigns: VoucherCampaign[]; codes: VoucherCode[] }) {
-    const stats = useMemo(() => {
-        const totalCampaigns = campaigns.length;
-        const totalCodes = codes.length;
-        const distributed = codes.filter(c => c.status === 'distributed').length;
-        const used = codes.filter(c => c.status === 'used').length;
-        return { totalCampaigns, totalCodes, distributed, used };
-    }, [campaigns, codes]);
-
+function DashboardTab({ campaigns, globalStats, campaignStats }: {
+    campaigns: VoucherCampaign[];
+    globalStats: VoucherStats;
+    campaignStats: Record<string, VoucherStats>;
+}) {
     const barData = useMemo(() => [
-        { name: 'Có sẵn', value: codes.filter(c => c.status === 'available').length },
-        { name: 'Đã phát', value: codes.filter(c => c.status === 'distributed').length },
-        { name: 'Đã dùng', value: codes.filter(c => c.status === 'used').length },
-        { name: 'Vô hiệu', value: codes.filter(c => c.status === 'revoked').length },
-    ], [codes]);
+        { name: 'Có sẵn', value: globalStats.available },
+        { name: 'Đã phát', value: globalStats.distributed },
+        { name: 'Đã dùng', value: globalStats.used },
+        { name: 'Vô hiệu', value: globalStats.revoked },
+    ], [globalStats]);
 
     const pieData = useMemo(() => {
         const map = new Map<string, number>();
-        codes.forEach(c => map.set(c.rewardType, (map.get(c.rewardType) || 0) + 1));
+        campaigns.forEach(c => {
+            const stats = campaignStats[c.id];
+            if (stats) {
+                map.set(c.rewardType, (map.get(c.rewardType) || 0) + stats.total);
+            }
+        });
         return Array.from(map.entries()).map(([key, value]) => ({
             name: REWARD_LABELS[key as VoucherRewardType] || key,
             value,
         }));
-    }, [codes]);
+    }, [campaigns, campaignStats]);
 
     const kpis = [
-        { label: 'Chiến dịch', value: stats.totalCampaigns, icon: Megaphone, color: 'text-accent-600 bg-accent-50' },
-        { label: 'Mã đã tạo', value: stats.totalCodes, icon: Hash, color: 'text-primary-600 bg-primary-50' },
-        { label: 'Đã phát', value: stats.distributed, icon: Gift, color: 'text-warning-600 bg-warning-50' },
-        { label: 'Đã sử dụng', value: stats.used, icon: CheckCircle2, color: 'text-success-600 bg-success-50' },
+        { label: 'Chiến dịch', value: campaigns.length, icon: Megaphone, color: 'text-accent-600 bg-accent-50' },
+        { label: 'Mã đã tạo', value: globalStats.total, icon: Hash, color: 'text-primary-600 bg-primary-50' },
+        { label: 'Đã phát', value: globalStats.distributed, icon: Gift, color: 'text-warning-600 bg-warning-50' },
+        { label: 'Đã sử dụng', value: globalStats.used, icon: CheckCircle2, color: 'text-success-600 bg-success-50' },
     ];
 
     return (
@@ -247,7 +258,7 @@ function DashboardTab({ campaigns, codes }: { campaigns: VoucherCampaign[]; code
                         <BarChart3 className="w-5 h-5 text-accent-500" />
                         <h3 className="text-base font-bold text-surface-800">Phân bố trạng thái mã</h3>
                     </div>
-                    {codes.length === 0 ? (
+                    {globalStats.total === 0 ? (
                         <div className="h-64 flex items-center justify-center text-surface-400 text-sm">Chưa có dữ liệu</div>
                     ) : (
                         <ResponsiveContainer width="100%" height={280}>
@@ -307,14 +318,14 @@ function DashboardTab({ campaigns, codes }: { campaigns: VoucherCampaign[]; code
 // ═════════════════════════════════════════════════════════════════
 function CampaignTab({
     campaigns,
-    codes,
+    campaignStats,
     getToken,
     fetchData,
     onSuccess,
     onError,
 }: {
     campaigns: VoucherCampaign[];
-    codes: VoucherCode[];
+    campaignStats: Record<string, VoucherStats>;
     getToken: () => Promise<string | undefined>;
     fetchData: () => void;
     onSuccess: (msg?: string) => void;
@@ -451,9 +462,11 @@ function CampaignTab({
     const [addingCodesFor, setAddingCodesFor] = useState<string | null>(null);
     const [addQty, setAddQty] = useState(100);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [updatingExpiryFor, setUpdatingExpiryFor] = useState<string | null>(null);
+    const [newValidTo, setNewValidTo] = useState('');
 
     const handleAddCodes = async (campaignId: string) => {
-        if (addQty < 1 || addQty > 10000) { onError('Số lượng phải từ 1 đến 10.000'); return; }
+        if (addQty < 1 || addQty > 1000000) { onError('Số lượng phải từ 1 đến 1.000.000'); return; }
         setActionLoading(campaignId);
         try {
             const token = await getToken();
@@ -486,6 +499,28 @@ function CampaignTab({
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Thất bại');
+            onSuccess(data.message);
+        } catch (err: unknown) {
+            onError(err instanceof Error ? err.message : 'Lỗi');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleUpdateExpiry = async (campaignId: string) => {
+        if (!newValidTo) { onError('Vui lòng chọn ngày hết hạn mới'); return; }
+        setActionLoading(campaignId);
+        try {
+            const token = await getToken();
+            const res = await fetch('/api/vouchers', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ action: 'update_expiry', campaignId, validTo: newValidTo }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Thất bại');
+            setUpdatingExpiryFor(null);
+            setNewValidTo('');
             onSuccess(data.message);
         } catch (err: unknown) {
             onError(err instanceof Error ? err.message : 'Lỗi');
@@ -756,11 +791,11 @@ function CampaignTab({
                             <div className="space-y-1.5">
                                 <label htmlFor="v-qty" className="text-sm font-medium text-surface-700">Số lượng mã *</label>
                                 <input
-                                    id="v-qty" type="number" min={1} max={10000} required
+                                    id="v-qty" type="number" min={1} max={1000000} required
                                     value={quantity} onChange={e => setQuantity(Number(e.target.value))}
                                     className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5"
                                 />
-                                <p className="text-xs text-surface-400">Tối đa 10.000 mã mỗi lần. Mã được tạo tự động và đảm bảo không trùng lặp.</p>
+                                <p className="text-xs text-surface-400">Tối đa 1.000.000 mã mỗi lần. Mã được tạo tự động và đảm bảo không trùng lặp.</p>
                             </div>
                         </div>
 
@@ -801,15 +836,10 @@ function CampaignTab({
         {/* end create form */}
 
         {(() => {
-            // ── Campaign code counts helper ──────────────────────────────
+            // ── Campaign code counts helper (uses server-side stats) ──────
             const getCampaignCounts = (cid: string) => {
-                const campCodes = codes.filter(c => c.campaignId === cid);
-                return {
-                    total: campCodes.length,
-                    available: campCodes.filter(c => c.status === 'available').length,
-                    distributed: campCodes.filter(c => c.status === 'distributed').length,
-                    used: campCodes.filter(c => c.status === 'used').length,
-                };
+                const stats = campaignStats[cid];
+                return stats || { total: 0, available: 0, distributed: 0, used: 0, revoked: 0 };
             };
 
             const CAMP_STATUS_BADGE: Record<string, string> = {
@@ -836,7 +866,23 @@ function CampaignTab({
                 try {
                     const QRCode = (await import('qrcode')).default;
                     const ExcelJS = (await import('exceljs')).default;
-                    const campCodes = codes.filter(c => c.campaignId === camp.id);
+
+                    // Fetch all codes for this campaign via paginated API
+                    const token = await getToken();
+                    const campCodes: VoucherCode[] = [];
+                    let afterCursor: string | null = null;
+                    let hasMore = true;
+                    while (hasMore) {
+                        const params = new URLSearchParams({ mode: 'codes', campaignId: camp.id, pageSize: '100' });
+                        if (afterCursor) params.set('after', afterCursor);
+                        const res = await fetch(`/api/vouchers?${params}`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                        });
+                        const data = await res.json();
+                        campCodes.push(...(data.codes || []));
+                        afterCursor = data.lastDocId;
+                        hasMore = data.hasMore;
+                    }
 
                     const workbook = new ExcelJS.Workbook();
                     workbook.creator = 'Voucher Manager';
@@ -997,6 +1043,21 @@ function CampaignTab({
                                                 Thêm mã
                                             </button>
                                             <button
+                                                onClick={() => {
+                                                    if (updatingExpiryFor === camp.id) { setUpdatingExpiryFor(null); }
+                                                    else { setUpdatingExpiryFor(camp.id); setNewValidTo(camp.validTo); }
+                                                }}
+                                                className={cn(
+                                                    'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors',
+                                                    updatingExpiryFor === camp.id
+                                                        ? 'bg-primary-100 text-primary-700 border-primary-300'
+                                                        : 'bg-surface-50 text-surface-600 border-surface-200 hover:bg-primary-50 hover:text-primary-700 hover:border-primary-200'
+                                                )}
+                                            >
+                                                <CalendarDays className="w-3.5 h-3.5" />
+                                                Gia hạn
+                                            </button>
+                                            <button
                                                 onClick={() => handleToggleCampaign(camp.id, camp.status)}
                                                 disabled={isLoading}
                                                 className={cn(
@@ -1023,7 +1084,7 @@ function CampaignTab({
                                         <div className="mt-3 flex items-center gap-3 bg-accent-50/50 border border-accent-200 rounded-xl p-3 animate-in slide-in-from-top-1 duration-200">
                                             <label className="text-xs font-medium text-accent-700 whitespace-nowrap">Số lượng:</label>
                                             <input
-                                                type="number" min={1} max={10000}
+                                                type="number" min={1} max={1000000}
                                                 value={addQty}
                                                 onChange={e => setAddQty(Number(e.target.value))}
                                                 className="w-28 bg-white border border-accent-200 text-sm rounded-lg p-2 focus:ring-accent-500 focus:border-accent-400"
@@ -1044,6 +1105,33 @@ function CampaignTab({
                                             </button>
                                         </div>
                                     )}
+
+                                    {/* Inline Update Expiry Form */}
+                                    {updatingExpiryFor === camp.id && (
+                                        <div className="mt-3 flex items-center gap-3 bg-primary-50/50 border border-primary-200 rounded-xl p-3 animate-in slide-in-from-top-1 duration-200">
+                                            <label className="text-xs font-medium text-primary-700 whitespace-nowrap">Ngày hết hạn mới:</label>
+                                            <input
+                                                type="date"
+                                                value={newValidTo}
+                                                onChange={e => setNewValidTo(e.target.value)}
+                                                className="w-40 bg-white border border-primary-200 text-sm rounded-lg p-2 focus:ring-primary-500 focus:border-primary-400"
+                                            />
+                                            <button
+                                                onClick={() => handleUpdateExpiry(camp.id)}
+                                                disabled={isLoading}
+                                                className="flex items-center gap-1.5 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-surface-300 text-white text-xs font-semibold rounded-lg transition-colors"
+                                            >
+                                                {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CalendarDays className="w-3.5 h-3.5" />}
+                                                Cập nhật
+                                            </button>
+                                            <button
+                                                onClick={() => setUpdatingExpiryFor(null)}
+                                                className="text-xs text-surface-400 hover:text-surface-600"
+                                            >
+                                                Hủy
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
@@ -1056,72 +1144,102 @@ function CampaignTab({
 }
 
 // ═════════════════════════════════════════════════════════════════
-// TAB 3: CODE INVENTORY
+// TAB 3: CODE INVENTORY (cursor-paginated, server-side filtered)
 // ═════════════════════════════════════════════════════════════════
 function CodeInventoryTab({
-    codes,
     campaigns,
     getToken,
     onRevoke,
     onError,
 }: {
-    codes: VoucherCode[];
     campaigns: VoucherCampaign[];
     getToken: () => Promise<string | undefined>;
     onRevoke: () => void;
     onError: (msg: string) => void;
 }) {
-    const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [filterCampaign, setFilterCampaign] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [revoking, setRevoking] = useState(false);
-    const [page, setPage] = useState(1);
-    const [view, setView] = useState<InventoryView>('active');
     const [selected, setSelected] = useState<Set<string>>(new Set());
-    const pageSize = 20;
 
-    const now = new Date().toISOString().slice(0, 10);
+    // Paginated data
+    const [codes, setCodes] = useState<(VoucherCode & { usedByStaffName?: string })[]>([]);
+    const [lastDocId, setLastDocId] = useState<string | null>(null);
+    const [hasMore, setHasMore] = useState(false);
+    const [pageLoading, setPageLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
 
-    // Enrich codes with computed expired status
-    const enrichedCodes = useMemo(() => {
-        return codes.map(c => {
-            if ((c.status === 'available' || c.status === 'distributed') && c.validTo && c.validTo < now) {
-                return { ...c, status: 'expired' as const };
+    const PAGE_SIZE = 50;
+
+    // Fetch codes (initial or append)
+    const fetchCodes = useCallback(async (opts: {
+        append?: boolean;
+        campaignId?: string;
+        status?: string;
+        search?: string;
+        after?: string | null;
+    } = {}) => {
+        const { append = false, after = null } = opts;
+        if (!append) setInitialLoading(true);
+        else setPageLoading(true);
+
+        try {
+            const token = await getToken();
+            const params = new URLSearchParams({ mode: 'codes', pageSize: String(PAGE_SIZE) });
+            if (opts.campaignId) params.set('campaignId', opts.campaignId);
+            if (opts.status) params.set('status', opts.status);
+            if (opts.search) params.set('search', opts.search);
+            if (after) params.set('after', after);
+
+            const res = await fetch(`/api/vouchers?${params}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) throw new Error('Lỗi tải dữ liệu');
+            const data = await res.json();
+
+            if (append) {
+                setCodes(prev => [...prev, ...(data.codes || [])]);
+            } else {
+                setCodes(data.codes || []);
             }
-            return c;
+            setLastDocId(data.lastDocId || null);
+            setHasMore(data.hasMore || false);
+        } catch {
+            onError('Không thể tải danh sách voucher');
+        } finally {
+            setInitialLoading(false);
+            setPageLoading(false);
+        }
+    }, [getToken, onError]);
+
+    // Refetch when filters change
+    useEffect(() => {
+        setSelected(new Set());
+        fetchCodes({
+            campaignId: filterCampaign || undefined,
+            status: filterStatus || undefined,
+            search: debouncedSearch || undefined,
         });
-    }, [codes, now]);
+    }, [filterCampaign, filterStatus, debouncedSearch, fetchCodes]);
 
-    // Split into active vs archived
-    const ARCHIVED_STATUSES = ['revoked', 'expired'];
-    const activeCodes = useMemo(() => enrichedCodes.filter(c => !ARCHIVED_STATUSES.includes(c.status)), [enrichedCodes]);
-    const archivedCodes = useMemo(() => enrichedCodes.filter(c => ARCHIVED_STATUSES.includes(c.status)), [enrichedCodes]);
-    const baseCodes = view === 'active' ? activeCodes : archivedCodes;
-
-    // Apply search + filters
-    const filtered = useMemo(() => {
-        return baseCodes.filter(c => {
-            if (filterCampaign && c.campaignId !== filterCampaign) return false;
-            if (filterStatus && c.status !== filterStatus) return false;
-            if (search) {
-                const q = search.toLowerCase();
-                return (
-                    c.id.toLowerCase().includes(q) ||
-                    (c.distributedToPhone?.toLowerCase().includes(q))
-                );
-            }
-            return true;
+    // Load more handler
+    const handleLoadMore = () => {
+        fetchCodes({
+            append: true,
+            campaignId: filterCampaign || undefined,
+            status: filterStatus || undefined,
+            search: debouncedSearch || undefined,
+            after: lastDocId,
         });
-    }, [baseCodes, filterCampaign, filterStatus, search]);
+    };
 
-    const paginated = useMemo(() => {
-        return filtered.slice((page - 1) * pageSize, page * pageSize);
-    }, [filtered, page]);
-
-    const totalPages = Math.ceil(filtered.length / pageSize);
-
-    // Reset selection & page when view changes
-    useEffect(() => { setSelected(new Set()); setPage(1); setFilterStatus(''); }, [view]);
+    // Debounced search
+    const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const handleSearchChange = (val: string) => {
+        if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+        searchTimerRef.current = setTimeout(() => setDebouncedSearch(val), 400);
+    };
 
     // Select helpers
     const toggleSelect = (id: string) => {
@@ -1132,21 +1250,17 @@ function CodeInventoryTab({
         });
     };
     const toggleSelectAll = () => {
-        if (selected.size === paginated.length) {
-            setSelected(new Set());
-        } else {
-            setSelected(new Set(paginated.map(c => c.id)));
-        }
+        if (selected.size === codes.length) setSelected(new Set());
+        else setSelected(new Set(codes.map(c => c.id)));
     };
     const clearSelection = () => setSelected(new Set());
 
-    // Only codes that can actually be revoked
     const revocableSelected = useMemo(() => {
         return [...selected].filter(id => {
-            const c = enrichedCodes.find(x => x.id === id);
+            const c = codes.find(x => x.id === id);
             return c && c.status !== 'used' && c.status !== 'revoked';
         });
-    }, [selected, enrichedCodes]);
+    }, [selected, codes]);
 
     const handleBulkRevoke = async () => {
         if (revocableSelected.length === 0) return;
@@ -1163,6 +1277,7 @@ function CodeInventoryTab({
             if (!res.ok) throw new Error(data.error || 'Thao tác thất bại');
             clearSelection();
             onRevoke();
+            fetchCodes({ campaignId: filterCampaign || undefined, status: filterStatus || undefined, search: debouncedSearch || undefined });
         } catch (err: unknown) {
             onError(err instanceof Error ? err.message : 'Lỗi');
         } finally {
@@ -1183,17 +1298,13 @@ function CodeInventoryTab({
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Thao tác thất bại');
             onRevoke();
+            fetchCodes({ campaignId: filterCampaign || undefined, status: filterStatus || undefined, search: debouncedSearch || undefined });
         } catch (err: unknown) {
             onError(err instanceof Error ? err.message : 'Lỗi');
         } finally {
             setRevoking(false);
         }
     };
-
-    // Determine which status filters to show for current view
-    const viewStatuses = view === 'active'
-        ? Object.entries(STATUS_LABELS).filter(([k]) => !ARCHIVED_STATUSES.includes(k))
-        : Object.entries(STATUS_LABELS).filter(([k]) => ARCHIVED_STATUSES.includes(k));
 
     return (
         <div className="space-y-4">
@@ -1203,15 +1314,15 @@ function CodeInventoryTab({
                     <div className="relative flex-1 inset-0">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
                         <input
-                            value={search}
-                            onChange={e => { setSearch(e.target.value); setPage(1); }}
+                            defaultValue=""
+                            onChange={e => handleSearchChange(e.target.value)}
                             placeholder="Tìm theo mã hoặc số điện thoại..."
                             className="w-full h-full pl-10 pr-4 py-2.5 bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400"
                         />
                     </div>
                     <select
                         value={filterCampaign}
-                        onChange={e => { setFilterCampaign(e.target.value); setPage(1); }}
+                        onChange={e => setFilterCampaign(e.target.value)}
                         className="bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 p-2.5 min-w-[180px]"
                     >
                         <option value="">Tất cả chiến dịch</option>
@@ -1219,53 +1330,16 @@ function CodeInventoryTab({
                     </select>
                     <select
                         value={filterStatus}
-                        onChange={e => { setFilterStatus(e.target.value); setPage(1); }}
+                        onChange={e => setFilterStatus(e.target.value)}
                         className="bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 p-2.5 min-w-[140px]"
                     >
                         <option value="">Tất cả trạng thái</option>
-                        {viewStatuses.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                        {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                     </select>
-                    {/* View Toggle */}
-                    <div className="flex items-center justify-between">
-                        <div className="flex gap-1 bg-surface-100 p-1 rounded-xl w-fit">
-                            <button
-                                onClick={() => setView('active')}
-                                className={cn(
-                                    'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all',
-                                    view === 'active'
-                                        ? 'bg-white text-surface-800 shadow-sm'
-                                        : 'text-surface-500 hover:text-surface-700'
-                                )}
-                            >
-                                <Ticket className="w-4 h-4" />
-                                Đang hoạt động
-                                <span className={cn(
-                                    'text-[11px] px-1.5 py-0.5 rounded-full font-bold',
-                                    view === 'active' ? 'bg-accent-100 text-accent-700' : 'bg-surface-200 text-surface-500'
-                                )}>{activeCodes.length}</span>
-                            </button>
-                            <button
-                                onClick={() => setView('archived')}
-                                className={cn(
-                                    'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all',
-                                    view === 'archived'
-                                        ? 'bg-white text-surface-800 shadow-sm'
-                                        : 'text-surface-500 hover:text-surface-700'
-                                )}
-                            >
-                                <EyeOff className="w-4 h-4" />
-                                Lưu trữ
-                                <span className={cn(
-                                    'text-[11px] px-1.5 py-0.5 rounded-full font-bold',
-                                    view === 'archived' ? 'bg-warning-100 text-warning-700' : 'bg-surface-200 text-surface-500'
-                                )}>{archivedCodes.length}</span>
-                            </button>
-                        </div>
-                    </div>
                 </div>
                 <p className="text-xs text-surface-400 mt-2">
-                    Hiển thị {filtered.length} / {baseCodes.length} mã
-                    {view === 'archived' && ' (lưu trữ)'}
+                    Hiển thị {codes.length.toLocaleString()} mã
+                    {hasMore && ' (còn nữa — bấm "Tải thêm" để xem tiếp)'}
                 </p>
             </div>
 
@@ -1278,25 +1352,14 @@ function CodeInventoryTab({
                             <span className="text-sm font-bold">{selected.size}</span>
                             <span className="text-xs text-white/70">đã chọn</span>
                         </div>
-                        <button
-                            onClick={clearSelection}
-                            className="flex items-center gap-1 text-xs text-white/60 hover:text-white transition-colors"
-                        >
+                        <button onClick={clearSelection} className="flex items-center gap-1 text-xs text-white/60 hover:text-white transition-colors">
                             <XIcon className="w-3.5 h-3.5" />
                             Bỏ chọn
                         </button>
                     </div>
                     {revocableSelected.length > 0 && (
-                        <button
-                            onClick={handleBulkRevoke}
-                            disabled={revoking}
-                            className="flex items-center gap-2 px-4 py-2 bg-danger-500 hover:bg-danger-600 disabled:bg-danger-400 rounded-xl text-sm font-semibold transition-colors"
-                        >
-                            {revoking ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <ShieldX className="w-4 h-4" />
-                            )}
+                        <button onClick={handleBulkRevoke} disabled={revoking} className="flex items-center gap-2 px-4 py-2 bg-danger-500 hover:bg-danger-600 disabled:bg-danger-400 rounded-xl text-sm font-semibold transition-colors">
+                            {revoking ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldX className="w-4 h-4" />}
                             Vô hiệu hóa {revocableSelected.length} mã
                         </button>
                     )}
@@ -1305,41 +1368,28 @@ function CodeInventoryTab({
 
             {/* Table */}
             <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
-                {filtered.length === 0 ? (
+                {initialLoading ? (
                     <div className="p-12 text-center text-surface-400">
-                        {view === 'archived' ? (
-                            <>
-                                <ArchiveRestore className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                                <p className="font-medium">Không có mã lưu trữ nào</p>
-                                <p className="text-xs mt-1">Các mã bị vô hiệu hóa hoặc hết hạn sẽ hiển thị ở đây.</p>
-                            </>
-                        ) : (
-                            <>
-                                <Archive className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                                <p className="font-medium">Không tìm thấy mã voucher nào</p>
-                            </>
-                        )}
+                        <div className="w-6 h-6 border-3 border-accent-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                        Đang tải...
+                    </div>
+                ) : codes.length === 0 ? (
+                    <div className="p-12 text-center text-surface-400">
+                        <Archive className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                        <p className="font-medium">Không tìm thấy mã voucher nào</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
                             <thead className="text-xs text-surface-500 bg-surface-50/80 border-b border-surface-100">
                                 <tr>
-                                    {view === 'active' && (
-                                        <th className="pl-4 pr-1 py-3.5 w-10">
-                                            <button
-                                                onClick={toggleSelectAll}
-                                                className="flex items-center justify-center w-5 h-5 rounded transition-colors hover:bg-surface-200"
-                                                title={selected.size === paginated.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
-                                            >
-                                                {selected.size > 0 && selected.size === paginated.length ? (
-                                                    <CheckSquare className="w-4 h-4 text-accent-600" />
-                                                ) : (
-                                                    <Square className="w-4 h-4 text-surface-400" />
-                                                )}
-                                            </button>
-                                        </th>
-                                    )}
+                                    <th className="pl-4 pr-1 py-3.5 w-10">
+                                        <button onClick={toggleSelectAll} className="flex items-center justify-center w-5 h-5 rounded transition-colors hover:bg-surface-200">
+                                            {selected.size > 0 && selected.size === codes.length
+                                                ? <CheckSquare className="w-4 h-4 text-accent-600" />
+                                                : <Square className="w-4 h-4 text-surface-400" />}
+                                        </button>
+                                    </th>
                                     <th className="px-4 py-3.5 font-semibold">Mã</th>
                                     <th className="px-4 py-3.5 font-semibold">Chiến dịch</th>
                                     <th className="px-4 py-3.5 font-semibold">Thưởng</th>
@@ -1348,74 +1398,45 @@ function CodeInventoryTab({
                                     <th className="px-4 py-3.5 font-semibold">Hết hạn</th>
                                     <th className="px-4 py-3.5 font-semibold">Thời gian dùng</th>
                                     <th className="px-4 py-3.5 font-semibold">Người kích hoạt</th>
-                                    {view === 'active' && (
-                                        <th className="px-4 py-3.5 font-semibold text-right">Thao tác</th>
-                                    )}
+                                    <th className="px-4 py-3.5 font-semibold text-right">Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-surface-100">
-                                {paginated.map(c => {
+                                {codes.map(c => {
                                     const isSelected = selected.has(c.id);
                                     const canRevoke = c.status === 'available' || c.status === 'distributed';
                                     return (
-                                        <tr
-                                            key={c.id}
-                                            className={cn(
-                                                'transition-colors group',
-                                                isSelected ? 'bg-accent-50/40' : 'hover:bg-surface-50/60',
-                                                view === 'archived' && 'opacity-70'
-                                            )}
-                                        >
-                                            {view === 'active' && (
-                                                <td className="pl-4 pr-1 py-3.5">
-                                                    <button
-                                                        onClick={() => toggleSelect(c.id)}
-                                                        className="flex items-center justify-center w-5 h-5 rounded transition-colors hover:bg-surface-200"
-                                                    >
-                                                        {isSelected ? (
-                                                            <CheckSquare className="w-4 h-4 text-accent-600" />
-                                                        ) : (
-                                                            <Square className="w-4 h-4 text-surface-300 group-hover:text-surface-500" />
-                                                        )}
-                                                    </button>
-                                                </td>
-                                            )}
+                                        <tr key={c.id} className={cn('transition-colors group', isSelected ? 'bg-accent-50/40' : 'hover:bg-surface-50/60')}>
+                                            <td className="pl-4 pr-1 py-3.5">
+                                                <button onClick={() => toggleSelect(c.id)} className="flex items-center justify-center w-5 h-5 rounded transition-colors hover:bg-surface-200">
+                                                    {isSelected ? <CheckSquare className="w-4 h-4 text-accent-600" /> : <Square className="w-4 h-4 text-surface-300 group-hover:text-surface-500" />}
+                                                </button>
+                                            </td>
                                             <td className="px-4 py-3.5 font-mono font-bold text-surface-800 text-xs tracking-wide">{c.id}</td>
                                             <td className="px-4 py-3.5 text-surface-600 text-xs">{c.campaignName || c.campaignId}</td>
                                             <td className="px-4 py-3.5">
-                                                <span className="text-xs font-semibold text-accent-700">
-                                                    {REWARD_LABELS[c.rewardType]} • {c.rewardValue}
-                                                </span>
+                                                <span className="text-xs font-semibold text-accent-700">{REWARD_LABELS[c.rewardType]} • {c.rewardValue}</span>
                                             </td>
                                             <td className="px-4 py-3.5 text-center">
-                                                <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border', STATUS_BADGE[c.status])}>
-                                                    {STATUS_LABELS[c.status]}
-                                                </span>
+                                                <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border', STATUS_BADGE[c.status])}>{STATUS_LABELS[c.status]}</span>
                                             </td>
-                                            <td className="px-4 py-3.5 text-surface-500 font-mono text-xs">
-                                                {c.distributedToPhone || <span className="text-surface-300">—</span>}
-                                            </td>
+                                            <td className="px-4 py-3.5 text-surface-500 font-mono text-xs">{c.distributedToPhone || <span className="text-surface-300">—</span>}</td>
                                             <td className="px-4 py-3.5 text-surface-500 text-xs">{c.validTo}</td>
                                             <td className="px-4 py-3.5 text-surface-500 text-xs">
                                                 {c.usedAt ? new Date(c.usedAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : <span className="text-surface-300">—</span>}
                                             </td>
                                             <td className="px-4 py-3.5 text-surface-500 text-xs">
-                                                {(c as any).usedByStaffName || c.usedByStaffId ? <span className="font-medium text-surface-700">{(c as any).usedByStaffName || c.usedByStaffId}</span> : <span className="text-surface-300">—</span>}
+                                                {c.usedByStaffName || c.usedByStaffId ? <span className="font-medium text-surface-700">{c.usedByStaffName || c.usedByStaffId}</span> : <span className="text-surface-300">—</span>}
                                             </td>
-                                            {view === 'active' && (
-                                                <td className="px-4 py-3.5 text-right">
-                                                    {canRevoke && (
-                                                        <button
-                                                            onClick={() => handleSingleRevoke(c.id)}
-                                                            disabled={revoking}
-                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-danger-50 text-danger-600 hover:bg-danger-100 border border-danger-200 transition-colors disabled:opacity-50 opacity-0 group-hover:opacity-100"
-                                                        >
-                                                            <ShieldX className="w-3.5 h-3.5" />
-                                                            Vô hiệu hóa
-                                                        </button>
-                                                    )}
-                                                </td>
-                                            )}
+                                            <td className="px-4 py-3.5 text-right">
+                                                {canRevoke && (
+                                                    <button onClick={() => handleSingleRevoke(c.id)} disabled={revoking}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-danger-50 text-danger-600 hover:bg-danger-100 border border-danger-200 transition-colors disabled:opacity-50 opacity-0 group-hover:opacity-100">
+                                                        <ShieldX className="w-3.5 h-3.5" />
+                                                        Vô hiệu hóa
+                                                    </button>
+                                                )}
+                                            </td>
                                         </tr>
                                     );
                                 })}
@@ -1424,31 +1445,21 @@ function CodeInventoryTab({
                     </div>
                 )}
 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-5 py-3 border-t border-surface-100 text-sm">
-                        <span className="text-surface-500">
-                            Trang {page} / {totalPages}
-                        </span>
-                        <div className="flex gap-1">
-                            <button
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
-                                disabled={page <= 1}
-                                className="px-3 py-1.5 rounded-lg border border-surface-200 text-surface-600 hover:bg-surface-50 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-medium"
-                            >
-                                Trước
-                            </button>
-                            <button
-                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                disabled={page >= totalPages}
-                                className="px-3 py-1.5 rounded-lg border border-surface-200 text-surface-600 hover:bg-surface-50 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-medium"
-                            >
-                                Sau
-                            </button>
-                        </div>
+                {/* Load More */}
+                {hasMore && (
+                    <div className="flex items-center justify-center px-5 py-4 border-t border-surface-100">
+                        <button onClick={handleLoadMore} disabled={pageLoading}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-surface-800 hover:bg-surface-900 disabled:bg-surface-300 text-white text-sm font-semibold rounded-xl transition-colors">
+                            {pageLoading ? (
+                                <><Loader2 className="w-4 h-4 animate-spin" /> Đang tải...</>
+                            ) : (
+                                <><Plus className="w-4 h-4" /> Tải thêm {PAGE_SIZE} mã</>
+                            )}
+                        </button>
                     </div>
                 )}
             </div>
         </div>
     );
 }
+

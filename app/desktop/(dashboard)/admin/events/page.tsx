@@ -633,6 +633,9 @@ function EventListTab({
     const [addingStock, setAddingStock] = useState<string | null>(null);
     const [addStockQty, setAddStockQty] = useState(100);
     const [addStockLoading, setAddStockLoading] = useState(false);
+    const [renewingCampaign, setRenewingCampaign] = useState<string | null>(null);
+    const [renewDate, setRenewDate] = useState('');
+    const [renewLoading, setRenewLoading] = useState(false);
 
     const startEditEvent = (evt: EventWithStats) => {
         setEditingEvent(evt);
@@ -756,7 +759,7 @@ function EventListTab({
 
     // ── Voucher suggestion: add stock to a campaign ──────────────
     const handleAddStock = async (campaignId: string) => {
-        if (addStockQty < 1 || addStockQty > 10000) { onError('Số lượng phải từ 1 đến 10.000'); return; }
+        if (addStockQty < 1 || addStockQty > 1000000) { onError('Số lượng phải từ 1 đến 1.000.000'); return; }
         setAddStockLoading(true);
         try {
             const token = await getToken();
@@ -1085,7 +1088,7 @@ function EventListTab({
                                                 {isAddingThis ? (
                                                     <div className="flex items-center gap-2">
                                                         <input
-                                                            type="number" min={1} max={10000}
+                                                            type="number" min={1} max={1000000}
                                                             value={addStockQty}
                                                             onChange={e => setAddStockQty(Number(e.target.value))}
                                                             className="w-24 bg-white border border-warning-200 text-sm rounded-lg p-1.5 focus:ring-warning-400 focus:border-warning-400"
@@ -1109,6 +1112,93 @@ function EventListTab({
                                                     >
                                                         <PlusCircle className="w-3.5 h-3.5" />
                                                         Tạo thêm mã
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── Campaign Expiry Renewal Suggestion ── */}
+                        {prizePool.length > 0 && endDate && (
+                            <div className="bg-primary-50 border border-primary-200 rounded-xl p-4 space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <CalendarDays className="w-4 h-4 text-primary-600" />
+                                    <p className="text-sm font-bold text-primary-700">Gia hạn chiến dịch voucher</p>
+                                </div>
+                                <p className="text-xs text-primary-600">Cập nhật ngày hết hạn của chiến dịch voucher cho phù hợp với sự kiện.</p>
+                                <div className="space-y-2">
+                                    {prizePool.map(entry => {
+                                        const camp = campaigns.find(c => c.id === entry.campaignId);
+                                        if (!camp) return null;
+                                        const isExpired = camp.validTo < endDate;
+                                        const isRenewing = renewingCampaign === camp.id;
+                                        return (
+                                            <div key={camp.id} className="flex flex-col sm:flex-row sm:items-center gap-2 bg-white rounded-lg border border-primary-100 p-3">
+                                                <div className="flex-1">
+                                                    <p className="text-xs font-semibold text-primary-800">
+                                                        {camp.name}
+                                                    </p>
+                                                    <p className="text-[10px] text-primary-600">
+                                                        Hiện tại: {camp.validTo}
+                                                        {isExpired && (
+                                                            <span className="text-danger-600 font-bold ml-1">• Hết hạn trước ngày kết thúc sự kiện ({endDate})</span>
+                                                        )}
+                                                    </p>
+                                                </div>
+                                                {isRenewing ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="date"
+                                                            value={renewDate}
+                                                            onChange={e => setRenewDate(e.target.value)}
+                                                            className="w-36 bg-white border border-primary-200 text-sm rounded-lg p-1.5 focus:ring-primary-400 focus:border-primary-400"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={async () => {
+                                                                if (!renewDate) { onError('Chọn ngày hết hạn mới'); return; }
+                                                                setRenewLoading(true);
+                                                                try {
+                                                                    const token = await getToken();
+                                                                    const res = await fetch('/api/vouchers', {
+                                                                        method: 'PATCH',
+                                                                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                                                        body: JSON.stringify({ action: 'update_expiry', campaignId: camp.id, validTo: renewDate }),
+                                                                    });
+                                                                    const data = await res.json();
+                                                                    if (!res.ok) throw new Error(data.error || 'Thất bại');
+                                                                    setRenewingCampaign(null);
+                                                                    onSuccess(data.message || 'Gia hạn thành công');
+                                                                } catch (err: unknown) {
+                                                                    onError(err instanceof Error ? err.message : 'Lỗi');
+                                                                } finally {
+                                                                    setRenewLoading(false);
+                                                                }
+                                                            }}
+                                                            disabled={renewLoading}
+                                                            className="flex items-center gap-1 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:bg-surface-300 text-white text-xs font-semibold rounded-lg transition-colors"
+                                                        >
+                                                            {renewLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <CalendarDays className="w-3 h-3" />}
+                                                            Cập nhật
+                                                        </button>
+                                                        <button type="button" onClick={() => setRenewingCampaign(null)} className="text-xs text-surface-400 hover:text-surface-600">Hủy</button>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setRenewingCampaign(camp.id); setRenewDate(endDate); }}
+                                                        className={cn(
+                                                            'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors',
+                                                            isExpired
+                                                                ? 'bg-danger-50 text-danger-700 border-danger-200 hover:bg-danger-100'
+                                                                : 'bg-primary-100 text-primary-700 border-primary-200 hover:bg-primary-200'
+                                                        )}
+                                                    >
+                                                        <CalendarDays className="w-3.5 h-3.5" />
+                                                        {isExpired ? 'Gia hạn ngay' : 'Gia hạn'}
                                                     </button>
                                                 )}
                                             </div>
