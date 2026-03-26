@@ -1,4 +1,5 @@
 import AuthGuard from '@/components/layout/AuthGuard';
+import ProfileCompletionGuard from '@/components/auth/ProfileCompletionGuard';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import UniversalScannerModal from '@/components/scanner/UniversalScannerModal';
 
@@ -9,10 +10,12 @@ export default function DashboardRootLayout({
 }) {
     return (
         <AuthGuard>
-            <DashboardLayout>
-                {children}
-                <UniversalScannerModal />
-            </DashboardLayout>
+            <ProfileCompletionGuard>
+                <DashboardLayout>
+                    {children}
+                    <UniversalScannerModal />
+                </DashboardLayout>
+            </ProfileCompletionGuard>
         </AuthGuard>
     );
 }

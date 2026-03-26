@@ -28,8 +28,7 @@ export const metadata: Metadata = {
     description: "Be Playful • Be Fun • B.Duck",
     icons: {
         icon: [
-            { url: "/favicon.ico" },
-            { url: "/bduck.png", type: "image/png" },
+            { url: "/summer_logo.png" },
         ],
         apple: [
             { url: "/summer_logo.png" },

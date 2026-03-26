@@ -183,9 +183,6 @@ export default function ProfilePage() {
                         <div className="flex-1 space-y-2">
                             <h2 className="text-2xl font-bold text-surface-900">{profileData.name}</h2>
                             <div className="flex flex-wrap gap-3">
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary-50 text-primary-700 border border-primary-100">
-                                    <Briefcase className="w-3.5 h-3.5" /> {profileData.jobTitle || 'Nhân viên'}
-                                </span>
                                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-success-50 text-success-700 border border-success-100">
                                     <ShieldCheck className="w-3.5 h-3.5" /> {profileData.role === 'admin' ? 'Quản trị viên' : profileData.role === 'manager' ? 'Quản lý' : 'Nhân viên'}
                                 </span>
@@ -194,7 +191,7 @@ export default function ProfilePage() {
                                 </span>
                             </div>
                             {isProcessing && (
-                                <p className="text-xs text-primary-600 font-medium animate-pulse">Đang xử lý ảnh...</p>
+                                <p className="text-xs text-primary-600 font-medium">Đang xử lý ảnh...</p>
                             )}
                         </div>
                         {!isEditing && (

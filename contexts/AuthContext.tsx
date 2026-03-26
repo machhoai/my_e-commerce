@@ -68,6 +68,8 @@ interface AuthContextValue {
     effectiveStoreId: string;
     /** Update the store selection for office-context users and persist to localStorage. */
     setEffectiveStoreId: (storeId: string) => void;
+    /** Re-fetch userDoc from Firestore (e.g. after mandatory profile update). */
+    refreshUserDoc: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -173,6 +175,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error('Failed to fetch user doc:', err);
         }
     }, []);
+
+    const refreshUserDoc = useCallback(async () => {
+        if (user) {
+            await fetchUserDoc(user.uid);
+        }
+    }, [user, fetchUserDoc]);
 
     useEffect(() => {
         let recoveryAttempted = false;
@@ -298,7 +306,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         <AuthContext.Provider value={{
             user, userDoc, loading, permissions, hasPermission,
             roleDefaultRoute, getToken, login, logout, changePassword,
-            managedStoreIds, effectiveStoreId, setEffectiveStoreId,
+            managedStoreIds, effectiveStoreId, setEffectiveStoreId, refreshUserDoc,
         }}>
             {children}
         </AuthContext.Provider>

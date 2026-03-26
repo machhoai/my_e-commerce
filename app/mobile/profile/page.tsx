@@ -241,9 +241,6 @@ export default function MobileProfilePage() {
 
                 <h2 className="text-lg font-black text-gray-800">{profileData.name}</h2>
                 <div className="flex items-center gap-1.5 mt-1.5 flex-wrap justify-center">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-primary-50 text-primary-700 border border-primary-100">
-                        <Briefcase className="w-2.5 h-2.5" />{profileData.jobTitle || 'Nhân viên'}
-                    </span>
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
                         <ShieldCheck className="w-2.5 h-2.5" />{ROLE_LABELS[profileData.role] || profileData.role}
                     </span>
@@ -253,7 +250,7 @@ export default function MobileProfilePage() {
                 </div>
 
                 {isProcessing && (
-                    <p className="text-[10px] text-primary-600 font-medium mt-2 animate-pulse">Đang xử lý ảnh...</p>
+                    <p className="text-[10px] text-primary-600 font-medium mt-2">Đang xử lý ảnh...</p>
                 )}
             </div>
 
@@ -340,7 +337,7 @@ export default function MobileProfilePage() {
                 </button>
 
                 {/* Build version */}
-                <p className="text-center text-[9px] text-gray-300 pt-2">
+                <p className="text-center text-[9px] text-gray-500 pt-2">
                     Phiên bản: {process.env.NEXT_PUBLIC_BUILD_VERSION || 'dev'}
                 </p>
             </div>
