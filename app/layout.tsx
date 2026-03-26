@@ -23,7 +23,7 @@ export const viewport: Viewport = {
 
 // 2. Cấu hình Metadata chính
 export const metadata: Metadata = {
-    metadataBase: new URL("https://bduckcityfunsvietnam.vercel.app"),
+    metadataBase: new URL("https://employee.joyworld.vn"),
     title: "B.Duck Cityfuns Vietnam",
     description: "Be Playful • Be Fun • B.Duck",
     icons: {
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     openGraph: {
         title: "B.Duck Cityfuns Vietnam",
         description: "Be Playful • Be Fun • B.Duck",
-        url: "https://bduckcityfunsvietnam.vercel.app",
+        url: "https://employee.joyworld.vn",
         siteName: "B.Duck Cityfuns Vietnam",
         images: [
             {
