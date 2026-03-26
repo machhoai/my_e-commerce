@@ -8,12 +8,12 @@ import SmartPortraitCamera from '@/components/shared/SmartPortraitCamera';
 import { convertBase64ToWebP } from '@/lib/utils/image';
 import {
     Mail, Camera, ScanLine, Loader2, CheckCircle2,
-    User, Calendar, MapPin, CreditCard, ShieldAlert,
+    User, Calendar, MapPin, CreditCard, ShieldAlert, LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function MandatoryUpdateForm() {
-    const { user, userDoc, refreshUserDoc } = useAuth();
+    const { user, userDoc, refreshUserDoc, logout } = useAuth();
 
     // Determine if user is admin (only needs email)
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
@@ -120,7 +120,15 @@ export default function MandatoryUpdateForm() {
         <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-blue-50/40 to-indigo-50/30 flex items-center justify-center p-4 sm:p-6">
             <div className="w-full max-w-lg">
                 {/* ── Header card ─────────────────────────────────────────── */}
-                <div className="text-center mb-6">
+                <div className="text-center mb-6 relative">
+                    {/* Logout button */}
+                    <button
+                        onClick={() => logout()}
+                        className="absolute top-0 right-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-all active:scale-95"
+                    >
+                        <LogOut className="w-3.5 h-3.5" />
+                        Đăng xuất
+                    </button>
                     <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-200/50">
                         <ShieldAlert className="w-7 h-7 text-white" />
                     </div>

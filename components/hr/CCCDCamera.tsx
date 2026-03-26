@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { X, Loader2, CheckCircle2, RotateCcw, Camera } from 'lucide-react';
+import { X, Loader2, CheckCircle2, RotateCcw, Camera, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { parseCCCDQR, CCCDParsedData } from '@/lib/utils/cccd';
 import { convertBase64ToWebP } from '@/lib/utils/image';
@@ -32,6 +32,7 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
     const qrScannerRef = useRef<Html5Qrcode | null>(null);
     const qrContainerRef = useRef<HTMLDivElement>(null);
     const qrFoundRef = useRef(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [step, setStep] = useState<Step>('SCAN_QR');
     const [error, setError] = useState('');
@@ -39,6 +40,7 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
     const [parsedData, setParsedData] = useState<CCCDParsedData | null>(null);
     const [frontPhoto, setFrontPhoto] = useState<string | null>(null);
     const [processingMsg, setProcessingMsg] = useState('');
+    const [uploadingQR, setUploadingQR] = useState(false);
 
     // ── Beep sound ───────────────────────────────────────────────────────────
     const playBeep = useCallback(() => {
@@ -339,6 +341,53 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
         onClose();
     };
 
+    // ── QR Upload handler ─────────────────────────────────────────────────────
+    const handleQRUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || uploadingQR) return;
+
+        // Reset file input so the same file can be re-selected
+        e.target.value = '';
+
+        setUploadingQR(true);
+        setError('');
+
+        try {
+            const scanner = new Html5Qrcode('cccd-qr-file-scan', { verbose: false });
+            const result = await scanner.scanFileV2(file, true);
+            const decodedText = result.decodedText;
+            scanner.clear();
+
+            const parsed = parseCCCDQR(decodedText);
+            if (parsed) {
+                playBeep();
+                setParsedData(parsed);
+                qrFoundRef.current = true;
+
+                // Stop live scanner if running
+                if (qrScannerRef.current) {
+                    try {
+                        const state = qrScannerRef.current.getState();
+                        if (state === 2) {
+                            await qrScannerRef.current.stop().catch(() => {});
+                        }
+                        qrScannerRef.current.clear();
+                    } catch { /* ignore */ }
+                    qrScannerRef.current = null;
+                }
+
+                setStep('CAPTURE_FRONT');
+            } else {
+                setError('Mã QR không hợp lệ. Vui lòng chụp mã QR trên CCCD.');
+            }
+        } catch (err) {
+            console.error('[CCCD] QR file scan failed:', err);
+            setError('Không tìm thấy mã QR trong ảnh. Vui lòng thử ảnh khác.');
+        } finally {
+            setUploadingQR(false);
+        }
+    };
+
     // ── Step config ──────────────────────────────────────────────────────────
     const steps = [
         { num: 1, key: 'SCAN_QR', label: 'Quét QR', icon: '📷', instruction: 'Dí sát mã QR vào giữa khung vuông' },
@@ -500,12 +549,24 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
 
                         {/* Text hướng dẫn */}
                         {cameraReady && (
-                            <div className="absolute bottom-8 left-0 right-0 flex justify-center pointer-events-none z-20">
+                            <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center gap-3 z-20">
                                 <div className="bg-black/60 backdrop-blur-sm rounded-2xl px-5 py-2.5">
                                     <p className="text-emerald-400 text-xs font-bold text-center animate-pulse">
                                         📲 Đưa mã QR vào giữa khung vuông
                                     </p>
                                 </div>
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={uploadingQR}
+                                    className="pointer-events-auto flex items-center gap-2 px-5 py-2.5 bg-white/15 backdrop-blur-sm text-white text-xs font-bold rounded-xl border border-white/20 hover:bg-white/25 active:scale-95 transition-all disabled:opacity-50"
+                                >
+                                    {uploadingQR ? (
+                                        <><Loader2 className="w-4 h-4 animate-spin" /> Đang quét...</>
+                                    ) : (
+                                        <><Upload className="w-4 h-4" /> Tải ảnh QR lên</>
+                                    )}
+                                </button>
                             </div>
                         )}
                     </>
@@ -581,6 +642,17 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
 
             {/* Hidden canvas for frame capture */}
             <canvas ref={canvasRef} className="hidden" />
+
+            {/* Hidden file input for QR upload */}
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleQRUpload}
+                className="hidden"
+            />
+            {/* Hidden div for file-based QR scanning */}
+            <div id="cccd-qr-file-scan" className="hidden" />
         </div>
     );
 }

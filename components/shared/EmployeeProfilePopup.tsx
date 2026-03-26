@@ -10,7 +10,7 @@ import Popup from '@/components/ui/Popup';
 import {
     User, Award, CalendarDays, Phone, Mail, CreditCard, GraduationCap,
     Briefcase, Building2, ChevronLeft, ChevronRight, CheckCircle2, Clock,
-    Loader2, Ban, TrendingUp,
+    Loader2, Ban, TrendingUp, MapPin, UserCircle, Image as ImageIcon, X,
 } from 'lucide-react';
 
 interface EmployeeProfilePopupProps {
@@ -65,6 +65,7 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose }: 
     const [counters, setCounters] = useState<CounterDoc[]>([]);
     const [loadingShifts, setLoadingShifts] = useState(false);
     const [monthlyShiftCount, setMonthlyShiftCount] = useState(0);
+    const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
@@ -194,8 +195,10 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose }: 
         { icon: <Phone className="w-4 h-4" />, label: 'Số điện thoại', value: employee.phone },
         { icon: <Mail className="w-4 h-4" />, label: 'Email', value: employee.email || '—' },
         { icon: <CalendarDays className="w-4 h-4" />, label: 'Ngày sinh', value: employee.dob ? formatDate(employee.dob) : '—' },
+        { icon: <UserCircle className="w-4 h-4" />, label: 'Giới tính', value: employee.gender || '—' },
         { icon: <Briefcase className="w-4 h-4" />, label: 'Chức danh', value: employee.jobTitle || '—' },
         { icon: <CreditCard className="w-4 h-4" />, label: 'CCCD', value: employee.idCard || '—' },
+        { icon: <MapPin className="w-4 h-4" />, label: 'Thường trú', value: employee.permanentAddress || '—' },
         { icon: <Building2 className="w-4 h-4" />, label: 'Tài khoản ngân hàng', value: employee.bankAccount || '—' },
         { icon: <GraduationCap className="w-4 h-4" />, label: 'Học vấn', value: employee.education || '—' },
     ] : [];
@@ -218,8 +221,15 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose }: 
     ) : employee ? (
         <div className="flex items-center gap-3">
             {/* Avatar */}
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white text-lg font-black shadow-lg shrink-0">
-                {initials(employee.name)}
+            <div className="w-14 h-14 rounded-2xl overflow-hidden flex items-center justify-center shadow-lg shrink-0">
+                {employee.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={employee.avatar} alt={employee.name} className="w-full h-full object-cover" />
+                ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white text-lg font-black">
+                        {initials(employee.name)}
+                    </div>
+                )}
             </div>
             <div className="min-w-0">
                 <h3 className="text-[17px] font-bold text-gray-900 leading-tight truncate">{employee.name}</h3>
@@ -243,6 +253,7 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose }: 
     );
 
     return (
+        <>
         <Popup
             isOpen={true}
             onClose={onClose}
@@ -275,6 +286,7 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose }: 
 
                 {/* ── Info Tab ── */}
                 {activeTab === 'info' && (
+                    <>
                     <div className="space-y-2">
                         {infoItems.map((item, i) => (
                             <div key={i} className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-2xl border border-gray-100">
@@ -288,6 +300,38 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose }: 
                             </div>
                         ))}
                     </div>
+
+                    {/* CCCD Photo Previews */}
+                    {employee && (employee.idCardFrontPhoto || employee.idCardBackPhoto) && (
+                        <div className="space-y-2 pt-2">
+                            <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider flex items-center gap-1.5 px-1">
+                                <ImageIcon className="w-3 h-3" /> Ảnh CCCD
+                            </p>
+                            <div className="grid grid-cols-2 gap-2">
+                                {employee.idCardFrontPhoto && (
+                                    <button
+                                        onClick={() => setExpandedPhoto(employee.idCardFrontPhoto!)}
+                                        className="relative rounded-xl overflow-hidden border border-gray-100 hover:border-primary-300 transition-colors group cursor-pointer"
+                                    >
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={employee.idCardFrontPhoto} alt="CCCD Mặt trước" className="w-full h-24 object-cover" />
+                                        <span className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent text-white text-[9px] font-bold px-2 py-1 text-center">Mặt trước</span>
+                                    </button>
+                                )}
+                                {employee.idCardBackPhoto && (
+                                    <button
+                                        onClick={() => setExpandedPhoto(employee.idCardBackPhoto!)}
+                                        className="relative rounded-xl overflow-hidden border border-gray-100 hover:border-primary-300 transition-colors group cursor-pointer"
+                                    >
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={employee.idCardBackPhoto} alt="CCCD Mặt sau" className="w-full h-24 object-cover" />
+                                        <span className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent text-white text-[9px] font-bold px-2 py-1 text-center">Mặt sau</span>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    </>
                 )}
 
                 {/* ── KPI Tab ── */}
@@ -526,5 +570,28 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose }: 
                 )}
             </div>
         </Popup>
+
+        {/* Fullscreen photo viewer */}
+        {expandedPhoto && (
+            <div
+                className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-4"
+                onClick={() => setExpandedPhoto(null)}
+            >
+                <button
+                    onClick={() => setExpandedPhoto(null)}
+                    className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
+                >
+                    <X className="w-5 h-5" />
+                </button>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                    src={expandedPhoto}
+                    alt="CCCD"
+                    className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                    onClick={e => e.stopPropagation()}
+                />
+            </div>
+        )}
+    </>
     );
 }

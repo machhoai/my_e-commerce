@@ -5,7 +5,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { UserDoc, EmployeeType, UserRole, StoreDoc, OfficeDoc, WarehouseDoc, CustomRoleDoc } from '@/types';
-import { Users, Search, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Plus, MailPlus, KeyRound, Building2, Shield, Award, UserX, RotateCcw, Briefcase, TrendingUp } from 'lucide-react';
+import { Users, Search, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Plus, MailPlus, KeyRound, Building2, Shield, Award, UserX, RotateCcw, Briefcase, TrendingUp, FileWarning, CheckCircle2, AlertTriangle } from 'lucide-react';
+import ExportEmployeesExcel from '@/components/hr/ExportEmployeesExcel';
 import { cn } from '@/lib/utils';
 import { useTableParams } from '@/hooks/useTableParams';
 import { processTableData } from '@/lib/processTableData';
@@ -338,6 +339,16 @@ function ManagerUsersPageContent() {
     const activeEmployees = employees.filter(e => e.isActive !== false);
     const inactiveEmployees = employees.filter(e => e.isActive === false);
 
+    // Profile completion check
+    const isProfileComplete = (e: UserDoc): boolean => {
+        const hasValidEmail = !!e.email && e.email.includes('@') && !e.email.endsWith('@company.com');
+        if (!hasValidEmail) return false;
+        const isAdmin = e.role === 'admin' || e.role === 'super_admin';
+        if (isAdmin) return true;
+        return !!(e.avatar && e.idCard && e.dob && e.gender && e.permanentAddress && e.idCardFrontPhoto && e.idCardBackPhoto);
+    };
+    const incompleteProfiles = activeEmployees.filter(e => !isProfileComplete(e));
+
     // Default status filter to 'true' (active) when not set in URL
     const statusFilterValue = params.status !== undefined && params.status !== '' ? params.status : 'true';
 
@@ -447,7 +458,7 @@ function ManagerUsersPageContent() {
 
 
                         {/* Stats Cards */}
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-4 gap-3">
                             <div className="group bg-gradient-to-br from-success-50 to-white rounded-xl border border-success-100 shadow-sm p-4 hover:shadow-md hover:scale-[1.02] transition-all duration-300 cursor-default">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-xl bg-success-100 group-hover:bg-success-200 flex items-center justify-center transition-colors">
@@ -467,6 +478,17 @@ function ManagerUsersPageContent() {
                                     <div>
                                         <p className="text-2xl font-black text-surface-800">{inactiveEmployees.length}</p>
                                         <p className="text-xs text-surface-500 font-medium">Nghỉ việc</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="group bg-gradient-to-br from-amber-50 to-white rounded-xl border border-amber-100 shadow-sm p-4 hover:shadow-md hover:scale-[1.02] transition-all duration-300 cursor-default">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center transition-colors">
+                                        <FileWarning className="w-5 h-5 text-amber-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-black text-surface-800">{incompleteProfiles.length}</p>
+                                        <p className="text-xs text-surface-500 font-medium">Hồ sơ thiếu</p>
                                     </div>
                                 </div>
                             </div>
@@ -501,8 +523,9 @@ function ManagerUsersPageContent() {
                                 className="flex-1"
                             />
 
-                            {/* Add button */}
-                            <div className="flex justify-end">
+                            {/* Action buttons */}
+                            <div className="flex items-center gap-2 justify-end">
+                                <ExportEmployeesExcel employees={filteredEmployees} />
                                 <button
                                     onClick={() => {
                                         resetForm();
@@ -529,6 +552,7 @@ function ManagerUsersPageContent() {
                                             <SortableHeader label="Vai trò" field="role" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-4 text-center" />
                                             {userDoc?.role === 'admin' && <th scope="col" className="px-4 py-3.5 text-center font-bold">Cửa hàng</th>}
                                             <SortableHeader label="KPI TB" field="kpi" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-4 text-center" />
+                                            <th scope="col" className="px-4 py-3.5 text-center font-bold">Hồ sơ</th>
                                             <th scope="col" className="px-4 py-3.5 text-center font-bold">Trạng thái</th>
                                             <th scope="col" className="px-4 py-3.5 text-right font-bold">Hành động</th>
                                         </tr>
@@ -645,6 +669,19 @@ function ManagerUsersPageContent() {
                                                                     </span>
                                                                 );
                                                             })()}
+                                                        </td>
+                                                        <td className="px-4 py-3.5 text-center">
+                                                            {isProfileComplete(e) ? (
+                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border bg-success-50 text-success-600 border-success-200">
+                                                                    <CheckCircle2 className="w-3 h-3" />
+                                                                    Đầy đủ
+                                                                </span>
+                                                            ) : (
+                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border bg-amber-50 text-amber-600 border-amber-200">
+                                                                    <AlertTriangle className="w-3 h-3" />
+                                                                    Thiếu
+                                                                </span>
+                                                            )}
                                                         </td>
                                                         <td className="px-4 py-3.5 text-center">
                                                             <span className={`inline-flex truncate items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border ${isActive ? 'bg-success-50 text-success-600 border-success-200' : 'bg-surface-50 text-surface-500 border-surface-200'}`}>
