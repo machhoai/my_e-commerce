@@ -1,6 +1,6 @@
 'use server';
 
-import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 interface MandatoryProfilePayload {
     uid: string;
@@ -29,25 +29,11 @@ export async function submitMandatoryProfile(
     }
 
     try {
-        const adminAuth = getAdminAuth();
         const adminDb = getAdminDb();
 
-        // ── Step 1: Sync email to Firebase Auth if provided ──────────────
-        if (email) {
-            try {
-                const authUser = await adminAuth.getUser(uid);
-
-                // Only update Auth email if it's currently a pseudo-email
-                if (authUser.email?.endsWith('@company.com') || !authUser.email) {
-                    await adminAuth.updateUser(uid, { email });
-                }
-            } catch (authError: unknown) {
-                const msg = authError instanceof Error
-                    ? authError.message
-                    : 'Lỗi khi cập nhật email xác thực.';
-                return { success: false, error: `Auth sync failed: ${msg}` };
-            }
-        }
+        // NOTE: We do NOT update Firebase Auth email here.
+        // The login system relies on the pseudo-email ([phone]@company.com).
+        // Real email is stored in Firestore only for display/contact purposes.
 
         // ── Step 2: Update Firestore user document ───────────────────────
         const updateData: Record<string, unknown> = {
