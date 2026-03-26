@@ -10,6 +10,7 @@ import {
     User, Mail, Phone, Calendar, Briefcase, CreditCard, GraduationCap,
     ShieldCheck, Home, ChevronRight, LogOut, Edit3, X, Loader2,
     CheckCircle2, AlertTriangle, Lock, Camera, ScanLine, ImageIcon, MapPin,
+    Shield, Smartphone,
 } from 'lucide-react';
 import MobilePageShell from '@/components/mobile/MobilePageShell';
 import HardResetButton from '@/components/shared/HardResetButton';
@@ -17,6 +18,7 @@ import BottomSheet from '@/components/shared/BottomSheet';
 import SmartPortraitCamera from '@/components/shared/SmartPortraitCamera';
 import CCCDCamera, { CCCDScanResult } from '@/components/hr/CCCDCamera';
 import { convertBase64ToWebP } from '@/lib/utils/image';
+import TwoFactorSetupModal from '@/components/profile/TwoFactorSetupModal';
 
 const ROLE_LABELS: Record<string, string> = {
     admin: 'Quản trị viên',
@@ -44,6 +46,9 @@ export default function MobileProfilePage() {
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
+
+    // 2FA
+    const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
 
     // CCCD Scanner
     const [isCCCDOpen, setIsCCCDOpen] = useState(false);
@@ -329,6 +334,38 @@ export default function MobileProfilePage() {
 
                 <HardResetButton />
 
+                {/* ── Security & 2FA ──────────────────────────────────── */}
+                <div className="pt-2">
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1.5">Bảo mật & Đăng nhập</p>
+                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-50">
+                        <button
+                            onClick={() => !profileData?.isTwoFactorEnabled && setIs2FAModalOpen(true)}
+                            className="w-full flex items-center gap-3 px-3.5 py-3 active:bg-gray-50 transition-colors"
+                        >
+                            <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center',
+                                profileData?.isTwoFactorEnabled ? 'bg-emerald-50' : 'bg-violet-50'
+                            )}>
+                                {profileData?.isTwoFactorEnabled
+                                    ? <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                                    : <Shield className="w-4 h-4 text-violet-600" />}
+                            </div>
+                            <div className="flex-1 min-w-0 text-left">
+                                <p className="text-[11px] font-bold text-gray-700">Xác thực 2 bước</p>
+                                <p className="text-[9px] text-gray-400">Google Authenticator</p>
+                            </div>
+                            {profileData?.isTwoFactorEnabled ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    <CheckCircle2 className="w-2.5 h-2.5" />Đang bật
+                                </span>
+                            ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-violet-600 text-white shadow-sm">
+                                    <Smartphone className="w-3 h-3" />Thiết lập
+                                </span>
+                            )}
+                        </button>
+                    </div>
+                </div>
+
                 <button onClick={() => setLogoutConfirmOpen(true)}
                     className="w-full flex items-center gap-3 px-4 py-3 bg-white rounded-xl border border-red-100 shadow-sm active:scale-[0.99] transition-all">
                     <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center"><LogOut className="w-4 h-4 text-red-600" /></div>
@@ -431,6 +468,17 @@ export default function MobileProfilePage() {
                     </div>
                 </div>
             </BottomSheet>
+
+            {/* ═══ 2FA SETUP MODAL ═══ */}
+            <TwoFactorSetupModal
+                isOpen={is2FAModalOpen}
+                onClose={() => setIs2FAModalOpen(false)}
+                isTwoFactorEnabled={profileData?.isTwoFactorEnabled}
+                onSuccess={() => {
+                    setProfileData(prev => prev ? { ...prev, isTwoFactorEnabled: true } : null);
+                    setIs2FAModalOpen(false);
+                }}
+            />
         </MobilePageShell>
     );
 }

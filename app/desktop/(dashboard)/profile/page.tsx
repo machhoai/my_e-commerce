@@ -7,10 +7,11 @@ import { doc, getDoc } from 'firebase/firestore';
 import { UserDoc } from '@/types';
 import {
     User, Mail, Phone, Calendar, Briefcase, CreditCard, GraduationCap,
-    ShieldCheck, Camera, Loader2,
+    ShieldCheck, Camera, Loader2, Shield, Smartphone, CheckCircle2,
 } from 'lucide-react';
 import SmartPortraitCamera from '@/components/shared/SmartPortraitCamera';
 import { convertBase64ToWebP } from '@/lib/utils/image';
+import TwoFactorSetupModal from '@/components/profile/TwoFactorSetupModal';
 
 export default function ProfilePage() {
     const { user } = useAuth();
@@ -27,6 +28,9 @@ export default function ProfilePage() {
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
+
+    // 2FA
+    const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -325,6 +329,42 @@ export default function ProfilePage() {
                 </div>
             </div>
 
+            {/* ═══ Security & 2FA Section ═══ */}
+            <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
+                <div className="px-6 sm:px-8 py-5 border-b border-surface-100">
+                    <h3 className="text-base font-bold text-surface-800 flex items-center gap-2">
+                        <Shield className="w-4.5 h-4.5 text-violet-500" />
+                        Bảo mật & Đăng nhập
+                    </h3>
+                    <p className="text-xs text-surface-400 mt-0.5">Quản lý cài đặt bảo mật tài khoản của bạn.</p>
+                </div>
+                <div className="px-6 sm:px-8 py-4">
+                    <div className="flex items-center gap-4 py-3">
+                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${profileData.isTwoFactorEnabled ? 'bg-emerald-50' : 'bg-violet-50'}`}>
+                            {profileData.isTwoFactorEnabled
+                                ? <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                                : <Shield className="w-5 h-5 text-violet-600" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-surface-800">Xác thực 2 bước (2FA)</p>
+                            <p className="text-xs text-surface-400 mt-0.5">Sử dụng Google Authenticator để bảo vệ tài khoản mỗi lần đăng nhập.</p>
+                        </div>
+                        {profileData.isTwoFactorEnabled ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <CheckCircle2 className="w-3.5 h-3.5" />Đang bật
+                            </span>
+                        ) : (
+                            <button
+                                onClick={() => setIs2FAModalOpen(true)}
+                                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/20 hover:shadow-violet-500/35 active:scale-[0.97] transition-all"
+                            >
+                                <Smartphone className="w-4 h-4" />Thiết lập 2FA
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+
             {/* ═══ CAMERA FULLSCREEN ═══ */}
             {isCameraOpen && (
                 <SmartPortraitCamera
@@ -332,6 +372,17 @@ export default function ProfilePage() {
                     onClose={() => setIsCameraOpen(false)}
                 />
             )}
+
+            {/* ═══ 2FA SETUP MODAL ═══ */}
+            <TwoFactorSetupModal
+                isOpen={is2FAModalOpen}
+                onClose={() => setIs2FAModalOpen(false)}
+                isTwoFactorEnabled={profileData?.isTwoFactorEnabled}
+                onSuccess={() => {
+                    setProfileData(prev => prev ? { ...prev, isTwoFactorEnabled: true } : null);
+                    setIs2FAModalOpen(false);
+                }}
+            />
         </div>
     );
 }

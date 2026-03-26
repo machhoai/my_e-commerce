@@ -505,7 +505,7 @@ export default function GlobalOverviewPage() {
         try {
             // Create a clean, hidden HTML table with inline styles (no Tailwind)
             const wrapper = document.createElement('div');
-            wrapper.style.cssText = 'position:fixed;top:-99999px;left:0;z-index:-1;background:#fff;padding:24px;width:1400px;';
+            wrapper.style.cssText = 'position:fixed;top:-99999px;left:0;z-index:-1;background:#fff;padding:24px;width:1600px;';
 
             // Title
             const titleEl = document.createElement('h2');
@@ -602,7 +602,7 @@ export default function GlobalOverviewPage() {
                     tr.style.cssText = rowIdx % 2 === 0 ? 'background:#fff;' : 'background:#f5f7ff;';
                     row.forEach((cell, colIdx) => {
                         const td = document.createElement('td');
-                        td.style.cssText = `border:1px solid #e2e8f0;padding:6px 10px;text-align:center;vertical-align:middle;white-space:pre-line;line-height:1.5;${colIdx === 0 ? 'text-align:left;font-weight:600;background:#f8fafc;white-space:nowrap;' : ''}`;
+                        td.style.cssText = `border:1px solid #e2e8f0;padding:2px 10px;text-align:center;vertical-align:middle;white-space:pre-line;line-height:1.5;${colIdx === 0 ? 'text-align:left;font-weight:600;background:#f8fafc;white-space:nowrap;' : ''}`;
                         if (colIdx === 0) {
                             td.innerHTML = cellToHtml(cell);
                         } else {

@@ -351,6 +351,10 @@ export interface UserDoc {
     fcmToken?: string; // Firebase Cloud Messaging registration token
     defaultDashboard?: string; // User-configurable preferred landing page (e.g. '/office/revenue')
     avatar?: string; // WebP base64 data URI for profile portrait
+
+    // Two-Factor Authentication (TOTP / Google Authenticator)
+    twoFactorSecret?: string;     // TOTP secret key (stored after verified setup)
+    isTwoFactorEnabled?: boolean; // Whether 2FA is active for this user
 }
 
 export interface NotificationDoc {

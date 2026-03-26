@@ -4,13 +4,13 @@ import { useState, useEffect, Suspense, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { UserDoc, KpiRecordDoc, StoreDoc } from '@/types';
+import { UserDoc, KpiRecordDoc, StoreDoc, CounterDoc } from '@/types';
 import { cn } from '@/lib/utils';
 import { exportKpiToPdf, exportKpiToExcel, exportKpiDetailedExcel, KpiDetailedRecord } from '@/lib/kpi-export';
 import {
     BarChart3, Calendar, Building2, FileSpreadsheet, FileText,
     TrendingUp, TrendingDown, Users, Award, ChevronDown, ChevronRight,
-    CheckCircle2, Clock, Filter, X, Download, UserCheck,
+    CheckCircle2, Clock, Filter, X, Download, UserCheck, MapPin,
 } from 'lucide-react';
 import { useTableParams } from '@/hooks/useTableParams';
 import { processTableData } from '@/lib/processTableData';
@@ -43,6 +43,8 @@ function ManagerKpiStatsPageContent() {
     const [expandedUid, setExpandedUid] = useState<string | null>(null);
     const [profileUid, setProfileUid] = useState<string | null>(null);
     const [statusFilter, setStatusFilter] = useState<'' | 'SELF_SCORED' | 'OFFICIAL'>('');
+    const [counters, setCounters] = useState<CounterDoc[]>([]);
+    const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
 
     // Export dialog state
     const [showExportDialog, setShowExportDialog] = useState(false);
@@ -100,6 +102,15 @@ function ManagerKpiStatsPageContent() {
                     .filter(u => u.role !== 'admin')
                     .sort((a, b) => a.name.localeCompare(b.name));
                 setAllEmployees(emps);
+
+                // Fetch counters from store settings
+                try {
+                    const storeDoc = await getDocs(query(collection(db, 'stores'), where('__name__', '==', effectiveStoreId)));
+                    if (!storeDoc.empty) {
+                        const storeData = storeDoc.docs[0].data() as StoreDoc;
+                        setCounters((storeData as any).settings?.counters || []);
+                    }
+                } catch { /* ignore */ }
             } catch (err) {
                 console.error('[KPI Stats] Fetch error:', err);
                 setError('Không thể tải dữ liệu KPI. Vui lòng thử lại.');
@@ -462,14 +473,27 @@ function ManagerKpiStatsPageContent() {
                                                     </td>
                                                     <td className="p-3 text-surface-400 font-bold">{(currentPage - 1) * currentPageSize + i + 1}</td>
                                                     <td className="p-3 font-medium text-surface-800">
-                                                        <span
-                                                            className={cn(
-                                                                hasPermission('action.hr.view_employee_profile') && 'cursor-pointer hover:underline'
-                                                            )}
-                                                            onClick={(e) => { if (hasPermission('action.hr.view_employee_profile')) { e.stopPropagation(); setProfileUid(emp.uid); } }}
-                                                        >
-                                                            {emp.name}
-                                                        </span>
+                                                        <div className="flex items-center gap-2.5">
+                                                            <div className={cn(
+                                                                'w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 overflow-hidden',
+                                                                !emp.avatar && 'bg-gradient-to-br from-primary-400 to-accent-500 text-white'
+                                                            )}>
+                                                                {emp.avatar ? (
+                                                                    // eslint-disable-next-line @next/next/no-img-element
+                                                                    <img src={emp.avatar} alt={emp.name} className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    emp.name.split(' ').slice(-1)[0]?.[0]?.toUpperCase() || '?'
+                                                                )}
+                                                            </div>
+                                                            <span
+                                                                className={cn(
+                                                                    hasPermission('action.hr.view_employee_profile') && 'cursor-pointer hover:underline'
+                                                                )}
+                                                                onClick={(e) => { if (hasPermission('action.hr.view_employee_profile')) { e.stopPropagation(); setProfileUid(emp.uid); } }}
+                                                            >
+                                                                {emp.name}
+                                                            </span>
+                                                        </div>
                                                     </td>
                                                     {hasRecords ? (
                                                         <>
@@ -518,8 +542,15 @@ function ManagerKpiStatsPageContent() {
                                                                             {empRecords.map((rec) => (
                                                                                 <div
                                                                                     key={rec.id}
-                                                                                    className="flex items-center gap-3 px-3 py-2 bg-white rounded-lg border border-surface-100 text-xs"
+                                                                                    className="space-y-0"
                                                                                 >
+                                                                                    <button
+                                                                                        onClick={() => setExpandedRecordId(expandedRecordId === rec.id ? null : rec.id)}
+                                                                                        className={cn(
+                                                                                            'w-full flex items-center gap-3 px-3 py-2 bg-white rounded-lg border text-xs transition-colors hover:bg-surface-50/70',
+                                                                                            expandedRecordId === rec.id ? 'border-accent-200 bg-accent-50/30' : 'border-surface-100'
+                                                                                        )}
+                                                                                    >
                                                                                     {/* Status icon */}
                                                                                     {rec.status === 'OFFICIAL' ? (
                                                                                         <CheckCircle2 className="w-4 h-4 text-success-500 shrink-0" />
@@ -536,6 +567,14 @@ function ManagerKpiStatsPageContent() {
                                                                                     <span className="px-1.5 py-0.5 bg-accent-50 text-accent-600 rounded font-medium truncate max-w-[80px]">
                                                                                         {rec.shiftId}
                                                                                     </span>
+
+                                                                                    {/* Counter / Position */}
+                                                                                    {rec.counterId && (
+                                                                                        <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-violet-50 text-violet-600 rounded font-medium truncate max-w-[120px]">
+                                                                                            <MapPin className="w-3 h-3 shrink-0" />
+                                                                                            {counters.find(c => c.id === rec.counterId)?.name || rec.counterId}
+                                                                                        </span>
+                                                                                    )}
 
                                                                                     {/* Self score */}
                                                                                     <div className="flex items-center gap-1 ml-auto">
@@ -564,6 +603,41 @@ function ManagerKpiStatsPageContent() {
                                                                                     )}>
                                                                                         {rec.status === 'OFFICIAL' ? 'Chính thức' : 'Tự chấm'}
                                                                                     </span>
+
+                                                                                    <ChevronDown className={cn('w-3.5 h-3.5 text-surface-400 shrink-0 transition-transform', expandedRecordId === rec.id && 'rotate-180')} />
+                                                                                    </button>
+
+                                                                                    {/* Scorecard detail */}
+                                                                                    {expandedRecordId === rec.id && rec.details && rec.details.length > 0 && (
+                                                                                        <div className="ml-7 mt-1 mb-1 bg-white rounded-lg border border-surface-200 overflow-hidden">
+                                                                                            <table className="w-full text-[11px]">
+                                                                                                <thead className="bg-surface-50">
+                                                                                                    <tr>
+                                                                                                        <th className="text-left px-3 py-1.5 font-semibold text-surface-500">Tiêu chí</th>
+                                                                                                        <th className="text-center px-2 py-1.5 font-semibold text-surface-500 w-16">Tự chấm</th>
+                                                                                                        <th className="text-center px-2 py-1.5 font-semibold text-surface-500 w-16">CT</th>
+                                                                                                        <th className="text-center px-2 py-1.5 font-semibold text-surface-500 w-12">Max</th>
+                                                                                                    </tr>
+                                                                                                </thead>
+                                                                                                <tbody className="divide-y divide-surface-100">
+                                                                                                    {rec.details.map((d, idx) => (
+                                                                                                        <tr key={idx} className="hover:bg-surface-50/50">
+                                                                                                            <td className="px-3 py-1.5 font-medium text-surface-700">{d.criteriaName}</td>
+                                                                                                            <td className={cn('text-center px-2 py-1.5 font-bold', d.selfScore >= d.maxScore * 0.8 ? 'text-success-600' : d.selfScore >= d.maxScore * 0.5 ? 'text-warning-600' : 'text-danger-600')}>{d.selfScore}</td>
+                                                                                                            <td className={cn('text-center px-2 py-1.5 font-bold', rec.status === 'OFFICIAL' ? (d.officialScore >= d.maxScore * 0.8 ? 'text-success-600' : d.officialScore >= d.maxScore * 0.5 ? 'text-warning-600' : 'text-danger-600') : 'text-surface-300')}>{rec.status === 'OFFICIAL' ? d.officialScore : '—'}</td>
+                                                                                                            <td className="text-center px-2 py-1.5 text-surface-400 font-medium">{d.maxScore}</td>
+                                                                                                        </tr>
+                                                                                                    ))}
+                                                                                                    <tr className="bg-surface-50 font-bold">
+                                                                                                        <td className="px-3 py-1.5 text-surface-700">Tổng</td>
+                                                                                                        <td className="text-center px-2 py-1.5 text-surface-700">{rec.selfTotal}</td>
+                                                                                                        <td className="text-center px-2 py-1.5 text-surface-700">{rec.status === 'OFFICIAL' ? rec.officialTotal : '—'}</td>
+                                                                                                        <td className="text-center px-2 py-1.5 text-surface-400">{rec.details.reduce((s, d) => s + d.maxScore, 0)}</td>
+                                                                                                    </tr>
+                                                                                                </tbody>
+                                                                                            </table>
+                                                                                        </div>
+                                                                                    )}
                                                                                 </div>
                                                                             ))}
                                                                         </div>

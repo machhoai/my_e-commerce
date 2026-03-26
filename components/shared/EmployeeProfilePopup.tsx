@@ -219,18 +219,21 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose }: 
             </div>
         </div>
     ) : employee ? (
-        <div className="flex items-center gap-3">
-            {/* Avatar */}
-            <div className="w-14 h-14 rounded-2xl overflow-hidden flex items-center justify-center shadow-lg shrink-0">
+        <div className="flex items-center gap-3.5">
+            {/* Avatar — clickable to view fullscreen */}
+            <button
+                onClick={() => employee.avatar && setExpandedPhoto(employee.avatar)}
+                className={cn('w-[72px] h-[72px] rounded-2xl overflow-hidden flex items-center justify-center shadow-lg shrink-0 ring-2 ring-white transition-transform', employee.avatar && 'cursor-pointer hover:scale-105 active:scale-95')}
+            >
                 {employee.avatar ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={employee.avatar} alt={employee.name} className="w-full h-full object-cover" />
                 ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white text-lg font-black">
+                    <div className="w-full h-full bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white text-2xl font-black">
                         {initials(employee.name)}
                     </div>
                 )}
-            </div>
+            </button>
             <div className="min-w-0">
                 <h3 className="text-[17px] font-bold text-gray-900 leading-tight truncate">{employee.name}</h3>
                 <div className="flex items-center gap-1.5 mt-1 flex-wrap">

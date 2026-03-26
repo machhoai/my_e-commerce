@@ -85,12 +85,17 @@ function EmployeeCard({ emp, customRoles, kpiAvg, onTap }: {
             <div className="p-4 flex items-center gap-3">
                 {/* Avatar */}
                 <div className={cn(
-                    'w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold shrink-0',
-                    isActive
+                    'w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold shrink-0 overflow-hidden',
+                    !emp.avatar && (isActive
                         ? 'bg-gradient-to-br from-primary-400 to-accent-500 text-white shadow-sm'
-                        : 'bg-gray-200 text-gray-500',
+                        : 'bg-gray-200 text-gray-500'),
                 )}>
-                    {initial}
+                    {emp.avatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={emp.avatar} alt={emp.name} className="w-full h-full object-cover" />
+                    ) : (
+                        initial
+                    )}
                 </div>
 
                 {/* Info */}

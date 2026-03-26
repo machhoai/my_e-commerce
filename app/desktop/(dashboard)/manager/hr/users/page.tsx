@@ -587,14 +587,19 @@ function ManagerUsersPageContent() {
                                                     <tr key={e.uid} className={`group transition-all duration-200 ${!isActive ? 'bg-surface-50/50 hover:bg-surface-100/70' : 'hover:bg-primary-50/30'}`}>
                                                         <td className="px-5 py-3.5 whitespace-nowrap">
                                                             <div className="flex items-center gap-3">
-                                                                {/* Avatar initials */}
+                                                                {/* Avatar */}
                                                                 <div className={cn(
-                                                                    'w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-transform group-hover:scale-110',
-                                                                    isActive
+                                                                    'w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-transform group-hover:scale-110 overflow-hidden',
+                                                                    !e.avatar && (isActive
                                                                         ? 'bg-gradient-to-br from-primary-400 to-accent-500 text-white shadow-sm'
-                                                                        : 'bg-surface-200 text-surface-500'
+                                                                        : 'bg-surface-200 text-surface-500')
                                                                 )}>
-                                                                    {e.name.split(' ').slice(-1)[0]?.[0]?.toUpperCase() || '?'}
+                                                                    {e.avatar ? (
+                                                                        // eslint-disable-next-line @next/next/no-img-element
+                                                                        <img src={e.avatar} alt={e.name} className="w-full h-full object-cover" />
+                                                                    ) : (
+                                                                        e.name.split(' ').slice(-1)[0]?.[0]?.toUpperCase() || '?'
+                                                                    )}
                                                                 </div>
                                                                 <div>
                                                                     <div

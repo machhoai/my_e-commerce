@@ -4,17 +4,18 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { UserDoc, KpiRecordDoc, StoreDoc } from '@/types';
+import { UserDoc, KpiRecordDoc, StoreDoc, CounterDoc } from '@/types';
 import { cn } from '@/lib/utils';
 import { exportKpiToPdf, exportKpiToExcel, exportKpiDetailedExcel, KpiDetailedRecord } from '@/lib/kpi-export';
 import {
     BarChart3, Calendar, Building2, FileSpreadsheet, FileType,
     TrendingUp, TrendingDown, Users, Award, ChevronDown, ChevronLeft, ChevronRight,
     CheckCircle2, Clock, Filter, Download, UserCheck, Search,
-    AlertTriangle, Loader2, X, ChevronUp, ArrowUpDown,
+    AlertTriangle, Loader2, X, ChevronUp, ArrowUpDown, MapPin,
 } from 'lucide-react';
 import MobilePageShell from '@/components/mobile/MobilePageShell';
 import BottomSheet from '@/components/shared/BottomSheet';
+import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function scoreColor(v: number) {
@@ -66,6 +67,7 @@ export default function MobileKpiStatsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [exporting, setExporting] = useState('');
+    const [counters, setCounters] = useState<CounterDoc[]>([]);
 
     // ── UI states ────────────────────────────────────────────────────────────
     const [statusFilter, setStatusFilter] = useState<'' | 'SELF_SCORED' | 'OFFICIAL'>('');
@@ -74,6 +76,8 @@ export default function MobileKpiStatsPage() {
     const [expandedUid, setExpandedUid] = useState<string | null>(null);
     const [filterSheetOpen, setFilterSheetOpen] = useState(false);
     const [exportSheetOpen, setExportSheetOpen] = useState(false);
+    const [profileUid, setProfileUid] = useState<string | null>(null);
+    const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
 
     // ── Export state ─────────────────────────────────────────────────────────
     const [exportDateMode, setExportDateMode] = useState<'month' | 'range'>('month');
@@ -110,6 +114,15 @@ export default function MobileKpiStatsPage() {
                 const empQuery = query(collection(db, 'users'), where('storeId', '==', effectiveStoreId), where('isActive', '==', true));
                 const empSnap = await getDocs(empQuery);
                 setAllEmployees(empSnap.docs.map(d => d.data() as UserDoc).filter(u => u.role !== 'admin').sort((a, b) => a.name.localeCompare(b.name)));
+
+                // Fetch counters from store settings
+                try {
+                    const storeDoc = await getDocs(query(collection(db, 'stores'), where('__name__', '==', effectiveStoreId)));
+                    if (!storeDoc.empty) {
+                        const storeData = storeDoc.docs[0].data() as StoreDoc;
+                        setCounters((storeData as any).settings?.counters || []);
+                    }
+                } catch { /* ignore */ }
             } catch { setError('Không thể tải dữ liệu KPI.'); }
             finally { setLoading(false); }
         })();
@@ -339,15 +352,33 @@ export default function MobileKpiStatsPage() {
                                     onClick={() => hasRecs && setExpandedUid(isExpanded ? null : emp.uid)}
                                     className="w-full flex items-center gap-2.5 px-3 py-2.5 active:bg-gray-50 transition-colors"
                                 >
-                                    {/* Rank */}
-                                    <span className={cn('w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black text-white shrink-0',
-                                        i < 3 && hasRecs ? 'bg-primary-500' : 'bg-gray-300')}>
-                                        {i + 1}
-                                    </span>
+                                    {/* Avatar + Rank */}
+                                    <div className="relative shrink-0">
+                                        <div className={cn(
+                                            'w-9 h-9 rounded-full flex items-center justify-center text-[10px] font-bold overflow-hidden',
+                                            !emp.avatar && (hasRecs
+                                                ? 'bg-gradient-to-br from-primary-400 to-accent-500 text-white'
+                                                : 'bg-gray-200 text-gray-500')
+                                        )}>
+                                            {emp.avatar ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img src={emp.avatar} alt={emp.name} className="w-full h-full object-cover" />
+                                            ) : (
+                                                emp.name.split(' ').slice(-1)[0]?.[0]?.toUpperCase() || '?'
+                                            )}
+                                        </div>
+                                        <span className={cn('absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black text-white border border-white',
+                                            i < 3 && hasRecs ? 'bg-primary-500' : 'bg-gray-400')}>
+                                            {i + 1}
+                                        </span>
+                                    </div>
 
                                     {/* Name + role */}
                                     <div className="flex-1 min-w-0 text-left">
-                                        <p className="text-[11px] font-bold text-gray-800 truncate">{emp.name}</p>
+                                        <p
+                                            className="text-[11px] font-bold text-gray-800 truncate active:text-primary-600"
+                                            onClick={(e) => { e.stopPropagation(); setProfileUid(emp.uid); }}
+                                        >{emp.name}</p>
                                         <p className="text-[9px] text-gray-400">{emp.type === 'FT' ? 'Toàn thời gian' : 'Bán thời gian'}</p>
                                     </div>
 
@@ -378,28 +409,75 @@ export default function MobileKpiStatsPage() {
                                     <div className="border-t border-gray-100 bg-gray-50/50 px-3 py-2 space-y-1.5">
                                         <p className="text-[9px] font-bold text-gray-400 uppercase">Lịch sử chấm điểm</p>
                                         {empRecords.map(rec => (
-                                            <div key={rec.id} className="flex items-center gap-2 bg-white rounded-lg border border-gray-100 px-2.5 py-2">
-                                                {rec.status === 'OFFICIAL'
-                                                    ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                                                    : <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
-                                                <span className="text-[10px] font-bold text-gray-700 min-w-[35px]">{fmtDate(rec.date)}</span>
-                                                <span className="text-[9px] font-medium text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded truncate max-w-[60px]">{rec.shiftId}</span>
-                                                <div className="flex items-center gap-1.5 ml-auto shrink-0">
-                                                    <div className="text-right">
-                                                        <span className="text-[8px] text-gray-400">Tự: </span>
-                                                        <span className={cn('text-[10px] font-bold', scoreColor(rec.selfTotal))}>{rec.selfTotal}</span>
-                                                    </div>
-                                                    {rec.status === 'OFFICIAL' && (
-                                                        <div className="text-right">
-                                                            <span className="text-[8px] text-gray-400">CT: </span>
-                                                            <span className={cn('text-[10px] font-bold', scoreColor(rec.officialTotal))}>{rec.officialTotal}</span>
-                                                        </div>
+                                            <div key={rec.id} className="space-y-0">
+                                                <button
+                                                    onClick={() => setExpandedRecordId(expandedRecordId === rec.id ? null : rec.id)}
+                                                    className={cn(
+                                                        'w-full flex items-center gap-2 bg-white rounded-lg border px-2.5 py-2 transition-colors',
+                                                        expandedRecordId === rec.id ? 'border-primary-200 bg-primary-50/30' : 'border-gray-100'
                                                     )}
-                                                    <span className={cn('px-1 py-0.5 rounded text-[7px] font-black uppercase',
-                                                        rec.status === 'OFFICIAL' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>
-                                                        {rec.status === 'OFFICIAL' ? 'CT' : 'TC'}
-                                                    </span>
-                                                </div>
+                                                >
+                                                    {rec.status === 'OFFICIAL'
+                                                        ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                                        : <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                                                    <span className="text-[10px] font-bold text-gray-700 min-w-[35px]">{fmtDate(rec.date)}</span>
+                                                    <span className="text-[9px] font-medium text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded truncate max-w-[60px]">{rec.shiftId}</span>
+                                                    {rec.counterId && (
+                                                        <span className="flex items-center gap-0.5 text-[9px] font-medium text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded truncate max-w-[80px]">
+                                                            <MapPin className="w-2.5 h-2.5 shrink-0" />
+                                                            {counters.find(c => c.id === rec.counterId)?.name || rec.counterId}
+                                                        </span>
+                                                    )}
+                                                    <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                                                        <div className="text-right">
+                                                            <span className="text-[8px] text-gray-400">Tự: </span>
+                                                            <span className={cn('text-[10px] font-bold', scoreColor(rec.selfTotal))}>{rec.selfTotal}</span>
+                                                        </div>
+                                                        {rec.status === 'OFFICIAL' && (
+                                                            <div className="text-right">
+                                                                <span className="text-[8px] text-gray-400">CT: </span>
+                                                                <span className={cn('text-[10px] font-bold', scoreColor(rec.officialTotal))}>{rec.officialTotal}</span>
+                                                            </div>
+                                                        )}
+                                                        <span className={cn('px-1 py-0.5 rounded text-[7px] font-black uppercase',
+                                                            rec.status === 'OFFICIAL' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>
+                                                            {rec.status === 'OFFICIAL' ? 'CT' : 'TC'}
+                                                        </span>
+                                                        <ChevronDown className={cn('w-3 h-3 text-gray-400 transition-transform', expandedRecordId === rec.id && 'rotate-180')} />
+                                                    </div>
+                                                </button>
+
+                                                {/* Scorecard detail */}
+                                                {expandedRecordId === rec.id && rec.details && rec.details.length > 0 && (
+                                                    <div className="mt-1 mb-1 bg-white rounded-lg border border-gray-200 overflow-hidden">
+                                                        <table className="w-full text-[10px]">
+                                                            <thead className="bg-gray-50">
+                                                                <tr>
+                                                                    <th className="text-left px-2.5 py-1 font-semibold text-gray-500">Tiêu chí</th>
+                                                                    <th className="text-center px-1.5 py-1 font-semibold text-gray-500 w-10">TC</th>
+                                                                    <th className="text-center px-1.5 py-1 font-semibold text-gray-500 w-10">CT</th>
+                                                                    <th className="text-center px-1.5 py-1 font-semibold text-gray-500 w-8">Max</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-gray-100">
+                                                                {rec.details.map((d, idx) => (
+                                                                    <tr key={idx}>
+                                                                        <td className="px-2.5 py-1 font-medium text-gray-700">{d.criteriaName}</td>
+                                                                        <td className={cn('text-center px-1.5 py-1 font-bold', d.selfScore >= d.maxScore * 0.8 ? 'text-emerald-600' : d.selfScore >= d.maxScore * 0.5 ? 'text-amber-600' : 'text-red-600')}>{d.selfScore}</td>
+                                                                        <td className={cn('text-center px-1.5 py-1 font-bold', rec.status === 'OFFICIAL' ? (d.officialScore >= d.maxScore * 0.8 ? 'text-emerald-600' : d.officialScore >= d.maxScore * 0.5 ? 'text-amber-600' : 'text-red-600') : 'text-gray-300')}>{rec.status === 'OFFICIAL' ? d.officialScore : '—'}</td>
+                                                                        <td className="text-center px-1.5 py-1 text-gray-400 font-medium">{d.maxScore}</td>
+                                                                    </tr>
+                                                                ))}
+                                                                <tr className="bg-gray-50 font-bold">
+                                                                    <td className="px-2.5 py-1 text-gray-700">Tổng</td>
+                                                                    <td className="text-center px-1.5 py-1 text-gray-700">{rec.selfTotal}</td>
+                                                                    <td className="text-center px-1.5 py-1 text-gray-700">{rec.status === 'OFFICIAL' ? rec.officialTotal : '—'}</td>
+                                                                    <td className="text-center px-1.5 py-1 text-gray-400">{rec.details.reduce((s, d) => s + d.maxScore, 0)}</td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -527,6 +605,14 @@ export default function MobileKpiStatsPage() {
                     </button>
                 </div>
             </BottomSheet>
+
+            {profileUid && (
+                <EmployeeProfilePopup
+                    employeeUid={profileUid}
+                    storeId={effectiveStoreId}
+                    onClose={() => setProfileUid(null)}
+                />
+            )}
         </MobilePageShell>
     );
 }
