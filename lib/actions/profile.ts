@@ -4,6 +4,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 
 interface MandatoryProfilePayload {
     uid: string;
+    name?: string;
     email?: string;
     avatar?: string;
     idCard?: string;

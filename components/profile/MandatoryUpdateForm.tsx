@@ -39,6 +39,7 @@ export default function MandatoryUpdateForm() {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [cccdScanned, setCccdScanned] = useState(false);
+    const [cccdName, setCccdName] = useState('');
 
     // ── Validation ───────────────────────────────────────────────────────────
     const isEmailValid = email.includes('@') && !email.endsWith('@company.com');
@@ -69,6 +70,11 @@ export default function MandatoryUpdateForm() {
         setIdCardBackPhoto(result.backPhotoWebP);
         setCccdScanned(true);
         setIsCCCDOpen(false);
+
+        // If CCCD name differs from account name, store it for update
+        if (result.parsedData.name && result.parsedData.name !== userDoc?.name) {
+            setCccdName(result.parsedData.name);
+        }
     };
 
     const handleAvatarCapture = async (base64Image: string) => {
@@ -93,6 +99,7 @@ export default function MandatoryUpdateForm() {
         const payload = {
             uid: user.uid,
             email,
+            ...(cccdName ? { name: cccdName } : {}),
             ...(!isAdmin ? {
                 avatar,
                 idCard,
