@@ -70,7 +70,12 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
             if (!qrContainerRef.current) return;
 
             try {
-                scanner = new Html5Qrcode(containerId, { verbose: false });
+                scanner = new Html5Qrcode(containerId, {
+                    verbose: false,
+                    experimentalFeatures: {
+                        useBarCodeDetectorIfSupported: true
+                    },
+                });
                 qrScannerRef.current = scanner;
 
                 await scanner.start(
@@ -369,7 +374,7 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
                     try {
                         const state = qrScannerRef.current.getState();
                         if (state === 2) {
-                            await qrScannerRef.current.stop().catch(() => {});
+                            await qrScannerRef.current.stop().catch(() => { });
                         }
                         qrScannerRef.current.clear();
                     } catch { /* ignore */ }
@@ -425,8 +430,8 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
                                         <div className={cn(
                                             'w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all duration-500',
                                             isCompleted ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]' :
-                                            isCurrent ? 'bg-white/15 ring-2 ring-white/50 shadow-[0_0_16px_rgba(255,255,255,0.15)]' :
-                                            'bg-white/5 ring-1 ring-white/10'
+                                                isCurrent ? 'bg-white/15 ring-2 ring-white/50 shadow-[0_0_16px_rgba(255,255,255,0.15)]' :
+                                                    'bg-white/5 ring-1 ring-white/10'
                                         )}>
                                             {isCompleted ? (
                                                 <CheckCircle2 className="w-4 h-4 text-white" />
@@ -439,8 +444,8 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
                                         <span className={cn(
                                             'text-[8px] font-bold tracking-wider uppercase whitespace-nowrap transition-colors duration-300',
                                             isCompleted ? 'text-emerald-400' :
-                                            isCurrent ? 'text-white' :
-                                            'text-white/25'
+                                                isCurrent ? 'text-white' :
+                                                    'text-white/25'
                                         )}>
                                             {s.label}
                                         </span>
@@ -451,8 +456,8 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
                                             <div className={cn(
                                                 'h-full rounded-full transition-all duration-700 ease-out',
                                                 currentStepIdx > i ? 'w-full bg-emerald-500' :
-                                                currentStepIdx === i ? 'w-1/2 bg-white/30' :
-                                                'w-0'
+                                                    currentStepIdx === i ? 'w-1/2 bg-white/30' :
+                                                        'w-0'
                                             )} />
                                         </div>
                                     )}
