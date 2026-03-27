@@ -5,7 +5,8 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { X, Loader2, CheckCircle2, RotateCcw, Camera, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { parseCCCDQR, CCCDParsedData } from '@/lib/utils/cccd';
-import { convertBase64ToWebP } from '@/lib/utils/image';
+import { validateIDCardDimensions, detectImageQuality, VALIDATION_MESSAGES } from '@/lib/utils/cccd-validation';
+import { compressImage } from '@/lib/utils/compress-image';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 export interface CCCDScanResult {
@@ -41,6 +42,7 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
     const [frontPhoto, setFrontPhoto] = useState<string | null>(null);
     const [processingMsg, setProcessingMsg] = useState('');
     const [uploadingQR, setUploadingQR] = useState(false);
+    const [validating, setValidating] = useState(false);
 
     // ── Beep sound ───────────────────────────────────────────────────────────
     const playBeep = useCallback(() => {
@@ -256,22 +258,86 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
     }, []);
 
     // ── Handle front capture ─────────────────────────────────────────────────
-    const handleCaptureFront = () => {
+    const handleCaptureFront = async () => {
         const photo = captureFrame();
         if (!photo) return;
-        setFrontPhoto(photo);
 
-        // Stop current stream before switching to back
-        streamRef.current?.getTracks().forEach(t => t.stop());
-        streamRef.current = null;
+        setValidating(true);
+        setError('');
 
-        setStep('CAPTURE_BACK');
+        try {
+            // Check aspect ratio (landscape ID card)
+            const validDimensions = await validateIDCardDimensions(photo);
+            if (!validDimensions) {
+                setError(VALIDATION_MESSAGES.INVALID_DIMENSIONS);
+                setValidating(false);
+                return;
+            }
+
+            // Check glare & blur
+            const quality = await detectImageQuality(photo);
+            if (quality.hasGlare) {
+                setError(VALIDATION_MESSAGES.GLARE_DETECTED);
+                setValidating(false);
+                return;
+            }
+            if (quality.isBlurry) {
+                setError(VALIDATION_MESSAGES.BLURRY_IMAGE);
+                setValidating(false);
+                return;
+            }
+
+            setFrontPhoto(photo);
+
+            // Stop current stream before switching to back
+            streamRef.current?.getTracks().forEach(t => t.stop());
+            streamRef.current = null;
+
+            setStep('CAPTURE_BACK');
+        } catch (err) {
+            console.error('[CCCD] Front photo validation failed:', err);
+            setError('Không thể kiểm tra ảnh. Vui lòng thử lại.');
+        } finally {
+            setValidating(false);
+        }
     };
 
     // ── Handle back capture → process ────────────────────────────────────────
     const handleCaptureBack = async () => {
         const backPhoto = captureFrame();
         if (!backPhoto || !frontPhoto || !parsedData) return;
+
+        setValidating(true);
+        setError('');
+
+        try {
+            // Check aspect ratio
+            const validDimensions = await validateIDCardDimensions(backPhoto);
+            if (!validDimensions) {
+                setError(VALIDATION_MESSAGES.INVALID_DIMENSIONS);
+                setValidating(false);
+                return;
+            }
+
+            // Check glare & blur
+            const quality = await detectImageQuality(backPhoto);
+            if (quality.hasGlare) {
+                setError(VALIDATION_MESSAGES.GLARE_DETECTED);
+                setValidating(false);
+                return;
+            }
+            if (quality.isBlurry) {
+                setError(VALIDATION_MESSAGES.BLURRY_IMAGE);
+                setValidating(false);
+                return;
+            }
+        } catch (err) {
+            console.error('[CCCD] Back photo validation failed:', err);
+            setError('Không thể kiểm tra ảnh. Vui lòng thử lại.');
+            setValidating(false);
+            return;
+        }
+        setValidating(false);
 
         // Stop camera
         streamRef.current?.getTracks().forEach(t => t.stop());
@@ -281,46 +347,9 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
         setProcessingMsg('Đang xử lý ảnh...');
 
         try {
-            // Resize & compress — must be under ~700KB for Firestore's 1MB base64 field limit
-            const compressPhoto = (src: string): Promise<string> => {
-                return new Promise((resolve, reject) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        const MAX_W = 480;
-                        let w = img.naturalWidth;
-                        let h = img.naturalHeight;
-                        if (w > MAX_W) { h = Math.round(h * (MAX_W / w)); w = MAX_W; }
-                        const c = document.createElement('canvas');
-                        c.width = w; c.height = h;
-                        const ctx = c.getContext('2d');
-                        if (!ctx) return reject(new Error('no ctx'));
-                        ctx.drawImage(img, 0, 0, w, h);
-
-                        // Try WebP first, check if browser actually produced WebP
-                        let result = c.toDataURL('image/webp', 0.3);
-                        if (!result.startsWith('data:image/webp')) {
-                            // Browser doesn't support WebP canvas — use JPEG fallback
-                            result = c.toDataURL('image/jpeg', 0.3);
-                        }
-
-                        // Safety: if still too large (>500KB), keep reducing
-                        let quality = 0.2;
-                        while (result.length > 500_000 && quality > 0.05) {
-                            const fmt = result.startsWith('data:image/webp') ? 'image/webp' : 'image/jpeg';
-                            result = c.toDataURL(fmt, quality);
-                            quality -= 0.05;
-                        }
-
-                        resolve(result);
-                    };
-                    img.onerror = reject;
-                    img.src = src;
-                });
-            };
-
             const [frontWebP, backWebP] = await Promise.all([
-                compressPhoto(frontPhoto),
-                compressPhoto(backPhoto),
+                compressImage(frontPhoto),
+                compressImage(backPhoto),
             ]);
 
             setProcessingMsg('Hoàn tất!');
@@ -626,20 +655,26 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
                     <div className="flex flex-col items-center gap-3">
                         <button
                             onClick={step === 'CAPTURE_FRONT' ? handleCaptureFront : handleCaptureBack}
-                            disabled={!cameraReady}
+                            disabled={!cameraReady || validating}
                             className={cn(
                                 'w-[72px] h-[72px] rounded-full border-[4px] border-white flex items-center justify-center transition-all active:scale-90',
-                                !cameraReady ? 'opacity-30 cursor-not-allowed' : 'bg-white/20'
+                                (!cameraReady || validating) ? 'opacity-30 cursor-not-allowed' : 'bg-white/20'
                             )}
                         >
                             <div className={cn('w-14 h-14 rounded-full flex items-center justify-center',
-                                !cameraReady ? 'bg-white/50' : 'bg-white'
+                                (!cameraReady || validating) ? 'bg-white/50' : 'bg-white'
                             )}>
-                                <Camera className="w-6 h-6 text-gray-800" />
+                                {validating ? (
+                                    <Loader2 className="w-6 h-6 text-gray-800 animate-spin" />
+                                ) : (
+                                    <Camera className="w-6 h-6 text-gray-800" />
+                                )}
                             </div>
                         </button>
                         <p className="text-white/40 text-[10px] font-medium">
-                            {step === 'CAPTURE_FRONT' ? 'Chụp mặt trước' : 'Chụp mặt sau'}
+                            {validating
+                                ? 'Đang kiểm tra...'
+                                : step === 'CAPTURE_FRONT' ? 'Chụp mặt trước' : 'Chụp mặt sau'}
                         </p>
                     </div>
                 </div>
