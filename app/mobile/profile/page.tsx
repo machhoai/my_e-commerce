@@ -19,6 +19,7 @@ import SmartPortraitCamera from '@/components/shared/SmartPortraitCamera';
 import CCCDCamera, { CCCDScanResult } from '@/components/hr/CCCDCamera';
 import { convertBase64ToWebP } from '@/lib/utils/image';
 import TwoFactorSetupModal from '@/components/profile/TwoFactorSetupModal';
+import ReferralHistorySection from '@/components/referral/ReferralHistorySection';
 
 const ROLE_LABELS: Record<string, string> = {
     admin: 'Quản trị viên',
@@ -323,6 +324,16 @@ export default function MobileProfilePage() {
                                 <img src={profileData.idCardBackPhoto} alt="CCCD Back" className="w-full h-24 object-cover" />
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* ── Referral Points ────────────────────────────────────────── */}
+            {user && profileData?.workplaceType === 'STORE' && (
+                <div className="mt-3">
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1.5">Điểm giới thiệu</p>
+                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+                        <ReferralHistorySection employeeId={user.uid} />
                     </div>
                 </div>
             )}

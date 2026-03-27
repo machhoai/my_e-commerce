@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ShoppingCart, ClipboardList, Ticket, CalendarDays, LayoutGrid, Link2 } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ShoppingCart, ClipboardList, Ticket, CalendarDays, LayoutGrid, Link2, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -177,6 +177,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             show: isStoreContext || isOfficeContext,
             group: 'Cá Nhân',
         },
+        {
+            label: 'Điểm Giới Thiệu',
+            href: '/employee/referral-history',
+            icon: Star,
+            show: isStoreContext,
+            group: 'Cá Nhân',
+        },
 
         {
             label: 'Lịch Làm Việc',
@@ -211,6 +218,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 isOfficeContext ||
                 hasPermission('page.hr.users'),
             matchPrefix: '/manager/hr',
+            group: 'Nhân Sự',
+        },
+        {
+            label: 'Lịch Sử Tích Điểm',
+            href: '/employee/referral-history',
+            icon: Star,
+            show: isAdmin || isSuperAdmin || hasPermission('page.referral.history'),
             group: 'Nhân Sự',
         },
 

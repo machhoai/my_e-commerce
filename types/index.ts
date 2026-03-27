@@ -100,6 +100,13 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         type: 'action',
     },
     {
+        key: 'page.referral.history',
+        label: 'Xem Lịch Sử Tích Điểm',
+        description: 'Truy cập trang lịch sử tích điểm giới thiệu toàn bộ cửa hàng',
+        group: 'Nhân sự & Lịch',
+        type: 'page',
+    },
+    {
         key: 'page.hr.kpi_templates',
         label: 'Quản Lý Mẫu KPI',
         description: 'Tạo, sửa, xóa mẫu chấm điểm KPI',
@@ -355,6 +362,9 @@ export interface UserDoc {
     // Two-Factor Authentication (TOTP / Google Authenticator)
     twoFactorSecret?: string;     // TOTP secret key (stored after verified setup)
     isTwoFactorEnabled?: boolean; // Whether 2FA is active for this user
+
+    // Referral Points System
+    referralPoints?: number;      // Total accumulated affiliate points
 }
 
 export interface NotificationDoc {
@@ -631,10 +641,49 @@ export interface GachaResult {
 // Universal Scanner
 // ============================================================
 
-export type ScanResultType = 'PHONE' | 'VOUCHER' | 'PRODUCT' | 'NOT_FOUND';
+export type ScanResultType = 'PHONE' | 'VOUCHER' | 'PRODUCT' | 'REFERRAL' | 'NOT_FOUND';
 
 export interface ScanResult {
     type: ScanResultType;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: any;
+}
+
+// ============================================================
+// Referral / Affiliate Points
+// ============================================================
+
+export type ReferralPackage = 'Silver' | 'Gold' | 'Diamond';
+export type PendingReferralStatus = 'waiting' | 'matched' | 'expired';
+
+export interface PendingReferralDoc {
+    id: string;
+    saleEmployeeId: string;      // UID of the sales staff who referred
+    saleEmployeeName: string;    // Denormalized name
+    cashierId: string;           // UID of cashier who created the ticket
+    customerPhone: string;       // Customer's phone number
+    expectedPackage: ReferralPackage;
+    status: PendingReferralStatus;
+    expiresAt: string;           // ISO timestamp (now + 5 min)
+    createdAt: string;           // ISO timestamp
+    matchedOrderCode?: string;   // POS order code once matched
+    matchedOrderValue?: number;  // Order value in VND
+    pointsAwarded?: number;      // Points given to employee
+}
+
+export type PointTransactionType = 'earned' | 'manual_adjustment' | 'refund_revocation';
+
+export interface PointTransactionDoc {
+    id: string;
+    employeeId: string;          // UID of the employee who earned points
+    type?: PointTransactionType; // Defaults to 'earned' for legacy data
+    customerPhone?: string;
+    orderCode?: string;          // POS order code
+    orderValue?: number;         // Order value in VND
+    points: number;              // Points awarded (negative for deductions)
+    reason?: string;             // Reason for manual adjustment or revocation
+    adminId?: string;            // Admin who performed the adjustment/revocation
+    linkedTransactionId?: string; // Original transaction ID (for revocations)
+    isRevoked?: boolean;         // Whether this transaction was revoked
+    createdAt: string;           // ISO timestamp
 }

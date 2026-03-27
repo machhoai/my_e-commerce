@@ -10,8 +10,9 @@ import Popup from '@/components/ui/Popup';
 import {
     User, Award, CalendarDays, Phone, Mail, CreditCard, GraduationCap,
     Briefcase, Building2, ChevronLeft, ChevronRight, CheckCircle2, Clock,
-    Loader2, Ban, TrendingUp, MapPin, UserCircle, Image as ImageIcon, X,
+    Loader2, Ban, TrendingUp, MapPin, UserCircle, Image as ImageIcon, X, Coins,
 } from 'lucide-react';
+import ReferralHistorySection from '@/components/referral/ReferralHistorySection';
 
 interface EmployeeProfilePopupProps {
     employeeUid: string;
@@ -19,7 +20,7 @@ interface EmployeeProfilePopupProps {
     onClose: () => void;
 }
 
-type TabKey = 'info' | 'kpi' | 'shifts';
+type TabKey = 'info' | 'kpi' | 'shifts' | 'points';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function scoreColor(v: number) {
@@ -41,7 +42,7 @@ function initials(name: string) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function EmployeeProfilePopup({ employeeUid, storeId, onClose }: EmployeeProfilePopupProps) {
-    const { user } = useAuth();
+    const { user, userDoc: currentUserDoc } = useAuth();
     const [activeTab, setActiveTab] = useState<TabKey>('info');
     const [employee, setEmployee] = useState<UserDoc | null>(null);
     const [loadingUser, setLoadingUser] = useState(true);
@@ -207,6 +208,7 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose }: 
         { key: 'info', label: 'Cá nhân', icon: <User className="w-3.5 h-3.5" /> },
         { key: 'kpi', label: 'KPI', icon: <Award className="w-3.5 h-3.5" /> },
         { key: 'shifts', label: 'Lịch ca', icon: <CalendarDays className="w-3.5 h-3.5" /> },
+        { key: 'points', label: 'Tích điểm', icon: <Coins className="w-3.5 h-3.5" /> },
     ];
 
     // ── Popup header ──────────────────────────────────────────────────────────
@@ -571,6 +573,17 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose }: 
                         )}
                     </div>
                 )}
+
+                {/* ── Points Tab ── */}
+                {activeTab === 'points' && (
+                    <ReferralHistorySection
+                        employeeId={employeeUid}
+                        compact
+                        isAdmin={currentUserDoc?.role === 'admin'}
+                        adminId={user?.uid}
+                    />
+                )}
+
             </div>
         </Popup>
 

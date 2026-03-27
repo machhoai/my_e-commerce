@@ -93,6 +93,27 @@ export async function universalSearchAction(input: string): Promise<ScanResult> 
         return { type: 'PRODUCT', data: product };
     }
 
-    // ── 4. Not Found ────────────────────────────────────────────
+    // ── 4. Employee Referral Code (REF-{uid}) ───────────────────
+    if (trimmed.startsWith('REF-')) {
+        const employeeUid = trimmed.slice(4); // Remove "REF-" prefix
+        if (employeeUid) {
+            const empSnap = await db.collection('users').doc(employeeUid).get();
+            if (empSnap.exists) {
+                const empData = empSnap.data();
+                return {
+                    type: 'REFERRAL',
+                    data: {
+                        uid: empSnap.id,
+                        name: empData?.name || 'Nhân viên',
+                        phone: empData?.phone || '',
+                        storeId: empData?.storeId || '',
+                        referralPoints: empData?.referralPoints ?? 0,
+                    },
+                };
+            }
+        }
+    }
+
+    // ── 5. Not Found ────────────────────────────────────────────
     return { type: 'NOT_FOUND', data: null };
 }

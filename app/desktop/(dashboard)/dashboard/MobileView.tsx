@@ -18,7 +18,7 @@ import {
     BarChart3, Banknote, ArrowUpDown, Coins, XCircle, RefreshCw,
     Wifi, WifiOff, CalendarDays, CalendarRange,
     // Extra icons for new routes
-    FileText, Repeat, LayoutDashboard,
+    FileText, Repeat, LayoutDashboard, Star,
 } from 'lucide-react';
 import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -35,6 +35,7 @@ import {
     fetchRevenueFromCache, triggerSyncAction,
     type RevenueRecord, type SellCategory, type DailyPanel,
 } from '@/app/desktop/(dashboard)/office/revenue/actions';
+import ReferralPointsWidget from '@/components/referral/ReferralPointsWidget';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -262,6 +263,9 @@ function PersonalScheduleView({ onNavigate, onNavigateRegister }: { onNavigate: 
                     </div>
                 </div>
             )}
+
+            {/* Referral Points widget — only for employees */}
+            <ReferralPointsWidget />
         </section>
     );
 }
@@ -1779,6 +1783,7 @@ export default function MobileView() {
                 { icon: LayoutDashboard, label: 'Lịch của tôi', route: '/employee/dashboard', color: 'bg-blue-50 text-blue-600' },
                 { icon: PlusSquare, label: 'Đăng ký ca', route: '/employee/register', color: 'bg-blue-50 text-blue-600' },
                 { icon: TrendingUp, label: 'KPI của tôi', route: '/employee/kpi-stats', color: 'bg-amber-50 text-amber-600' },
+                { icon: Star, label: 'Điểm giới thiệu', route: '/employee/referral-history', color: 'bg-amber-50 text-amber-600' },
                 { icon: Repeat, label: 'Bàn giao hàng', route: '/employee/inventory/handover', color: 'bg-emerald-50 text-emerald-600' },
                 { icon: FileText, label: 'Tiêu hao hàng', route: '/employee/inventory/usage', color: 'bg-emerald-50 text-emerald-600' },
             ],
@@ -1801,6 +1806,7 @@ export default function MobileView() {
                 { icon: TrendingUp, label: 'KPI Thống kê', route: '/manager/hr/kpi-stats', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_stats' },
                 { icon: ClipboardCheck, label: 'KPI Chấm điểm', route: '/manager/hr/kpi-scoring', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_scoring' },
                 { icon: Settings, label: 'Mẫu KPI', route: '/manager/settings/kpi-templates', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_templates' },
+                { icon: Star, label: 'Lịch sử tích điểm', route: '/employee/referral-history', color: 'bg-amber-50 text-amber-600', permKey: 'page.referral.history' },
             ],
         },
         // ── Store Inventory (manager+) ─────────────────────────────────
