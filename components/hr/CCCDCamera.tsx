@@ -5,7 +5,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { X, Loader2, CheckCircle2, RotateCcw, Camera, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { parseCCCDQR, CCCDParsedData } from '@/lib/utils/cccd';
-import { validateIDCardDimensions, detectImageQuality, VALIDATION_MESSAGES } from '@/lib/utils/cccd-validation';
+import { detectImageQuality, VALIDATION_MESSAGES } from '@/lib/utils/cccd-validation';
 import { compressImage } from '@/lib/utils/compress-image';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -43,6 +43,7 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
     const [processingMsg, setProcessingMsg] = useState('');
     const [uploadingQR, setUploadingQR] = useState(false);
     const [validating, setValidating] = useState(false);
+    const [errorStep, setErrorStep] = useState<Step>('SCAN_QR');
 
     // ── Beep sound ───────────────────────────────────────────────────────────
     const playBeep = useCallback(() => {
@@ -266,23 +267,17 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
         setError('');
 
         try {
-            // Check aspect ratio (landscape ID card)
-            const validDimensions = await validateIDCardDimensions(photo);
-            if (!validDimensions) {
-                setError(VALIDATION_MESSAGES.INVALID_DIMENSIONS);
-                setValidating(false);
-                return;
-            }
-
-            // Check glare & blur
+            // Check glare & blur (skip aspect ratio — camera frame ≠ card dimensions)
             const quality = await detectImageQuality(photo);
             if (quality.hasGlare) {
                 setError(VALIDATION_MESSAGES.GLARE_DETECTED);
+                setErrorStep('CAPTURE_FRONT');
                 setValidating(false);
                 return;
             }
             if (quality.isBlurry) {
                 setError(VALIDATION_MESSAGES.BLURRY_IMAGE);
+                setErrorStep('CAPTURE_FRONT');
                 setValidating(false);
                 return;
             }
@@ -297,6 +292,7 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
         } catch (err) {
             console.error('[CCCD] Front photo validation failed:', err);
             setError('Không thể kiểm tra ảnh. Vui lòng thử lại.');
+            setErrorStep('CAPTURE_FRONT');
         } finally {
             setValidating(false);
         }
@@ -311,29 +307,24 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
         setError('');
 
         try {
-            // Check aspect ratio
-            const validDimensions = await validateIDCardDimensions(backPhoto);
-            if (!validDimensions) {
-                setError(VALIDATION_MESSAGES.INVALID_DIMENSIONS);
-                setValidating(false);
-                return;
-            }
-
-            // Check glare & blur
+            // Check glare & blur (skip aspect ratio — camera frame ≠ card dimensions)
             const quality = await detectImageQuality(backPhoto);
             if (quality.hasGlare) {
                 setError(VALIDATION_MESSAGES.GLARE_DETECTED);
+                setErrorStep('CAPTURE_BACK');
                 setValidating(false);
                 return;
             }
             if (quality.isBlurry) {
                 setError(VALIDATION_MESSAGES.BLURRY_IMAGE);
+                setErrorStep('CAPTURE_BACK');
                 setValidating(false);
                 return;
             }
         } catch (err) {
             console.error('[CCCD] Back photo validation failed:', err);
             setError('Không thể kiểm tra ảnh. Vui lòng thử lại.');
+            setErrorStep('CAPTURE_BACK');
             setValidating(false);
             return;
         }
@@ -538,7 +529,7 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
                         </div>
                         <p className="text-red-300 text-sm font-medium mb-4">{error}</p>
                         <button
-                            onClick={() => { setError(''); setStep('SCAN_QR'); }}
+                            onClick={() => { setError(''); setStep(errorStep); }}
                             className="flex items-center gap-2 px-6 py-2.5 bg-white/10 text-white text-sm font-semibold rounded-xl mx-auto active:scale-95 transition-transform"
                         >
                             <RotateCcw className="w-4 h-4" /> Thử lại
