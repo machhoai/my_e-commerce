@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { X, Loader2, CheckCircle2, RotateCcw, Camera, Upload } from 'lucide-react';
+import { X, Loader2, CheckCircle2, RotateCcw, Camera, Upload, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { parseCCCDQR, CCCDParsedData } from '@/lib/utils/cccd';
 import { detectImageQuality, VALIDATION_MESSAGES } from '@/lib/utils/cccd-validation';
@@ -43,7 +43,15 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
     const [processingMsg, setProcessingMsg] = useState('');
     const [uploadingQR, setUploadingQR] = useState(false);
     const [validating, setValidating] = useState(false);
-    const [errorStep, setErrorStep] = useState<Step>('SCAN_QR');
+    const [validationWarning, setValidationWarning] = useState('');
+    const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Show a temporary warning overlay (auto-clears after 4s)
+    const showWarning = useCallback((msg: string) => {
+        if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+        setValidationWarning(msg);
+        warningTimerRef.current = setTimeout(() => setValidationWarning(''), 4000);
+    }, []);
 
     // ── Beep sound ───────────────────────────────────────────────────────────
     const playBeep = useCallback(() => {
@@ -234,15 +242,33 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
     }, [step]);
 
     // ── Cleanup on unmount ───────────────────────────────────────────────────
-    useEffect(() => {
-        return () => {
-            streamRef.current?.getTracks().forEach(t => t.stop());
-            if (qrScannerRef.current) {
-                qrScannerRef.current.stop().catch(() => { });
-                try { qrScannerRef.current.clear(); } catch { }
-            }
-        };
+    const stopAllCameras = useCallback(() => {
+        // Stop streamRef tracks
+        streamRef.current?.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+
+        // Stop video element's srcObject tracks (covers edge cases)
+        if (videoRef.current?.srcObject) {
+            (videoRef.current.srcObject as MediaStream)?.getTracks().forEach(t => t.stop());
+            videoRef.current.srcObject = null;
+        }
+
+        // Stop QR scanner (has its own internal camera stream)
+        if (qrScannerRef.current) {
+            try {
+                const state = qrScannerRef.current.getState();
+                if (state === 2) {
+                    qrScannerRef.current.stop().catch(() => { });
+                }
+                qrScannerRef.current.clear();
+            } catch { /* ignore */ }
+            qrScannerRef.current = null;
+        }
     }, []);
+
+    useEffect(() => {
+        return () => { stopAllCameras(); };
+    }, [stopAllCameras]);
 
     // ── Capture frame from video ─────────────────────────────────────────────
     const captureFrame = useCallback((): string | null => {
@@ -264,20 +290,18 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
         if (!photo) return;
 
         setValidating(true);
-        setError('');
+        setValidationWarning('');
 
         try {
             // Check glare & blur (skip aspect ratio — camera frame ≠ card dimensions)
             const quality = await detectImageQuality(photo);
             if (quality.hasGlare) {
-                setError(VALIDATION_MESSAGES.GLARE_DETECTED);
-                setErrorStep('CAPTURE_FRONT');
+                showWarning(VALIDATION_MESSAGES.GLARE_DETECTED);
                 setValidating(false);
                 return;
             }
             if (quality.isBlurry) {
-                setError(VALIDATION_MESSAGES.BLURRY_IMAGE);
-                setErrorStep('CAPTURE_FRONT');
+                showWarning(VALIDATION_MESSAGES.BLURRY_IMAGE);
                 setValidating(false);
                 return;
             }
@@ -291,8 +315,7 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
             setStep('CAPTURE_BACK');
         } catch (err) {
             console.error('[CCCD] Front photo validation failed:', err);
-            setError('Không thể kiểm tra ảnh. Vui lòng thử lại.');
-            setErrorStep('CAPTURE_FRONT');
+            showWarning('Không thể kiểm tra ảnh. Vui lòng thử lại.');
         } finally {
             setValidating(false);
         }
@@ -304,27 +327,24 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
         if (!backPhoto || !frontPhoto || !parsedData) return;
 
         setValidating(true);
-        setError('');
+        setValidationWarning('');
 
         try {
             // Check glare & blur (skip aspect ratio — camera frame ≠ card dimensions)
             const quality = await detectImageQuality(backPhoto);
             if (quality.hasGlare) {
-                setError(VALIDATION_MESSAGES.GLARE_DETECTED);
-                setErrorStep('CAPTURE_BACK');
+                showWarning(VALIDATION_MESSAGES.GLARE_DETECTED);
                 setValidating(false);
                 return;
             }
             if (quality.isBlurry) {
-                setError(VALIDATION_MESSAGES.BLURRY_IMAGE);
-                setErrorStep('CAPTURE_BACK');
+                showWarning(VALIDATION_MESSAGES.BLURRY_IMAGE);
                 setValidating(false);
                 return;
             }
         } catch (err) {
             console.error('[CCCD] Back photo validation failed:', err);
-            setError('Không thể kiểm tra ảnh. Vui lòng thử lại.');
-            setErrorStep('CAPTURE_BACK');
+            showWarning('Không thể kiểm tra ảnh. Vui lòng thử lại.');
             setValidating(false);
             return;
         }
@@ -344,6 +364,7 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
             ]);
 
             setProcessingMsg('Hoàn tất!');
+            stopAllCameras();
 
             onScanComplete({
                 parsedData,
@@ -358,11 +379,7 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
 
     // ── Close handler ────────────────────────────────────────────────────────
     const handleClose = () => {
-        streamRef.current?.getTracks().forEach(t => t.stop());
-        if (qrScannerRef.current) {
-            qrScannerRef.current.stop().catch(() => { });
-            try { qrScannerRef.current.clear(); } catch { }
-        }
+        stopAllCameras();
         onClose();
     };
 
@@ -529,7 +546,7 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
                         </div>
                         <p className="text-red-300 text-sm font-medium mb-4">{error}</p>
                         <button
-                            onClick={() => { setError(''); setStep(errorStep); }}
+                            onClick={() => { setError(''); setStep('SCAN_QR'); }}
                             className="flex items-center gap-2 px-6 py-2.5 bg-white/10 text-white text-sm font-semibold rounded-xl mx-auto active:scale-95 transition-transform"
                         >
                             <RotateCcw className="w-4 h-4" /> Thử lại
@@ -634,6 +651,16 @@ export default function CCCDCamera({ onScanComplete, onClose }: CCCDCameraProps)
                         {!cameraReady && (
                             <div className="absolute inset-0 flex items-center justify-center bg-black/80">
                                 <Loader2 className="w-8 h-8 text-white animate-spin" />
+                            </div>
+                        )}
+
+                        {/* Validation warning overlay */}
+                        {validationWarning && (
+                            <div className="absolute top-4 left-4 right-4 z-30 animate-in fade-in slide-in-from-top-2">
+                                <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-red-500/90 backdrop-blur-sm border border-red-400/50 shadow-lg">
+                                    <AlertTriangle className="w-5 h-5 text-white shrink-0" />
+                                    <p className="text-white text-xs font-bold leading-tight">{validationWarning}</p>
+                                </div>
                             </div>
                         )}
                     </>

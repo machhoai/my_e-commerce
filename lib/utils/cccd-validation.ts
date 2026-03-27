@@ -7,9 +7,8 @@ import { parseCCCDQR, CCCDParsedData } from './cccd';
 const ASPECT_RATIO_MIN = 1.2;
 const ASPECT_RATIO_MAX = 1.9;
 
-/** Glare: % of near-white pixels to flag */
-const GLARE_THRESHOLD_PCT = 5;
-const GLARE_CHANNEL_MIN = 245;
+
+
 
 /** Blur: Laplacian variance threshold (lower = blurrier) */
 const BLUR_VARIANCE_THRESHOLD = 15;
@@ -111,28 +110,43 @@ export function detectImageQuality(imageSource: string): Promise<ImageQualityRes
             const imageData = ctx.getImageData(0, 0, w, h);
             const pixels = imageData.data; // RGBA flat array
 
-            // ── Glare check ─────────────────────────────────────────
-            const totalPixels = w * h;
-            let whiteCount = 0;
+            // ── Glare check (Hybrid Final Version) ──────────────────────────
+            let glareCount = 0;
+            let cardPixelCount = 0;
 
-            // Sample every 4th pixel for speed (still statistically significant)
+            // Sample every 4th pixel for speed
             for (let i = 0; i < pixels.length; i += 16) {
                 const r = pixels[i];
                 const g = pixels[i + 1];
                 const b = pixels[i + 2];
-                if (r > GLARE_CHANNEL_MIN && g > GLARE_CHANNEL_MIN && b > GLARE_CHANNEL_MIN) {
-                    whiteCount++;
+
+                const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+
+                // 1. TÁCH NỀN BÀN: Chỉ đếm các pixel sáng hơn 80 (chắc chắn thuộc về thẻ CCCD)
+                if (lum > 80) {
+                    cardPixelCount++;
+
+                    // 2. BẮT CHÓI CỨNG (HARD GLARE): Chỉ tính là chói khi cả 3 màu RGB đều > 240.
+                    // Mức 240 đủ cao để bỏ qua nền thẻ CCCD màu trắng (thường chỉ 200-230),
+                    // nhưng đủ nhạy để bắt được tâm của vệt sáng flash/đèn tuýp.
+                    if (r > 240 && g > 240 && b > 240) {
+                        glareCount++;
+                    }
                 }
             }
 
-            const sampledTotal = Math.ceil(totalPixels / 4);
-            const whitePct = (whiteCount / sampledTotal) * 100;
-            const hasGlare = whitePct > GLARE_THRESHOLD_PCT;
+            if (cardPixelCount === 0) cardPixelCount = 1;
+
+            // Tính % chói dựa trên phần diện tích của thẻ CCCD
+            const glarePct = (glareCount / cardPixelCount) * 100;
+
+            // Ngưỡng: Chỉ cần 1.2% diện tích thẻ bị cháy sáng tuyệt đối là chặn
+            const hasGlare = glarePct > 1.2;
 
             // ── Blur check (Laplacian variance) ─────────────────────
             // Convert to grayscale, then compute Laplacian (discrete second derivative)
-            const gray = new Float32Array(totalPixels);
-            for (let i = 0; i < totalPixels; i++) {
+            const gray = new Float32Array(cardPixelCount);
+            for (let i = 0; i < cardPixelCount; i++) {
                 const idx = i * 4;
                 // ITU-R BT.601 luminance
                 gray[i] = 0.299 * pixels[idx] + 0.587 * pixels[idx + 1] + 0.114 * pixels[idx + 2];

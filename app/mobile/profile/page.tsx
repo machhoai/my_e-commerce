@@ -257,6 +257,24 @@ export default function MobileProfilePage() {
                 {isProcessing && (
                     <p className="text-[10px] text-primary-600 font-medium mt-2">Đang xử lý ảnh...</p>
                 )}
+
+                {/* Visible status message for CCCD / profile updates */}
+                {message.text && !editSheetOpen && (
+                    <div className={cn(
+                        'flex items-center gap-2 px-3 py-2 rounded-lg border text-[11px] font-medium mt-2 mx-2',
+                        message.type === 'error'
+                            ? 'bg-red-50 border-red-200 text-red-700'
+                            : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                    )}>
+                        {message.type === 'error'
+                            ? <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                            : <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
+                        {message.text}
+                        <button onClick={() => setMessage({ type: '', text: '' })} className="ml-auto shrink-0">
+                            <X className="w-3 h-3 text-gray-400" />
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* ── Info sections ────────────────────────────────────────── */}
