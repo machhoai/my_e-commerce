@@ -2,20 +2,21 @@
  * High-quality image compression utility optimized for CCCD (Vietnamese ID) KYC.
  *
  * Balances visual quality with file size:
- * - Target width: 1280px (sufficient for OCR and QR decoding)
+ * - Target width: 960px (sufficient for OCR and QR decoding)
  * - Format: WebP with JPEG fallback
  * - Quality: 0.7, adaptively reduced to stay within budget
- * - Safety cap: 300KB per photo (2 photos + user data < 1MB Firestore limit)
+ * - Safety cap: 400KB per photo (2 photos ~800KB + user data ~200KB < 1MB Firestore limit)
+ * - Accepts input photos up to 5MB
  */
 
 /** Target width for resized output. Height scales proportionally. */
-const TARGET_WIDTH = 1024;
+const TARGET_WIDTH = 960;
 
 /** Encoding quality (0–1). Starting quality before adaptive reduction. */
 const QUALITY = 0.7;
 
-/** Max base64 string length per photo (~250KB). Two photos (500KB) + user data (500KB) < 1MB. */
-const MAX_BASE64_LENGTH = 250_000;
+/** Max base64 string length per photo (~400KB). Two photos (~800KB) + user data (~200KB) < 1MB. */
+const MAX_BASE64_LENGTH = 400_000;
 
 /**
  * Compress an image from a File or base64 string into an optimized base64 WebP.
@@ -85,8 +86,8 @@ function processBase64(base64: string): Promise<string> {
             // ── Safety: adaptive quality reduction if too large ──
             if (result.length > MAX_BASE64_LENGTH) {
                 const fmt = result.startsWith('data:image/webp') ? 'image/webp' : 'image/jpeg';
-                let q = 0.6;
-                while (result.length > MAX_BASE64_LENGTH && q > 0.05) {
+                let q = 0.55;
+                while (result.length > MAX_BASE64_LENGTH && q > 0.02) {
                     result = canvas.toDataURL(fmt, q);
                     q -= 0.05;
                 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { Camera, X, RotateCcw, SwitchCamera, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Camera, X, RotateCcw, SwitchCamera, Loader2, AlertTriangle, CheckCircle2, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ── FaceDetector type declaration (Chromium-only API) ────────────────────────
@@ -16,7 +16,10 @@ declare global {
 }
 
 // ── Minimum face area ratio (0–1). 0.6 = face must cover ≥60% of image ──────
-const MIN_FACE_RATIO = 0.15; // bounding box area ÷ image area — 15% of image area is very generous for a "60% face" because bounding box includes margins
+const MIN_FACE_RATIO = 0.25; // bounding box area ÷ image area — 15% of image area is very generous for a "60% face" because bounding box includes margins
+
+/** Max upload file size (5 MB) */
+const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;
 
 interface SmartPortraitCameraProps {
     onCapture: (base64: string) => void;
@@ -29,6 +32,7 @@ export default function SmartPortraitCamera({ onCapture, onClose, minFaceRatio =
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
     const [captured, setCaptured] = useState<string | null>(null);
@@ -257,6 +261,81 @@ export default function SmartPortraitCamera({ onCapture, onClose, minFaceRatio =
         setValidating(false);
     };
 
+    // ── Upload from gallery ──────────────────────────────────────────────────
+    const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        e.target.value = ''; // allow re-selecting same file
+
+        // Size check
+        if (file.size > MAX_UPLOAD_SIZE) {
+            setFaceError(`Ảnh quá lớn (${(file.size / 1024 / 1024).toFixed(1)}MB). Tối đa 5MB.`);
+            setFaceValid(false);
+            return;
+        }
+
+        setFaceError('');
+        setFaceValid(false);
+        setFaceRatio(null);
+        setValidating(true);
+
+        try {
+            // Read file → Image
+            const base64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Read failed'));
+                reader.onerror = () => reject(new Error('Read failed'));
+                reader.readAsDataURL(file);
+            });
+
+            const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+                const i = new Image();
+                i.onload = () => resolve(i);
+                i.onerror = () => reject(new Error('Image load failed'));
+                i.src = base64;
+            });
+
+            // Square crop from center → 512×512 (same as camera capture)
+            const canvas = canvasRef.current;
+            if (!canvas) { setValidating(false); return; }
+
+            const iw = img.naturalWidth;
+            const ih = img.naturalHeight;
+            const size = Math.min(iw, ih);
+            const sx = (iw - size) / 2;
+            const sy = (ih - size) / 2;
+
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) { setValidating(false); return; }
+
+            ctx.clearRect(0, 0, 512, 512);
+            ctx.drawImage(img, sx, sy, size, size, 0, 0, 512, 512);
+
+            const croppedBase64 = canvas.toDataURL('image/png');
+
+            // Validate face
+            const result = await validateFace(canvas);
+            setFaceRatio(result.ratio);
+
+            if (!result.valid) {
+                setCaptured(croppedBase64);
+                setFaceError(result.message);
+                setFaceValid(false);
+            } else {
+                setCaptured(croppedBase64);
+                setFaceValid(true);
+            }
+        } catch (err) {
+            console.error('[Avatar Upload] Error:', err);
+            setFaceError('Không thể đọc ảnh. Vui lòng thử ảnh khác.');
+            setFaceValid(false);
+        } finally {
+            setValidating(false);
+        }
+    };
+
     // ── Retake ───────────────────────────────────────────────────────────────
     const handleRetake = () => {
         setCaptured(null);
@@ -268,7 +347,7 @@ export default function SmartPortraitCamera({ onCapture, onClose, minFaceRatio =
         requestAnimationFrame(() => {
             if (videoRef.current && streamRef.current) {
                 videoRef.current.srcObject = streamRef.current;
-                videoRef.current.play().catch(() => {});
+                videoRef.current.play().catch(() => { });
             }
         });
     };
@@ -399,21 +478,45 @@ export default function SmartPortraitCamera({ onCapture, onClose, minFaceRatio =
                         </button>
                     </>
                 ) : (
-                    <button
-                        onClick={handleCapture}
-                        disabled={!!error || starting || validating}
-                        className={cn(
-                            'w-[72px] h-[72px] rounded-full border-[4px] border-white flex items-center justify-center transition-all active:scale-90',
-                            'bg-white/20 hover:bg-white/30 disabled:opacity-30 disabled:cursor-not-allowed'
-                        )}
-                    >
-                        <div className="w-14 h-14 rounded-full bg-white" />
-                    </button>
+                    <div className="flex items-center gap-5">
+                        {/* Upload button */}
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={!!error || starting || validating}
+                            className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center active:scale-90 transition-transform disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                            <Upload className="w-5 h-5 text-white" />
+                        </button>
+
+                        {/* Capture button */}
+                        <button
+                            onClick={handleCapture}
+                            disabled={!!error || starting || validating}
+                            className={cn(
+                                'w-[72px] h-[72px] rounded-full border-[4px] border-white flex items-center justify-center transition-all active:scale-90',
+                                'bg-white/20 hover:bg-white/30 disabled:opacity-30 disabled:cursor-not-allowed'
+                            )}
+                        >
+                            <div className="w-14 h-14 rounded-full bg-white" />
+                        </button>
+
+                        {/* Spacer for symmetry */}
+                        <div className="w-12 h-12" />
+                    </div>
                 )}
             </div>
 
             {/* Hidden canvas for capture */}
             <canvas ref={canvasRef} className="hidden" />
+
+            {/* Hidden file input for gallery upload */}
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleUpload}
+                className="hidden"
+            />
         </div>
     );
 }
