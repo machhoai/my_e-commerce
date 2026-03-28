@@ -157,27 +157,40 @@ export async function searchEmployeesByName(
     if (!q || q.length < 2) return [];
     try {
         const db = getAdminDb();
-        // Firestore doesn't support full-text search, so we use a range query
-        // on the 'name' field for prefix matching
+
+        // Fetch all active employees and filter in-memory
+        // (Firestore prefix search only matches from the start of the name field,
+        //  which doesn't work for Vietnamese names where users search by first name — the last word)
         const snap = await db
             .collection('users')
             .where('isActive', '==', true)
-            .orderBy('name')
-            .startAt(q)
-            .endAt(q + '\uf8ff')
-            .limit(5)
+            .limit(100)
             .get();
 
-        return snap.docs.map(d => {
-            const data = d.data();
-            return {
-                uid: d.id,
-                name: data.name || '',
-                phone: data.phone || '',
-                storeId: data.storeId || '',
-                referralPoints: data.referralPoints ?? 0,
-            };
-        });
+        // Normalize for diacritics-insensitive comparison
+        const normalize = (s: string) =>
+            s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+
+        const qNorm = normalize(q);
+
+        return snap.docs
+            .map(d => {
+                const data = d.data();
+                return {
+                    uid: d.id,
+                    name: (data.name || '') as string,
+                    phone: (data.phone || '') as string,
+                    storeId: (data.storeId || '') as string,
+                    referralPoints: (data.referralPoints ?? 0) as number,
+                };
+            })
+            .filter(emp => {
+                const nameNorm = normalize(emp.name);
+                // Match if any word in the name starts with the query, or the full name contains it
+                return nameNorm.includes(qNorm) ||
+                    nameNorm.split(/\s+/).some(word => word.startsWith(qNorm));
+            })
+            .slice(0, 5);
     } catch (err) {
         console.error('[searchEmployeesByName]', err);
         return [];

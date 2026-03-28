@@ -18,6 +18,7 @@ import BottomSheet from '@/components/shared/BottomSheet';
 import SmartPortraitCamera from '@/components/shared/SmartPortraitCamera';
 import CCCDCamera, { CCCDScanResult } from '@/components/hr/CCCDCamera';
 import { convertBase64ToWebP } from '@/lib/utils/image';
+import { uploadImageBase64 } from '@/lib/utils/storage-upload';
 import TwoFactorSetupModal from '@/components/profile/TwoFactorSetupModal';
 import ReferralHistorySection from '@/components/referral/ReferralHistorySection';
 
@@ -113,6 +114,12 @@ export default function MobileProfilePage() {
         setCccdProcessing(true);
         try {
             if (user) {
+                // Upload CCCD photos to Firebase Storage
+                const [frontUrl, backUrl] = await Promise.all([
+                    uploadImageBase64(user.uid, result.frontPhotoWebP, 'cccd_front'),
+                    uploadImageBase64(user.uid, result.backPhotoWebP, 'cccd_back'),
+                ]);
+
                 const token = await user.getIdToken();
                 const payload = {
                     name: result.parsedData.name,
@@ -120,8 +127,8 @@ export default function MobileProfilePage() {
                     dob: result.parsedData.dob,
                     gender: result.parsedData.gender,
                     permanentAddress: result.parsedData.permanentAddress,
-                    idCardFrontPhoto: result.frontPhotoWebP,
-                    idCardBackPhoto: result.backPhotoWebP,
+                    idCardFrontPhoto: frontUrl,
+                    idCardBackPhoto: backUrl,
                 };
                 const res = await fetch('/api/auth/update-user', {
                     method: 'POST',
@@ -145,17 +152,21 @@ export default function MobileProfilePage() {
         setIsProcessing(true);
         try {
             const webpImage = await convertBase64ToWebP(base64Image, 0.8);
-            setAvatarUrl(webpImage);
 
-            // Upload to server
             if (user) {
+                // Upload to Firebase Storage first
+                const avatarStorageUrl = await uploadImageBase64(user.uid, webpImage, 'avatar');
+                setAvatarUrl(avatarStorageUrl);
+
                 const token = await user.getIdToken();
                 await fetch('/api/auth/update-user', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                    body: JSON.stringify({ avatar: webpImage }),
+                    body: JSON.stringify({ avatar: avatarStorageUrl }),
                 });
-                setProfileData(prev => prev ? { ...prev, avatar: webpImage } : null);
+                setProfileData(prev => prev ? { ...prev, avatar: avatarStorageUrl } : null);
+            } else {
+                setAvatarUrl(webpImage);
             }
         } catch (err) {
             console.error('Avatar update failed:', err);

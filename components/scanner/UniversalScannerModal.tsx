@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { X, ScanLine, Keyboard, SearchX, Camera, RotateCcw, Zap, ZapOff, User, Phone, ChevronDown, Loader2, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { universalSearchAction } from '@/actions/scanner';
-import { createPendingReferral, searchEmployeesByName } from '@/actions/referral';
+import { preloadScannerData, voucherSearchAction } from '@/actions/scanner';
+import type { PreloadedEmployee, PreloadedProduct } from '@/actions/scanner';
+import { createPendingReferral } from '@/actions/referral';
 import { useAuth } from '@/contexts/AuthContext';
 import type { ScanResult } from '@/types';
 import type { VoucherCode } from '@/types';
@@ -14,6 +15,10 @@ import VoucherDetailsCard from './VoucherDetailsCard';
 import VoucherResultCard from './VoucherResultCard';
 import ProductInfoCard from './ProductInfoCard';
 import BottomSheet from '@/components/shared/BottomSheet';
+
+// ── Normalize Vietnamese for diacritics-insensitive search ───
+const normalize = (s: string) =>
+    s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
 
 type ModalView =
     | { kind: 'scanner' }
@@ -218,6 +223,8 @@ function DraggableFAB({ onTap, hidden }: { onTap: () => void; hidden: boolean })
     const [pos, setPos] = useState<{ x: number; y: number } | null>(null); // null = not yet initialized
     const [snapping, setSnapping] = useState(false);
 
+
+
     // Initialize position to bottom-right
     useEffect(() => {
         const x = window.innerWidth - FAB_SIZE - FAB_MARGIN;
@@ -347,11 +354,41 @@ export default function UniversalScannerModal() {
     const html5QrRef = useRef<any>(null);
     const scanLock = useRef(false);
 
-    // Employee search suggestions
-    type EmpSuggestion = { uid: string; name: string; phone: string; storeId: string; referralPoints: number };
-    const [empSuggestions, setEmpSuggestions] = useState<EmpSuggestion[]>([]);
-    const [empSearching, setEmpSearching] = useState(false);
-    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // ── Preloaded data (loaded once when modal opens) ────────────
+    const [preloadedEmployees, setPreloadedEmployees] = useState<PreloadedEmployee[]>([]);
+    const [preloadedProducts, setPreloadedProducts] = useState<PreloadedProduct[]>([]);
+    const [preloading, setPreloading] = useState(false);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const fetchPreloadData = async () => {
+            // Nếu đã tải rồi hoặc đang tải thì bỏ qua
+            if (preloadedEmployees.length > 0 || preloadedProducts.length > 0 || preloading) return;
+
+            setPreloading(true);
+            try {
+                const data = await preloadScannerData();
+                if (isMounted) {
+                    setPreloadedEmployees(data.employees);
+                    setPreloadedProducts(data.products);
+                }
+            } catch (err) {
+                console.error('[Scanner] Preload failed:', err);
+            } finally {
+                if (isMounted) setPreloading(false);
+            }
+        };
+
+        // Đợi 1 giây sau khi render xong giao diện mới bắt đầu tải ngầm
+        // Việc này giúp trang web mượt mà, không bị giật lúc mới vào
+        const timer = setTimeout(fetchPreloadData, 1000);
+
+        return () => {
+            isMounted = false;
+            clearTimeout(timer);
+        };
+    }, []); // Chạy 1 lần duy nhất khi Component mount
 
     // ── Start camera — QR + Code128 only, high-res, adaptive qrbox ──
     const startCamera = useCallback(async () => {
@@ -452,7 +489,7 @@ export default function UniversalScannerModal() {
     }, []);
 
     // ── Open / Close ─────────────────────────────────────────────
-    const open = () => {
+    const open = async () => {
         setIsOpen(true);
         setView({ kind: 'scanner' });
         setManualInput('');
@@ -492,44 +529,58 @@ export default function UniversalScannerModal() {
         }
     }, [isOpen, view.kind, startCamera, stopCamera]);
 
-    // ── Debounced employee search ─────────────────────────────────
-    useEffect(() => {
-        if (!showManual) { setEmpSuggestions([]); return; }
+    // ── Employee suggestions (local, instant — no API call) ──────
+    const empSuggestions = useMemo(() => {
+        if (!showManual) return [];
         const q = manualInput.trim();
-        if (q.length < 2 || /^(03|05|07|08|09)\d/.test(q) || /^REF-/.test(q)) {
-            setEmpSuggestions([]);
-            return;
-        }
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-        debounceRef.current = setTimeout(async () => {
-            setEmpSearching(true);
-            const results = await searchEmployeesByName(q);
-            setEmpSuggestions(results);
-            setEmpSearching(false);
-        }, 400);
-        return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-    }, [manualInput, showManual]);
+        if (q.length < 2 || /^(03|05|07|08|09)\d/.test(q) || /^REF-/.test(q)) return [];
+        const qNorm = normalize(q);
+        return preloadedEmployees
+            .filter(emp => {
+                const nameNorm = normalize(emp.name);
+                return nameNorm.includes(qNorm) || nameNorm.split(/\s+/).some(w => w.startsWith(qNorm));
+            })
+            .slice(0, 5);
+    }, [manualInput, showManual, preloadedEmployees]);
 
     // ── Search handler ───────────────────────────────────────────
     const handleSearch = async (input: string) => {
         const trimmed = input.trim();
         if (!trimmed) return;
         await stopCamera();
+
+        // 1. REF- code → find employee from preloaded data
+        if (trimmed.startsWith('REF-')) {
+            const uid = trimmed.slice(4);
+            const emp = preloadedEmployees.find(e => e.uid === uid);
+            if (emp) {
+                setView({ kind: 'referral', employee: emp });
+                return;
+            }
+        }
+
+        // 2. Product barcode / companyCode → local lookup (instant)
+        const product = preloadedProducts.find(
+            p => p.barcode === trimmed || p.companyCode === trimmed
+        );
+        if (product) {
+            setView({
+                kind: 'product',
+                product: product as ProductDoc,
+            });
+            return;
+        }
+
+        // 3. Phone or Voucher code → must hit server
         setView({ kind: 'searching' });
         try {
-            const result: ScanResult = await universalSearchAction(trimmed);
+            const result: ScanResult = await voucherSearchAction(trimmed);
             switch (result.type) {
                 case 'PHONE':
                     setView({ kind: 'phone', phone: result.data.phone, vouchers: result.data.vouchers });
                     break;
                 case 'VOUCHER':
                     setView({ kind: 'voucher-detail', voucher: result.data });
-                    break;
-                case 'PRODUCT':
-                    setView({ kind: 'product', product: result.data });
-                    break;
-                case 'REFERRAL':
-                    setView({ kind: 'referral', employee: result.data });
                     break;
                 default:
                     setView({ kind: 'not-found', query: trimmed });
@@ -557,6 +608,67 @@ export default function UniversalScannerModal() {
             case 'scanner':
                 return (
                     <div className="flex flex-col">
+                        {/* Manual input */}
+                        <div className="p-4 bg-white">
+                            {showManual ? (
+                                <div className="relative">
+                                    <form onSubmit={handleManualSubmit} className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={manualInput}
+                                            onChange={e => { setManualInput(e.target.value); }}
+                                            placeholder="Nhập mã, SĐT hoặc tên nhân viên..."
+                                            autoFocus
+                                            className="flex-1 bg-surface-50 border border-surface-200 text-sm rounded-xl px-3.5 py-3 focus:ring-accent-500 focus:border-accent-400 placeholder-surface-400 outline-none"
+                                        />
+                                        <button
+                                            type="submit"
+                                            disabled={!manualInput.trim()}
+                                            className="px-4 py-3 bg-surface-800 text-white rounded-xl font-bold text-sm disabled:opacity-50 hover:bg-surface-900 transition-colors shrink-0"
+                                        >Tìm</button>
+                                    </form>
+
+                                    {/* Employee suggestions dropdown */}
+                                    {empSuggestions.length > 0 && (
+                                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-surface-200 rounded-xl shadow-xl z-50 overflow-hidden">
+
+                                            {preloading && manualInput.trim().length >= 2 ? (
+                                                <div className="flex items-center gap-2 px-4 py-3 text-xs text-surface-500">
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang đồng bộ danh sách...
+                                                </div>
+                                            ) : empSuggestions.map(emp => (
+                                                <button
+                                                    key={emp.uid}
+                                                    onClick={async () => {
+                                                        await stopCamera();
+                                                        setManualInput('');
+                                                        setView({ kind: 'referral', employee: emp });
+                                                    }}
+                                                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent-50 transition-colors text-left border-b border-surface-50 last:border-b-0"
+                                                >
+                                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-400 to-primary-400 flex items-center justify-center text-white text-xs font-black shrink-0">
+                                                        {emp.name.split(' ').pop()?.[0]?.toUpperCase() || 'N'}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-xs font-bold text-surface-800 truncate">{emp.name}</p>
+                                                        <p className="text-[10px] text-surface-400">{emp.phone}</p>
+                                                    </div>
+                                                    <span className="text-[10px] font-bold text-accent-600 bg-accent-50 px-2 py-0.5 rounded-lg">{emp.referralPoints} điểm</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setShowManual(true)}
+                                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-surface-200 text-surface-500 hover:border-accent-300 hover:text-accent-600 transition-colors text-sm font-medium"
+                                >
+                                    <Keyboard className="w-4 h-4" />
+                                    Nhập thủ công
+                                </button>
+                            )}
+                        </div>
                         {/* Camera viewport */}
                         <div className="relative bg-black overflow-hidden" style={{ height: 500 }}>
                             <div id="scanner-container" ref={scannerRef} className="relative bottom-28 w-full h-full" />
@@ -612,69 +724,6 @@ export default function UniversalScannerModal() {
                                     Đặt mã vạch / QR nằm ngang trong khung · Giữ cách 10–20cm
                                 </p>
                             </div>
-                        </div>
-
-                        {/* Manual input */}
-                        <div className="p-4 bg-white">
-                            {showManual ? (
-                                <div className="relative">
-                                    <form onSubmit={handleManualSubmit} className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={manualInput}
-                                            onChange={e => { setManualInput(e.target.value); }}
-                                            placeholder="Nhập mã, SĐT hoặc tên nhân viên..."
-                                            autoFocus
-                                            className="flex-1 bg-surface-50 border border-surface-200 text-sm rounded-xl px-3.5 py-3 focus:ring-accent-500 focus:border-accent-400 placeholder-surface-400 outline-none"
-                                        />
-                                        <button
-                                            type="submit"
-                                            disabled={!manualInput.trim()}
-                                            className="px-4 py-3 bg-surface-800 text-white rounded-xl font-bold text-sm disabled:opacity-50 hover:bg-surface-900 transition-colors shrink-0"
-                                        >Tìm</button>
-                                    </form>
-
-                                    {/* Employee suggestions dropdown */}
-                                    {(empSuggestions.length > 0 || empSearching) && (
-                                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-surface-200 rounded-xl shadow-xl z-50 overflow-hidden">
-                                            {empSearching && (
-                                                <div className="flex items-center gap-2 px-4 py-3 text-xs text-surface-500">
-                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang tìm nhân viên...
-                                                </div>
-                                            )}
-                                            {empSuggestions.map(emp => (
-                                                <button
-                                                    key={emp.uid}
-                                                    onClick={async () => {
-                                                        await stopCamera();
-                                                        setEmpSuggestions([]);
-                                                        setManualInput('');
-                                                        setView({ kind: 'referral', employee: emp });
-                                                    }}
-                                                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent-50 transition-colors text-left border-b border-surface-50 last:border-b-0"
-                                                >
-                                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-400 to-primary-400 flex items-center justify-center text-white text-xs font-black shrink-0">
-                                                        {emp.name.split(' ').pop()?.[0]?.toUpperCase() || 'N'}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-xs font-bold text-surface-800 truncate">{emp.name}</p>
-                                                        <p className="text-[10px] text-surface-400">{emp.phone}</p>
-                                                    </div>
-                                                    <span className="text-[10px] font-bold text-accent-600 bg-accent-50 px-2 py-0.5 rounded-lg">{emp.referralPoints} điểm</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <button
-                                    onClick={() => setShowManual(true)}
-                                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-surface-200 text-surface-500 hover:border-accent-300 hover:text-accent-600 transition-colors text-sm font-medium"
-                                >
-                                    <Keyboard className="w-4 h-4" />
-                                    Nhập thủ công
-                                </button>
-                            )}
                         </div>
                     </div>
                 );

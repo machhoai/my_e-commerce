@@ -6,6 +6,7 @@ import { submitMandatoryProfile } from '@/lib/actions/profile';
 import CCCDCamera, { CCCDScanResult } from '@/components/hr/CCCDCamera';
 import SmartPortraitCamera from '@/components/shared/SmartPortraitCamera';
 import { convertBase64ToWebP } from '@/lib/utils/image';
+import { uploadImageBase64 } from '@/lib/utils/storage-upload';
 import {
     Mail, Camera, ScanLine, Loader2, CheckCircle2,
     User, Calendar, MapPin, CreditCard, ShieldAlert, LogOut,
@@ -40,6 +41,7 @@ export default function MandatoryUpdateForm() {
     const [error, setError] = useState('');
     const [cccdScanned, setCccdScanned] = useState(false);
     const [cccdName, setCccdName] = useState('');
+    const [uploadingText, setUploadingText] = useState('');
 
     // ── Validation ───────────────────────────────────────────────────────────
     const isEmailValid = email.includes('@') && !email.endsWith('@company.com');
@@ -96,28 +98,51 @@ export default function MandatoryUpdateForm() {
         setSubmitting(true);
         setError('');
 
-        const payload = {
-            uid: user.uid,
-            email,
-            ...(cccdName ? { name: cccdName } : {}),
-            ...(!isAdmin ? {
-                avatar,
-                idCard,
-                dob,
-                gender,
-                permanentAddress,
-                idCardFrontPhoto,
-                idCardBackPhoto,
-            } : {}),
-        };
+        try {
+            // Upload images to Firebase Storage first (replace base64 → URL)
+            let avatarUrl = avatar;
+            let frontUrl = idCardFrontPhoto;
+            let backUrl = idCardBackPhoto;
 
-        const result = await submitMandatoryProfile(payload);
+            if (!isAdmin) {
+                setUploadingText('Đang tải ảnh lên máy chủ...');
 
-        if (result.success) {
-            // Re-fetch userDoc so the guard re-evaluates
-            await refreshUserDoc();
-        } else {
-            setError(result.error || 'Đã xảy ra lỗi. Vui lòng thử lại.');
+                [avatarUrl, frontUrl, backUrl] = await Promise.all([
+                    uploadImageBase64(user.uid, avatar, 'avatar'),
+                    uploadImageBase64(user.uid, idCardFrontPhoto, 'cccd_front'),
+                    uploadImageBase64(user.uid, idCardBackPhoto, 'cccd_back'),
+                ]);
+
+                setUploadingText('');
+            }
+
+            const payload = {
+                uid: user.uid,
+                email,
+                ...(cccdName ? { name: cccdName } : {}),
+                ...(!isAdmin ? {
+                    avatar: avatarUrl,
+                    idCard,
+                    dob,
+                    gender,
+                    permanentAddress,
+                    idCardFrontPhoto: frontUrl,
+                    idCardBackPhoto: backUrl,
+                } : {}),
+            };
+
+            const result = await submitMandatoryProfile(payload);
+
+            if (result.success) {
+                await refreshUserDoc();
+            } else {
+                setError(result.error || 'Đã xảy ra lỗi. Vui lòng thử lại.');
+                setSubmitting(false);
+            }
+        } catch (err) {
+            console.error('Submit failed:', err);
+            setError('Lỗi tải ảnh lên máy chủ, vui lòng thử lại.');
+            setUploadingText('');
             setSubmitting(false);
         }
     };
@@ -337,7 +362,7 @@ export default function MandatoryUpdateForm() {
                             {submitting ? (
                                 <>
                                     <Loader2 className="w-5 h-5 animate-spin" />
-                                    Đang cập nhật...
+                                    {uploadingText || 'Đang cập nhật...'}
                                 </>
                             ) : (
                                 <>

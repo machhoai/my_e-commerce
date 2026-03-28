@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import SmartPortraitCamera from '@/components/shared/SmartPortraitCamera';
 import { convertBase64ToWebP } from '@/lib/utils/image';
+import { uploadImageBase64 } from '@/lib/utils/storage-upload';
 import TwoFactorSetupModal from '@/components/profile/TwoFactorSetupModal';
 
 export default function ProfilePage() {
@@ -106,16 +107,21 @@ export default function ProfilePage() {
         setIsProcessing(true);
         try {
             const webpImage = await convertBase64ToWebP(base64Image, 0.8);
-            setAvatarUrl(webpImage);
 
             if (user) {
+                // Upload to Firebase Storage first
+                const avatarStorageUrl = await uploadImageBase64(user.uid, webpImage, 'avatar');
+                setAvatarUrl(avatarStorageUrl);
+
                 const token = await user.getIdToken();
                 await fetch('/api/auth/update-user', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                    body: JSON.stringify({ avatar: webpImage }),
+                    body: JSON.stringify({ avatar: avatarStorageUrl }),
                 });
-                setProfileData(prev => prev ? { ...prev, avatar: webpImage } : null);
+                setProfileData(prev => prev ? { ...prev, avatar: avatarStorageUrl } : null);
+            } else {
+                setAvatarUrl(webpImage);
             }
         } catch (err) {
             console.error('Avatar update failed:', err);
