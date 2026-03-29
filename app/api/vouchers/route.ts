@@ -222,18 +222,53 @@ export async function PATCH(req: NextRequest) {
         if (!callerUid) return NextResponse.json({ error: 'Bị từ chối truy cập' }, { status: 403 });
 
         const body = await req.json() as {
-            action: 'revoke' | 'add_codes' | 'update_expiry' | 'deactivate_campaign' | 'activate_campaign';
+            action: 'revoke' | 'add_codes' | 'update_expiry' | 'deactivate_campaign' | 'activate_campaign' | 'update_campaign';
             codeId?: string;
             codeIds?: string[];
             campaignId?: string;
             quantity?: number;
             validTo?: string;
+            // update_campaign fields
+            name?: string;
+            description?: string;
+            rewardType?: VoucherRewardType;
+            rewardValue?: number;
+            validFrom?: string;
+            purpose?: 'print' | 'event';
+            imageUrl?: string;
             // Chunking params
             limit?: number;
             lastDocId?: string;
         };
 
         const adminDb = getAdminDb();
+
+        // ── Action: update_campaign ─────────────────────────────
+        if (body.action === 'update_campaign') {
+            if (!body.campaignId) return NextResponse.json({ error: 'Thiếu campaignId' }, { status: 400 });
+            const campRef = adminDb.collection('voucher_campaigns').doc(body.campaignId);
+            const campSnap = await campRef.get();
+            if (!campSnap.exists) return NextResponse.json({ error: 'Chiến dịch không tồn tại' }, { status: 404 });
+
+            // Build partial update — only include provided fields
+            const update: Record<string, unknown> = {};
+            if (body.name?.trim()) update.name = body.name.trim();
+            if (body.description !== undefined) update.description = body.description.trim();
+            if (body.rewardType) update.rewardType = body.rewardType;
+            if (body.rewardValue !== undefined) update.rewardValue = body.rewardValue;
+            if (body.validFrom) update.validFrom = body.validFrom;
+            if (body.validTo) update.validTo = body.validTo;
+            if (body.purpose) update.purpose = body.purpose;
+            if (body.imageUrl !== undefined) update.image = body.imageUrl || null;
+
+            if (Object.keys(update).length === 0) {
+                return NextResponse.json({ error: 'Không có trường nào để cập nhật' }, { status: 400 });
+            }
+
+            await campRef.update(update);
+            return NextResponse.json({ success: true, message: 'Đã cập nhật thông tin chiến dịch.' });
+        }
+
 
         // ── Action: revoke (up to 5000 IDs per call) ────────────
         if (body.action === 'revoke') {

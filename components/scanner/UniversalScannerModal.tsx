@@ -344,7 +344,11 @@ function DraggableFAB({ onTap, hidden }: { onTap: () => void; hidden: boolean })
 
 export default function UniversalScannerModal() {
     const [isOpen, setIsOpen] = useState(false);
-    const { user: authUser } = useAuth();
+    const { user: authUser, hasPermission } = useAuth();
+
+    // Permission gates — admin always bypasses via hasPermission()
+    const canSearchVouchers = hasPermission('search_vouchers');
+    const canManageReferrals = hasPermission('manage_referrals');
     const [view, setView] = useState<ModalView>({ kind: 'scanner' });
     const [manualInput, setManualInput] = useState('');
     const [showManual, setShowManual] = useState(false);
@@ -531,7 +535,7 @@ export default function UniversalScannerModal() {
 
     // ── Employee suggestions (local, instant — no API call) ──────
     const empSuggestions = useMemo(() => {
-        if (!showManual) return [];
+        if (!canManageReferrals || !showManual) return [];
         const q = manualInput.trim();
         if (q.length < 2 || /^(03|05|07|08|09)\d/.test(q) || /^REF-/.test(q)) return [];
         const qNorm = normalize(q);
@@ -541,7 +545,7 @@ export default function UniversalScannerModal() {
                 return nameNorm.includes(qNorm) || nameNorm.split(/\s+/).some(w => w.startsWith(qNorm));
             })
             .slice(0, 5);
-    }, [manualInput, showManual, preloadedEmployees]);
+    }, [manualInput, showManual, preloadedEmployees, canManageReferrals]);
 
     // ── Search handler ───────────────────────────────────────────
     const handleSearch = async (input: string) => {
@@ -549,8 +553,8 @@ export default function UniversalScannerModal() {
         if (!trimmed) return;
         await stopCamera();
 
-        // 1. REF- code → find employee from preloaded data
-        if (trimmed.startsWith('REF-')) {
+        // 1. REF- code → find employee from preloaded data (permission-gated)
+        if (canManageReferrals && trimmed.startsWith('REF-')) {
             const uid = trimmed.slice(4);
             const emp = preloadedEmployees.find(e => e.uid === uid);
             if (emp) {
@@ -559,7 +563,7 @@ export default function UniversalScannerModal() {
             }
         }
 
-        // 2. Product barcode / companyCode → local lookup (instant)
+        // 2. Product barcode / companyCode → local lookup (instant, no permission needed)
         const product = preloadedProducts.find(
             p => p.barcode === trimmed || p.companyCode === trimmed
         );
@@ -571,7 +575,12 @@ export default function UniversalScannerModal() {
             return;
         }
 
-        // 3. Phone or Voucher code → must hit server
+        // 3. Phone or Voucher code → must hit server (permission-gated)
+        if (!canSearchVouchers) {
+            setView({ kind: 'not-found', query: trimmed });
+            return;
+        }
+
         setView({ kind: 'searching' });
         try {
             const result: ScanResult = await voucherSearchAction(trimmed);

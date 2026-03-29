@@ -55,7 +55,7 @@ export default function VoucherDetailsCard({ voucher, onRedeemed, onClose }: Vou
     })();
 
     return (
-        <div className="flex flex-col">
+        <div className="flex flex-col overflow-y-auto pb-6">
             {/* Campaign Image */}
             {voucher.campaignImage && (
                 <div className="w-full h-40 bg-surface-100 overflow-hidden rounded-t-xl">
@@ -69,16 +69,15 @@ export default function VoucherDetailsCard({ voucher, onRedeemed, onClose }: Vou
                 <div className="text-center">
                     {/* Animated status icon */}
                     {isUsable ? (
-                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-success-100 to-success-50 mb-3 animate-pulse">
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-success-100 to-success-50 mb-3">
                             <ShieldCheck className="w-8 h-8 text-success-600" />
                         </div>
                     ) : voucher.status === 'used' ? (
                         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-surface-200 to-surface-100 mb-3">
-                            <Ticket className="w-8 h-8 text-surface-400 line-through" />
-                            <style jsx>{`@keyframes stamp{0%{transform:scale(0) rotate(-30deg);opacity:0}60%{transform:scale(1.2) rotate(5deg);opacity:1}100%{transform:scale(1) rotate(0deg);opacity:1}}`}</style>
+                            <AlertTriangle className="w-8 h-8 text-warning-600" />
                             <div className="absolute inset-0 flex items-center justify-center" style={{ animation: 'stamp 0.5s ease-out forwards' }}>
                                 <div className="w-10 h-10 rounded-full border-[3px] border-surface-400 flex items-center justify-center rotate-[-15deg] opacity-60">
-                                    <span className="text-[8px] font-black text-surface-500 uppercase tracking-widest">Đã dùng</span>
+                                    <span className="text-[8px] font-black text-warning-600 uppercase tracking-widest">Đã dùng</span>
                                 </div>
                             </div>
                         </div>
@@ -131,7 +130,7 @@ export default function VoucherDetailsCard({ voucher, onRedeemed, onClose }: Vou
                 <div className="bg-surface-50 rounded-xl border border-surface-100 divide-y divide-surface-100">
                     {[
                         { icon: Ticket, label: 'Mã voucher', value: voucher.id, mono: true },
-                        { icon: Gift, label: 'Phần thưởng', value: rewardText },
+                        { icon: Gift, label: 'Phần thưởng', value: voucher.rewardValue + ' ' + rewardText },
                         { icon: Calendar, label: 'Hết hạn', value: voucher.validTo },
                         { icon: Phone, label: 'SĐT nhận', value: voucher.distributedToPhone || '—' },
                         { icon: Tag, label: 'Ngày phát', value: voucher.distributedAt?.slice(0, 10) || '—' },

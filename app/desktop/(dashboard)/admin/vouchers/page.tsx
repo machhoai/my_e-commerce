@@ -11,7 +11,7 @@ import {
     Megaphone, Archive, Sparkles, CalendarDays, Tag, Gift,
     EyeOff, ArchiveRestore, X as XIcon, CheckSquare, Square,
     ImagePlus, Upload, Pause, Play, PlusCircle, FileDown, Printer, Dices,
-    ArrowUpDown, ArrowUp, ArrowDown,
+    ArrowUpDown, ArrowUp, ArrowDown, Pencil, Save,
 } from 'lucide-react';
 import { cn, generateSecureCode } from '@/lib/utils';
 import { useBatchProcessor } from '@/hooks/useBatchProcessor';
@@ -487,6 +487,113 @@ function CampaignTab({
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [updatingExpiryFor, setUpdatingExpiryFor] = useState<string | null>(null);
     const [newValidTo, setNewValidTo] = useState('');
+
+    // ── Campaign edit state ──────────────────────────────────────
+    const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
+    const [editForm, setEditForm] = useState({
+        name: '', description: '', rewardType: 'discount_percent' as VoucherRewardType,
+        rewardValue: 0, purpose: 'event' as VoucherCampaignPurpose,
+        validFrom: '', validTo: '',
+    });
+
+    // Edit image state
+    const [editPendingImage, setEditPendingImage] = useState<File | null>(null);
+    const [editImagePreview, setEditImagePreview] = useState('');
+    const [editImageCompressing, setEditImageCompressing] = useState(false);
+    const editFileInputRef = useRef<HTMLInputElement>(null);
+
+    const startEditCampaign = (camp: VoucherCampaign) => {
+        setEditingCampaignId(camp.id);
+        setEditForm({
+            name: camp.name,
+            description: camp.description || '',
+            rewardType: camp.rewardType,
+            rewardValue: camp.rewardValue,
+            purpose: camp.purpose || 'event',
+            validFrom: camp.validFrom,
+            validTo: camp.validTo,
+        });
+        // Init image preview from existing campaign image
+        setEditImagePreview(camp.image || '');
+        setEditPendingImage(null);
+        if (editFileInputRef.current) editFileInputRef.current.value = '';
+        // Close other inline forms
+        setAddingCodesFor(null);
+        setUpdatingExpiryFor(null);
+    };
+
+    const handleEditImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+            onError('Chỉ chấp nhận JPG, PNG hoặc WebP.');
+            return;
+        }
+        if (file.size > 20 * 1024 * 1024) {
+            onError('File quá lớn (tối đa 20 MB).');
+            return;
+        }
+        setEditImageCompressing(true);
+        try {
+            const compressed = await imageCompression(file, {
+                maxSizeMB: 0.3,
+                maxWidthOrHeight: 1200,
+                useWebWorker: true,
+                fileType: 'image/webp',
+            });
+            if (editImagePreview.startsWith('blob:')) URL.revokeObjectURL(editImagePreview);
+            setEditPendingImage(compressed);
+            setEditImagePreview(URL.createObjectURL(compressed));
+        } catch {
+            onError('Nén ảnh thất bại.');
+        } finally {
+            setEditImageCompressing(false);
+        }
+    };
+
+    const handleUpdateCampaign = async () => {
+        if (!editingCampaignId || !editForm.name.trim()) return;
+        setActionLoading(editingCampaignId);
+        try {
+            // Upload pending image if any
+            let imageUrl: string | undefined;
+            if (editPendingImage) {
+                const sRef = storageRef(storage, `vouchers/${Date.now()}.webp`);
+                const task = uploadBytesResumable(sRef, editPendingImage);
+                await new Promise<void>((resolve, reject) => {
+                    task.on('state_changed', null, reject, () => resolve());
+                });
+                imageUrl = await getDownloadURL(task.snapshot.ref);
+            } else if (editImagePreview === '' || editImagePreview === undefined) {
+                // User removed the image
+                imageUrl = '';
+            }
+
+            const token = await getToken();
+            const res = await fetch('/api/vouchers', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                    action: 'update_campaign',
+                    campaignId: editingCampaignId,
+                    ...editForm,
+                    ...(imageUrl !== undefined ? { imageUrl } : {}),
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Thất bại');
+            // Cleanup
+            if (editImagePreview.startsWith('blob:')) URL.revokeObjectURL(editImagePreview);
+            setEditPendingImage(null);
+            setEditImagePreview('');
+            setEditingCampaignId(null);
+            onSuccess(data.message);
+        } catch (err: unknown) {
+            onError(err instanceof Error ? err.message : 'Lỗi cập nhật');
+        } finally {
+            setActionLoading(null);
+        }
+    };
 
     const handleAddCodes = async (campaignId: string) => {
         if (addQty < 1 || addQty > 1000000) { onError('Số lượng phải từ 1 đến 1.000.000'); return; }
@@ -1042,6 +1149,21 @@ function CampaignTab({
 
                                         {/* Actions */}
                                         <div className="flex items-center gap-2 shrink-0">
+                                            <button
+                                                onClick={() => {
+                                                    if (editingCampaignId === camp.id) { setEditingCampaignId(null); }
+                                                    else { startEditCampaign(camp); }
+                                                }}
+                                                className={cn(
+                                                    'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors',
+                                                    editingCampaignId === camp.id
+                                                        ? 'bg-violet-100 text-violet-700 border-violet-300'
+                                                        : 'bg-surface-50 text-surface-600 border-surface-200 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-200'
+                                                )}
+                                            >
+                                                <Pencil className="w-3.5 h-3.5" />
+                                                Sửa
+                                            </button>
                                             {(camp.purpose === 'print') && (
                                                 <button
                                                     onClick={() => handleExportExcel(camp)}
@@ -1154,6 +1276,161 @@ function CampaignTab({
                                             >
                                                 Hủy
                                             </button>
+                                        </div>
+                                    )}
+
+                                    {/* Inline Edit Campaign Form */}
+                                    {editingCampaignId === camp.id && (
+                                        <div className="mt-3 bg-violet-50/50 border border-violet-200 rounded-xl p-4 animate-in slide-in-from-top-1 duration-200 space-y-4">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div className="space-y-1.5">
+                                                    <label className="text-xs font-semibold text-violet-700">Tên chiến dịch</label>
+                                                    <input
+                                                        value={editForm.name}
+                                                        onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))}
+                                                        className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-xs font-semibold text-violet-700">Mục đích</label>
+                                                    <select
+                                                        value={editForm.purpose}
+                                                        onChange={e => setEditForm(p => ({ ...p, purpose: e.target.value as VoucherCampaignPurpose }))}
+                                                        className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400"
+                                                    >
+                                                        <option value="event">Sự kiện</option>
+                                                        <option value="print">In ấn</option>
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-xs font-semibold text-violet-700">Loại thưởng</label>
+                                                    <select
+                                                        value={editForm.rewardType}
+                                                        onChange={e => setEditForm(p => ({ ...p, rewardType: e.target.value as VoucherRewardType }))}
+                                                        className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400"
+                                                    >
+                                                        {Object.entries(REWARD_LABELS).map(([k, v]) => (
+                                                            <option key={k} value={k}>{v}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-xs font-semibold text-violet-700">Giá trị thưởng</label>
+                                                    <input
+                                                        type="number" min={0}
+                                                        value={editForm.rewardValue}
+                                                        onChange={e => setEditForm(p => ({ ...p, rewardValue: Number(e.target.value) }))}
+                                                        className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-xs font-semibold text-violet-700">Từ ngày</label>
+                                                    <input
+                                                        type="date"
+                                                        value={editForm.validFrom}
+                                                        onChange={e => setEditForm(p => ({ ...p, validFrom: e.target.value }))}
+                                                        className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-xs font-semibold text-violet-700">Đến ngày</label>
+                                                    <input
+                                                        type="date"
+                                                        value={editForm.validTo}
+                                                        onChange={e => setEditForm(p => ({ ...p, validTo: e.target.value }))}
+                                                        className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400"
+                                                    />
+                                                </div>
+                                                <div className="sm:col-span-2 space-y-1.5">
+                                                    <label className="text-xs font-semibold text-violet-700">Mô tả</label>
+                                                    <textarea
+                                                        value={editForm.description}
+                                                        onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))}
+                                                        rows={2}
+                                                        className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400 resize-none"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Image upload zone */}
+                                            <div className="space-y-1.5">
+                                                <label className="text-xs font-semibold text-violet-700">Hình ảnh chiến dịch</label>
+                                                <div className="flex items-center gap-4">
+                                                    <div
+                                                        onClick={() => !editImageCompressing && editFileInputRef.current?.click()}
+                                                        className={cn(
+                                                            'relative w-28 h-20 rounded-lg border-2 border-dashed overflow-hidden flex items-center justify-center cursor-pointer transition-colors shrink-0',
+                                                            editImageCompressing
+                                                                ? 'border-violet-300 bg-violet-50'
+                                                                : 'border-violet-200 bg-white hover:border-violet-400'
+                                                        )}
+                                                    >
+                                                        {editImagePreview ? (
+                                                            <img src={editImagePreview} alt="preview" className="w-full h-full object-contain" />
+                                                        ) : (
+                                                            <div className="flex flex-col items-center gap-1 text-surface-400">
+                                                                <ImagePlus className="w-5 h-5" />
+                                                                <p className="text-[9px] font-medium">Chọn ảnh</p>
+                                                            </div>
+                                                        )}
+                                                        {editImageCompressing && (
+                                                            <div className="absolute inset-0 bg-white/85 flex items-center justify-center">
+                                                                <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-col gap-1.5">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => editFileInputRef.current?.click()}
+                                                            disabled={editImageCompressing}
+                                                            className="text-xs font-medium text-violet-600 hover:text-violet-800 flex items-center gap-1 disabled:opacity-40"
+                                                        >
+                                                            <Upload className="w-3 h-3" />
+                                                            {editImagePreview ? 'Đổi ảnh' : 'Tải ảnh lên'}
+                                                        </button>
+                                                        {editImagePreview && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    if (editImagePreview.startsWith('blob:')) URL.revokeObjectURL(editImagePreview);
+                                                                    setEditPendingImage(null);
+                                                                    setEditImagePreview('');
+                                                                    if (editFileInputRef.current) editFileInputRef.current.value = '';
+                                                                }}
+                                                                className="text-xs text-danger-400 hover:text-danger-600 flex items-center gap-1"
+                                                            >
+                                                                <XIcon className="w-3 h-3" />
+                                                                Xóa ảnh
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <input
+                                                    ref={editFileInputRef}
+                                                    type="file"
+                                                    accept="image/jpeg,image/png,image/webp"
+                                                    className="hidden"
+                                                    onChange={handleEditImageSelect}
+                                                />
+                                            </div>
+
+                                            <div className="flex items-center gap-3 pt-1">
+                                                <button
+                                                    onClick={handleUpdateCampaign}
+                                                    disabled={actionLoading === camp.id || !editForm.name.trim()}
+                                                    className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:bg-surface-300 text-white text-xs font-semibold rounded-lg transition-colors"
+                                                >
+                                                    {actionLoading === camp.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                                                    Lưu thay đổi
+                                                </button>
+                                                <button
+                                                    onClick={() => setEditingCampaignId(null)}
+                                                    className="text-xs text-surface-400 hover:text-surface-600"
+                                                >
+                                                    Hủy
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
