@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, doc, getDoc, orderBy, where } from 'firebase/firestore';
-import { UserDoc, CounterDoc, ScheduleDoc, StoreDoc, SettingsDoc } from '@/types';
+import { UserDoc, CounterDoc, ScheduleDoc, StoreDoc, SettingsDoc, CustomRoleDoc } from '@/types';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 import { OfficeManagedStorePicker } from '@/components/shared/OfficeManagedStorePicker';
 import { getWeekStart, toLocalDateString, shortName } from '@/lib/utils';
@@ -34,6 +34,7 @@ export default function GlobalOverviewPage() {
     const [schedules, setSchedules] = useState<ScheduleDoc[]>([]);
     const [counters, setCounters] = useState<CounterDoc[]>([]);
     const [settings, setSettings] = useState<SettingsDoc | null>(null);
+    const [customRolesMap, setCustomRolesMap] = useState<Map<string, string>>(new Map());
 
     // Admin store selector
     const [stores, setStores] = useState<StoreDoc[]>([]);
@@ -142,6 +143,12 @@ export default function GlobalOverviewPage() {
 
                 const weekScheds = schedulesSnap.docs.map(d => d.data() as ScheduleDoc);
                 setSchedules(weekScheds);
+
+                // 5. Load custom roles for role name resolution
+                const rolesSnap = await getDocs(collection(db, 'custom_roles'));
+                const rolesMap = new Map<string, string>();
+                rolesSnap.docs.forEach(d => { const r = d.data() as CustomRoleDoc; rolesMap.set(d.id, r.name); });
+                setCustomRolesMap(rolesMap);
 
             } catch (err) {
                 console.error("Failed to load overview data:", err);
@@ -269,16 +276,16 @@ export default function GlobalOverviewPage() {
                     );
                     cellSchedule?.employeeIds?.forEach(uid => uniqueUids.add(uid));
                 });
-                let managerCount = 0;
-                let employeeCount = 0;
+                const roleCounts = new Map<string, number>();
                 uniqueUids.forEach(uid => {
                     const u = users.find(u => u.uid === uid);
-                    if (u?.role === 'manager' || u?.role === 'store_manager') managerCount++;
-                    else employeeCount++;
+                    const label = u?.customRoleId
+                        ? (customRolesMap.get(u.customRoleId) || 'NV')
+                        : u?.role === 'store_manager' ? 'CTH' : u?.role === 'manager' ? 'QL' : 'NV';
+                    roleCounts.set(label, (roleCounts.get(label) || 0) + 1);
                 });
-                const parts = [];
-                if (employeeCount > 0) parts.push(`${employeeCount} NV`);
-                if (managerCount > 0) parts.push(`${managerCount} QL`);
+                const parts: string[] = [];
+                roleCounts.forEach((count, label) => parts.push(`${count} ${label}`));
                 summaryRow.push(parts.length > 0 ? parts.join(', ') : '—');
             });
         });
@@ -405,6 +412,9 @@ export default function GlobalOverviewPage() {
                     },
                     columnStyles: {
                         0: { halign: 'left', fontStyle: 'bold', cellWidth: 28 },
+                        ...Object.fromEntries(
+                            Array.from({ length: shifts.length * 7 }, (_, i) => [i + 1, { cellWidth: 32 }])
+                        ),
                     },
                     didParseCell: (data: any) => {
                         if (data.section === 'body') {
@@ -455,6 +465,9 @@ export default function GlobalOverviewPage() {
                     },
                     columnStyles: {
                         0: { halign: 'left', fontStyle: 'bold', cellWidth: 35 },
+                        ...Object.fromEntries(
+                            Array.from({ length: 7 }, (_, i) => [i + 1, { cellWidth: 32 }])
+                        ),
                     },
                     didParseCell: (data: any) => {
                         if (data.section === 'body' && data.column.index === 0) {
@@ -505,7 +518,7 @@ export default function GlobalOverviewPage() {
         try {
             // Create a clean, hidden HTML table with inline styles (no Tailwind)
             const wrapper = document.createElement('div');
-            wrapper.style.cssText = 'position:fixed;top:-99999px;left:0;z-index:-1;background:#fff;padding:24px;width:1600px;';
+            wrapper.style.cssText = 'position:fixed;top:-99999px;left:0;z-index:-1;background:#fff;padding:24px;width:2000px;';
 
             // Title
             const titleEl = document.createElement('h2');
@@ -546,7 +559,7 @@ export default function GlobalOverviewPage() {
                 headerRow2Shifts.forEach(shiftLabel => {
                     const th = document.createElement('th');
                     th.textContent = shiftLabel;
-                    th.style.cssText = 'border:1px solid #c7d2fe;padding:6px 10px;background:#818cf8;color:#fff;font-weight:600;text-align:center;white-space:nowrap;font-size:11px;';
+                    th.style.cssText = 'border:1px solid #c7d2fe;padding:6px 10px;background:#818cf8;color:#fff;font-weight:600;text-align:center;white-space:nowrap;font-size:11px;width:120px;min-width:120px;';
                     tr2.appendChild(th);
                 });
                 thead.appendChild(tr2);
@@ -559,7 +572,7 @@ export default function GlobalOverviewPage() {
                     tr.style.cssText = 'background:#fff;';
                     row.forEach((cell, colIdx) => {
                         const td = document.createElement('td');
-                        td.style.cssText = `border:1px solid #e2e8f0;padding:6px 10px;text-align:center;vertical-align:middle;line-height:1.5;${colIdx === 0 ? 'text-align:left;font-weight:600;background:#f8fafc;white-space:nowrap;' : ''}`;
+                        td.style.cssText = `border:1px solid #e2e8f0;padding:6px 10px;text-align:center;vertical-align:middle;line-height:1.5;${colIdx === 0 ? 'text-align:left;font-weight:600;background:#f8fafc;white-space:nowrap;' : 'width:120px;min-width:120px;'}`;
                         if (colIdx === 0) {
                             td.textContent = cell;
                         } else {
@@ -574,7 +587,7 @@ export default function GlobalOverviewPage() {
                 const trSummary = document.createElement('tr');
                 summaryRow.forEach((cell, colIdx) => {
                     const td = document.createElement('td');
-                    td.style.cssText = `border:1px solid #c7d2fe;padding:6px 10px;text-align:center;vertical-align:middle;white-space:pre-line;line-height:1.5;background:#e0e7ff;font-weight:bold;color:#4338ca;${colIdx === 0 ? 'text-align:left;white-space:nowrap;' : ''}`;
+                    td.style.cssText = `border:1px solid #c7d2fe;padding:6px 10px;text-align:center;vertical-align:middle;white-space:pre-line;line-height:1.5;background:#e0e7ff;font-weight:bold;color:#4338ca;${colIdx === 0 ? 'text-align:left;white-space:nowrap;' : 'width:120px;min-width:120px;'}`;
                     td.textContent = cell;
                     trSummary.appendChild(td);
                 });
@@ -602,7 +615,7 @@ export default function GlobalOverviewPage() {
                     tr.style.cssText = rowIdx % 2 === 0 ? 'background:#fff;' : 'background:#f5f7ff;';
                     row.forEach((cell, colIdx) => {
                         const td = document.createElement('td');
-                        td.style.cssText = `border:1px solid #e2e8f0;padding:2px 10px;text-align:center;vertical-align:middle;white-space:pre-line;line-height:1.5;${colIdx === 0 ? 'text-align:left;font-weight:600;background:#f8fafc;white-space:nowrap;' : ''}`;
+                        td.style.cssText = `border:1px solid #e2e8f0;padding:2px 10px;text-align:center;vertical-align:middle;white-space:pre-line;line-height:1.5;${colIdx === 0 ? 'text-align:left;font-weight:600;background:#f8fafc;white-space:nowrap;' : 'width:120px;min-width:120px;'}`;
                         if (colIdx === 0) {
                             td.innerHTML = cellToHtml(cell);
                         } else {
@@ -1047,15 +1060,19 @@ export default function GlobalOverviewPage() {
                                                                 cellSchedule?.employeeIds?.forEach(uid => uniqueUids.add(uid));
                                                             });
 
-                                                            // Split by role
-                                                            let managerCount = 0;
-                                                            let employeeCount = 0;
+                                                            // Split by custom role
+                                                            const roleCounts = new Map<string, number>();
                                                             uniqueUids.forEach(uid => {
                                                                 const u = users.find(u => u.uid === uid);
-                                                                if (u?.role === 'manager' || u?.role === 'store_manager') managerCount++;
-                                                                else employeeCount++;
+                                                                const label = u?.customRoleId
+                                                                    ? (customRolesMap.get(u.customRoleId) || 'NV')
+                                                                    : u?.role === 'store_manager' ? 'CTH' : u?.role === 'manager' ? 'QL' : 'NV';
+                                                                roleCounts.set(label, (roleCounts.get(label) || 0) + 1);
                                                             });
                                                             const total = uniqueUids.size;
+
+                                                            // Color map for known roles
+                                                            const roleColorMap: Record<string, string> = { 'CTH': 'bg-danger-500', 'QL': 'bg-warning-500' };
 
                                                             return (
                                                                 <td key={dayIdx} className={cn(
@@ -1063,17 +1080,15 @@ export default function GlobalOverviewPage() {
                                                                     isToday ? 'bg-accent-100/60' : ''
                                                                 )}>
                                                                     {total > 0 ? (
-                                                                        <div className="flex flex-col items-center gap-1.5">
-                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-accent-600 text-white text-xs font-bold rounded-full shadow-sm" title="Tổng nhân viên">
-                                                                                <Users className="w-3 h-3" />
-                                                                                {employeeCount} NV
-                                                                            </span>
-                                                                            {managerCount > 0 && (
-                                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-warning-500 text-white text-xs font-bold rounded-full shadow-sm" title="Quản lý">
-                                                                                    <Users className="w-3 h-3" />
-                                                                                    {managerCount} QL
+                                                                        <div className="flex flex-col items-center gap-1">
+                                                                            {Array.from(roleCounts.entries()).map(([label, count]) => (
+                                                                                <span key={label} className={cn(
+                                                                                    'inline-flex items-center gap-1 px-2 py-0.5 text-white text-[10px] font-bold rounded-full',
+                                                                                    roleColorMap[label] || 'bg-accent-600'
+                                                                                )} title={label}>
+                                                                                    {count} {label}
                                                                                 </span>
-                                                                            )}
+                                                                            ))}
                                                                         </div>
                                                                     ) : (
                                                                         <span className="text-surface-400 text-xs font-medium">—</span>
