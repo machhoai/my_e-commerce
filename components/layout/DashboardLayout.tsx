@@ -181,7 +181,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             label: 'Điểm Giới Thiệu',
             href: '/employee/referral-history',
             icon: Star,
-            show: isStoreContext,
+            show: true,
             group: 'Cá Nhân',
         },
 
@@ -218,13 +218,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 isOfficeContext ||
                 hasPermission('page.hr.users'),
             matchPrefix: '/manager/hr',
-            group: 'Nhân Sự',
-        },
-        {
-            label: 'Lịch Sử Tích Điểm',
-            href: '/employee/referral-history',
-            icon: Star,
-            show: isAdmin || isSuperAdmin || hasPermission('page.referral.history'),
             group: 'Nhân Sự',
         },
 

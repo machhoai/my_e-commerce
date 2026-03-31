@@ -7,9 +7,10 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { ScheduleDoc, StoreDoc, SettingsDoc, KpiTemplateDoc } from '@/types';
 import { getWeekStart, getWeekDays, toLocalDateString, cn } from '@/lib/utils';
+import { getReferralPoints } from '@/actions/referral';
 import {
     ChevronLeft, ChevronRight, Clock, MapPin, TrendingUp,
-    ChevronDown, ClipboardCheck, Loader2,
+    ChevronDown, ClipboardCheck, Loader2, Star,
 } from 'lucide-react';
 import MobilePageShell from '@/components/mobile/MobilePageShell';
 import SelfScoringModal from '@/components/kpi/SelfScoringModal';
@@ -38,6 +39,7 @@ export default function MobileEmployeeDashboardPage() {
     const [selfScoreModal, setSelfScoreModal] = useState<{
         isOpen: boolean; template: KpiTemplateDoc | null; shiftId: string; date: string; counterId: string;
     }>({ isOpen: false, template: null, shiftId: '', date: '', counterId: '' });
+    const [referralPoints, setReferralPoints] = useState(0);
 
     const storeId = contextStoreId || userDoc?.storeId || '';
 
@@ -100,6 +102,12 @@ export default function MobileEmployeeDashboardPage() {
         return () => unsub();
     }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Fetch referral points
+    useEffect(() => {
+        if (!user) return;
+        getReferralPoints(user.uid).then(p => setReferralPoints(p)).catch(() => {});
+    }, [user]);
+
     // Auto-expand today
     useEffect(() => {
         const todayStr = toLocalDateString(new Date());
@@ -160,6 +168,23 @@ export default function MobileEmployeeDashboardPage() {
                     </div>
                     <p className="text-[10px] text-primary-700/70 mt-1.5">Chỉ tính ca đã hoàn thành · {isFT ? 'Toàn thời gian' : 'Bán thời gian'}</p>
                 </div>
+            )}
+
+            {/* Referral Points Card */}
+            {!loading && (
+                <button
+                    onClick={() => router.push('/employee/referral-history')}
+                    className="bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100 border border-amber-200 rounded-2xl p-3 mb-3 flex items-center gap-3 w-full text-left active:scale-[0.98] transition-transform"
+                >
+                    <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center shadow-md shadow-amber-200/50 shrink-0">
+                        <Star className="w-5 h-5 text-white" />
+                    </span>
+                    <div className="flex-1">
+                        <p className="text-[10px] text-amber-600 font-semibold uppercase tracking-wider">Điểm giới thiệu</p>
+                        <p className="text-xl font-black text-amber-800 leading-tight">{referralPoints.toLocaleString('vi-VN')}</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-amber-400" />
+                </button>
             )}
 
             {/* Week nav */}

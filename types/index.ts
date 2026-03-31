@@ -654,7 +654,7 @@ export interface ScanResult {
 // ============================================================
 
 export type ReferralPackage = 'Silver' | 'Gold' | 'Diamond';
-export type PendingReferralStatus = 'waiting' | 'matched' | 'expired';
+export type PendingReferralStatus = 'waiting' | 'matched' | 'expired' | 'no_order' | 'revoked';
 
 export interface PendingReferralDoc {
     id: string;

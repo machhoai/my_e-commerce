@@ -1,18 +1,20 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     getPointTransactions, getReferralPoints, getStorePointTransactions,
-    adjustPoints, revokeTransaction,
+    adjustPoints, revokeTransaction, getPendingReferrals, getStorePendingReferrals,
+    getAllPendingReferrals, getAllPointTransactions,
 } from '@/actions/referral';
-import type { PointTransactionDoc } from '@/types';
+import type { PointTransactionDoc, PendingReferralDoc } from '@/types';
 import {
     Award, Loader2, Clock, Receipt, Copy, Check, Undo2, PlusCircle,
-    AlertTriangle, X, CheckCircle2, Calendar, User as UserIcon, ChevronDown, Star,
+    AlertTriangle, X, CheckCircle2, Calendar, User as UserIcon, ChevronDown, Star, Hourglass, CheckCircle as CheckCircleIcon, XCircle, RefreshCw, Ban, Download, QrCode,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
+import { QRCodeCanvas } from 'qrcode.react';
 
 // ── Helpers ───────────────────────────────────────────────────
 type TxWithName = PointTransactionDoc & { employeeName?: string };
@@ -43,20 +45,30 @@ function txTypeBadge(tx: PointTransactionDoc) {
     return 'bg-emerald-50 text-emerald-600 border-emerald-100';
 }
 
+function pendingStatusConfig(status: PendingReferralDoc['status']) {
+    if (status === 'waiting') return { label: 'Đang chờ', color: 'bg-amber-50 text-amber-700 border-amber-200', icon: Hourglass };
+    if (status === 'matched') return { label: 'Đã khớp', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircleIcon };
+    if (status === 'no_order') return { label: 'Không có đơn', color: 'bg-orange-50 text-orange-600 border-orange-200', icon: XCircle };
+    if (status === 'revoked') return { label: 'Đã thu hồi', color: 'bg-red-50 text-red-600 border-red-200', icon: Ban };
+    return { label: 'Hết hạn', color: 'bg-gray-100 text-gray-500 border-gray-200', icon: XCircle };
+}
+
 export default function DesktopReferralHistoryPage() {
     const { user, userDoc, hasPermission, loading: authLoading } = useAuth();
 
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
-    const isStoreEmployee = userDoc?.workplaceType === 'STORE';
     const canViewStore = isAdmin || hasPermission('page.referral.history');
     const storeId = userDoc?.storeId || '';
 
-    const [tab, setTab] = useState<'personal' | 'store'>(canViewStore ? 'store' : 'personal');
+    const [tab, setTab] = useState<'personal' | 'store'>('personal');
     const [txns, setTxns] = useState<TxWithName[]>([]);
+    const [pendingRefs, setPendingRefs] = useState<PendingReferralDoc[]>([]);
     const [totalPoints, setTotalPoints] = useState(0);
     const [loading, setLoading] = useState(true);
     const [copied, setCopied] = useState(false);
     const refCode = user?.uid ? `REF-${user.uid}` : '';
+    const [showQR, setShowQR] = useState(false);
+    const qrRef = useRef<HTMLCanvasElement>(null);
 
     // Admin adj
     const [showAdjust, setShowAdjust] = useState(false);
@@ -72,18 +84,26 @@ export default function DesktopReferralHistoryPage() {
     // Feedback
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+    // Sync
+    const [syncing, setSyncing] = useState(false);
+
     const loadData = useCallback(async () => {
         if (!user?.uid) return;
         setLoading(true);
         try {
             if (tab === 'personal') {
-                const [t, pts] = await Promise.all([getPointTransactions(user.uid, 50), getReferralPoints(user.uid)]);
+                const [t, pts, pending] = await Promise.all([getPointTransactions(user.uid, 50), getReferralPoints(user.uid), getPendingReferrals(user.uid, 50)]);
                 setTxns(t);
                 setTotalPoints(pts);
-            } else if (storeId) {
-                const storeTxns = await getStorePointTransactions(storeId, 100);
+                setPendingRefs(pending);
+            } else {
+                // Store-wide or global (admin without storeId)
+                const fetchTxns = storeId ? getStorePointTransactions(storeId, 100) : getAllPointTransactions(100);
+                const fetchPending = storeId ? getStorePendingReferrals(storeId, 100) : getAllPendingReferrals(100);
+                const [storeTxns, storePending] = await Promise.all([fetchTxns, fetchPending]);
                 setTxns(storeTxns);
                 setTotalPoints(0);
+                setPendingRefs(storePending);
             }
         } catch (e) { console.error(e); }
         finally { setLoading(false); }
@@ -126,10 +146,64 @@ export default function DesktopReferralHistoryPage() {
     };
     const copyCode = async () => { try { await navigator.clipboard.writeText(refCode); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* */ } };
 
-    if (authLoading) return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-amber-500" /></div>;
-    if (!isStoreEmployee && !canViewStore) return <div className="flex flex-col items-center justify-center py-20 px-6 gap-3"><AlertTriangle className="w-10 h-10 text-gray-300" /><p className="text-sm text-gray-500 font-medium">Bạn không có quyền truy cập trang này.</p></div>;
+    const downloadQR = () => {
+        const qrCanvas = qrRef.current;
+        if (!qrCanvas) return;
+        const size = 400;
+        const padding = 40;
+        const textHeight = 60;
+        const canvas = document.createElement('canvas');
+        canvas.width = size + padding * 2;
+        canvas.height = size + padding * 2 + textHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(qrCanvas, padding, padding, size, size);
+        ctx.fillStyle = '#1a1a1a';
+        ctx.font = 'bold 22px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(userDoc?.name || 'Nhân viên', canvas.width / 2, size + padding + 30);
+        ctx.fillStyle = '#888888';
+        ctx.font = '14px monospace';
+        ctx.fillText(refCode, canvas.width / 2, size + padding + 52);
+        const link = document.createElement('a');
+        link.download = `QR_${userDoc?.name || 'referral'}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    };
 
-    return (
+    // Joy World sync
+    const handleSync = async () => {
+        setSyncing(true);
+        try {
+            const res = await fetch('/api/joyworld/referral-sync', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                const r = data.results || {};
+                const parts: string[] = [];
+                if (r.matched > 0) parts.push(`✅ ${r.matched} khớp mới`);
+                if (r.rematched > 0) parts.push(`🔄 ${r.rematched} khớp lại`);
+                if (r.expired > 0) parts.push(`⏰ ${r.expired} hết hạn`);
+                if (r.revoked > 0) parts.push(`❌ ${r.revoked} thu hồi`);
+                const msg = parts.length > 0
+                    ? `Đồng bộ xong (${data.totalOrders} đơn): ${parts.join(', ')}`
+                    : `Đã kiểm tra ${data.totalOrders} đơn hàng. Không có thay đổi.`;
+                setFeedback({ type: (r.matched > 0 || r.rematched > 0) ? 'success' : 'error', text: msg });
+                loadData();
+            } else {
+                setFeedback({ type: 'error', text: data.error || 'Lỗi đồng bộ.' });
+            }
+        } catch {
+            setFeedback({ type: 'error', text: 'Không thể kết nối đến Joy World.' });
+        } finally {
+            setSyncing(false);
+        }
+    };
+
+    if (authLoading) return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-amber-500" /></div>;
+
+    return (<>
         <div className="space-y-6 w-full mx-auto">
             <DashboardHeader
                 showSelect={false}
@@ -154,9 +228,14 @@ export default function DesktopReferralHistoryPage() {
                                 </div>
                             )}
                             {isAdmin && tab === 'store' && (
-                                <button onClick={() => setShowAdjust(!showAdjust)} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-accent-500 text-white text-xs font-bold hover:bg-accent-600 transition-colors shadow-sm">
-                                    <PlusCircle className="w-3.5 h-3.5" /> Điều chỉnh điểm
-                                </button>
+                                <>
+                                    <button onClick={handleSync} disabled={syncing} className={cn('flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-colors shadow-sm', syncing ? 'bg-blue-400 text-white' : 'bg-blue-500 text-white hover:bg-blue-600')}>
+                                        <RefreshCw className={cn('w-3.5 h-3.5', syncing && 'animate-spin')} /> {syncing ? 'Đang đồng bộ...' : 'Đồng bộ Joy World'}
+                                    </button>
+                                    <button onClick={() => setShowAdjust(!showAdjust)} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-accent-500 text-white text-xs font-bold hover:bg-accent-600 transition-colors shadow-sm">
+                                        <PlusCircle className="w-3.5 h-3.5" /> Điều chỉnh điểm
+                                    </button>
+                                </>
                             )}
                         </div>
                     </div>
@@ -183,13 +262,18 @@ export default function DesktopReferralHistoryPage() {
                         <p className="text-3xl font-black text-amber-800 leading-tight">{totalPoints.toLocaleString('vi-VN')}</p>
                     </div>
                     {refCode && (
-                        <button onClick={copyCode} className="ml-auto flex items-center gap-3 bg-white/70 rounded-xl px-4 py-3 border border-amber-200/60 hover:bg-white transition-colors">
-                            <div>
-                                <p className="text-[9px] text-amber-600/70 font-bold uppercase tracking-wider text-left">Mã giới thiệu</p>
-                                <p className="text-sm font-mono font-black text-amber-800">{refCode}</p>
-                            </div>
-                            {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-amber-500" />}
-                        </button>
+                        <div className="ml-auto flex items-center gap-2">
+                            <button onClick={copyCode} className="flex items-center gap-3 bg-white/70 rounded-xl px-4 py-3 border border-amber-200/60 hover:bg-white transition-colors">
+                                <div>
+                                    <p className="text-[9px] text-amber-600/70 font-bold uppercase tracking-wider text-left">Mã giới thiệu</p>
+                                    <p className="text-sm font-mono font-black text-amber-800">{refCode}</p>
+                                </div>
+                                {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-amber-500" />}
+                            </button>
+                            <button onClick={() => setShowQR(true)} className="flex items-center gap-2 bg-white/80 rounded-xl px-4 py-3 border border-amber-200/60 hover:bg-white transition-colors text-sm font-bold text-amber-700">
+                                <QrCode className="w-5 h-5" /> QR
+                            </button>
+                        </div>
                     )}
                 </div>
             )}
@@ -245,10 +329,70 @@ export default function DesktopReferralHistoryPage() {
                 </div>
             )}
 
+            {/* Pending referrals section */}
+            {!loading && pendingRefs.length > 0 && (
+                <div>
+                    <div className="flex items-center gap-2 mb-3">
+                        <Hourglass className="w-4 h-4 text-amber-500" />
+                        <p className="text-xs font-bold text-amber-700">Phiên giới thiệu ({pendingRefs.length})</p>
+                        <div className="flex-1 border-t border-amber-100" />
+                    </div>
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-gray-100 bg-gray-50/50">
+                                    <th className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase">Giờ</th>
+                                    {tab === 'store' && <th className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase">Nhân viên</th>}
+                                    <th className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase">Trạng thái</th>
+                                    <th className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase">Khách hàng</th>
+                                    <th className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase">Gói</th>
+                                    <th className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase">Chi tiết</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {pendingRefs.map(pr => {
+                                    const cfg = pendingStatusConfig(pr.status);
+                                    const StatusIcon = cfg.icon;
+                                    return (
+                                        <tr key={pr.id} className={cn('border-b border-gray-50 last:border-b-0 transition-colors hover:bg-gray-50/50', pr.status === 'expired' && 'opacity-50')}>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-1.5">
+                                                    <Clock className="w-3 h-3 text-gray-400" />
+                                                    <span className="text-xs font-medium text-gray-600">{formatTime(pr.createdAt)}</span>
+                                                </div>
+                                            </td>
+                                            {tab === 'store' && <td className="px-4 py-3 text-xs font-bold text-gray-700">{pr.saleEmployeeName}</td>}
+                                            <td className="px-4 py-3">
+                                                <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full border inline-flex items-center gap-1', cfg.color)}>
+                                                    <StatusIcon className="w-2.5 h-2.5" />
+                                                    {cfg.label}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-xs font-semibold text-gray-700">{pr.customerPhone}</td>
+                                            <td className="px-4 py-3">
+                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-purple-50 text-purple-600 border-purple-100">
+                                                    {pr.expectedPackage}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="text-xs text-gray-600 space-y-0.5">
+                                                    {pr.matchedOrderCode && <p>Đơn: <span className="font-semibold">{pr.matchedOrderCode}</span></p>}
+                                                    {pr.pointsAwarded != null && pr.pointsAwarded > 0 && <p className="text-emerald-600 font-bold">+{pr.pointsAwarded} điểm</p>}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
             {/* Grouped table */}
             {loading ? (
                 <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 text-amber-500 animate-spin" /></div>
-            ) : grouped.length === 0 ? (
+            ) : grouped.length === 0 && pendingRefs.length === 0 ? (
                 <div className="flex flex-col items-center py-16 gap-3">
                     <Receipt className="w-12 h-12 text-gray-200" />
                     <p className="text-sm text-gray-400 font-medium">Chưa có lịch sử tích điểm</p>
@@ -327,5 +471,27 @@ export default function DesktopReferralHistoryPage() {
                 </div>
             )}
         </div>
-    );
+
+            {/* QR Code Modal */}
+            {showQR && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setShowQR(false)}>
+                    <div className="bg-white rounded-3xl p-8 w-full max-w-sm text-center shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <p className="text-xl font-bold text-gray-800 mb-1">{userDoc?.name || 'Nhân viên'}</p>
+                        <p className="text-sm text-gray-400 mb-5">Mã giới thiệu</p>
+                        <div className="flex justify-center mb-4">
+                            <QRCodeCanvas ref={qrRef} value={refCode} size={240} level="H" marginSize={2} />
+                        </div>
+                        <p className="text-base font-mono font-bold text-gray-700 mb-5">{refCode}</p>
+                        <div className="flex gap-3">
+                            <button onClick={downloadQR} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 transition-colors shadow-md">
+                                <Download className="w-4 h-4" /> Tải về
+                            </button>
+                            <button onClick={() => setShowQR(false)} className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-600 text-sm font-bold hover:bg-gray-200 transition-colors">
+                                Đóng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+    </>);
 }
