@@ -107,6 +107,13 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         type: 'page',
     },
     {
+        key: 'manage_referrals',
+        label: 'Quản Lý Giới Thiệu',
+        description: 'Đồng bộ, điều chỉnh điểm giới thiệu và quản lý referral của cửa hàng',
+        group: 'Nhân sự & Lịch',
+        type: 'action',
+    },
+    {
         key: 'page.hr.kpi_templates',
         label: 'Quản Lý Mẫu KPI',
         description: 'Tạo, sửa, xóa mẫu chấm điểm KPI',

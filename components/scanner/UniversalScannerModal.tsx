@@ -553,14 +553,29 @@ export default function UniversalScannerModal() {
         if (!trimmed) return;
         await stopCamera();
 
-        // 1. REF- code → find employee from preloaded data (permission-gated)
-        if (canManageReferrals && trimmed.startsWith('REF-')) {
-            const uid = trimmed.slice(4);
-            const emp = preloadedEmployees.find(e => e.uid === uid);
-            if (emp) {
-                setView({ kind: 'referral', employee: emp });
+        // 1. REF- code → find employee (permission-gated)
+        if (trimmed.startsWith('REF-')) {
+            if (!canManageReferrals) {
+                setView({ kind: 'not-found', query: 'Bạn không có quyền quét mã nhân viên' });
                 return;
             }
+            const uid = trimmed.slice(4);
+            // Try preloaded cache first
+            let emp = preloadedEmployees.find(e => e.uid === uid);
+            // Fallback: server lookup if not in cache (e.g. isActive field missing)
+            if (!emp) {
+                try {
+                    const { lookupEmployeeByUid } = await import('@/actions/scanner');
+                    const serverEmp = await lookupEmployeeByUid(uid);
+                    if (serverEmp) emp = serverEmp;
+                } catch { /* ignore */ }
+            }
+            if (emp) {
+                setView({ kind: 'referral', employee: emp });
+            } else {
+                setView({ kind: 'not-found', query: trimmed });
+            }
+            return;
         }
 
         // 2. Product barcode / companyCode → local lookup (instant, no permission needed)
