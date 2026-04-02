@@ -135,3 +135,17 @@ export async function voucherSearchAction(input: string): Promise<ScanResult> {
     return { type: 'NOT_FOUND', data: null };
 }
 
+// ── Fallback: look up a single employee by UID ──────────────
+export async function lookupEmployeeByUid(uid: string): Promise<PreloadedEmployee | null> {
+    const db = getAdminDb();
+    const snap = await db.collection('users').doc(uid).get();
+    if (!snap.exists) return null;
+    const data = snap.data()!;
+    return {
+        uid: snap.id,
+        name: data.name || '',
+        phone: data.phone || '',
+        storeId: data.storeId || '',
+        referralPoints: data.referralPoints ?? 0,
+    };
+}

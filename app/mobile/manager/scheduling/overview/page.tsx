@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, doc, getDoc, where } from 'firebase/firestore';
-import { UserDoc, CounterDoc, ScheduleDoc, StoreDoc, SettingsDoc } from '@/types';
+import { UserDoc, CounterDoc, ScheduleDoc, StoreDoc, SettingsDoc, CustomRoleDoc } from '@/types';
 import { getWeekStart, toLocalDateString, shortName } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import MobilePageShell from '@/components/mobile/MobilePageShell';
@@ -39,6 +39,7 @@ export default function MobileSchedulingOverviewPage() {
     const [schedules, setSchedules] = useState<ScheduleDoc[]>([]);
     const [counters, setCounters] = useState<CounterDoc[]>([]);
     const [settings, setSettings] = useState<SettingsDoc | null>(null);
+    const [customRolesMap, setCustomRolesMap] = useState<Map<string, string>>(new Map());
 
     // Admin store selector
     const [stores, setStores] = useState<StoreDoc[]>([]);
@@ -126,6 +127,12 @@ export default function MobileSchedulingOverviewPage() {
                     query(collection(db, 'schedules'), where('date', '>=', toLocalDateString(days[0])), where('date', '<=', toLocalDateString(days[6])))
                 );
                 setSchedules(schedulesSnap.docs.map(d => d.data() as ScheduleDoc));
+
+                // Load custom roles for role name resolution
+                const rolesSnap = await getDocs(collection(db, 'custom_roles'));
+                const rolesMap = new Map<string, string>();
+                rolesSnap.docs.forEach(d => { const r = d.data() as CustomRoleDoc; rolesMap.set(d.id, r.name); });
+                setCustomRolesMap(rolesMap);
             } catch (err) { console.error('Failed to load overview data:', err); }
             finally { setLoading(false); }
         }
@@ -153,18 +160,24 @@ export default function MobileSchedulingOverviewPage() {
         return null;
     };
 
-    // Day stats
+    // Day stats with role breakdown (by customRoleId)
     const dayStats = useMemo(() => {
-        if (!selectedDateStr) return { total: 0, shifts: [] as { name: string; count: number }[] };
-        const shiftStats = shifts.map(shift => {
+        type ShiftStat = { name: string; count: number; roles: Map<string, number> };
+        if (!selectedDateStr) return { total: 0, roles: new Map<string, number>(), shifts: [] as ShiftStat[] };
+        const getRoleLabel = (u: UserDoc) => u.customRoleId ? (customRolesMap.get(u.customRoleId) || 'NV') : u.role === 'store_manager' ? 'CTH' : u.role === 'manager' ? 'QL' : 'NV';
+        const shiftStats: ShiftStat[] = shifts.map(shift => {
             const uids = new Set<string>();
             counters.forEach(c => { const s = schedules.find(s => s.date === selectedDateStr && s.shiftId === shift && s.counterId === c.id); s?.employeeIds?.forEach(uid => uids.add(uid)); });
-            return { name: shift, count: uids.size };
+            const roles = new Map<string, number>();
+            uids.forEach(uid => { const u = users.find(u => u.uid === uid); if (u) { const label = getRoleLabel(u); roles.set(label, (roles.get(label) || 0) + 1); } });
+            return { name: shift, count: uids.size, roles };
         });
         const totalUids = new Set<string>();
         shiftStats.forEach(ss => { counters.forEach(c => { const s = schedules.find(s => s.date === selectedDateStr && s.shiftId === ss.name && s.counterId === c.id); s?.employeeIds?.forEach(uid => totalUids.add(uid)); }); });
-        return { total: totalUids.size, shifts: shiftStats };
-    }, [selectedDateStr, schedules, counters, shifts]);
+        const totalRoles = new Map<string, number>();
+        totalUids.forEach(uid => { const u = users.find(u => u.uid === uid); if (u) { const label = getRoleLabel(u); totalRoles.set(label, (totalRoles.get(label) || 0) + 1); } });
+        return { total: totalUids.size, roles: totalRoles, shifts: shiftStats };
+    }, [selectedDateStr, schedules, counters, shifts, users, customRolesMap]);
 
     const weekId = weekDays.length > 0 ? `${formatDateDisplay(weekDays[0])}-${formatDateDisplay(weekDays[6])}` : 'unknown';
 
@@ -197,8 +210,10 @@ export default function MobileSchedulingOverviewPage() {
             shifts.forEach(shiftName => {
                 const uids = new Set<string>();
                 counters.forEach(c => { const s = schedules.find(s => s.date === dateStr && s.shiftId === shiftName && s.counterId === c.id); s?.employeeIds?.forEach(uid => uids.add(uid)); });
-                let mc = 0, ec = 0; uids.forEach(uid => { const u = users.find(u => u.uid === uid); if (u?.role === 'manager' || u?.role === 'store_manager') mc++; else ec++; });
-                const parts = []; if (ec > 0) parts.push(`${ec} NV`); if (mc > 0) parts.push(`${mc} QL`);
+                const roleCounts = new Map<string, number>();
+                uids.forEach(uid => { const u = users.find(u => u.uid === uid); const label = u?.customRoleId ? (customRolesMap.get(u.customRoleId) || 'NV') : u?.role === 'store_manager' ? 'CTH' : u?.role === 'manager' ? 'QL' : 'NV'; roleCounts.set(label, (roleCounts.get(label) || 0) + 1); });
+                const parts: string[] = [];
+                roleCounts.forEach((count, label) => parts.push(`${count} ${label}`));
                 summaryRow.push(parts.length > 0 ? parts.join(', ') : '—');
             });
         });
@@ -246,7 +261,7 @@ export default function MobileSchedulingOverviewPage() {
                     head: [h1, h2], body: [...bodyRows.map(r => r.map(c => stripTags(c))), summaryRow.map(c => stripTags(c))], startY: 22, theme: 'grid',
                     styles: { font: 'Roboto', fontSize: 6, halign: 'center', valign: 'middle', cellPadding: 1.5, lineWidth: 0.2, lineColor: [200, 200, 200] },
                     headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold', fontSize: 7 },
-                    alternateRowStyles: { fillColor: [245, 247, 255] }, columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 28 } },
+                    alternateRowStyles: { fillColor: [245, 247, 255] }, columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 28 }, ...Object.fromEntries(Array.from({ length: shifts.length * 7 }, (_, i) => [i + 1, { cellWidth: 32 }])) },
                     didParseCell: (data: any) => { if (data.section === 'body') { if (data.row.index === bodyRows.length) { data.cell.styles.fillColor = [224, 231, 255]; data.cell.styles.fontStyle = 'bold'; data.cell.styles.textColor = [67, 56, 202]; } else if (data.column.index > 0) { const raw = bodyRows[data.row.index]?.[data.column.index]; if (raw) { const rgb = getTagRgb(raw); if (rgb) data.cell.styles.textColor = rgb; } } } },
                 });
             } else {
@@ -255,7 +270,7 @@ export default function MobileSchedulingOverviewPage() {
                     head: [header], body: body.map(r => r.map(c => stripTags(c))), startY: 22, theme: 'grid',
                     styles: { font: 'Roboto', fontSize: 7, halign: 'center', valign: 'middle', cellPadding: 2, lineWidth: 0.2, lineColor: [200, 200, 200] },
                     headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold', fontSize: 8 },
-                    alternateRowStyles: { fillColor: [245, 247, 255] }, columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 35 } },
+                    alternateRowStyles: { fillColor: [245, 247, 255] }, columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 35 }, ...Object.fromEntries(Array.from({ length: 7 }, (_, i) => [i + 1, { cellWidth: 32 }])) },
                     didParseCell: (data: any) => { if (data.section === 'body' && data.column.index === 0) { const raw = body[data.row.index]?.[0]; if (raw) { const rgb = getTagRgb(raw); if (rgb) data.cell.styles.textColor = rgb; } } },
                 });
             }
@@ -268,7 +283,7 @@ export default function MobileSchedulingOverviewPage() {
         setIsExporting(true); setExportSheetOpen(false);
         try {
             const wrapper = document.createElement('div');
-            wrapper.style.cssText = 'position:fixed;top:-99999px;left:0;z-index:-1;background:#fff;padding:24px;width:1400px;';
+            wrapper.style.cssText = 'position:fixed;top:-99999px;left:0;z-index:-1;background:#fff;padding:24px;width:2000px;';
             const titleEl = document.createElement('h2');
             titleEl.textContent = `Lịch Tổng Quan Tuần: ${weekId}`;
             titleEl.style.cssText = 'font-family:Arial,sans-serif;font-size:18px;font-weight:bold;margin:0 0 12px 0;color:#1e293b;';
@@ -286,11 +301,11 @@ export default function MobileSchedulingOverviewPage() {
                 headerRow1Days.forEach(dl => { const th = document.createElement('th'); th.textContent = dl; th.colSpan = sc; th.style.cssText = thStyle; tr1.appendChild(th); });
                 thead.appendChild(tr1);
                 const tr2 = document.createElement('tr');
-                headerRow2Shifts.forEach(sl => { const th = document.createElement('th'); th.textContent = sl; th.style.cssText = 'border:1px solid #c7d2fe;padding:6px 10px;background:#818cf8;color:#fff;font-weight:600;text-align:center;white-space:nowrap;font-size:11px;'; tr2.appendChild(th); });
+                headerRow2Shifts.forEach(sl => { const th = document.createElement('th'); th.textContent = sl; th.style.cssText = 'border:1px solid #c7d2fe;padding:6px 10px;background:#818cf8;color:#fff;font-weight:600;text-align:center;white-space:nowrap;font-size:11px;width:120px;min-width:120px;'; tr2.appendChild(th); });
                 thead.appendChild(tr2); table.appendChild(thead);
                 const tbody = document.createElement('tbody');
-                bodyRows.forEach(row => { const tr = document.createElement('tr'); row.forEach((cell, ci) => { const td = document.createElement('td'); td.style.cssText = `border:1px solid #e2e8f0;padding:6px 10px;text-align:center;vertical-align:middle;line-height:1.5;${ci === 0 ? 'text-align:left;font-weight:600;background:#f8fafc;white-space:nowrap;' : ''}`; if (ci === 0) td.textContent = cell; else td.innerHTML = cellToHtml(cell); tr.appendChild(td); }); tbody.appendChild(tr); });
-                const trS = document.createElement('tr'); summaryRow.forEach((cell, ci) => { const td = document.createElement('td'); td.style.cssText = `border:1px solid #c7d2fe;padding:6px 10px;text-align:center;vertical-align:middle;line-height:1.5;background:#e0e7ff;font-weight:bold;color:#4338ca;${ci === 0 ? 'text-align:left;white-space:nowrap;' : ''}`; td.textContent = cell; trS.appendChild(td); }); tbody.appendChild(trS);
+                bodyRows.forEach(row => { const tr = document.createElement('tr'); row.forEach((cell, ci) => { const td = document.createElement('td'); td.style.cssText = `border:1px solid #e2e8f0;padding:6px 10px;text-align:center;vertical-align:middle;line-height:1.5;${ci === 0 ? 'text-align:left;font-weight:600;background:#f8fafc;white-space:nowrap;' : 'width:120px;min-width:120px;'}`; if (ci === 0) td.textContent = cell; else td.innerHTML = cellToHtml(cell); tr.appendChild(td); }); tbody.appendChild(tr); });
+                const trS = document.createElement('tr'); summaryRow.forEach((cell, ci) => { const td = document.createElement('td'); td.style.cssText = `border:1px solid #c7d2fe;padding:6px 10px;text-align:center;vertical-align:middle;line-height:1.5;background:#e0e7ff;font-weight:bold;color:#4338ca;${ci === 0 ? 'text-align:left;white-space:nowrap;' : 'width:120px;min-width:120px;'}`; td.textContent = cell; trS.appendChild(td); }); tbody.appendChild(trS);
                 table.appendChild(tbody);
             } else {
                 const { header, body } = buildEmployeeExportMatrix();
@@ -298,7 +313,7 @@ export default function MobileSchedulingOverviewPage() {
                 header.forEach(h => { const th = document.createElement('th'); th.textContent = h; th.style.cssText = thStyle; hr.appendChild(th); });
                 thead.appendChild(hr); table.appendChild(thead);
                 const tbody = document.createElement('tbody');
-                body.forEach((row, ri) => { const tr = document.createElement('tr'); tr.style.cssText = ri % 2 === 0 ? 'background:#fff;' : 'background:#f5f7ff;'; row.forEach((cell, ci) => { const td = document.createElement('td'); td.style.cssText = `border:1px solid #e2e8f0;padding:6px 10px;text-align:center;vertical-align:middle;white-space:pre-line;line-height:1.5;${ci === 0 ? 'text-align:left;font-weight:600;background:#f8fafc;white-space:nowrap;' : ''}`; if (ci === 0) td.innerHTML = cellToHtml(cell); else td.textContent = cell; tr.appendChild(td); }); tbody.appendChild(tr); });
+                body.forEach((row, ri) => { const tr = document.createElement('tr'); tr.style.cssText = ri % 2 === 0 ? 'background:#fff;' : 'background:#f5f7ff;'; row.forEach((cell, ci) => { const td = document.createElement('td'); td.style.cssText = `border:1px solid #e2e8f0;padding:6px 10px;text-align:center;vertical-align:middle;white-space:pre-line;line-height:1.5;${ci === 0 ? 'text-align:left;font-weight:600;background:#f8fafc;white-space:nowrap;' : 'width:120px;min-width:120px;'}`; if (ci === 0) td.innerHTML = cellToHtml(cell); else td.textContent = cell; tr.appendChild(td); }); tbody.appendChild(tr); });
                 table.appendChild(tbody);
             }
             wrapper.appendChild(table);
@@ -364,19 +379,33 @@ export default function MobileSchedulingOverviewPage() {
                 </button>
             </div>
 
-            {/* ── Day stats (compact pill row) ────────────────────────────── */}
+            {/* ── Day stats (role-based breakdown) ───────────────────────── */}
             {!loading && selectedDate && (
-                <div className="flex items-center gap-2 mb-3 overflow-x-auto scrollbar-hide">
-                    <div className="bg-primary-600 text-white px-3 py-1.5 rounded-xl flex items-center gap-1.5 shrink-0">
-                        <Users className="w-3.5 h-3.5" />
-                        <span className="text-xs font-black">{dayStats.total}</span>
-                    </div>
-                    {dayStats.shifts.map(ss => (
-                        <div key={ss.name} className="bg-gray-100 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shrink-0">
-                            <span className="text-[10px] font-semibold text-gray-500 truncate">{ss.name}</span>
-                            <span className="text-xs font-black text-gray-800">{ss.count}</span>
+                <div className="mb-3 space-y-1.5">
+                    {/* Total row with role pills */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+                        <div className="bg-gray-800 text-white px-2.5 py-1 rounded-lg flex items-center gap-1 shrink-0">
+                            <Users className="w-3 h-3" />
+                            <span className="text-[10px] font-black">{dayStats.total}</span>
                         </div>
-                    ))}
+                        {Array.from(dayStats.roles.entries()).map(([label, count]) => {
+                            const bgColor = label === 'CTH' ? 'bg-red-500' : label === 'QL' ? 'bg-amber-500' : 'bg-primary-500';
+                            return <span key={label} className={cn(bgColor, 'text-white px-2 py-1 rounded-lg text-[10px] font-bold shrink-0')}>{count} {label}</span>;
+                        })}
+                    </div>
+                    {/* Per-shift breakdown */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+                        {dayStats.shifts.map(ss => (
+                            <div key={ss.name} className="bg-gray-50 border border-gray-100 px-2.5 py-1 rounded-lg flex items-center gap-1.5 shrink-0">
+                                <span className="text-[10px] font-semibold text-gray-500">{ss.name}</span>
+                                <span className="text-[10px] font-black text-gray-800">{ss.count}</span>
+                                {Array.from(ss.roles.entries()).map(([label, count]) => {
+                                    const color = label === 'CTH' ? 'text-red-600' : label === 'QL' ? 'text-amber-600' : 'text-primary-600';
+                                    return <span key={label} className={cn('text-[9px] font-bold', color)}>{count}{label}</span>;
+                                })}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
 

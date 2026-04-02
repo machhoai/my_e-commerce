@@ -91,6 +91,142 @@ export async function getReferralPoints(employeeId: string): Promise<number> {
 //   4. Increment users/{saleEmployeeId}.referralPoints
 // }
 
+// ── Get Pending Referrals for an Employee ─────────────────────
+export async function getPendingReferrals(
+    employeeId: string,
+    limit = 20,
+): Promise<PendingReferralDoc[]> {
+    try {
+        const db = getAdminDb();
+        const snap = await db
+            .collection('pending_referrals')
+            .where('saleEmployeeId', '==', employeeId)
+            .orderBy('createdAt', 'desc')
+            .limit(limit)
+            .get();
+
+        return snap.docs.map(d => ({
+            id: d.id,
+            ...d.data(),
+        })) as PendingReferralDoc[];
+    } catch (err) {
+        console.error('[getPendingReferrals]', err);
+        return [];
+    }
+}
+
+// ── Get Store-wide Pending Referrals ──────────────────────────
+export async function getStorePendingReferrals(
+    storeId: string,
+    limit = 50,
+): Promise<PendingReferralDoc[]> {
+    try {
+        const db = getAdminDb();
+        // Get all active employees in the store
+        const usersSnap = await db
+            .collection('users')
+            .where('storeId', '==', storeId)
+            .where('isActive', '==', true)
+            .get();
+
+        if (usersSnap.empty) return [];
+
+        const employeeIds = usersSnap.docs.map(d => d.id);
+
+        // Firestore 'in' query supports max 30 items — batch if needed
+        const batches: string[][] = [];
+        for (let i = 0; i < employeeIds.length; i += 30) {
+            batches.push(employeeIds.slice(i, i + 30));
+        }
+
+        const allPending: PendingReferralDoc[] = [];
+
+        for (const batch of batches) {
+            const snap = await db
+                .collection('pending_referrals')
+                .where('saleEmployeeId', 'in', batch)
+                .orderBy('createdAt', 'desc')
+                .limit(limit)
+                .get();
+
+            snap.docs.forEach(d => {
+                allPending.push({
+                    id: d.id,
+                    ...d.data(),
+                } as PendingReferralDoc);
+            });
+        }
+
+        // Sort combined results by createdAt desc and take limit
+        allPending.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        return allPending.slice(0, limit);
+    } catch (err) {
+        console.error('[getStorePendingReferrals]', err);
+        return [];
+    }
+}
+
+// ── Get ALL Pending Referrals (admin, no storeId filter) ──────
+export async function getAllPendingReferrals(
+    limit = 50,
+): Promise<PendingReferralDoc[]> {
+    try {
+        const db = getAdminDb();
+        const snap = await db
+            .collection('pending_referrals')
+            .orderBy('createdAt', 'desc')
+            .limit(limit)
+            .get();
+
+        return snap.docs.map(d => ({
+            id: d.id,
+            ...d.data(),
+        })) as PendingReferralDoc[];
+    } catch (err) {
+        console.error('[getAllPendingReferrals]', err);
+        return [];
+    }
+}
+
+// ── Get ALL Point Transactions (admin, no storeId filter) ─────
+export async function getAllPointTransactions(
+    limit = 100,
+): Promise<(PointTransactionDoc & { employeeName?: string })[]> {
+    try {
+        const db = getAdminDb();
+        const snap = await db
+            .collection('point_transactions')
+            .orderBy('createdAt', 'desc')
+            .limit(limit)
+            .get();
+
+        const txns = snap.docs.map(d => ({
+            id: d.id,
+            ...d.data(),
+        })) as (PointTransactionDoc & { employeeName?: string })[];
+
+        // Enrich with employee names
+        const uniqueIds = [...new Set(txns.map(t => t.employeeId))];
+        if (uniqueIds.length > 0) {
+            const batches: string[][] = [];
+            for (let i = 0; i < uniqueIds.length; i += 30) {
+                batches.push(uniqueIds.slice(i, i + 30));
+            }
+            const empMap = new Map<string, string>();
+            for (const batch of batches) {
+                const usersSnap = await db.collection('users').where('__name__', 'in', batch).get();
+                usersSnap.docs.forEach(d => empMap.set(d.id, d.data().name || 'Nhân viên'));
+            }
+            txns.forEach(tx => { tx.employeeName = empMap.get(tx.employeeId) || 'Nhân viên'; });
+        }
+
+        return txns;
+    } catch (err) {
+        console.error('[getAllPointTransactions]', err);
+        return [];
+    }
+}
+
 // ── Get Store-wide Point Transactions ─────────────────────────
 export async function getStorePointTransactions(
     storeId: string,
