@@ -32,16 +32,15 @@ export const requestFirebaseNotificationPermission = async (): Promise<string | 
 
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
-            // Register the firebase-messaging-sw.js explicitly so FCM
-            // uses it instead of the default Serwist/PWA service worker.
+            // Use the main Serwist service worker (sw.js) which already includes
+            // Firebase messaging logic. This avoids scope conflicts caused by
+            // registering a separate firebase-messaging-sw.js.
             let swRegistration: ServiceWorkerRegistration | undefined;
             try {
-                swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-                    scope: '/firebase-cloud-messaging-push-scope',
-                });
-                console.log('[FCM] firebase-messaging-sw.js registered with scope:', swRegistration.scope);
+                swRegistration = await navigator.serviceWorker.ready;
+                console.log('[FCM] Using main SW registration with scope:', swRegistration.scope);
             } catch (regErr) {
-                console.warn('[FCM] Could not register firebase-messaging-sw.js, using default:', regErr);
+                console.warn('[FCM] Could not get SW registration:', regErr);
             }
 
             const currentToken = await getToken(msg, {

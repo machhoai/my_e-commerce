@@ -1,62 +1,9 @@
-importScripts('https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.9.0/firebase-messaging-compat.js');
-
-// Bắt buộc Service Worker mới kích hoạt ngay lập tức để đè lên bản cũ bị lỗi Cache
-self.addEventListener('install', (event) => {
-    self.skipWaiting();
-});
+// Legacy FCM service worker — push notifications are now handled by the main
+// service worker (sw.js) which includes Firebase messaging logic.
+// This file is kept only for backward compatibility: existing browser
+// registrations of this SW will activate this stub, which does nothing,
+// allowing the main SW to handle all push events cleanly.
+self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => {
     event.waitUntil(self.clients.claim());
-});
-
-// Initialize the Firebase app in the service worker by passing in the
-// messagingSenderId.
-// We use the compat library for the service worker due to its simpler initialization
-const firebaseConfig = {
-    apiKey: new URL(location).searchParams.get("apiKey") || "REPLACE_API_KEY", // Usually passed via URL params or hardcoded for SW
-    projectId: "employee-shift-scheduling", // fallback project ID
-    messagingSenderId: "123456789", // fallback messaging sender ID
-    appId: "1:123456789:web:abcdef" // fallback app ID
-};
-
-// We intercept the query params if they're passed, otherwise we can rely on a basic init
-// For a Next.js app, it's safer to pass config via URL or use self.__FIREBASE_CONFIG
-try {
-    firebase.initializeApp(firebaseConfig);
-    const messaging = firebase.messaging();
-
-    // VERSION: 2.0.1 - Fix Data Payload
-
-    messaging.onBackgroundMessage((payload) => {
-        console.log('[firebase-messaging-sw.js] Received payload: ', JSON.stringify(payload));
-
-        const notificationTitle = payload?.data?.title || payload?.notification?.title || 'Thông báo mới (Fallback)';
-        const notificationBody = payload?.data?.body || payload?.notification?.body || 'Không lấy được nội dung từ hệ thống.';
-
-        const notificationOptions = {
-            body: notificationBody,
-            icon: '/Artboard.png',
-            badge: '/Artboard.png',
-            data: payload?.data || {}
-        };
-
-        self.registration.showNotification(notificationTitle, notificationOptions);
-    });
-} catch (error) {
-    console.error('Firebase messaging service worker error:', error);
-}
-
-self.addEventListener('notificationclick', (event) => {
-    event.notification.close();
-    event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-            const urlToOpen = event.notification.data?.actionLink || '/';
-            // If window already open, focus it
-            for (let i = 0; i < clientList.length; i++) {
-                const client = clientList[i];
-                if (client.url === '/' && 'focus' in client) return client.focus();
-            }
-            if (clients.openWindow) return clients.openWindow(urlToOpen);
-        })
-    );
 });
