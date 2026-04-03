@@ -1,4 +1,5 @@
 import { getAdminDb, getAdminMessaging } from './firebase-admin';
+import type { SendResponse } from 'firebase-admin/messaging';
 
 interface SendNotificationProps {
     userId: string;
@@ -63,13 +64,13 @@ export async function sendNotification({
 
                 try {
                     const response = await adminMessaging.sendEach(messages);
-                    const successCount = response.responses.filter(r => r.success).length;
-                    const failCount = response.responses.filter(r => !r.success).length;
+                    const successCount = response.responses.filter((r: SendResponse) => r.success).length;
+                    const failCount = response.responses.filter((r: SendResponse) => !r.success).length;
                     console.log(`[Notification] Push sent to ${successCount}/${allTokens.size} devices for user ${userId} (${failCount} failed)`);
 
                     // Clean up invalid tokens
                     const invalidTokens: string[] = [];
-                    response.responses.forEach((resp, idx) => {
+                    response.responses.forEach((resp: SendResponse, idx: number) => {
                         if (!resp.success) {
                             const errCode = resp.error?.code;
                             if (errCode === 'messaging/invalid-registration-token' ||
