@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { X, ScanLine, Keyboard, SearchX, Camera, RotateCcw, Zap, ZapOff, User, Phone, ChevronDown, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, ScanLine, Keyboard, SearchX, Camera, RotateCcw, Zap, ZapOff, User, Phone, ChevronDown, Loader2, CheckCircle2, Ticket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { preloadScannerData, voucherSearchAction } from '@/actions/scanner';
 import type { PreloadedEmployee, PreloadedProduct } from '@/actions/scanner';
@@ -352,11 +352,13 @@ export default function UniversalScannerModal() {
     const [view, setView] = useState<ModalView>({ kind: 'scanner' });
     const [manualInput, setManualInput] = useState('');
     const [showManual, setShowManual] = useState(false);
+    const [voucherMode, setVoucherMode] = useState(false);
     const [torchOn, setTorchOn] = useState(false);
     const [torchSupported, setTorchSupported] = useState(false);
     const scannerRef = useRef<HTMLDivElement>(null);
     const html5QrRef = useRef<any>(null);
     const scanLock = useRef(false);
+    const [showLabel, setShowLabel] = useState(false);
 
     // ── Preloaded data (loaded once when modal opens) ────────────
     const [preloadedEmployees, setPreloadedEmployees] = useState<PreloadedEmployee[]>([]);
@@ -533,6 +535,20 @@ export default function UniversalScannerModal() {
         }
     }, [isOpen, view.kind, startCamera, stopCamera]);
 
+    useEffect(() => {
+        // Mỗi khi voucherMode thay đổi, hiện chữ lên
+        setShowLabel(true);
+
+        // Đặt hẹn giờ 1.5 giây để ẩn chữ đi
+        const timer = setTimeout(() => {
+            setShowLabel(false);
+        }, 1500);
+
+        // Cleanup: Cực kỳ quan trọng! Nếu user bấm liên tục 2-3 lần,
+        // nó sẽ xóa timer cũ đi để không bị giật/nháy chữ.
+        return () => clearTimeout(timer);
+    }, [voucherMode]);
+
     // ── Employee suggestions (local, instant — no API call) ──────
     const empSuggestions = useMemo(() => {
         if (!canManageReferrals || !showManual) return [];
@@ -578,16 +594,18 @@ export default function UniversalScannerModal() {
             return;
         }
 
-        // 2. Product barcode / companyCode → local lookup (instant, no permission needed)
-        const product = preloadedProducts.find(
-            p => p.barcode === trimmed || p.companyCode === trimmed
-        );
-        if (product) {
-            setView({
-                kind: 'product',
-                product: product as ProductDoc,
-            });
-            return;
+        // 2. Product barcode / companyCode → local lookup (skip if voucherMode)
+        if (!voucherMode) {
+            const product = preloadedProducts.find(
+                p => p.barcode === trimmed || p.companyCode === trimmed
+            );
+            if (product) {
+                setView({
+                    kind: 'product',
+                    product: product as ProductDoc,
+                });
+                return;
+            }
         }
 
         // 3. Phone or Voucher code → must hit server (permission-gated)
@@ -692,9 +710,40 @@ export default function UniversalScannerModal() {
                                     Nhập thủ công
                                 </button>
                             )}
+                            {/* Voucher mode toggle */}
                         </div>
                         {/* Camera viewport */}
                         <div className="relative bg-black overflow-hidden" style={{ height: 500 }}>
+                            {canSearchVouchers && (
+                                <label className="flex absolute items-center gap-2 mt-2 cursor-pointer select-none z-50 left-3 top-3">
+                                    <div
+                                        onClick={() => setVoucherMode(v => !v)}
+                                        className={cn(
+                                            'relative z-30 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200',
+                                            voucherMode ? 'bg-accent-500' : 'bg-surface-300',
+                                        )}
+                                    >
+                                        <Ticket className={cn('w-5 h-5', voucherMode ? 'text-white' : 'text-surface-600')} />
+                                    </div>
+
+                                    {/* Container tạo hiệu ứng trượt */}
+                                    <div
+                                        className={cn(
+                                            'overflow-hidden transition-all duration-500 ease-in-out flex items-center',
+                                            showLabel
+                                                ? 'max-w-[200px] opacity-100 translate-x-0' // Hiện: trượt ra, rõ nét, bung chiều rộng
+                                                : 'max-w-0 opacity-0 -translate-x-4'        // Ẩn: co lại, mờ đi, lùi về trái
+                                        )}
+                                    >
+                                        <span className={cn(
+                                            'text-xs font-semibold whitespace-nowrap', // Bắt buộc có whitespace-nowrap để chữ không bị rớt dòng khi max-w co lại
+                                            voucherMode ? 'text-accent-600' : 'text-surface-500'
+                                        )}>
+                                            Chế độ Voucher: {voucherMode ? 'Bật' : 'Tắt'}
+                                        </span>
+                                    </div>
+                                </label>
+                            )}
                             <div id="scanner-container" ref={scannerRef} className="relative bottom-28 w-full h-full" />
 
                             {/*

@@ -64,7 +64,7 @@ export default function VoucherDetailsCard({ voucher, onRedeemed, onClose }: Vou
             )}
 
             {/* Content */}
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-4 overflow-y-auto">
                 {/* Header */}
                 <div className="text-center">
                     {/* Animated status icon */}
@@ -73,10 +73,10 @@ export default function VoucherDetailsCard({ voucher, onRedeemed, onClose }: Vou
                             <ShieldCheck className="w-8 h-8 text-success-600" />
                         </div>
                     ) : voucher.status === 'used' ? (
-                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-surface-200 to-surface-100 mb-3">
+                        <div className="relative inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-surface-200 to-surface-100 mb-3">
                             <AlertTriangle className="w-8 h-8 text-warning-600" />
-                            <div className="absolute inset-0 flex items-center justify-center" style={{ animation: 'stamp 0.5s ease-out forwards' }}>
-                                <div className="w-10 h-10 rounded-full border-[3px] border-surface-400 flex items-center justify-center rotate-[-15deg] opacity-60">
+                            <div className="absolute inset-0 top-32 flex items-center justify-center">
+                                <div className="w-10 h-10 rounded-full border-[3px] border-warning-600 flex items-center justify-center rotate-[-15deg] opacity-60">
                                     <span className="text-[8px] font-black text-warning-600 uppercase tracking-widest">Đã dùng</span>
                                 </div>
                             </div>
