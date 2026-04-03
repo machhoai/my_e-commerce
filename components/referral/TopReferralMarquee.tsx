@@ -27,7 +27,7 @@ export default function TopReferralMarquee({ className, initialData = [] }: TopR
         `${RANK_LABELS[i]} ${emp.name} — ${emp.points.toLocaleString('vi-VN')} điểm`
     )).join('   ✦   ');
 
-    const fullText = `🏆 TOP NHÂN VIÊN GIỚI THIỆU XUẤT SẮC NHẤT ${monthName.toUpperCase()}   ⭐   ${marqueeContent}`;
+    const fullText = `🏆 Bảng vàng chiến thần vịt vàng tháng ${monthName.toUpperCase()} 🦆   ${marqueeContent}`;
 
     return (
         <div className={`relative overflow-hidden rounded-xl ${className ?? ''}`}>
