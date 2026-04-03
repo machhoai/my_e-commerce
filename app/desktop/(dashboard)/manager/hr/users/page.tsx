@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { UserDoc, EmployeeType, UserRole, StoreDoc, OfficeDoc, WarehouseDoc, CustomRoleDoc } from '@/types';
-import { Users, Search, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Plus, MailPlus, KeyRound, Building2, Shield, Award, UserX, RotateCcw, Briefcase, TrendingUp, FileWarning, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Users, Search, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Plus, MailPlus, KeyRound, Building2, Shield, Award, UserX, RotateCcw, Briefcase, TrendingUp, FileWarning, CheckCircle2, AlertTriangle, QrCode } from 'lucide-react';
 import ExportEmployeesExcel from '@/components/hr/ExportEmployeesExcel';
 import { cn } from '@/lib/utils';
 import { useTableParams } from '@/hooks/useTableParams';
@@ -15,6 +15,7 @@ import DataTablePagination from '@/components/DataTablePagination';
 import Portal from '@/components/Portal';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
+import { LabelPrintConfigurator } from '@/components/admin/LabelPrintConfigurator';
 
 function ManagerUsersPageContent() {
     const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId, managedStoreIds } = useAuth();
@@ -22,6 +23,7 @@ function ManagerUsersPageContent() {
     const [employees, setEmployees] = useState<UserDoc[]>([]);
     const [loading, setLoading] = useState(true);
     const [profileUid, setProfileUid] = useState<string | null>(null);
+    const [printEmployees, setPrintEmployees] = useState<UserDoc[]>([]);
 
     // Modal states
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -179,7 +181,7 @@ function ManagerUsersPageContent() {
             if (userDoc.role === 'admin' && selectedLocationType) {
                 const fieldName = selectedLocationType === 'OFFICE' ? 'officeId'
                     : selectedLocationType === 'CENTRAL' ? 'warehouseId'
-                    : 'storeId';
+                        : 'storeId';
                 constraints.push(where(fieldName, '==', effectiveStoreId));
             } else {
                 // Non-admin: assumed STORE context
@@ -526,6 +528,14 @@ function ManagerUsersPageContent() {
                             {/* Action buttons */}
                             <div className="flex items-center gap-2 justify-end">
                                 <ExportEmployeesExcel employees={filteredEmployees} />
+                                <button
+                                    onClick={() => setPrintEmployees(filteredEmployees)}
+                                    disabled={filteredEmployees.length === 0}
+                                    className="flex items-center gap-2 bg-surface-100 hover:bg-surface-200 text-surface-700 px-4 py-2.5 rounded-xl font-medium border border-surface-200 transition-all disabled:opacity-50 active:scale-95"
+                                >
+                                    <QrCode className="w-4 h-4" />
+                                    <span className="hidden sm:inline">In QR hàng loạt</span>
+                                </button>
                                 <button
                                     onClick={() => {
                                         resetForm();
@@ -966,6 +976,24 @@ function ManagerUsersPageContent() {
                     employeeUid={profileUid}
                     storeId={contextStoreId || userDoc?.storeId}
                     onClose={() => setProfileUid(null)}
+                />
+            )}
+
+            {printEmployees.length > 0 && (
+                <LabelPrintConfigurator
+                    selectedProducts={printEmployees.map(e => ({
+                        id: e.uid,
+                        name: `NV: ${e.name.split(' ').slice(-2).join(' ')} - ${e.phone}`,
+                        barcode: '',
+                        companyCode: `REF-${e.uid}`,
+                        price: 0,
+                        quantity: 1,
+                        images: [],
+                        categories: [],
+                        isActive: true,
+                        createdAt: ''
+                    } as any))}
+                    onClose={() => setPrintEmployees([])}
                 />
             )}
         </div>

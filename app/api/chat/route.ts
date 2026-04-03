@@ -37,7 +37,7 @@ export async function POST(req: Request) {
         const messages: any[] = Array.isArray(body?.messages) ? body.messages : [];
 
         const result = streamText({
-            model: google('gemini-2.5-flash'),
+            model: google('gemini-flash-latest'),
             system: SYSTEM_PROMPT,
             messages,
             maxSteps: 5,

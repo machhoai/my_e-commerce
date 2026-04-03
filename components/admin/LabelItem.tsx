@@ -22,6 +22,9 @@ interface LabelItemProps {
 export function LabelItem({ product, styleConfig, qrSize, fontSize, logoHeight, siteUrl }: LabelItemProps) {
     const slug = product.companyCode || product.barcode || '';
     const publicUrl = `${siteUrl}/p/${slug}`;
+    const isReferral = slug.startsWith('REF-');
+    const qrValue = isReferral ? slug : (slug ? publicUrl : 'https://joyworld.vn');
+    const displayText = isReferral ? slug : publicUrl;
 
     return (
         <div
@@ -72,7 +75,7 @@ export function LabelItem({ product, styleConfig, qrSize, fontSize, logoHeight, 
 
             {/* QR Code */}
             <QRCodeSVG
-                value={slug ? publicUrl : 'https://joyworld.vn'}
+                value={qrValue}
                 size={qrSize}
                 level="M"
                 marginSize={1}
@@ -102,7 +105,7 @@ export function LabelItem({ product, styleConfig, qrSize, fontSize, logoHeight, 
                     maxWidth: '100%',
                     margin: 0,
                 }}>
-                    {publicUrl}
+                    {displayText}
                 </p>
             )}
         </div>

@@ -565,7 +565,18 @@ export default function UniversalScannerModal() {
 
     // ── Search handler ───────────────────────────────────────────
     const handleSearch = async (input: string) => {
-        const trimmed = input.trim();
+        let trimmed = input.trim();
+        
+        // Extract slug if input is a Joyworld URL from printed labels
+        try {
+            if (trimmed.startsWith('http')) {
+                const url = new URL(trimmed);
+                if (url.pathname.startsWith('/p/')) {
+                    trimmed = url.pathname.replace('/p/', '');
+                }
+            }
+        } catch { /* ignore valid url check */ }
+
         if (!trimmed) return;
         await stopCamera();
 
