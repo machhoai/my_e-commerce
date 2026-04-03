@@ -1830,6 +1830,13 @@ export default function MobileView() {
                 { icon: DollarSign, label: 'Báo cáo', route: '/office/revenue', color: 'bg-amber-50 text-amber-600', permKey: 'page.office.revenue' },
             ],
         },
+        // ── Admin (admin only) ─────────────────────────────────────────
+        {
+            group: 'Quản trị',
+            items: [
+                { icon: BarChart3, label: 'Báo cáo ngày', route: '/admin/daily-report', color: 'bg-rose-50 text-rose-600', permKey: 'page.admin.daily_report' },
+            ],
+        },
         // ── Cá nhân  (always visible) ─────────────────────────────────
         {
             group: 'Cá nhân',

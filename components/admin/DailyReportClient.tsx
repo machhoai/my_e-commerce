@@ -717,7 +717,7 @@ export default function DailyReportClient({
             </div>
 
             {/* ── AI Assistant (floating) ── */}
-            {!isMobile && <AIAssistantChat currentDate={forDate} />}
+            <AIAssistantChat currentDate={forDate} />
         </div>
     );
 }
