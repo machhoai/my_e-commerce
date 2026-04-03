@@ -82,7 +82,7 @@ export async function getTopReferralEmployees(): Promise<
         const db = getAdminDb();
         const monthKey = getMonthKey();
 
-        // Fetch all active users that have monthlyReferralPoints
+        // Fetch all active users
         const snap = await db
             .collection('users')
             .where('isActive', '==', true)
@@ -90,15 +90,19 @@ export async function getTopReferralEmployees(): Promise<
 
         if (snap.empty) return [];
 
-        // Extract current month points and filter > 0
+        // Extract current month points, fallback to total referralPoints
         const employees = snap.docs
             .map(d => {
                 const data = d.data();
                 const monthlyPts = (data.monthlyReferralPoints as Record<string, number> | undefined) ?? {};
+                const monthly = monthlyPts[monthKey] ?? 0;
+                // Fallback: if no monthly data exists for current month,
+                // use total referralPoints so employees aren't hidden
+                const totalPts = (data.referralPoints ?? 0) as number;
                 return {
                     uid: d.id,
                     name: (data.name ?? 'Nhân viên') as string,
-                    points: monthlyPts[monthKey] ?? 0,
+                    points: monthly > 0 ? monthly : totalPts,
                 };
             })
             .filter(e => e.points > 0)

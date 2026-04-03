@@ -57,7 +57,7 @@ export default function TopReferralMarquee({ className, initialData = [] }: TopR
                     <div className="w-full overflow-hidden flex">
 
                         {/* Khung chuyển động: Thêm w-max để nó tính toán đúng -50% chiều dài */}
-                        <div className="animate-marquee [animation-duration:8s] whitespace-nowrap flex w-max items-center">
+                        <div className="animate-marquee [animation-duration:15s] whitespace-nowrap flex w-max items-center">
 
                             {/* Cục 1 */}
                             <span className="inline-block text-[12px] font-bold text-white tracking-wide drop-shadow-sm mx-8">
