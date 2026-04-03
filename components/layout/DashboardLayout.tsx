@@ -333,7 +333,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             group: 'Hệ thống',
         },
         {
-            label: 'Cài đặt hệ thống',
+            label: 'Cài đặt Hệ thống',
             href: '/admin/settings/general',
             icon: SettingsIcon,
             show: isAdmin || isSuperAdmin,
@@ -376,7 +376,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         'Kho Hàng': Package,
         'Văn Phòng': Building2,
         'Cài Đặt': SettingsIcon,
-        'Hệ Thống': SettingsIcon,
+        'Hệ thống': SettingsIcon,
         'Khác': SettingsIcon,
     };
 
@@ -401,7 +401,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (isCollapsed) {
             // Flatten all visible routes into icon list, keep group separation
             const iconGroups: { items: typeof visibleRoutes }[] = [];
-            const groupOrder = ['Cá Nhân', 'Nhân Sự', 'Kho Hàng', 'Văn Phòng', 'Cài Đặt', 'Hệ Thống'];
+            const groupOrder = ['Cá Nhân', "Báo cáo", 'Nhân Sự', 'Kho Hàng', 'Văn Phòng', 'Cài Đặt', 'Hệ thống'];
             groupOrder.forEach(gTitle => {
                 const items = visibleRoutes.filter(r => r.group === gTitle);
                 if (items.length > 0) iconGroups.push({ items });
@@ -518,7 +518,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
 
         const groups: { title: string, items: typeof visibleRoutes }[] = [];
-        const groupOrder = ['Cá Nhân', 'Nhân Sự', 'Kho Hàng', 'Văn Phòng', 'Cài Đặt', 'Hệ Thống'];
+        const groupOrder = ['Cá Nhân', "Báo cáo", 'Nhân Sự', 'Kho Hàng', 'Văn Phòng', 'Cài Đặt', 'Hệ thống'];
         groupOrder.forEach(gTitle => {
             const items = visibleRoutes.filter(r => r.group === gTitle);
             if (items.length > 0) groups.push({ title: gTitle, items });

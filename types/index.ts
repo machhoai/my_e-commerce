@@ -261,6 +261,13 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         group: 'Voucher',
         type: 'action',
     },
+    {
+        key: 'search_vouchers',
+        label: 'Tìm Kiếm Voucher',
+        description: 'Cho phép quét và tìm kiếm mã voucher qua Scanner',
+        group: 'Voucher',
+        type: 'action',
+    },
     // ── Sự kiện ──────────────────────────────────────────────────
     {
         key: 'page.admin.events',
