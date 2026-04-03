@@ -3,8 +3,16 @@
 
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { getJoyworldToken, getOrderList } from '@/lib/joyworld';
+import { broadcastByEvent } from '@/lib/notification-engine';
 import type { PendingReferralDoc, ReferralPackage } from '@/types';
+
+/** Get month key "YYYY-MM" from an ISO date string or current date */
+function getMonthKey(isoDate?: string): string {
+    const d = isoDate ? new Date(isoDate) : new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -112,27 +120,37 @@ export async function POST() {
             const match = findMatchingOrder(allOrders, pr.customerPhone, pr.expectedPackage);
 
             if (match) {
-                // ✅ Found matching order → mark as matched, award points
+                // ✅ Found matching order → mark as matched, award 1 point
                 const orderValue = parseFloat(match.realMoney) || 0;
-                const points = orderValue;
+                const points = 1;
                 const userRef = db.collection('users').doc(pr.saleEmployeeId);
                 const prRef = db.collection('pending_referrals').doc(pr.id);
 
                 await db.runTransaction(async (tx) => {
                     const userSnap = await tx.get(userRef);
                     const currentPoints = userSnap.exists ? (userSnap.data()?.referralPoints ?? 0) : 0;
+                    const monthKey = getMonthKey(nowIso);
 
                     tx.update(prRef, { status: 'matched', matchedOrderCode: match.orderNumber, matchedOrderValue: orderValue, pointsAwarded: points });
-                    tx.update(userRef, { referralPoints: currentPoints + points });
+                    tx.update(userRef, {
+                        referralPoints: currentPoints + points,
+                        [`monthlyReferralPoints.${monthKey}`]: FieldValue.increment(points),
+                    });
                     tx.set(db.collection('point_transactions').doc(), {
                         employeeId: pr.saleEmployeeId, type: 'earned',
                         customerPhone: pr.customerPhone, orderCode: match.orderNumber,
-                        orderValue, points, createdAt: nowIso,
+                        orderValue, points, packageName: pr.expectedPackage, createdAt: nowIso,
                     });
                 });
 
                 actions.push({ action: 'matched', referralId: pr.id, saleEmployeeName: pr.saleEmployeeName, customerPhone: pr.customerPhone, expectedPackage: pr.expectedPackage, orderNumber: match.orderNumber, orderValue, goodsNames: match.goodsNames, points });
                 console.log(`[Sync] ✅ waiting→matched: ${pr.saleEmployeeName} ${pr.customerPhone} → ${match.orderNumber}`);
+
+                // Broadcast congratulatory notification
+                broadcastByEvent({
+                    eventName: 'REFERRAL_POINTS_EARNED',
+                    dataContext: { employeeName: pr.saleEmployeeName, points, packageName: pr.expectedPackage },
+                }).catch(err => console.error('[Sync] broadcastByEvent error:', err));
             } else if (pr.expiresAt && new Date(pr.expiresAt) < now) {
                 // ⏰ Session expired, no matching order → mark as expired
                 await db.collection('pending_referrals').doc(pr.id).update({ status: 'expired' });
@@ -149,25 +167,35 @@ export async function POST() {
             if (match) {
                 // 🔄 Found matching order for previously expired referral → re-match!
                 const orderValue = parseFloat(match.realMoney) || 0;
-                const points = orderValue;
+                const points = 1;
                 const userRef = db.collection('users').doc(pr.saleEmployeeId);
                 const prRef = db.collection('pending_referrals').doc(pr.id);
 
                 await db.runTransaction(async (tx) => {
                     const userSnap = await tx.get(userRef);
                     const currentPoints = userSnap.exists ? (userSnap.data()?.referralPoints ?? 0) : 0;
+                    const monthKey = getMonthKey(nowIso);
 
                     tx.update(prRef, { status: 'matched', matchedOrderCode: match.orderNumber, matchedOrderValue: orderValue, pointsAwarded: points });
-                    tx.update(userRef, { referralPoints: currentPoints + points });
+                    tx.update(userRef, {
+                        referralPoints: currentPoints + points,
+                        [`monthlyReferralPoints.${monthKey}`]: FieldValue.increment(points),
+                    });
                     tx.set(db.collection('point_transactions').doc(), {
                         employeeId: pr.saleEmployeeId, type: 'earned',
                         customerPhone: pr.customerPhone, orderCode: match.orderNumber,
-                        orderValue, points, createdAt: nowIso,
+                        orderValue, points, packageName: pr.expectedPackage, createdAt: nowIso,
                     });
                 });
 
                 actions.push({ action: 'rematched', referralId: pr.id, saleEmployeeName: pr.saleEmployeeName, customerPhone: pr.customerPhone, expectedPackage: pr.expectedPackage, orderNumber: match.orderNumber, orderValue, goodsNames: match.goodsNames, points });
                 console.log(`[Sync] 🔄 expired→matched: ${pr.saleEmployeeName} ${pr.customerPhone} → ${match.orderNumber}`);
+
+                // Broadcast congratulatory notification
+                broadcastByEvent({
+                    eventName: 'REFERRAL_POINTS_EARNED',
+                    dataContext: { employeeName: pr.saleEmployeeName, points, packageName: pr.expectedPackage },
+                }).catch(err => console.error('[Sync] broadcastByEvent error:', err));
             }
         }
 
@@ -190,9 +218,13 @@ export async function POST() {
                 await db.runTransaction(async (tx) => {
                     const userSnap = await tx.get(userRef);
                     const currentPoints = userSnap.exists ? (userSnap.data()?.referralPoints ?? 0) : 0;
+                    const monthKey = getMonthKey(nowIso);
 
                     tx.update(prRef, { status: 'revoked', revokedReason: `Đơn hàng ${pr.matchedOrderCode} đã bị hủy (status: ${matchedOrder.status})` });
-                    tx.update(userRef, { referralPoints: Math.max(0, currentPoints - pointsToRevoke) });
+                    tx.update(userRef, {
+                        referralPoints: Math.max(0, currentPoints - pointsToRevoke),
+                        [`monthlyReferralPoints.${monthKey}`]: FieldValue.increment(-pointsToRevoke),
+                    });
                     tx.set(db.collection('point_transactions').doc(), {
                         employeeId: pr.saleEmployeeId, type: 'refund_revocation',
                         customerPhone: pr.customerPhone, orderCode: pr.matchedOrderCode,

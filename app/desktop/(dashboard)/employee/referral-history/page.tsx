@@ -442,6 +442,9 @@ export default function DesktopReferralHistoryPage() {
                                                     <td className="px-4 py-3">
                                                         <div className="text-xs text-gray-600 space-y-0.5">
                                                             {tx.customerPhone && <p>KH: <span className="font-semibold">{tx.customerPhone}</span></p>}
+                                                            {tx.packageName && (
+                                                                <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-purple-50 text-purple-600 border-purple-100">{tx.packageName}</span>
+                                                            )}
                                                             {tx.orderCode && <p>Đơn: <span className="font-semibold">{tx.orderCode}</span></p>}
                                                             {tx.reason && <p className="text-gray-500 truncate max-w-[200px]">{tx.reason}</p>}
                                                         </div>

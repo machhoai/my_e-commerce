@@ -10,6 +10,14 @@
 
 import { getAdminDb } from '@/lib/firebase-admin';
 import type { PendingReferralDoc, PointTransactionDoc, ReferralPackage } from '@/types';
+import { FieldValue } from 'firebase-admin/firestore';
+import { broadcastByEvent } from '@/lib/notification-engine';
+
+/** Get month key "YYYY-MM" from an ISO date string or current date */
+function getMonthKey(isoDate?: string): string {
+    const d = isoDate ? new Date(isoDate) : new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
 
 // ── Create Pending Referral ────────────────────────────────────
 export async function createPendingReferral(data: {
@@ -62,6 +70,44 @@ export async function getPointTransactions(
         })) as PointTransactionDoc[];
     } catch (err) {
         console.error('[getPointTransactions]', err);
+        return [];
+    }
+}
+
+// ── Get Top 3 Employees by Monthly Referral Points ────────────
+export async function getTopReferralEmployees(): Promise<
+    { uid: string; name: string; points: number }[]
+> {
+    try {
+        const db = getAdminDb();
+        const monthKey = getMonthKey();
+
+        // Fetch all active users that have monthlyReferralPoints
+        const snap = await db
+            .collection('users')
+            .where('isActive', '==', true)
+            .get();
+
+        if (snap.empty) return [];
+
+        // Extract current month points and filter > 0
+        const employees = snap.docs
+            .map(d => {
+                const data = d.data();
+                const monthlyPts = (data.monthlyReferralPoints as Record<string, number> | undefined) ?? {};
+                return {
+                    uid: d.id,
+                    name: (data.name ?? 'Nhân viên') as string,
+                    points: monthlyPts[monthKey] ?? 0,
+                };
+            })
+            .filter(e => e.points > 0)
+            .sort((a, b) => b.points - a.points)
+            .slice(0, 3);
+
+        return employees;
+    } catch (err) {
+        console.error('[getTopReferralEmployees]', err);
         return [];
     }
 }
@@ -352,8 +398,12 @@ export async function adjustPoints(data: {
 
             const currentPoints = userSnap.data()?.referralPoints ?? 0;
             const newPoints = currentPoints + data.amount;
+            const monthKey = getMonthKey();
 
-            tx.update(userRef, { referralPoints: newPoints });
+            tx.update(userRef, {
+                referralPoints: newPoints,
+                [`monthlyReferralPoints.${monthKey}`]: FieldValue.increment(data.amount),
+            });
 
             const txRef = db.collection('point_transactions').doc();
             tx.set(txRef, {
@@ -365,6 +415,16 @@ export async function adjustPoints(data: {
                 createdAt: new Date().toISOString(),
             });
         });
+        // Broadcast congratulatory notification if points were ADDED
+        if (data.amount > 0) {
+            const db2 = getAdminDb();
+            const empSnap = await db2.collection('users').doc(data.employeeId).get();
+            const empName = empSnap.data()?.name || 'Nhân viên';
+            broadcastByEvent({
+                eventName: 'REFERRAL_POINTS_EARNED',
+                dataContext: { employeeName: empName, points: data.amount },
+            }).catch(err => console.error('[adjustPoints] broadcastByEvent error:', err));
+        }
 
         return { success: true };
     } catch (err) {
@@ -399,8 +459,15 @@ export async function revokeTransaction(data: {
             const deduction = -Math.abs(data.originalPoints);
             const newPoints = currentPoints + deduction;
 
-            // Deduct points from employee
-            tx.update(userRef, { referralPoints: newPoints });
+            // Determine the month of the original transaction to deduct from correct month
+            const originalTxData = txSnap.data();
+            const txMonthKey = getMonthKey(originalTxData?.createdAt);
+
+            // Deduct points from employee (total + monthly)
+            tx.update(userRef, {
+                referralPoints: newPoints,
+                [`monthlyReferralPoints.${txMonthKey}`]: FieldValue.increment(deduction),
+            });
 
             // Mark original transaction as revoked
             tx.update(txRef, { isRevoked: true });

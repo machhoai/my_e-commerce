@@ -25,6 +25,7 @@ import {
     fetchRevenueFromCache, triggerSyncAction,
     type RevenueRecord, type SellCategory, type DailyPanel,
 } from '@/app/desktop/(dashboard)/office/revenue/actions';
+import TopReferralMarquee from '@/components/referral/TopReferralMarquee';
 
 type ManagementTab = 'operation' | 'revenue' | 'inventory';
 
@@ -704,7 +705,7 @@ const ALL_TABS: { key: ManagementTab; label: string; icon: React.ElementType; pe
     { key: 'inventory', label: 'Kho bãi', icon: Package, permKeys: ['page.manager.inventory', 'page.admin.inventory'] },
 ];
 
-export default function DesktopView() {
+export default function DesktopView({ topReferralData }: { topReferralData?: { uid: string; name: string; points: number }[] }) {
     const { userDoc, effectiveStoreId, hasPermission } = useAuth();
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
     const isStoreEmployee = !!userDoc?.storeId;
@@ -733,6 +734,9 @@ export default function DesktopView() {
                 </div>
                 <DesktopStoreSelector />
             </div>
+
+            {/* Top Referral Employees Marquee */}
+            <TopReferralMarquee className="mb-6" initialData={topReferralData} />
 
             {/* Personal schedule for store employees */}
             {isStoreEmployee && <PersonalScheduleSection />}

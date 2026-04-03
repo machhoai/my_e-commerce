@@ -36,6 +36,7 @@ import {
     type RevenueRecord, type SellCategory, type DailyPanel,
 } from '@/app/desktop/(dashboard)/office/revenue/actions';
 import ReferralPointsWidget from '@/components/referral/ReferralPointsWidget';
+import TopReferralMarquee from '@/components/referral/TopReferralMarquee';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -1629,7 +1630,7 @@ function MobileStoreSelector() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Root component
 // ─────────────────────────────────────────────────────────────────────────────
-export default function MobileView() {
+export default function MobileView({ topReferralData }: { topReferralData?: { uid: string; name: string; points: number }[] }) {
     const router = useRouter();
     const { userDoc, user, hasPermission } = useAuth();
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
@@ -1945,8 +1946,11 @@ export default function MobileView() {
                 <div className="relative z-0 h-0" />
             </header>
 
+            {/* ── Top Referral Employees Marquee ──────────────────────────── */}
+            <TopReferralMarquee className="mx-3 mt-12" initialData={topReferralData} />
+
             {/* ── Quick Access ─────────────────────────────────────────────── */}
-            <section className="px-3 mt-12">
+            <section className="px-3 mt-3">
                 <p className="text-sm font-bold text-gray-800 mb-2">Truy cập nhanh</p>
                 <div className="flex items-center justify-between gap-1">
                     {quickAccessItems.map((item) => (

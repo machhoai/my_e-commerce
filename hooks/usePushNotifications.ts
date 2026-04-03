@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { requestFirebaseNotificationPermission, onMessageListener } from '@/lib/firebase-messaging';
 import { MessagePayload } from 'firebase/messaging';
 
@@ -22,12 +22,16 @@ export function usePushNotifications() {
                 setPermissionGranted(true);
                 setFcmToken(token);
 
-                // Check if we need to update the token in Firestore
-                if (userDoc?.fcmToken !== token) {
+                // Store token in fcmTokens array (multi-device) AND legacy fcmToken field
+                const existingTokens: string[] = userDoc?.fcmTokens || [];
+                if (!existingTokens.includes(token)) {
                     try {
                         const userRef = doc(db, 'users', user.uid);
-                        await updateDoc(userRef, { fcmToken: token });
-                        console.log('FCM Token updated in Firestore');
+                        await updateDoc(userRef, {
+                            fcmToken: token,              // legacy single-token (backward compat)
+                            fcmTokens: arrayUnion(token), // multi-device tokens array
+                        });
+                        console.log('[FCM] Token saved to Firestore (fcmTokens array)');
                     } catch (error) {
                         console.error('Error updating FCM Token in Firestore:', error);
                     }
@@ -53,8 +57,18 @@ export function usePushNotifications() {
                 try {
                     const payload = await onMessageListener() as MessagePayload;
                     setNotification(payload);
-                    // Here you could trigger a local toast if you want, 
-                    // but the NotificationBell will already show the real-time update in the DB.
+
+                    // Show browser notification for foreground data-only messages.
+                    // (Background messages are handled by the service worker.)
+                    const title = payload?.data?.title || payload?.notification?.title || 'Thông báo mới';
+                    const body = payload?.data?.body || payload?.notification?.body || '';
+                    if (typeof window !== 'undefined' && Notification.permission === 'granted') {
+                        new Notification(title, {
+                            body,
+                            icon: '/Artboard.png',
+                            badge: '/Artboard.png',
+                        });
+                    }
                 } catch (err) {
                     console.log('failed: ', err);
                 }

@@ -369,7 +369,8 @@ export interface UserDoc {
     // Permissions
     canManageHR?: boolean;
     customRoleId?: string; // Points to a document in 'custom_roles' collection
-    fcmToken?: string; // Firebase Cloud Messaging registration token
+    fcmToken?: string; // Firebase Cloud Messaging registration token (legacy single)
+    fcmTokens?: string[]; // Multi-device FCM tokens array
     defaultDashboard?: string; // User-configurable preferred landing page (e.g. '/office/revenue')
     avatar?: string; // WebP base64 data URI for profile portrait
 
@@ -379,6 +380,7 @@ export interface UserDoc {
 
     // Referral Points System
     referralPoints?: number;      // Total accumulated affiliate points
+    monthlyReferralPoints?: Record<string, number>; // Per-month breakdown, key = "YYYY-MM"
 }
 
 export interface NotificationDoc {
@@ -695,6 +697,7 @@ export interface PointTransactionDoc {
     orderCode?: string;          // POS order code
     orderValue?: number;         // Order value in VND
     points: number;              // Points awarded (negative for deductions)
+    packageName?: string;        // Customer's purchased package (Silver/Gold/Diamond)
     reason?: string;             // Reason for manual adjustment or revocation
     adminId?: string;            // Admin who performed the adjustment/revocation
     linkedTransactionId?: string; // Original transaction ID (for revocations)

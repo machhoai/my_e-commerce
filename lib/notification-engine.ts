@@ -152,7 +152,7 @@ export async function broadcastTemplate({
         console.log(`${tag} Template loaded: "${templateData.name}"`);
 
         // ── Build user list ──
-        let usersData: { uid: string; name: string; fcmToken?: string; storeId?: string }[] = [];
+        let usersData: { uid: string; name: string; fcmToken?: string; fcmTokens?: string[]; storeId?: string }[] = [];
 
         if (targetUserIds && targetUserIds.length > 0) {
             // Direct user list
@@ -161,7 +161,7 @@ export async function broadcastTemplate({
                 if (userSnap.exists) {
                     const data = userSnap.data()!;
                     if (data.isActive !== false) {
-                        usersData.push({ uid, name: data.name || 'bạn', fcmToken: data.fcmToken, storeId: data.storeId });
+                        usersData.push({ uid, name: data.name || 'bạn', fcmToken: data.fcmToken, fcmTokens: data.fcmTokens, storeId: data.storeId });
                     }
                 }
             }
@@ -183,6 +183,7 @@ export async function broadcastTemplate({
                         uid: doc.id,
                         name: data.name || 'bạn',
                         fcmToken: data.fcmToken,
+                        fcmTokens: data.fcmTokens,
                         storeId: data.storeId,
                     });
                 }
@@ -239,17 +240,23 @@ export async function broadcastTemplate({
         const seenTokens = new Set<string>();
 
         for (const user of usersData) {
-            if (user.fcmToken && !seenTokens.has(user.fcmToken)) {
-                seenTokens.add(user.fcmToken);
-                const ctx = { name: user.name, storeName: user.storeId || '', ...dataContext };
-                uniquePushMessages.push({
-                    token: user.fcmToken,
-                    data: {
-                        title: String(parseTemplate(templateData.titleTemplate, ctx) || 'Thông báo'),
-                        body: String(parseTemplate(templateData.bodyTemplate, ctx) || 'Nội dung'),
-                        actionLink: '/',
-                    },
-                });
+            // Collect all device tokens: new array + legacy single token
+            const tokenSet = new Set<string>(user.fcmTokens || []);
+            if (user.fcmToken) tokenSet.add(user.fcmToken);
+
+            for (const token of tokenSet) {
+                if (!seenTokens.has(token)) {
+                    seenTokens.add(token);
+                    const ctx = { name: user.name, storeName: user.storeId || '', ...dataContext };
+                    uniquePushMessages.push({
+                        token,
+                        data: {
+                            title: String(parseTemplate(templateData.titleTemplate, ctx) || 'Thông báo'),
+                            body: String(parseTemplate(templateData.bodyTemplate, ctx) || 'Nội dung'),
+                            actionLink: '/',
+                        },
+                    });
+                }
             }
         }
 
@@ -278,5 +285,62 @@ export async function broadcastTemplate({
     } catch (error) {
         console.error(`${tag} ❌ Broadcast failed:`, error);
         return { success: false, totalTargeted: 0, pushSent: 0, pushFailed: 0, error: 'Lỗi hệ thống' };
+    }
+}
+
+// ─── Broadcast by Event Name (auto-lookup template) ──────────────────────────
+
+/**
+ * Look up the templateId for an event from settings/global → eventMappings,
+ * then broadcast that template to ALL active users.
+ *
+ * Used by system events like REFERRAL_POINTS_EARNED.
+ */
+export async function broadcastByEvent({
+    eventName,
+    dataContext = {},
+}: {
+    eventName: string;
+    dataContext?: Record<string, string | number | undefined>;
+}): Promise<{ success: boolean; reason?: string }> {
+    const tag = '[BroadcastByEvent]';
+    console.log(`${tag} Event: ${eventName}`);
+
+    try {
+        const adminDb = getAdminDb();
+
+        // Look up event → templateId
+        const settingsSnap = await adminDb.collection('settings').doc('global').get();
+        if (!settingsSnap.exists) {
+            console.log(`${tag} settings/global not found. Skipping.`);
+            return { success: false, reason: 'settings_missing' };
+        }
+
+        const mappings = settingsSnap.data()?.eventMappings || {};
+        const templateId = mappings[eventName];
+
+        if (!templateId) {
+            console.log(`${tag} Event '${eventName}' is NOT mapped. Skipping.`);
+            return { success: false, reason: 'unmapped' };
+        }
+
+        console.log(`${tag} Event '${eventName}' → templateId '${templateId}', broadcasting to ALL...`);
+
+        const result = await broadcastTemplate({
+            templateId,
+            targetType: 'ALL',
+            dataContext,
+        });
+
+        if (result.success) {
+            console.log(`${tag} ✅ Broadcast done: ${result.totalTargeted} users, ${result.pushSent} push sent`);
+        } else {
+            console.log(`${tag} ❌ Broadcast failed: ${result.error}`);
+        }
+
+        return { success: result.success, reason: result.error };
+    } catch (error) {
+        console.error(`${tag} ❌ Error:`, error);
+        return { success: false, reason: 'internal_error' };
     }
 }

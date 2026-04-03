@@ -75,7 +75,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Không tìm thấy người dùng nào phù hợp với điều kiện' }, { status: 404 });
         }
 
-        const usersData: { uid: string, name: string, fcmToken?: string, storeId?: string }[] = [];
+        const usersData: { uid: string, name: string, fcmToken?: string, fcmTokens?: string[], storeId?: string }[] = [];
 
         usersSnapshot.forEach(doc => {
             const data = doc.data();
@@ -84,6 +84,7 @@ export async function POST(request: Request) {
                     uid: doc.id,
                     name: data.name || 'bạn',
                     fcmToken: data.fcmToken,
+                    fcmTokens: data.fcmTokens,
                     storeId: data.storeId,
                 });
             }
@@ -131,17 +132,23 @@ export async function POST(request: Request) {
         const seenTokens = new Set<string>();
 
         for (const user of usersData) {
-            if (user.fcmToken && !seenTokens.has(user.fcmToken)) {
-                seenTokens.add(user.fcmToken);
-                const ctx = { name: user.name, storeName: user.storeId || '' };
-                uniquePushMessages.push({
-                    token: user.fcmToken,
-                    data: {
-                        title: String(parseTemplate(title, ctx) || 'Thông báo'),
-                        body: String(parseTemplate(message, ctx) || 'Nội dung'),
-                        actionLink: "/"
-                    }
-                });
+            // Collect all device tokens: new array + legacy single token
+            const tokenSet = new Set<string>(user.fcmTokens || []);
+            if (user.fcmToken) tokenSet.add(user.fcmToken);
+
+            for (const token of tokenSet) {
+                if (!seenTokens.has(token)) {
+                    seenTokens.add(token);
+                    const ctx = { name: user.name, storeName: user.storeId || '' };
+                    uniquePushMessages.push({
+                        token,
+                        data: {
+                            title: String(parseTemplate(title, ctx) || 'Thông báo'),
+                            body: String(parseTemplate(message, ctx) || 'Nội dung'),
+                            actionLink: "/"
+                        }
+                    });
+                }
             }
         }
 

@@ -484,6 +484,12 @@ export default function ReferralHistoryPage() {
                                                             <p className="text-xs font-bold text-gray-700">{tx.customerPhone}</p>
                                                         </div>
                                                     )}
+                                                    {tx.packageName && (
+                                                        <div>
+                                                            <p className="text-[9px] text-gray-400 font-semibold uppercase">Gói</p>
+                                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-purple-50 text-purple-600 border-purple-100">{tx.packageName}</span>
+                                                        </div>
+                                                    )}
                                                     {tx.adminId && (
                                                         <div>
                                                             <p className="text-[9px] text-gray-400 font-semibold uppercase">Người thực hiện</p>

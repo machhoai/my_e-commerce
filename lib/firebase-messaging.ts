@@ -32,7 +32,22 @@ export const requestFirebaseNotificationPermission = async (): Promise<string | 
 
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
-            const currentToken = await getToken(msg, { vapidKey: VAPID_KEY });
+            // Register the firebase-messaging-sw.js explicitly so FCM
+            // uses it instead of the default Serwist/PWA service worker.
+            let swRegistration: ServiceWorkerRegistration | undefined;
+            try {
+                swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+                    scope: '/firebase-cloud-messaging-push-scope',
+                });
+                console.log('[FCM] firebase-messaging-sw.js registered with scope:', swRegistration.scope);
+            } catch (regErr) {
+                console.warn('[FCM] Could not register firebase-messaging-sw.js, using default:', regErr);
+            }
+
+            const currentToken = await getToken(msg, {
+                vapidKey: VAPID_KEY,
+                serviceWorkerRegistration: swRegistration,
+            });
             if (currentToken) {
                 return currentToken;
             } else {

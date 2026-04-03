@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
@@ -273,11 +273,20 @@ export default function NotificationTemplatesPage() {
 
                                 <div className="bg-primary-50 border border-primary-100 rounded-xl p-4 flex gap-3">
                                     <Info className="w-5 h-5 text-primary-500 shrink-0 mt-0.5" />
-                                    <div className="text-sm text-primary-800">
-                                        <strong className="block mb-1">Cú pháp Hỗ trợ Biến:</strong>
-                                        Bao bọc TỪ_KHÓA bằng dấu ngoặc nhọn <code className="bg-white px-1 py-0.5 rounded text-primary-600 mx-0.5">{'{'} {'}'}</code>.
-                                        Hệ thống sẽ tự nhận diện và thay thế bằng dữ liệu thực.<br />
-                                        <strong>Ví dụ: </strong><code className="bg-white px-1 py-0.5 rounded text-primary-600">{' {name} '}</code>, <code className="bg-white px-1 py-0.5 rounded text-primary-600">{' {storeName} '}</code>, <code className="bg-white px-1 py-0.5 rounded text-primary-600">{' {shiftDate} '}</code>.
+                                    <div className="text-sm text-primary-800 space-y-2">
+                                        <strong className="block">Cú pháp Hỗ trợ Biến:</strong>
+                                        <p>
+                                            Bao bọc TỪ_KHÓA bằng dấu ngoặc nhọn <code className="bg-white px-1 py-0.5 rounded text-primary-600 mx-0.5">{'{'} {'}'}</code>.
+                                            Hệ thống sẽ tự nhận diện và thay thế bằng dữ liệu thực.
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-1">
+                                            <div><code className="bg-white px-1 py-0.5 rounded text-primary-600">{'{name}'}</code> — Tên người nhận</div>
+                                            <div><code className="bg-white px-1 py-0.5 rounded text-primary-600">{'{storeName}'}</code> — Tên cửa hàng</div>
+                                            <div><code className="bg-white px-1 py-0.5 rounded text-primary-600">{'{shiftDate}'}</code> — Ngày ca làm</div>
+                                            <div><code className="bg-white px-1 py-0.5 rounded text-primary-600">{'{employeeName}'}</code> — Tên NV được cộng điểm</div>
+                                            <div><code className="bg-white px-1 py-0.5 rounded text-primary-600">{'{points}'}</code> — Số điểm cộng</div>
+                                            <div><code className="bg-white px-1 py-0.5 rounded text-primary-600">{'{packageName}'}</code> — Tên gói KH mua</div>
+                                        </div>
                                     </div>
                                 </div>
 

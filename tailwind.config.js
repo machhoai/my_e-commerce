@@ -84,9 +84,14 @@ module.exports = {
                         opacity: '0.4',
                     },
                 },
+                marquee: {
+                    '0%': { transform: 'translateX(0%)' },
+                    '100%': { transform: 'translateX(-50%)' },
+                },
             },
             animation: {
                 pulse: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                marquee: 'marquee 20s linear infinite',
             },
         }
     },
