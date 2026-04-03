@@ -222,6 +222,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         },
 
         {
+            label: 'Doanh thu',
+            href: '/office/revenue',
+            icon: BarChart3,
+            show: isAdmin || isSuperAdmin || isOfficeContext ||
+                userDoc?.role === 'office' ||
+                hasPermission('page.office.revenue'),
+            group: 'Báo cáo',
+        },
+
+        {
             label: 'Kho Cửa Hàng',
             href: '/manager/inventory/order',
             icon: Package,
@@ -268,15 +278,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             group: 'Văn Phòng',
         },
         {
-            label: 'Doanh thu',
-            href: '/office/revenue',
-            icon: BarChart3,
-            show: isAdmin || isSuperAdmin || isOfficeContext ||
-                userDoc?.role === 'office' ||
-                hasPermission('page.office.revenue'),
-            group: 'Văn Phòng',
-        },
-        {
             label: 'Tracking Links',
             href: '/office/tracking',
             icon: Link2,
@@ -292,28 +293,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             icon: Store,
             show: isAdmin || isSuperAdmin,
             matchPrefix: '/admin/stores',
-            group: 'H\u1ec7 Th\u1ed1ng',
+            group: 'Hệ thống',
         },
         {
             label: 'Quản lý Văn Phòng',
             href: '/admin/offices',
             icon: Building2,
             show: isAdmin || isSuperAdmin,
-            group: 'H\u1ec7 Th\u1ed1ng',
+            group: 'Hệ thống',
         },
         {
             label: 'Quản lý Kho Tổng',
             href: '/admin/warehouses',
             icon: Warehouse,
             show: isAdmin || isSuperAdmin,
-            group: 'H\u1ec7 Th\u1ed1ng',
+            group: 'Hệ thống',
         },
         {
             label: 'Quản lý Người dùng',
             href: '/admin/users',
             icon: Users,
             show: isAdmin || isSuperAdmin,
-            group: 'H\u1ec7 Th\u1ed1ng',
+            group: 'Hệ thống',
         },
         {
             label: 'Quản lý Voucher',
@@ -321,7 +322,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             icon: Ticket,
             show: isAdmin || isSuperAdmin || hasPermission('page.admin.vouchers'),
             matchPrefix: '/admin/vouchers',
-            group: 'H\u1ec7 Th\u1ed1ng',
+            group: 'Hệ thống',
         },
         {
             label: 'Quản lý Sự kiện',
@@ -329,7 +330,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             icon: CalendarDays,
             show: isAdmin || isSuperAdmin || hasPermission('page.admin.events'),
             matchPrefix: '/admin/events',
-            group: 'H\u1ec7 Th\u1ed1ng',
+            group: 'Hệ thống',
         },
         {
             label: 'Cài đặt hệ thống',
@@ -337,7 +338,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             icon: SettingsIcon,
             show: isAdmin || isSuperAdmin,
             matchPrefix: '/admin/settings',
-            group: 'H\u1ec7 Th\u1ed1ng',
+            group: 'Hệ thống',
         },
 
     ];
