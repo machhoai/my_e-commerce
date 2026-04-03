@@ -8,6 +8,7 @@ import {
     getShopSummary,
     getPaymentStatistics,
     getGoodsTypeStatistics,
+    getStoreBalance,
 } from '@/lib/joyworld';
 import {
     JOYWORLD_CACHE_COLLECTION,
@@ -18,11 +19,12 @@ import {
     type ShopSummary,
     type PaymentStat,
     type GoodsTypeStats,
+    type MemberStats,
     type DailyPanel,
 } from '@/lib/revenue-cache';
 
 // Re-export types for client
-export type { RevenueRecord, SellCategory, RevenueCache, ShopSummary, PaymentStat, GoodsTypeStats, DailyPanel };
+export type { RevenueRecord, SellCategory, RevenueCache, ShopSummary, PaymentStat, GoodsTypeStats, MemberStats, DailyPanel };
 
 // ── Result types ──
 export interface RevenueResult {
@@ -44,6 +46,15 @@ export async function fetchRevenueFromCache(startDate: string, endDate: string):
 
         if (doc.exists) {
             const cached = doc.data() as RevenueCache;
+
+            // Invalidate stale cache: if dailyPanel exists but memberStats is missing,
+            // the doc was written before memberStats was added — re-fetch fresh data.
+            const isStale = cached.dailyPanel != null && cached.dailyPanel.memberStats === undefined;
+            if (isStale) {
+                console.log('[Revenue Cache] Stale cache detected (missing memberStats), re-fetching:', docId);
+                return await fetchDirectAndCache(startDate, endDate);
+            }
+
             return {
                 success: true,
                 data: cached.revenue || [],
@@ -85,12 +96,13 @@ async function fetchDirectAndCache(startDate: string, endDate: string): Promise<
         // Fetch daily panel data only for single-day view
         let dailyPanel: DailyPanel | null = null;
         if (isOneDay) {
-            const [summaryRaw, paymentRaw, goodsRaw] = await Promise.all([
+            const [summaryRaw, paymentRaw, goodsRaw, memberRaw] = await Promise.all([
                 getShopSummary(token, startDate),
                 getPaymentStatistics(token, startDate),
                 getGoodsTypeStatistics(token, startDate),
+                getStoreBalance(token, startDate, startDate),
             ]);
-            dailyPanel = normalizeDailyPanel(startDate, summaryRaw, paymentRaw, goodsRaw);
+            dailyPanel = normalizeDailyPanel(startDate, summaryRaw, paymentRaw, goodsRaw, memberRaw);
         }
 
         const now = new Date().toISOString();
@@ -189,7 +201,7 @@ function normalizeSell(raw: any): SellCategory[] {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function normalizeDailyPanel(forDate: string, summaryRaw: any, paymentRaw: any, goodsRaw: any): DailyPanel {
+function normalizeDailyPanel(forDate: string, summaryRaw: any, paymentRaw: any, goodsRaw: any, memberRaw: any): DailyPanel {
     // Shop summary
     const sd = summaryRaw?.data;
     const shopSummary: ShopSummary | null = sd ? {
@@ -269,11 +281,25 @@ function normalizeDailyPanel(forDate: string, summaryRaw: any, paymentRaw: any, 
             }))
         : [];
 
+    // Member stats — from footData (aggregated for the date range)
+    const fd = memberRaw?.footData;
+
+    const memberStats: MemberStats | null = fd ? {
+        memberTotal: Number(fd.memberTotal) || 0,
+        newMemberAmount: Number(fd.newMemberAmount) || 0,
+        goShopMemberAmount: Number(fd.goShopMemberAmount) || 0,
+        currency: Number(fd.currency) || 0,
+        localCurrency: Number(fd.localCurrency) || 0,
+        giftCoins: Number(fd.giftCoins) || 0,
+        lotteryTicket: Number(fd.lotteryTicket) || 0,
+    } : null;
+
     return {
         forDate,
         shopSummary,
         paymentStats,
         goodsTypeStats,
+        memberStats,
         updatedAt: new Date().toISOString(),
     };
 }

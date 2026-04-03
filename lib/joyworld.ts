@@ -111,6 +111,35 @@ export async function getGoodsTypeStatistics(token: string, forDate: string) {
     return response.json();
 }
 
+// ─────────────────────────── MEMBER APIs ────────────────────────────────────
+
+/**
+ * Lấy thống kê số dư thành viên theo khoảng ngày
+ * GET /member/manager/RevenueOverview/getStoreBalance?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&page=1&limit=100
+ *
+ * Response.footData chứa tổng hợp cả khoảng:
+ *  - memberTotal      : Tổng số thành viên hiện có
+ *  - newMemberAmount  : Thành viên mới trong kỳ
+ *  - goShopMemberAmount: Lượt khách đến cửa hàng
+ *  - currency         : Tổng số dư (xu hệ thống)
+ *  - localCurrency    : Tổng VND nạp
+ *  - giftCoins        : Xu tặng
+ *  - lotteryTicket    : Điểm tích lũy
+ */
+export async function getStoreBalance(token: string, startDate: string, endDate: string) {
+    const url = `${BASE_URL}/member/manager/RevenueOverview/getStoreBalance?startDate=${startDate}&endDate=${endDate}&page=1&limit=100&_t=${Date.now()}`;
+    const response = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+    });
+    if (!response.ok) throw new Error('Lấy dữ liệu thành viên thất bại');
+    return response.json();
+}
+
 // ─────────────────────────── ORDER APIs ─────────────────────────────────────
 
 export interface OrderListParams {

@@ -114,11 +114,22 @@ export interface GoodsTypeStats {
     sellRatioDisplay: string;
 }
 
+export interface MemberStats {
+    memberTotal: number;       // Tổng số thành viên hiện có
+    newMemberAmount: number;   // Thành viên mới trong ngày
+    goShopMemberAmount: number;// Lượt khách đến cửa hàng
+    currency: number;          // Tổng số dư xu hệ thống
+    localCurrency: number;     // Tổng VND nạp
+    giftCoins: number;         // Xu tặng
+    lotteryTicket: number;     // Điểm tích lũy
+}
+
 export interface DailyPanel {
     forDate: string;
     shopSummary: ShopSummary | null;
     paymentStats: PaymentStat[];
     goodsTypeStats: GoodsTypeStats[];
+    memberStats: MemberStats | null;
     updatedAt: string;
 }
 

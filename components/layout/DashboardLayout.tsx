@@ -230,6 +230,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 hasPermission('page.office.revenue'),
             group: 'Báo cáo',
         },
+        {
+            label: 'Daily Report',
+            href: '/admin/daily-report',
+            icon: BarChart3,
+            show: isAdmin || isSuperAdmin,
+            matchPrefix: '/admin/daily-report',
+            group: 'Báo cáo',
+        },
 
         {
             label: 'Kho Cửa Hàng',
