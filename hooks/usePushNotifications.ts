@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
@@ -10,72 +10,96 @@ export function usePushNotifications() {
     const [permissionGranted, setPermissionGranted] = useState(false);
     const [fcmToken, setFcmToken] = useState<string | null>(null);
     const [notification, setNotification] = useState<MessagePayload | null>(null);
+    // true when Notification API exists, permission is 'default', and we need a user gesture
+    const [needsPrompt, setNeedsPrompt] = useState(false);
 
-    useEffect(() => {
-        const setupPushNotifications = async () => {
-            if (!user || typeof window === 'undefined') return;
-
-            // Request permission and get token
-            const token = await requestFirebaseNotificationPermission();
-
-            if (token) {
-                setPermissionGranted(true);
-                setFcmToken(token);
-
-                // Store token in fcmTokens array (multi-device) AND legacy fcmToken field
-                const existingTokens: string[] = userDoc?.fcmTokens || [];
-                if (!existingTokens.includes(token)) {
-                    try {
-                        const userRef = doc(db, 'users', user.uid);
-                        await updateDoc(userRef, {
-                            fcmToken: token,              // legacy single-token (backward compat)
-                            fcmTokens: arrayUnion(token), // multi-device tokens array
-                        });
-                        console.log('[FCM] Token saved to Firestore (fcmTokens array)');
-                    } catch (error) {
-                        console.error('Error updating FCM Token in Firestore:', error);
-                    }
-                }
+    /** Save FCM token to Firestore (multi-device array + legacy field) */
+    const saveToken = useCallback(async (token: string) => {
+        if (!user) return;
+        const existingTokens: string[] = userDoc?.fcmTokens || [];
+        if (!existingTokens.includes(token)) {
+            try {
+                const userRef = doc(db, 'users', user.uid);
+                await updateDoc(userRef, {
+                    fcmToken: token,              // legacy single-token (backward compat)
+                    fcmTokens: arrayUnion(token), // multi-device tokens array
+                });
+                console.log('[FCM] Token saved to Firestore (fcmTokens array)');
+            } catch (error) {
+                console.error('Error updating FCM Token in Firestore:', error);
             }
-        };
-
-        // Delay the prompt slightly to ensure the app is fully loaded
-        const timer = setTimeout(() => {
-            if ('Notification' in window) {
-                if (Notification.permission === 'granted' || Notification.permission === 'default') {
-                    setupPushNotifications();
-                }
-            }
-        }, 3000);
-
-        return () => clearTimeout(timer);
+        }
     }, [user, userDoc]);
 
-    useEffect(() => {
-        const listenForMessages = async () => {
-            if (permissionGranted) {
-                try {
-                    const payload = await onMessageListener() as MessagePayload;
-                    setNotification(payload);
+    /** Core setup: request permission → get token → save */
+    const setupPush = useCallback(async () => {
+        if (!user || typeof window === 'undefined') return;
+        const token = await requestFirebaseNotificationPermission();
+        if (token) {
+            setPermissionGranted(true);
+            setFcmToken(token);
+            setNeedsPrompt(false);
+            await saveToken(token);
+        }
+    }, [user, saveToken]);
 
-                    // Show browser notification for foreground data-only messages.
-                    // (Background messages are handled by the service worker.)
-                    const title = payload?.data?.title || payload?.notification?.title || 'Thông báo mới';
-                    const body = payload?.data?.body || payload?.notification?.body || '';
-                    if (typeof window !== 'undefined' && Notification.permission === 'granted') {
-                        new Notification(title, {
-                            body,
-                            icon: '/Artboard.png',
-                            badge: '/Artboard.png',
-                        });
-                    }
-                } catch (err) {
-                    console.log('failed: ', err);
+    /**
+     * PUBLIC — call this from a user-gesture handler (button onClick).
+     * iOS Safari/PWA requires Notification.requestPermission() to be triggered
+     * by a direct user tap. Calling it from setTimeout or useEffect is silently ignored.
+     */
+    const promptForPermission = useCallback(async () => {
+        await setupPush();
+    }, [setupPush]);
+
+    // On mount: auto-register if already granted, or flag that we need a prompt
+    useEffect(() => {
+        if (!user || typeof window === 'undefined') return;
+
+        const timer = setTimeout(() => {
+            if (!('Notification' in window)) return;
+
+            if (Notification.permission === 'granted') {
+                // Already granted — silently register token (no user gesture needed)
+                setupPush();
+            } else if (Notification.permission === 'default') {
+                // Never asked — on iOS this MUST come from a user gesture,
+                // so we just flag it and let the UI show a prompt banner.
+                // On Android/Desktop, auto-requesting also works, but showing
+                // a banner first is better UX anyway (less intrusive).
+                setNeedsPrompt(true);
+            }
+            // 'denied' — nothing we can do
+        }, 2000);
+
+        return () => clearTimeout(timer);
+    }, [user, setupPush]);
+
+    // Listen for foreground messages
+    useEffect(() => {
+        if (!permissionGranted) return;
+
+        const listenForMessages = async () => {
+            try {
+                const payload = await onMessageListener() as MessagePayload;
+                setNotification(payload);
+
+                // Show browser notification for foreground data-only messages.
+                const title = payload?.data?.title || payload?.notification?.title || 'Thông báo mới';
+                const body = payload?.data?.body || payload?.notification?.body || '';
+                if (typeof window !== 'undefined' && Notification.permission === 'granted') {
+                    new Notification(title, {
+                        body,
+                        icon: '/Artboard.png',
+                        badge: '/Artboard.png',
+                    });
                 }
+            } catch (err) {
+                console.log('failed: ', err);
             }
         };
         listenForMessages();
     }, [permissionGranted]);
 
-    return { fcmToken, permissionGranted, notification };
+    return { fcmToken, permissionGranted, notification, needsPrompt, promptForPermission };
 }
