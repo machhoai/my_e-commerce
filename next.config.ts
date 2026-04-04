@@ -4,7 +4,7 @@ import withSerwistInit from "@serwist/next";
 const withSerwist = withSerwistInit({
     swSrc: "app/sw.ts",
     swDest: "public/sw.js",
-    disable: process.env.NODE_ENV === "development",
+    disable: false, // Bật Service Worker trong môi trường DEV để test iOS Web Push
 });
 
 // Auto-generate build version on every build: format YYMMDD.HHMM

@@ -84,16 +84,10 @@ export function usePushNotifications() {
                 const payload = await onMessageListener() as MessagePayload;
                 setNotification(payload);
 
-                // Show browser notification for foreground data-only messages.
-                const title = payload?.data?.title || payload?.notification?.title || 'Thông báo mới';
-                const body = payload?.data?.body || payload?.notification?.body || '';
-                if (typeof window !== 'undefined' && Notification.permission === 'granted') {
-                    new Notification(title, {
-                        body,
-                        icon: '/Artboard.png',
-                        badge: '/Artboard.png',
-                    });
-                }
+                // We NO LONGER manually call `new Notification(...)` here.
+                // Since the FCM payloads now contain the standard `notification` block,
+                // the browser/OS handles them natively (avoiding duplicate notifications
+                // if multiple tabs are open).
             } catch (err) {
                 console.log('failed: ', err);
             }
