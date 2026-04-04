@@ -32,6 +32,15 @@ export function PushDebugPanel() {
     const [currentToken, setCurrentToken] = useState<string | null>(null);
     const [testResult, setTestResult] = useState<TestResult | null>(null);
     const [copied, setCopied] = useState(false);
+    // Track permission as state — avoids SSR crash (Notification is browser-only)
+    const [permission, setPermission] = useState<NotificationPermission | null>(null);
+
+    // Read permission only on client after mount
+    useEffect(() => {
+        if (typeof window !== 'undefined' && 'Notification' in window) {
+            setPermission(Notification.permission);
+        }
+    }, []);
 
     const runDiagnostics = async () => {
         setDiagLoading(true);
@@ -69,7 +78,10 @@ export function PushDebugPanel() {
             return;
         }
 
-        const perm = Notification.permission;
+        const perm = (typeof window !== 'undefined' && 'Notification' in window)
+            ? Notification.permission
+            : 'default';
+        setPermission(perm);
         lines.push({
             type: perm === 'granted' ? 'ok' : perm === 'denied' ? 'error' : 'warn',
             label: 'Notification.permission',
@@ -147,6 +159,7 @@ export function PushDebugPanel() {
         const token = await requestFirebaseNotificationPermission();
         if (token) {
             setCurrentToken(token);
+            if ('Notification' in window) setPermission(Notification.permission);
             await runDiagnostics();
         }
         setLoading(false);
@@ -284,7 +297,7 @@ export function PushDebugPanel() {
 
                     {/* Action buttons */}
                     <div className="p-3 pt-0 flex gap-2">
-                        {Notification.permission !== 'granted' && (
+                        {permission !== 'granted' && (
                             <button
                                 onClick={requestPermission}
                                 disabled={loading}
