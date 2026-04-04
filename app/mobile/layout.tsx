@@ -91,8 +91,8 @@ function MobileLayoutInner({ children }: { children: React.ReactNode }) {
             {children}
             {/* Floating QR/Barcode scanner — always accessible on mobile */}
             <UniversalScannerModal />
-            {/* iOS Push Debug Panel — REMOVE AFTER DEBUGGING */}
-            {process.env.NODE_ENV !== 'production' && <PushDebugPanel />}
+            {/* Push Debug Panel — TEMPORARY: remove after iOS push is fixed */}
+            <PushDebugPanel />
         </div>
     );
 }
