@@ -7,6 +7,7 @@ import AuthGuard from '@/components/layout/AuthGuard';
 import ProfileCompletionGuard from '@/components/auth/ProfileCompletionGuard';
 import UniversalScannerModal from '@/components/scanner/UniversalScannerModal';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { PushDebugPanel } from '@/components/debug/PushDebugPanel';
 
 export default function MobileLayout({
     children,
@@ -90,6 +91,8 @@ function MobileLayoutInner({ children }: { children: React.ReactNode }) {
             {children}
             {/* Floating QR/Barcode scanner — always accessible on mobile */}
             <UniversalScannerModal />
+            {/* iOS Push Debug Panel — REMOVE AFTER DEBUGGING */}
+            {process.env.NODE_ENV !== 'production' && <PushDebugPanel />}
         </div>
     );
 }
