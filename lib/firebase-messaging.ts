@@ -32,15 +32,38 @@ export const requestFirebaseNotificationPermission = async (): Promise<string | 
 
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
-            // Use the main Serwist service worker (sw.js) which already includes
-            // Firebase messaging logic. This avoids scope conflicts caused by
-            // registering a separate firebase-messaging-sw.js.
             let swRegistration: ServiceWorkerRegistration | undefined;
             try {
-                swRegistration = await navigator.serviceWorker.ready;
-                console.log('[FCM] Using main SW registration with scope:', swRegistration.scope);
+                // Explicitly register /sw.js and wait for it to be ready.
+                // This is required on iOS where the SW may not have been
+                // registered yet (e.g. Turbopack dev mode or first load).
+                if ('serviceWorker' in navigator) {
+                    // Register if not already registered
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    const existing = registrations.find(r =>
+                        r.scope === `${location.origin}/` ||
+                        r.active?.scriptURL?.includes('sw.js')
+                    );
+
+                    if (!existing) {
+                        await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                        console.log('[FCM] Registered /sw.js');
+                    }
+
+                    // Wait for ready with 8s timeout
+                    const readyTimeout = new Promise<never>((_, reject) =>
+                        setTimeout(() => reject(new Error('SW ready timeout')), 8000)
+                    );
+                    swRegistration = await Promise.race([
+                        navigator.serviceWorker.ready,
+                        readyTimeout,
+                    ]) as ServiceWorkerRegistration;
+                    console.log('[FCM] SW ready, scope:', swRegistration.scope);
+                }
             } catch (regErr) {
-                console.warn('[FCM] Could not get SW registration:', regErr);
+                console.warn('[FCM] SW registration issue:', regErr);
+                // Continue without SW registration — getToken may still work
+                // on platforms that don't require it
             }
 
             const currentToken = await getToken(msg, {

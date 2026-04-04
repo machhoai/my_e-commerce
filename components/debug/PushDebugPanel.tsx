@@ -99,7 +99,15 @@ export function PushDebugPanel() {
         }
 
         try {
-            const swReg = await navigator.serviceWorker.ready;
+            // Race serviceWorker.ready against a 5-second timeout
+            // to avoid hanging forever when the SW is not installed
+            const swReadyTimeout = new Promise<null>((_, reject) =>
+                setTimeout(() => reject(new Error('SW ready timeout after 5s')), 5000)
+            );
+            const swReg = await Promise.race([
+                navigator.serviceWorker.ready,
+                swReadyTimeout,
+            ]) as ServiceWorkerRegistration;
             const swState = swReg.active?.state || 'unknown';
             const swScope = swReg.scope;
             lines.push({
