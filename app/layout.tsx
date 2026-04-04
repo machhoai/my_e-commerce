@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import InstallPWA from "@/components/InstallPWA";
 import PwaRedirect from "@/components/PwaRedirect";
 import SilentPwaUpdater from "@/components/shared/SilentPwaUpdater";
+import RegisterSW from "@/components/shared/RegisterSW";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -83,6 +84,11 @@ export default function RootLayout({
                     {children}
                     <InstallPWA />
                     <PwaRedirect />
+                    {/* Register the Service Worker immediately at startup.
+                        CRITICAL: Without this, SW is only registered when the user
+                        grants notification permission, which means on a fresh
+                        Vercel deployment the SW is never installed. */}
+                    <RegisterSW />
                     <SilentPwaUpdater />
                 </AuthProvider>
             </body>

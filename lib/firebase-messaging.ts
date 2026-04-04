@@ -34,36 +34,29 @@ export const requestFirebaseNotificationPermission = async (): Promise<string | 
         if (permission === 'granted') {
             let swRegistration: ServiceWorkerRegistration | undefined;
             try {
-                // Explicitly register /sw.js and wait for it to be ready.
-                // This is required on iOS where the SW may not have been
-                // registered yet (e.g. Turbopack dev mode or first load).
                 if ('serviceWorker' in navigator) {
-                    // Register if not already registered
-                    const registrations = await navigator.serviceWorker.getRegistrations();
-                    const existing = registrations.find(r =>
-                        r.scope === `${location.origin}/` ||
-                        r.active?.scriptURL?.includes('sw.js')
-                    );
-
-                    if (!existing) {
-                        await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-                        console.log('[FCM] Registered /sw.js');
-                    }
-
-                    // Wait for ready with 8s timeout
+                    // SW should already be registered by RegisterSW component.
+                    // We just need to get the active registration.
+                    // Wait up to 5s for it to be ready.
                     const readyTimeout = new Promise<never>((_, reject) =>
-                        setTimeout(() => reject(new Error('SW ready timeout')), 8000)
+                        setTimeout(() => reject(new Error('SW ready timeout (5s)')), 5000)
                     );
                     swRegistration = await Promise.race([
                         navigator.serviceWorker.ready,
                         readyTimeout,
                     ]) as ServiceWorkerRegistration;
-                    console.log('[FCM] SW ready, scope:', swRegistration.scope);
+                    console.log('[FCM] SW ready, scope:', swRegistration.scope, '| state:', swRegistration.active?.state);
                 }
             } catch (regErr) {
-                console.warn('[FCM] SW registration issue:', regErr);
-                // Continue without SW registration — getToken may still work
-                // on platforms that don't require it
+                console.warn('[FCM] SW not ready in time:', regErr);
+                // Attempt fallback registration
+                try {
+                    await navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' });
+                    swRegistration = await navigator.serviceWorker.ready;
+                    console.log('[FCM] Fallback SW registration succeeded');
+                } catch {
+                    console.warn('[FCM] Fallback SW registration also failed, proceeding without SW');
+                }
             }
 
             const currentToken = await getToken(msg, {
