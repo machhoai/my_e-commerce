@@ -4,7 +4,11 @@ import withSerwistInit from "@serwist/next";
 const withSerwist = withSerwistInit({
     swSrc: "app/sw.ts",
     swDest: "public/sw.js",
-    disable: false, // Bật Service Worker trong môi trường DEV để test iOS Web Push
+    // DISABLED: Serwist webpack plugin requires self.__SW_MANIFEST in the SW source.
+    // Our minimal SW (app/sw.ts) intentionally omits Workbox precaching because
+    // Workbox's install-time precaching causes the SW to fail activation on Vercel
+    // when any pre-cache request fails. We serve public/sw.js as a plain static file.
+    disable: true,
 });
 
 // Auto-generate build version on every build: format YYMMDD.HHMM

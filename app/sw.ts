@@ -1,119 +1,103 @@
 // @ts-nocheck
-import { defaultCache } from "@serwist/next/worker";
-import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist } from "serwist";
-
-declare global { // eslint-disable-line no-var
-    interface WorkerGlobalScope extends SerwistGlobalConfig {
-        __SW_MANIFEST: (PrecacheEntry | string)[] | undefined;
-    }
-}
+/**
+ * Service Worker — B.Duck Cityfuns PWA
+ *
+ * DELIBERATE DESIGN DECISION: This SW intentionally does NOT use Serwist /
+ * Workbox precaching. Here's why:
+ *
+ * Workbox's install-time precaching downloads every cached route BEFORE the
+ * SW can activate. On Vercel production, if ANY single precache request fails
+ * (network blip, CDN hiccup, 404), the entire SW stays stuck in 'installing'
+ * and NEVER activates. This silently breaks push notifications for all users.
+ *
+ * For this app, reliable Push Notification delivery is more important than
+ * offline page caching. We use a minimal SW that always installs successfully.
+ *
+ * If offline caching is needed in the future, add it AFTER the SW is confirmed
+ * stable, using runtime caching (not install-time precaching).
+ */
 
 declare const self: ServiceWorkerGlobalScope;
 
-// ==========================================
-// SERWIST PWA SERVICE WORKER
-// ==========================================
-const serwist = new Serwist({
-    precacheEntries: self.__SW_MANIFEST,
-    skipWaiting: true,
-    clientsClaim: true,
-    navigationPreload: true,
-    runtimeCaching: defaultCache,
+// ── Install: activate immediately, no precaching to wait for ─────────────
+self.addEventListener('install', () => {
+    console.log('[SW] Installing — skip waiting immediately');
+    self.skipWaiting();
 });
 
-serwist.addEventListeners();
+// ── Activate: claim all clients right away ────────────────────────────────
+self.addEventListener('activate', (event) => {
+    console.log('[SW] Activated — claiming all clients');
+    event.waitUntil(self.clients.claim());
+});
 
-// ==========================================
-// CLIENT-TRIGGERED SKIP WAITING
-// ==========================================
+// ── Message: support manual skip-waiting from React app ──────────────────
 self.addEventListener('message', (event) => {
     if (event.data?.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
 });
 
-// ==========================================
-// WEB PUSH — NATIVE RAW PUSH HANDLER
-// ==========================================
-// WHY NOT Firebase SDK inside SW?
-// Firebase's messaging SDK in a SW context is async and slow to initialize.
-// iOS Safari PWA kills the Service Worker if it doesn't call showNotification
-// within ~2 seconds of receiving a push event.
-// Solution: Use the raw Web Push API directly — sync, fast, and iOS-compatible.
-//
-// PAYLOAD FORMAT (sent from Firebase Admin SDK):
-//   { notification: { title, body }, data: { actionLink }, webpush: { fcmOptions: { link } } }
-// The raw 'push' event on the SW receives the FCM envelope as JSON.
-//
+// ── Push: handle Web Push messages ───────────────────────────────────────
+// iOS Safari requirements (strictly enforced by APNs):
+//   1. Payload MUST include `notification: { title, body }` — data-only = dropped
+//   2. event.waitUntil() MUST wrap showNotification synchronously
+//   3. SW must activate within ~2s of push — no async init allowed
 self.addEventListener('push', (event) => {
     console.log('[SW] Push event received');
 
-    // Guard: no data = browser-level test ping, show generic notice
-    if (!event.data) {
-        event.waitUntil(
-            self.registration.showNotification('Thông báo mới', {
-                body: 'Bạn có một thông báo mới.',
-                icon: '/Artboard.png',
-                badge: '/Artboard.png',
-            })
-        );
-        return;
-    }
+    let payload: Record<string, unknown> = {};
 
-    let payload = {};
-    try {
-        payload = event.data.json();
-    } catch {
-        // If the payload is not JSON (rare), treat raw text as body
-        payload = { notification: { title: 'Thông báo', body: event.data.text() } };
+    if (event.data) {
+        try {
+            payload = event.data.json() as Record<string, unknown>;
+        } catch {
+            payload = {
+                notification: { title: 'Thông báo', body: event.data.text() },
+            };
+        }
     }
 
     console.log('[SW] Push payload parsed:', JSON.stringify(payload));
 
-    // FCM wraps content inside `notification` (standard) and `data` (custom).
-    // iOS REQUIRES the notification object to be present in the APNs envelope
-    // (handled by Firebase Admin SDK when `notification` field is set).
-    const notif = payload.notification || {};
-    const data  = payload.data       || {};
+    const notif = (payload.notification as Record<string, string>) || {};
+    const data  = (payload.data  as Record<string, string>) || {};
+    const webpush = (payload.webpush as Record<string, unknown>) || {};
+    const fcmOptions = (webpush.fcmOptions as Record<string, string>) || {};
 
     const title      = notif.title || data.title || 'Thông báo mới';
     const body       = notif.body  || data.body  || '';
-    const actionLink = data.actionLink
-        || payload?.webpush?.fcmOptions?.link
-        || '/mobile/dashboard';
+    const actionLink = data.actionLink || fcmOptions.link || '/mobile/dashboard';
 
-    // event.waitUntil keeps the SW alive until showNotification resolves.
-    // This is MANDATORY on iOS — omitting it causes silent drops.
+    // event.waitUntil is MANDATORY — keeps SW alive until showNotification resolves
     event.waitUntil(
         self.registration.showNotification(title, {
             body,
             icon: '/Artboard.png',
             badge: '/Artboard.png',
-            tag: 'push-notification',   // deduplicate: same tag = replace old
+            tag: 'app-push',          // deduplication: new push replaces old one
             renotify: false,
             data: { actionLink },
         })
     );
 });
 
-// ==========================================
-// NOTIFICATION CLICK HANDLER
-// ==========================================
+// ── Notification Click ────────────────────────────────────────────────────
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const urlToOpen = event.notification.data?.actionLink || '/mobile/dashboard';
+    const urlToOpen = (event.notification.data as { actionLink?: string })?.actionLink
+        || '/mobile/dashboard';
 
     event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-            // If a window is already open at that URL, focus it
+        (self.clients as Clients).matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+            // Focus existing window if one is open
             for (const client of clientList) {
-                if (client.url.includes(urlToOpen) && 'focus' in client) {
-                    return client.focus();
-                }
+                if ('focus' in client) return (client as WindowClient).focus();
             }
-            // Otherwise open a new window/tab
-            if (clients.openWindow) return clients.openWindow(urlToOpen);
+            // Otherwise open a new window
+            if ((self.clients as Clients).openWindow) {
+                return (self.clients as Clients).openWindow(urlToOpen);
+            }
         })
     );
 });
