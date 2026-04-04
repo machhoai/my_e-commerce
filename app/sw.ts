@@ -53,19 +53,12 @@ try {
     const messaging = getMessaging(firebaseApp);
 
     // 3. LẮNG NGHE BACKGROUND MESSAGE CHUẨN CỦA FIREBASE
+    // When the FCM payload includes the 'notification' object, the Firebase SDK automatically
+    // shows a notification. We don't need to manually call showNotification here, otherwise
+    // we will get duplicate notifications on Android/Desktop.
     onBackgroundMessage(messaging, (payload) => {
-        console.log('[SW] onBackgroundMessage payload:', payload);
-
-        const title = payload?.data?.title || payload?.notification?.title || 'Thông báo mới';
-        const body = payload?.data?.body || payload?.notification?.body || 'Nội dung thông báo';
-        const actionLink = payload?.data?.actionLink || '/mobile/dashboard';
-
-        self.registration.showNotification(title, {
-            body,
-            icon: '/Artboard.png',
-            badge: '/Artboard.png',
-            data: { actionLink, ...(payload?.data || {}) },
-        });
+        console.log('[SW] onBackgroundMessage payload received:', payload);
+        // Custom background logic can go here. Do NOT call showNotification.
     });
 
     console.log('[SW] Firebase messaging loaded locally via Serwist Bundle');

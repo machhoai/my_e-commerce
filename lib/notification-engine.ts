@@ -248,12 +248,23 @@ export async function broadcastTemplate({
                 if (!seenTokens.has(token)) {
                     seenTokens.add(token);
                     const ctx = { name: user.name, storeName: user.storeId || '', ...dataContext };
+                    const finalTitle = String(parseTemplate(templateData.titleTemplate, ctx) || 'Thông báo');
+                    const finalBody = String(parseTemplate(templateData.bodyTemplate, ctx) || 'Nội dung');
+                    const validActionLink = '/';
+
                     uniquePushMessages.push({
                         token,
+                        notification: {
+                            title: finalTitle,
+                            body: finalBody,
+                        },
+                        webpush: {
+                            fcmOptions: {
+                                link: validActionLink
+                            }
+                        },
                         data: {
-                            title: String(parseTemplate(templateData.titleTemplate, ctx) || 'Thông báo'),
-                            body: String(parseTemplate(templateData.bodyTemplate, ctx) || 'Nội dung'),
-                            actionLink: '/',
+                            actionLink: validActionLink,
                         },
                     });
                 }

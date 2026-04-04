@@ -140,12 +140,23 @@ export async function POST(request: Request) {
                 if (!seenTokens.has(token)) {
                     seenTokens.add(token);
                     const ctx = { name: user.name, storeName: user.storeId || '' };
+                    const finalTitle = String(parseTemplate(title, ctx) || 'Thông báo');
+                    const finalBody = String(parseTemplate(message, ctx) || 'Nội dung');
+                    const validActionLink = '/';
+
                     uniquePushMessages.push({
                         token,
+                        notification: {
+                            title: finalTitle,
+                            body: finalBody,
+                        },
+                        webpush: {
+                            fcmOptions: {
+                                link: validActionLink
+                            }
+                        },
                         data: {
-                            title: String(parseTemplate(title, ctx) || 'Thông báo'),
-                            body: String(parseTemplate(message, ctx) || 'Nội dung'),
-                            actionLink: "/"
+                            actionLink: validActionLink,
                         }
                     });
                 }

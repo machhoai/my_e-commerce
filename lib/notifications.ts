@@ -52,13 +52,23 @@ export async function sendNotification({
             if (legacyToken) allTokens.add(legacyToken);
 
             if (allTokens.size > 0) {
-                // Build data-only messages for each token
+                // Build standardized FCM messages:
+                // iOS requires the 'notification' block to display push notifications.
+                // webpush.fcmOptions.link handles the click-to-open action natively.
+                const validActionLink = actionLink || '/mobile/dashboard';
                 const messages = Array.from(allTokens).map(token => ({
                     token,
-                    data: {
+                    notification: {
                         title: String(title || 'Thông báo'),
                         body: String(body || 'Nội dung'),
-                        actionLink: actionLink || '/employee/dashboard',
+                    },
+                    webpush: {
+                        fcmOptions: {
+                            link: validActionLink
+                        }
+                    },
+                    data: {
+                        actionLink: validActionLink,
                     },
                 }));
 
