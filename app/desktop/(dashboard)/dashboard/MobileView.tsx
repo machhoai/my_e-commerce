@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, query, getDocs, where, getDoc, doc } from 'firebase/firestore';
+import { collection, query, getDocs, where, getDoc, doc, onSnapshot } from 'firebase/firestore';
 import {
     QrCode, PlusSquare, ClipboardList, ClipboardCheck, LayoutGrid,
     ChevronRight, ChevronDown, ChevronLeft,
@@ -1639,6 +1639,7 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
     const [isSticky, setIsSticky] = useState(false);
     const sentinelRef = useRef<HTMLDivElement>(null);
     const [showAllSheet, setShowAllSheet] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
     useEffect(() => {
         const el = sentinelRef.current;
         if (!el) return;
@@ -1649,6 +1650,18 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
         observer.observe(el);
         return () => observer.disconnect();
     }, []);
+
+    // ── Real-time unread notification count ────────────────────────────────
+    useEffect(() => {
+        if (!user) return;
+        const q = query(
+            collection(db, 'notifications'),
+            where('userId', '==', user.uid),
+            where('isRead', '==', false)
+        );
+        const unsub = onSnapshot(q, (snap) => setUnreadCount(snap.size));
+        return () => unsub();
+    }, [user]);
 
     // ── Custom roles (for badge display) ─────────────────────────────────────
     const [customRoles, setCustomRoles] = useState<CustomRoleDoc[]>([]);
@@ -1843,7 +1856,7 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
             group: 'Cá nhân',
             items: [
                 { icon: User, label: 'Hồ sơ', route: '/profile', color: 'bg-gray-100 text-gray-600' },
-                { icon: Bell, label: 'Thông báo', route: '/notifications', color: 'bg-gray-100 text-gray-600' },
+                { icon: Bell, label: 'Thông báo', route: '/mobile/notifications', color: 'bg-gray-100 text-gray-600' },
                 { icon: Settings, label: 'Cài đặt CH', route: '/manager/settings', color: 'bg-gray-100 text-gray-600', permKey: 'page.manager.settings' },
             ],
         },
@@ -1929,12 +1942,18 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
                             <User className="w-5 h-5" strokeWidth={1.75} />
                         </button>
                         <button
+                            onClick={() => router.push('/mobile/notifications')}
                             className={cn(
-                                'w-10 h-10 rounded-full flex items-center justify-center',
+                                'w-10 h-10 rounded-full flex items-center justify-center relative',
                                 'bg-white/20 text-white active:scale-95 transition-transform',
                             )}
                         >
                             <Bell className="w-5 h-5" strokeWidth={1.75} />
+                            {unreadCount > 0 && (
+                                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white px-0.5 ring-2 ring-primary-600">
+                                    {unreadCount > 99 ? '99+' : unreadCount}
+                                </span>
+                            )}
                         </button>
                     </div>
                 </div>

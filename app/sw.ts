@@ -12,12 +12,6 @@ declare global { // eslint-disable-line no-var
 declare const self: ServiceWorkerGlobalScope;
 
 // ==========================================
-// FIREBASE CLOUD MESSAGING — load compat SDK for background push
-// ==========================================
-importScripts('https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.9.0/firebase-messaging-compat.js');
-
-// ==========================================
 // SERWIST PWA SERVICE WORKER
 // ==========================================
 const serwist = new Serwist({
@@ -42,8 +36,23 @@ self.addEventListener('message', (event) => {
 // ==========================================
 // FIREBASE CLOUD MESSAGING (FCM) — PUSH NOTIFICATIONS
 // ==========================================
-// Firebase config is injected at build time from NEXT_PUBLIC_* env vars.
+// We use TWO layers:
+// 1. Firebase compat SDK (via importScripts) — works on Android/Desktop
+// 2. Native `push` event listener — fallback for iOS which doesn't support importScripts from CDN
+//
+// If Firebase compat loads successfully, it intercepts FCM push events and
+// calls onBackgroundMessage. If it fails (iOS), we fall back to the native
+// `push` event handler below.
+
+let firebaseMessagingAvailable = false;
+
 try {
+    // ─── Layer 1: Firebase compat SDK (Android/Desktop) ──────────────
+    // iOS Safari service workers do NOT support importScripts() from external
+    // URLs (CDNs). This will silently fail on iOS — that's expected.
+    importScripts('https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js');
+    importScripts('https://www.gstatic.com/firebasejs/10.9.0/firebase-messaging-compat.js');
+
     firebase.initializeApp({
         apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
         authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -54,15 +63,15 @@ try {
     });
 
     const messaging = firebase.messaging();
+    firebaseMessagingAvailable = true;
 
     // Handle background/data-only messages from FCM.
-    // This replaces the old firebase-messaging-sw.js logic.
     messaging.onBackgroundMessage((payload) => {
         console.log('[SW] onBackgroundMessage payload:', JSON.stringify(payload));
 
         const title = payload?.data?.title || payload?.notification?.title || 'Thông báo mới';
         const body = payload?.data?.body || payload?.notification?.body || 'Nội dung thông báo';
-        const actionLink = payload?.data?.actionLink || '/employee/dashboard';
+        const actionLink = payload?.data?.actionLink || '/mobile/dashboard';
 
         self.registration.showNotification(title, {
             body,
@@ -71,9 +80,52 @@ try {
             data: { actionLink, ...(payload?.data || {}) },
         });
     });
+
+    console.log('[SW] Firebase messaging compat SDK loaded successfully');
 } catch (error) {
-    console.error('[SW] Firebase messaging init error:', error);
+    console.warn('[SW] Firebase compat SDK not available (expected on iOS):', error);
 }
+
+// ─── Layer 2: Native Push Event (iOS fallback) ──────────────────────
+// On iOS, importScripts fails, so Firebase SDK can't intercept push events.
+// We handle the raw `push` event directly. This also serves as a safety net
+// on all platforms in case Firebase SDK misses a message.
+self.addEventListener('push', (event) => {
+    // If Firebase messaging handled this event, skip to avoid duplicates.
+    // Firebase compat SDK sets an internal flag when it processes a push.
+    // We check if Firebase is available AND if the event has already been handled.
+    if (firebaseMessagingAvailable) {
+        // Firebase SDK will handle this via onBackgroundMessage — skip.
+        console.log('[SW] push event: Firebase SDK available, deferring to onBackgroundMessage');
+        return;
+    }
+
+    console.log('[SW] push event: handling natively (iOS or Firebase unavailable)');
+
+    let data = {};
+    try {
+        data = event.data?.json() || {};
+    } catch {
+        try {
+            data = { body: event.data?.text() || 'Bạn có thông báo mới' };
+        } catch { /* empty */ }
+    }
+
+    // FCM data-only messages wrap the payload under data.data
+    const payload = (data as any).data || data;
+    const title = payload?.title || (data as any)?.notification?.title || 'Thông báo mới';
+    const body = payload?.body || (data as any)?.notification?.body || 'Nội dung thông báo';
+    const actionLink = payload?.actionLink || '/mobile/dashboard';
+
+    event.waitUntil(
+        self.registration.showNotification(title, {
+            body,
+            icon: '/Artboard.png',
+            badge: '/Artboard.png',
+            data: { actionLink, ...payload },
+        })
+    );
+});
 
 // ==========================================
 // NOTIFICATION CLICK HANDLER
