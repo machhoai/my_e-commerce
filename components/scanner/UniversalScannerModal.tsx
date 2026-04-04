@@ -209,10 +209,10 @@ function ReferralView({
 }
 
 // ── Draggable FAB ────────────────────────────────────────────────
-const FAB_SIZE = 56; // w-14 = 56px
-const FAB_MARGIN = 16; // distance from screen edge
+const FAB_SIZE = 64; // w-16 = 64px — bigger touch target
+const FAB_MARGIN = 12; // distance from screen edge
 const IDLE_TIMEOUT = 5000;
-const DRAG_THRESHOLD = 6; // px moved to count as drag (not tap)
+const DRAG_THRESHOLD = 12; // px moved to count as drag (not tap) — higher to avoid accidental drags on touchscreens
 
 function DraggableFAB({ onTap, hidden }: { onTap: () => void; hidden: boolean }) {
     const btnRef = useRef<HTMLButtonElement>(null);
@@ -256,7 +256,7 @@ function DraggableFAB({ onTap, hidden }: { onTap: () => void; hidden: boolean })
     }, [resetIdleTimer]);
 
     const onPointerDown = useCallback((e: React.PointerEvent) => {
-        e.preventDefault();
+        // Do NOT call e.preventDefault() — it blocks native tap/click on mobile browsers
         const btn = btnRef.current;
         if (!btn) return;
         btn.setPointerCapture(e.pointerId);
@@ -325,7 +325,7 @@ function DraggableFAB({ onTap, hidden }: { onTap: () => void; hidden: boolean })
                 zIndex: 40,
                 touchAction: 'none',
                 transition: snapping ? 'left 0.3s cubic-bezier(.4,0,.2,1), top 0.3s cubic-bezier(.4,0,.2,1), opacity 0.5s' : 'opacity 0.5s',
-                opacity: hidden ? 0 : idle ? 0.6 : 1,
+                opacity: hidden ? 0 : idle ? 0.75 : 1,
                 pointerEvents: hidden ? 'none' : 'auto',
             }}
             className={cn(
@@ -334,10 +334,12 @@ function DraggableFAB({ onTap, hidden }: { onTap: () => void; hidden: boolean })
                 'shadow-xl shadow-accent-500/30',
                 'flex items-center justify-center',
                 'select-none',
+                // Invisible touch padding — extends tap area by 10px on each side
+                'before:content-[\'\'] before:absolute before:-inset-[10px] before:rounded-3xl',
             )}
             title="Quét mã"
         >
-            <ScanLine className="w-6 h-6 pointer-events-none" />
+            <ScanLine className="w-7 h-7 pointer-events-none" />
         </button>
     );
 }
