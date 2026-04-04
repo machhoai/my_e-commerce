@@ -99,7 +99,7 @@ export default function GlobalOverviewPage() {
                 });
                 setAllUsersMap(fullMap);
                 const allUsers = Array.from(fullMap.values())
-                    .filter(u => u.role !== 'admin')
+                    .filter(u => u.role !== 'admin' && u.isActive !== false)
                     .sort((a, b) => a.name.localeCompare(b.name));
                 setUsers(allUsers);
 
@@ -133,11 +133,21 @@ export default function GlobalOverviewPage() {
                 const minDate = toLocalDateString(days[0]);
                 const maxDate = toLocalDateString(days[6]);
 
-                const schedulesQuery = query(
+                let schedulesQuery = query(
                     collection(db, 'schedules'),
                     where('date', '>=', minDate),
                     where('date', '<=', maxDate)
                 );
+
+                // Filter by storeId to prevent cross-store schedule bleed-through
+                if (effectiveStoreId) {
+                    schedulesQuery = query(
+                        collection(db, 'schedules'),
+                        where('storeId', '==', effectiveStoreId),
+                        where('date', '>=', minDate),
+                        where('date', '<=', maxDate)
+                    );
+                }
 
                 const schedulesSnap = await getDocs(schedulesQuery);
 

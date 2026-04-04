@@ -219,6 +219,7 @@ export default function ManagerSchedulePage() {
                 // --- Server schedule for this day/shift ---
                 const qScheds = query(
                     collection(db, 'schedules'),
+                    where('storeId', '==', effectiveStoreId),
                     where('date', '==', selectedDate),
                     where('shiftId', '==', selectedShiftId)
                 );
@@ -429,6 +430,11 @@ export default function ManagerSchedulePage() {
             const days = Object.entries(allDrafts).map(([key, slotDraft]) => {
                 const [date, ...shiftParts] = key.split('_');
                 const shiftId = shiftParts.join('_'); // handles shift IDs with underscores
+                // For the currently-visible slot, use the known managerAssignedUids.
+                // For other slots, send empty array — the API will preserve existing values
+                // via batch.set which overwrites; to be safe we only mark force-assigned
+                // for the slot the manager is actively viewing.
+                const isCurrentSlot = date === selectedDate && shiftId === selectedShiftId;
                 return {
                     date,
                     shiftId,
@@ -437,7 +443,9 @@ export default function ManagerSchedulePage() {
                             counterId,
                             {
                                 employeeIds: uids,
-                                assignedByManagerUids: uids.filter(uid => managerAssignedUids.has(uid)),
+                                assignedByManagerUids: isCurrentSlot
+                                    ? uids.filter(uid => managerAssignedUids.has(uid))
+                                    : [],
                             },
                         ])
                     ),
