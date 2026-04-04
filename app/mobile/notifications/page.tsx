@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { NotificationDoc } from '@/types';
-import { Bell, Check, CheckCircle2, ChevronRight, ChevronLeft, Info, BellOff, Sparkles } from 'lucide-react';
+import { Bell, Check, CheckCircle2, ChevronRight, ChevronLeft, Info, BellOff, Sparkles, ExternalLink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -20,6 +20,7 @@ export default function MobileNotificationsPage() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<FilterTab>('all');
     const [markingAll, setMarkingAll] = useState(false);
+    const [expandedId, setExpandedId] = useState<string | null>(null);
 
     const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -51,16 +52,18 @@ export default function MobileNotificationsPage() {
     }, [user]);
 
     const handleNotificationClick = async (notification: NotificationDoc) => {
-        if (!notification.isRead) {
+        // Toggle expand/collapse
+        const isExpanding = expandedId !== notification.id;
+        setExpandedId(isExpanding ? notification.id : null);
+
+        // Mark as read when expanding
+        if (isExpanding && !notification.isRead) {
             try {
                 const docRef = doc(db, 'notifications', notification.id);
                 await updateDoc(docRef, { isRead: true });
             } catch (error) {
                 console.error("Error updating notification status:", error);
             }
-        }
-        if (notification.actionLink) {
-            router.push(notification.actionLink);
         }
     };
 
@@ -254,51 +257,72 @@ export default function MobileNotificationsPage() {
                                     {group.items.map((notification) => {
                                         const config = getTypeConfig(notification.type);
                                         const hasLink = !!notification.actionLink;
+                                        const isExpanded = expandedId === notification.id;
 
                                         return (
-                                            <button
+                                            <div
                                                 key={notification.id}
-                                                onClick={() => handleNotificationClick(notification)}
                                                 className={cn(
-                                                    'w-full text-left rounded-2xl transition-all flex gap-3 p-3.5 relative',
-                                                    'active:scale-[0.98]',
+                                                    'w-full text-left rounded-2xl transition-all relative overflow-hidden',
                                                     !notification.isRead
                                                         ? 'bg-white border border-primary-100 shadow-sm'
                                                         : 'bg-white/60 border border-gray-100',
-                                                    hasLink && 'cursor-pointer'
+                                                    isExpanded && 'border-primary-200 shadow-md',
                                                 )}
                                             >
-                                                {/* Unread dot */}
-                                                {!notification.isRead && (
-                                                    <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-primary-500" />
-                                                )}
+                                                {/* Main card — tappable */}
+                                                <button
+                                                    onClick={() => handleNotificationClick(notification)}
+                                                    className="w-full text-left flex gap-3 p-3.5 active:bg-gray-50/50 transition-colors"
+                                                >
+                                                    {/* Unread dot */}
+                                                    {!notification.isRead && (
+                                                        <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-primary-500" />
+                                                    )}
 
-                                                {/* Type icon */}
-                                                <div className={cn(
-                                                    'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
-                                                    config.bgColor,
-                                                )}>
-                                                    {config.icon}
-                                                </div>
-
-                                                {/* Content */}
-                                                <div className="flex-1 min-w-0 pr-4">
-                                                    <p className={cn(
-                                                        'text-[13px] leading-snug',
-                                                        !notification.isRead
-                                                            ? 'font-bold text-gray-900'
-                                                            : 'font-medium text-gray-600'
+                                                    {/* Type icon */}
+                                                    <div className={cn(
+                                                        'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+                                                        config.bgColor,
                                                     )}>
-                                                        {notification.title}
-                                                    </p>
-                                                    <p className="text-[11px] text-gray-400 mt-1 line-clamp-2 leading-relaxed">
-                                                        {notification.body}
-                                                    </p>
-                                                    <p className="text-[10px] text-gray-300 mt-1.5 font-medium">
-                                                        {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: vi })}
-                                                    </p>
-                                                </div>
-                                            </button>
+                                                        {config.icon}
+                                                    </div>
+
+                                                    {/* Content */}
+                                                    <div className="flex-1 min-w-0 pr-4">
+                                                        <p className={cn(
+                                                            'text-[13px] leading-snug',
+                                                            !notification.isRead
+                                                                ? 'font-bold text-gray-900'
+                                                                : 'font-medium text-gray-600'
+                                                        )}>
+                                                            {notification.title}
+                                                        </p>
+                                                        <p className={cn(
+                                                            'text-[11px] text-gray-400 mt-1 leading-relaxed',
+                                                            !isExpanded && 'line-clamp-2'
+                                                        )}>
+                                                            {notification.body}
+                                                        </p>
+                                                        <p className="text-[10px] text-gray-300 mt-1.5 font-medium">
+                                                            {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: vi })}
+                                                        </p>
+                                                    </div>
+                                                </button>
+
+                                                {/* Expanded action area */}
+                                                {isExpanded && hasLink && (
+                                                    <div className="px-3.5 pb-3 pt-0 pl-[62px]">
+                                                        <button
+                                                            onClick={() => router.push(notification.actionLink!)}
+                                                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary-50 text-primary-600 text-xs font-bold active:scale-95 transition-all"
+                                                        >
+                                                            <ExternalLink className="w-3.5 h-3.5" />
+                                                            Xem chi tiết
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         );
                                     })}
                                 </div>
