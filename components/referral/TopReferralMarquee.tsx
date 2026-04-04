@@ -13,9 +13,10 @@ const RANK_LABELS = ['🥇', '🥈', '🥉'];
 interface TopReferralMarqueeProps {
     className?: string;
     initialData?: TopEmployee[];
+    onClick?: () => void;
 }
 
-export default function TopReferralMarquee({ className, initialData = [] }: TopReferralMarqueeProps) {
+export default function TopReferralMarquee({ className, initialData = [], onClick }: TopReferralMarqueeProps) {
     // Don't render marquee if no employees have points, but render a spacer
     if (initialData.length === 0) return <div className={className} />;
 
@@ -30,7 +31,12 @@ export default function TopReferralMarquee({ className, initialData = [] }: TopR
     const fullText = `🏆 Bảng vàng chiến thần vịt vàng tháng ${monthName.toUpperCase()} 🦆   ${marqueeContent}`;
 
     return (
-        <div className={`relative overflow-hidden rounded-xl ${className ?? ''}`}>
+        <div
+            className={`relative overflow-hidden rounded-xl ${className ?? ''} ${onClick ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''}`}
+            onClick={onClick}
+            role={onClick ? 'button' : undefined}
+            aria-label={onClick ? 'Xem bảng vàng thánh chỉ' : undefined}
+        >
             {/* Gradient background */}
             <div className="absolute inset-0 bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-500 opacity-95" />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,_rgba(255,255,255,0.3)_0%,_transparent_60%)]" />

@@ -1,27 +1,36 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { getReferralPoints } from '@/actions/referral';
-import { Star, ChevronRight, Copy, Check } from 'lucide-react';
+import { getReferralPoints, syncReferralPoints } from '@/actions/referral';
+import { Star, ChevronRight, Copy, Check, RefreshCw, AlertCircle } from 'lucide-react';
+
+type SyncState = 'idle' | 'syncing' | 'done' | 'error';
 
 export default function ReferralPointsWidget() {
     const router = useRouter();
     const { user, userDoc } = useAuth();
     const [points, setPoints] = useState<number | null>(null);
     const [copied, setCopied] = useState(false);
+    const [sync, setSync] = useState<SyncState>('idle');
+    const [result, setResult] = useState<{ matched: number; expired: number } | null>(null);
 
     // Only render for STORE employees (nhân viên vận hành)
-    const isStoreEmployee = userDoc?.workplaceType === 'STORE';
+    const isStoreEmployee = userDoc?.storeId !== null;
     const refCode = user?.uid ? `REF-${user.uid}` : '';
 
-    useEffect(() => {
+    const loadPoints = useCallback(async () => {
         if (!user?.uid || !isStoreEmployee) return;
-        getReferralPoints(user.uid).then(setPoints);
+        const pts = await getReferralPoints(user.uid);
+        setPoints(pts);
     }, [user?.uid, isStoreEmployee]);
 
-    if (!isStoreEmployee || points === null) return null;
+    useEffect(() => {
+        loadPoints();
+    }, [loadPoints]);
+
+    if (!isStoreEmployee) return null;
 
     const copyCode = async (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -30,6 +39,34 @@ export default function ReferralPointsWidget() {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch { /* clipboard not supported */ }
+    };
+
+    const handleSync = async (e: React.MouseEvent) => {
+        e.stopPropagation();          // không trigger router.push
+        if (sync === 'syncing') return;
+
+        setSync('syncing');
+        setResult(null);
+
+        try {
+            const res = await syncReferralPoints();
+            if (res.error) {
+                setSync('error');
+            } else {
+                setSync('done');
+                setResult({ matched: res.matched, expired: res.expired });
+                // Reload điểm ngay sau khi sync xong
+                await loadPoints();
+            }
+        } catch {
+            setSync('error');
+        }
+
+        // Reset trạng thái icon sau 4s
+        setTimeout(() => {
+            setSync('idle');
+            setResult(null);
+        }, 4000);
     };
 
     return (
@@ -48,29 +85,52 @@ export default function ReferralPointsWidget() {
                             Điểm giới thiệu
                         </p>
                         <p className="text-2xl font-black text-amber-800 leading-tight">
-                            {points.toLocaleString('vi-VN')}
+                            {points?.toLocaleString('vi-VN') || '0'}
                             <span className="text-sm font-bold text-amber-600 ml-1">điểm</span>
                         </p>
                     </div>
-                    <div className="flex items-center gap-1 text-amber-600 shrink-0">
-                        <span className="text-[10px] font-bold">Xem lịch sử</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
+
+                    {/* Right side: sync button + chevron */}
+                    <div className="flex items-center gap-2 shrink-0">
+                        {/* Sync button */}
+                        <button
+                            onClick={handleSync}
+                            disabled={sync === 'syncing'}
+                            title="Đồng bộ điểm giới thiệu"
+                            className="w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90
+                                bg-amber-200 hover:bg-amber-200 disabled:opacity-60"
+                            aria-label="Đồng bộ điểm"
+                        >
+                            {sync === 'error' ? (
+                                <AlertCircle className="w-4 h-4 text-red-500" />
+                            ) : sync === 'done' ? (
+                                <Check className="w-4 h-4 text-emerald-500" />
+                            ) : (
+                                <RefreshCw className={`w-4 h-4 text-amber-600 ${sync === 'syncing' ? 'animate-spin' : ''}`} />
+                            )}
+                        </button>
                     </div>
                 </div>
 
-                {/* Employee referral code */}
-                <div
-                    onClick={copyCode}
-                    className="flex items-center justify-between bg-white/70 rounded-xl px-3 py-2 border border-amber-200/60"
-                >
-                    <div className="min-w-0">
-                        <p className="text-[9px] text-amber-600/70 font-bold uppercase tracking-wider">Mã giới thiệu</p>
-                        <p className="text-xs font-mono font-black text-amber-800 truncate">{refCode}</p>
+                {/* Sync result toast */}
+                {result && sync === 'done' && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-xl border border-emerald-100 text-[11px] text-emerald-700 font-medium"
+                        onClick={e => e.stopPropagation()}>
+                        <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                        Đồng bộ xong — {result.matched > 0
+                            ? `+${result.matched} đơn khớp, cộng điểm thành công`
+                            : 'Không có đơn mới để khớp'}
                     </div>
-                    <span className="shrink-0 ml-2 text-amber-500">
-                        {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    </span>
-                </div>
+                )}
+                {sync === 'error' && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 rounded-xl border border-red-100 text-[11px] text-red-600 font-medium"
+                        onClick={e => e.stopPropagation()}>
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        Không thể kết nối hệ thống. Thử lại sau.
+                    </div>
+                )}
+
+                {/* Employee referral code */}
             </div>
         </button>
     );

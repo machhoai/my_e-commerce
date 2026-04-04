@@ -5,11 +5,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { NotificationDoc } from '@/types';
-import { Bell, Check, CheckCircle2, ChevronRight, ChevronLeft, Info, BellOff, Sparkles, ExternalLink } from 'lucide-react';
+import { Bell, Check, CheckCircle2, ChevronRight, ChevronLeft, Info, BellOff, Sparkles, ExternalLink, Bug } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { PushDebugPanel } from '@/components/debug/PushDebugPanel';
 
 type FilterTab = 'all' | 'unread';
 
@@ -21,6 +22,20 @@ export default function MobileNotificationsPage() {
     const [activeTab, setActiveTab] = useState<FilterTab>('all');
     const [markingAll, setMarkingAll] = useState(false);
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [debugTaps, setDebugTaps] = useState(0);
+    const [showDebug, setShowDebug] = useState(false);
+
+    // Triple-tap the header icon to reveal the debug panel
+    const handleDebugTap = () => {
+        setDebugTaps(prev => {
+            const next = prev + 1;
+            if (next >= 3) {
+                setShowDebug(s => !s);
+                return 0;
+            }
+            return next;
+        });
+    };
 
     const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -178,6 +193,14 @@ export default function MobileNotificationsPage() {
                             Đọc hết
                         </button>
                     )}
+                    {/* Hidden debug entry — triple-tap to toggle */}
+                    <button
+                        onClick={handleDebugTap}
+                        className="w-8 h-8 flex items-center justify-center rounded-xl transition-colors shrink-0 opacity-20 active:opacity-60"
+                        aria-label="Debug"
+                    >
+                        <Bug className="w-4 h-4 text-gray-400" />
+                    </button>
                 </div>
 
                 {/* Tab bar */}
@@ -331,6 +354,18 @@ export default function MobileNotificationsPage() {
                     </div>
                 )}
             </main>
+
+            {/* ── Hidden Debug Panel — triple-tap 🐛 icon to reveal ── */}
+            {showDebug && (
+                <div className="animate-in slide-in-from-bottom-4 duration-300 border-t-2 border-dashed border-gray-200 bg-gray-50 pb-safe">
+                    <div className="flex items-center gap-2 px-4 py-2">
+                        <Bug className="w-3.5 h-3.5 text-gray-400" />
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Push Debug Mode</p>
+                        <button onClick={() => setShowDebug(false)} className="ml-auto text-[10px] text-gray-400 underline">Ẩn</button>
+                    </div>
+                    <PushDebugPanel inline />
+                </div>
+            )}
         </div>
     );
 }

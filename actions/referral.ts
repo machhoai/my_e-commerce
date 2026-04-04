@@ -116,6 +116,180 @@ export async function getTopReferralEmployees(): Promise<
     }
 }
 
+// ── Sync Referral Points: Match pending referrals with Joyworld orders ────────
+export interface SyncReferralResult {
+    matched: number;   // số referral được match & cộng điểm
+    expired: number;   // số referral hết hạn & không có đơn
+    skipped: number;   // số referral bỏ qua (đã xử lý trước đó)
+    error?: string;
+}
+
+export async function syncReferralPoints(): Promise<SyncReferralResult> {
+    try {
+        const db = getAdminDb();
+
+        // 1. Lấy tất cả pending referrals đang chờ
+        const pendingSnap = await db
+            .collection('pending_referrals')
+            .where('status', '==', 'waiting')
+            .get();
+
+        if (pendingSnap.empty) {
+            return { matched: 0, expired: 0, skipped: 0 };
+        }
+
+        const pendingDocs = pendingSnap.docs.map(d => ({
+            id: d.id,
+            ...d.data(),
+        })) as import('@/types').PendingReferralDoc[];
+
+        // 2. Lấy token Joyworld
+        const { getJoyworldToken, getOrderList } = await import('@/lib/joyworld');
+        const token = await getJoyworldToken();
+        if (!token) {
+            return { matched: 0, expired: 0, skipped: 0, error: 'Không thể xác thực với Joyworld' };
+        }
+
+        // 3. Xác định khoảng thời gian query: 30 ngày về trước → bây giờ
+        const now = new Date();
+        const past30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const fmt = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, '-');
+        const startTime = `${fmt(past30)} 00:00:00`;
+        const endTime   = `${fmt(now)} 23:59:59`;
+
+        // 4. Fetch đơn hàng từ Joyworld (lấy tối đa 500 đơn gần nhất — đủ cho thực tế)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let orderItems: any[] = [];
+        try {
+            const orderRes = await getOrderList(token, { startTime, endTime, page: 1, limit: 500 });
+            orderItems = orderRes?.data?.dataList ?? orderRes?.data?.list ?? orderRes?.data ?? [];
+        } catch (fetchErr) {
+            console.error('[syncReferralPoints] Joyworld order fetch error:', fetchErr);
+            return { matched: 0, expired: 0, skipped: 0, error: 'Lỗi khi lấy đơn hàng từ Joyworld' };
+        }
+
+        // 5. Build map: phone → list of orders (phone chuẩn hoá về 10 số)
+        const normalizePhone = (p: string) => p?.replace(/\D/g, '').replace(/^84/, '0').slice(-10);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const phoneOrderMap = new Map<string, any[]>();
+        for (const order of orderItems) {
+            // Joyworld field names may vary — try common field names
+            const phone = normalizePhone(
+                order.memberPhone || order.memberMobile || order.phone || order.mobile || ''
+            );
+            if (!phone) continue;
+            if (!phoneOrderMap.has(phone)) phoneOrderMap.set(phone, []);
+            phoneOrderMap.get(phone)!.push(order);
+        }
+
+        // Point rules per package
+        const POINTS_MAP: Record<string, number> = {
+            Silver:  1,
+            Gold:    2,
+            Diamond: 3,
+        };
+
+        let matched = 0;
+        let expired = 0;
+
+        const batch = db.batch();
+        const txnDocs: {
+            ref: FirebaseFirestore.DocumentReference;
+            data: Record<string, unknown>;
+        }[] = [];
+        const userPointDeltas = new Map<string, { total: number; monthKey: string }>();
+
+        for (const pending of pendingDocs) {
+            const phone = normalizePhone(pending.customerPhone);
+            const orders = phoneOrderMap.get(phone) ?? [];
+
+            if (orders.length === 0) {
+                // Không có đơn hàng nào trong 30 ngày → đánh dấu no_order
+                const ref = db.collection('pending_referrals').doc(pending.id);
+                batch.update(ref, { status: 'no_order', resolvedAt: now.toISOString() });
+                expired++;
+                continue;
+            }
+
+            // Lấy đơn hàng đầu tiên để match (theo thứ tự thời gian mới nhất)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const order: any = orders[0];
+            const orderCode  = String(order.orderId || order.orderCode || order.id || '');
+            const orderValue = parseFloat(order.realMoney || order.totalMoney || order.payMoney || 0);
+
+            const points = POINTS_MAP[pending.expectedPackage] ?? 1;
+            const monthKey = pending.createdAt.slice(0, 7); // "YYYY-MM"
+
+            // Update pending referral → matched
+            const pendingRef = db.collection('pending_referrals').doc(pending.id);
+            batch.update(pendingRef, {
+                status: 'matched',
+                matchedOrderCode:  orderCode,
+                matchedOrderValue: orderValue,
+                pointsAwarded:     points,
+                resolvedAt:        now.toISOString(),
+            });
+
+            // Create point_transaction doc
+            const txnRef = db.collection('point_transactions').doc();
+            txnDocs.push({
+                ref: txnRef,
+                data: {
+                    employeeId:    pending.saleEmployeeId,
+                    type:          'earned',
+                    customerPhone: pending.customerPhone,
+                    orderCode,
+                    orderValue,
+                    points,
+                    packageName:   pending.expectedPackage,
+                    createdAt:     now.toISOString(),
+                },
+            });
+
+            // Aggregate point deltas per user
+            const existing = userPointDeltas.get(pending.saleEmployeeId);
+            if (existing) {
+                existing.total += points;
+            } else {
+                userPointDeltas.set(pending.saleEmployeeId, { total: points, monthKey });
+            }
+
+            matched++;
+        }
+
+        // 6. Apply batch writes for pending referral updates + txn docs
+        for (const { ref, data } of txnDocs) {
+            batch.set(ref, data);
+        }
+
+        // 7. Update user referralPoints using Firestore transactions
+        for (const [uid, { total, monthKey }] of userPointDeltas.entries()) {
+            const userRef = db.collection('users').doc(uid);
+            await db.runTransaction(async tx => {
+                const snap = await tx.get(userRef);
+                if (!snap.exists) return;
+                const cur = (snap.data()?.referralPoints ?? 0) as number;
+                const curMonthly = ((snap.data()?.monthlyReferralPoints as Record<string, number> | undefined)?.[monthKey] ?? 0);
+                tx.update(userRef, {
+                    referralPoints: cur + total,
+                    [`monthlyReferralPoints.${monthKey}`]: curMonthly + total,
+                });
+            });
+        }
+
+        await batch.commit();
+
+        console.log(`[syncReferralPoints] matched=${matched}, expired=${expired}`);
+        return { matched, expired, skipped: 0 };
+    } catch (err) {
+        console.error('[syncReferralPoints]', err);
+        return {
+            matched: 0, expired: 0, skipped: 0,
+            error: err instanceof Error ? err.message : 'Lỗi không xác định',
+        };
+    }
+}
+
 // ── Get Referral Points for an Employee ────────────────────────
 export async function getReferralPoints(employeeId: string): Promise<number> {
     try {

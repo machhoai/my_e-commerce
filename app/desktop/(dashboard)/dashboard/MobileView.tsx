@@ -37,6 +37,7 @@ import {
 } from '@/app/desktop/(dashboard)/office/revenue/actions';
 import ReferralPointsWidget from '@/components/referral/ReferralPointsWidget';
 import TopReferralMarquee from '@/components/referral/TopReferralMarquee';
+import ReferralCelebrationModal from '@/components/referral/ReferralCelebrationModal';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -266,7 +267,7 @@ function PersonalScheduleView({ onNavigate, onNavigateRegister }: { onNavigate: 
             )}
 
             {/* Referral Points widget — only for employees */}
-            <ReferralPointsWidget />
+
         </section>
     );
 }
@@ -1640,6 +1641,7 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
     const sentinelRef = useRef<HTMLDivElement>(null);
     const [showAllSheet, setShowAllSheet] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [showScrollModal, setShowScrollModal] = useState(false);
     useEffect(() => {
         const el = sentinelRef.current;
         if (!el) return;
@@ -1873,154 +1875,173 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
         .filter(group => group.items.length > 0);
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-6">
-            {/* ── Header ──────────────────────────────────────────────────── */}
-            <header className="relative">
-                {/* Background wave */}
-                <div className="absolute inset-0 z-0 pointer-events-none">
-                    <div className="bg-primary-600 h-full" />
-                    <svg
-                        viewBox="0 90 1440 150"
-                        preserveAspectRatio="none"
-                        className="w-full h-12 block"
-                    >
-                        <path
-                            className='fill-primary-600'
-                            fill-opacity="1"
-                            d="M0,224L80,202.7C160,181,320,139,480,149.3C640,160,800,224,960,229.3C1120,235,1280,181,1360,154.7L1440,128L1440,0L1360,0C1280,0,1120,0,960,0C800,0,640,0,480,0C320,0,160,0,80,0L0,0Z"></path>
-                    </svg>
-                </div>
-
-                {/* Logo */}
-                <div className="relative z-10 flex justify-center pt-2">
-                    <Image
-                        src="/logo.png"
-                        alt="Logo"
-                        height={84}
-                        width={84}
-                        className="object-contain drop-shadow"
-                    />
-                </div>
-
-                {/* Sentinel — observed to detect sticky state */}
-                <div ref={sentinelRef} className="h-0" />
-
-                {/* User info row */}
-                <div className={cn(
-                    'z-20 flex justify-between items-center px-3 -mt-4 pb-2 sticky top-0',
-                    'transition-all duration-200',
-                )}>
-
-                    <div className="flex flex-col flex-1">
-                        <span className="text-primary-100 text-xs mb-1">Xin chào,</span>
-                        <span className="text-lg text-white font-bold leading-tight">
-                            {userDoc?.name ?? 'Người dùng'}
-                        </span>
-                        <span className="text-xs text-white">
-                            {userDoc && (
-                                <>
-                                    <span className={cn("size-1.5 rounded-full shrink-0", roleDotClass[userDoc.role] ?? 'bg-surface-400')} />
-                                    {(() => {
-                                        if (userDoc.customRoleId) {
-                                            const cr = customRoles.find(r => r.id === userDoc.customRoleId);
-                                            return cr?.name ?? roleLabelMap[userDoc.role] ?? userDoc.role;
-                                        }
-                                        return roleLabelMap[userDoc.role] ?? userDoc.role;
-                                    })()}
-                                </>
-                            )}
-                        </span>
-                    </div>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => router.push('/profile')}
-                            className={cn(
-                                'w-10 h-10 rounded-full flex items-center justify-center',
-                                'bg-white/20 text-white active:scale-95 transition-transform',
-                            )}
+        <>
+            <div className="min-h-screen bg-gray-50 pb-6">
+                {/* ── Header ──────────────────────────────────────────────────── */}
+                <header className="relative">
+                    {/* Background wave */}
+                    <div className="absolute inset-0 z-0 pointer-events-none">
+                        <div className="bg-primary-600 h-full" />
+                        <svg
+                            viewBox="0 90 1440 150"
+                            preserveAspectRatio="none"
+                            className="w-full h-12 block"
                         >
-                            <User className="w-5 h-5" strokeWidth={1.75} />
-                        </button>
-                        <button
-                            onClick={() => router.push('/mobile/notifications')}
-                            className={cn(
-                                'w-10 h-10 rounded-full flex items-center justify-center relative',
-                                'bg-white/20 text-white active:scale-95 transition-transform',
-                            )}
-                        >
-                            <Bell className="w-5 h-5" strokeWidth={1.75} />
-                            {unreadCount > 0 && (
-                                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white px-0.5 ring-2 ring-primary-600">
-                                    {unreadCount > 99 ? '99+' : unreadCount}
-                                </span>
-                            )}
-                        </button>
+                            <path
+                                className='fill-primary-600'
+                                fill-opacity="1"
+                                d="M0,224L80,202.7C160,181,320,139,480,149.3C640,160,800,224,960,229.3C1120,235,1280,181,1360,154.7L1440,128L1440,0L1360,0C1280,0,1120,0,960,0C800,0,640,0,480,0C320,0,160,0,80,0L0,0Z"></path>
+                        </svg>
                     </div>
-                </div>
 
-                {/* Store selector — admin gets all stores, office users get managed stores */}
-                <MobileStoreSelector />
-
-                {/* Spacer so wave doesn't clip content */}
-                <div className="relative z-0 h-0" />
-            </header>
-
-            {/* ── Top Referral Employees Marquee ──────────────────────────── */}
-            <TopReferralMarquee className="mx-3 mt-12" initialData={topReferralData} />
-
-            {/* ── Quick Access ─────────────────────────────────────────────── */}
-            <section className="px-3 mt-3">
-                <p className="text-sm font-bold text-gray-800 mb-2">Truy cập nhanh</p>
-                <div className="flex items-center justify-between gap-1">
-                    {quickAccessItems.map((item) => (
-                        <QuickAccessItem
-                            key={item.label}
-                            icon={item.icon}
-                            label={item.label}
-                            colorClass={item.colorClass}
-                            onClick={item.label === 'Tất cả' ? () => setShowAllSheet(true) : () => router.push(item.route)}
+                    {/* Logo */}
+                    <div className="relative z-10 flex justify-center pt-2">
+                        <Image
+                            src="/logo.png"
+                            alt="Logo"
+                            height={84}
+                            width={84}
+                            className="object-contain drop-shadow"
                         />
-                    ))}
-                </div>
-            </section>
+                    </div>
 
-            {/* ── Role-based content ───────────────────────────────────────── */}
-            {showPersonalSchedule && (
-                <PersonalScheduleView onNavigate={() => router.push('/employee/dashboard')} onNavigateRegister={() => router.push('/employee/register')} />
-            )}
-            <ManagementView />
+                    {/* Sentinel — observed to detect sticky state */}
+                    <div ref={sentinelRef} className="h-0" />
 
-            {/* ── All Navigation BottomSheet ──────────────────────────────── */}
-            <BottomSheet
-                isOpen={showAllSheet}
-                onClose={() => setShowAllSheet(false)}
-                title="Tất cả chức năng"
-            >
-                <div className="flex flex-col gap-4 px-4 pt-4 pb-6">
-                    {allNavGroups.map((group) => (
-                        <div key={group.group}>
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 px-1 mb-2">{group.group}</p>
-                            <div className="grid grid-cols-3 gap-2">
-                                {group.items.map((item) => {
-                                    const Icon = item.icon;
-                                    return (
-                                        <button
-                                            key={item.label}
-                                            onClick={() => { setShowAllSheet(false); router.push(item.route); }}
-                                            className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white border border-gray-100 shadow-sm active:scale-95 transition-transform"
-                                        >
-                                            <span className={cn('w-10 h-10 rounded-xl flex items-center justify-center', item.color)}>
-                                                <Icon className="w-5 h-5" strokeWidth={1.75} />
-                                            </span>
-                                            <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">{item.label}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                    {/* User info row */}
+                    <div className={cn(
+                        'z-20 flex justify-between items-center px-3 -mt-4 pb-2 sticky top-0',
+                        'transition-all duration-200',
+                    )}>
+
+                        <div className="flex flex-col flex-1">
+                            <span className="text-primary-100 text-xs mb-1">Xin chào,</span>
+                            <span className="text-lg text-white font-bold leading-tight">
+                                {userDoc?.name ?? 'Người dùng'}
+                            </span>
+                            <span className="text-xs text-white">
+                                {userDoc && (
+                                    <>
+                                        <span className={cn("size-1.5 rounded-full shrink-0", roleDotClass[userDoc.role] ?? 'bg-surface-400')} />
+                                        {(() => {
+                                            if (userDoc.customRoleId) {
+                                                const cr = customRoles.find(r => r.id === userDoc.customRoleId);
+                                                return cr?.name ?? roleLabelMap[userDoc.role] ?? userDoc.role;
+                                            }
+                                            return roleLabelMap[userDoc.role] ?? userDoc.role;
+                                        })()}
+                                    </>
+                                )}
+                            </span>
                         </div>
-                    ))}
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => router.push('/profile')}
+                                className={cn(
+                                    'w-10 h-10 rounded-full flex items-center justify-center',
+                                    'bg-white/20 text-white active:scale-95 transition-transform',
+                                )}
+                            >
+                                <User className="w-5 h-5" strokeWidth={1.75} />
+                            </button>
+                            <button
+                                onClick={() => router.push('/mobile/notifications')}
+                                className={cn(
+                                    'w-10 h-10 rounded-full flex items-center justify-center relative',
+                                    'bg-white/20 text-white active:scale-95 transition-transform',
+                                )}
+                            >
+                                <Bell className="w-5 h-5" strokeWidth={1.75} />
+                                {unreadCount > 0 && (
+                                    <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white px-0.5 ring-2 ring-primary-600">
+                                        {unreadCount > 99 ? '99+' : unreadCount}
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Store selector — admin gets all stores, office users get managed stores */}
+                    <MobileStoreSelector />
+
+                    {/* Spacer so wave doesn't clip content */}
+                    <div className="relative z-0 h-0" />
+                </header>
+
+                {/* ── Top Referral Employees Marquee ──────────────────────────── */}
+                <TopReferralMarquee
+                    className="mx-3 mt-12"
+                    initialData={topReferralData}
+                    onClick={() => setShowScrollModal(true)}
+                />
+
+                {/* ── Quick Access ─────────────────────────────────────────────── */}
+                <section className="px-3 mt-3">
+                    <p className="text-sm font-bold text-gray-800 mb-2">Truy cập nhanh</p>
+                    <div className="flex items-center justify-between gap-1">
+                        {quickAccessItems.map((item) => (
+                            <QuickAccessItem
+                                key={item.label}
+                                icon={item.icon}
+                                label={item.label}
+                                colorClass={item.colorClass}
+                                onClick={item.label === 'Tất cả' ? () => setShowAllSheet(true) : () => router.push(item.route)}
+                            />
+                        ))}
+                    </div>
+                </section>
+
+                <div className='mt-3 px-3'>
+                    <ReferralPointsWidget />
                 </div>
-            </BottomSheet>
-        </div>
+
+                {/* ── Role-based content ───────────────────────────────────────── */}
+                {showPersonalSchedule && (
+                    <PersonalScheduleView onNavigate={() => router.push('/employee/dashboard')} onNavigateRegister={() => router.push('/employee/register')} />
+                )}
+                <ManagementView />
+
+                {/* ── All Navigation BottomSheet ──────────────────────────────── */}
+                <BottomSheet
+                    isOpen={showAllSheet}
+                    onClose={() => setShowAllSheet(false)}
+                    title="Tất cả chức năng"
+                >
+                    <div className="flex flex-col gap-4 px-4 pt-4 pb-6">
+                        {allNavGroups.map((group) => (
+                            <div key={group.group}>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 px-1 mb-2">{group.group}</p>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {group.items.map((item) => {
+                                        const Icon = item.icon;
+                                        return (
+                                            <button
+                                                key={item.label}
+                                                onClick={() => { setShowAllSheet(false); router.push(item.route); }}
+                                                className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white border border-gray-100 shadow-sm active:scale-95 transition-transform"
+                                            >
+                                                <span className={cn('w-10 h-10 rounded-xl flex items-center justify-center', item.color)}>
+                                                    <Icon className="w-5 h-5" strokeWidth={1.75} />
+                                                </span>
+                                                <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">{item.label}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </BottomSheet>
+            </div>
+
+            {/* Imperial Scroll Modal — opened by tapping the Referral Marquee */}
+            {showScrollModal && (
+                <ReferralCelebrationModal
+                    forceOpen
+                    initialData={topReferralData}
+                    onClose={() => setShowScrollModal(false)}
+                />
+            )}
+        </>
     );
 }

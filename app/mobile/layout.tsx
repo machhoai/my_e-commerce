@@ -7,7 +7,7 @@ import AuthGuard from '@/components/layout/AuthGuard';
 import ProfileCompletionGuard from '@/components/auth/ProfileCompletionGuard';
 import UniversalScannerModal from '@/components/scanner/UniversalScannerModal';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
-import { PushDebugPanel } from '@/components/debug/PushDebugPanel';
+import ReferralCelebrationModal from '@/components/referral/ReferralCelebrationModal';
 
 export default function MobileLayout({
     children,
@@ -91,8 +91,8 @@ function MobileLayoutInner({ children }: { children: React.ReactNode }) {
             {children}
             {/* Floating QR/Barcode scanner — always accessible on mobile */}
             <UniversalScannerModal />
-            {/* Push Debug Panel — TEMPORARY: remove after iOS push is fixed */}
-            <PushDebugPanel />
+            {/* Referral celebration — shown once per session, top-5 with points > 0 */}
+            <ReferralCelebrationModal />
         </div>
     );
 }
