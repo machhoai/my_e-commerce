@@ -116,17 +116,18 @@ export default function ReferralCelebrationModal({
     const checked = useRef(false);
 
     useEffect(() => {
-        // Populate data
-        if (employees.length === 0) {
-            fetchTop5().then(data => setEmployees(data)).catch(() => { });
-        }
+        // Luôn fetch dữ liệu mới nhất từ Firestore khi mount — không cache
+        fetchTop5().then(data => { if (data.length > 0) setEmployees(data); }).catch(() => {});
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
         if (forceOpen) {
-            // Opened via user interaction — always show
-            triggerOpen();
+            // Opened via user tap — fetch fresh data then show
+            fetchTop5()
+                .then(data => { if (data.length > 0) setEmployees(data); })
+                .catch(() => {})
+                .finally(() => triggerOpen());
             return;
         }
 
@@ -140,7 +141,7 @@ export default function ReferralCelebrationModal({
                 setEmployees(data);
                 setTimeout(() => triggerOpen(), 700);
             }
-        }).catch(() => { });
+        }).catch(() => {});
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [forceOpen]);
 

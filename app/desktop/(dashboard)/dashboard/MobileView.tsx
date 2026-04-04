@@ -2034,11 +2034,10 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
                 </BottomSheet>
             </div>
 
-            {/* Imperial Scroll Modal — opened by tapping the Referral Marquee */}
+            {/* Imperial Scroll Modal — always fetches fresh Firestore data */}
             {showScrollModal && (
                 <ReferralCelebrationModal
                     forceOpen
-                    initialData={topReferralData}
                     onClose={() => setShowScrollModal(false)}
                 />
             )}

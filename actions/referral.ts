@@ -262,17 +262,14 @@ export async function syncReferralPoints(): Promise<SyncReferralResult> {
             batch.set(ref, data);
         }
 
-        // 7. Update user referralPoints using Firestore transactions
+        // 7. Update user monthlyReferralPoints only — source of truth
         for (const [uid, { total, monthKey }] of userPointDeltas.entries()) {
             const userRef = db.collection('users').doc(uid);
             await db.runTransaction(async tx => {
                 const snap = await tx.get(userRef);
                 if (!snap.exists) return;
-                const cur = (snap.data()?.referralPoints ?? 0) as number;
-                const curMonthly = ((snap.data()?.monthlyReferralPoints as Record<string, number> | undefined)?.[monthKey] ?? 0);
                 tx.update(userRef, {
-                    referralPoints: cur + total,
-                    [`monthlyReferralPoints.${monthKey}`]: curMonthly + total,
+                    [`monthlyReferralPoints.${monthKey}`]: FieldValue.increment(total),
                 });
             });
         }
@@ -290,13 +287,17 @@ export async function syncReferralPoints(): Promise<SyncReferralResult> {
     }
 }
 
-// ── Get Referral Points for an Employee ────────────────────────
+// ── Get Referral Points for an Employee (current month) ──────────────
 export async function getReferralPoints(employeeId: string): Promise<number> {
     try {
         const db = getAdminDb();
         const snap = await db.collection('users').doc(employeeId).get();
         if (!snap.exists) return 0;
-        return snap.data()?.referralPoints ?? 0;
+        const data = snap.data()!;
+        const monthKey = getMonthKey();
+        const monthly = (data.monthlyReferralPoints as Record<string, number> | undefined)?.[monthKey] ?? 0;
+        // Fallback to total referralPoints for backward compatibility if no monthly data
+        return monthly > 0 ? monthly : ((data.referralPoints ?? 0) as number);
     } catch (err) {
         console.error('[getReferralPoints]', err);
         return 0;
@@ -536,12 +537,16 @@ export async function searchEmployeesByName(
         return snap.docs
             .map(d => {
                 const data = d.data();
+                const monthKey = getMonthKey();
+                const monthly = (data.monthlyReferralPoints as Record<string, number> | undefined)?.[monthKey] ?? 0;
+                // Fallback to total referralPoints for backward-compat
+                const pts = monthly > 0 ? monthly : ((data.referralPoints ?? 0) as number);
                 return {
                     uid: d.id,
                     name: (data.name || '') as string,
                     phone: (data.phone || '') as string,
                     storeId: (data.storeId || '') as string,
-                    referralPoints: (data.referralPoints ?? 0) as number,
+                    referralPoints: pts,
                 };
             })
             .filter(emp => {
@@ -574,12 +579,10 @@ export async function adjustPoints(data: {
             const userSnap = await tx.get(userRef);
             if (!userSnap.exists) throw new Error('Nhân viên không tồn tại.');
 
-            const currentPoints = userSnap.data()?.referralPoints ?? 0;
-            const newPoints = currentPoints + data.amount;
             const monthKey = getMonthKey();
 
             tx.update(userRef, {
-                referralPoints: newPoints,
+                // Only write to monthlyReferralPoints — source of truth
                 [`monthlyReferralPoints.${monthKey}`]: FieldValue.increment(data.amount),
             });
 
@@ -633,17 +636,14 @@ export async function revokeTransaction(data: {
             if (!txSnap.exists) throw new Error('Giao dịch không tồn tại.');
             if (txSnap.data()?.isRevoked) throw new Error('Giao dịch đã được thu hồi.');
 
-            const currentPoints = userSnap.data()?.referralPoints ?? 0;
             const deduction = -Math.abs(data.originalPoints);
-            const newPoints = currentPoints + deduction;
 
             // Determine the month of the original transaction to deduct from correct month
             const originalTxData = txSnap.data();
             const txMonthKey = getMonthKey(originalTxData?.createdAt);
 
-            // Deduct points from employee (total + monthly)
+            // Deduct from the correct month's points only
             tx.update(userRef, {
-                referralPoints: newPoints,
                 [`monthlyReferralPoints.${txMonthKey}`]: FieldValue.increment(deduction),
             });
 

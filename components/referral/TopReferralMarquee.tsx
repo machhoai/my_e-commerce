@@ -1,6 +1,9 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Star } from 'lucide-react';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 interface TopEmployee {
     uid: string;
@@ -8,25 +11,56 @@ interface TopEmployee {
     points: number;
 }
 
-const RANK_LABELS = ['🥇', '🥈', '🥉'];
-
 interface TopReferralMarqueeProps {
     className?: string;
     initialData?: TopEmployee[];
     onClick?: () => void;
 }
 
+const RANK_LABELS = ['🥇', '🥈', '🥉'];
+
+/** Fetch top referral employees trực tiếp từ Firestore client-side (luôn fresh) */
+async function fetchTopReferralLive(): Promise<TopEmployee[]> {
+    const now = new Date();
+    const mk = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const snap = await getDocs(
+        query(collection(db, 'users'), where('isActive', '==', true))
+    );
+    return snap.docs
+        .map(d => {
+            const data = d.data();
+            const monthly = (data.monthlyReferralPoints as Record<string, number> | undefined)?.[mk] ?? 0;
+            const total   = (data.referralPoints ?? 0) as number;
+            return {
+                uid:    d.id,
+                name:   (data.name ?? 'Nhân viên') as string,
+                points: monthly > 0 ? monthly : total,
+            };
+        })
+        .filter(e => e.points > 0)
+        .sort((a, b) => b.points - a.points)
+        .slice(0, 5);
+}
+
 export default function TopReferralMarquee({ className, initialData = [], onClick }: TopReferralMarqueeProps) {
-    // Don't render marquee if no employees have points, but render a spacer
-    if (initialData.length === 0) return <div className={className} />;
+    // Hiện initialData ngay lập tức, sau đó thay bằng dữ liệu live từ Firestore
+    const [data, setData] = useState<TopEmployee[]>(initialData);
+
+    useEffect(() => {
+        fetchTopReferralLive()
+            .then(live => { if (live.length > 0) setData(live); })
+            .catch(() => { /* giữ nguyên initialData nếu lỗi */ });
+    }, []);
+
+    if (data.length === 0) return <div className={className} />;
 
     const now = new Date();
     const monthName = now.toLocaleDateString('vi-VN', { month: 'long' });
 
-    // Build the marquee text
-    const marqueeContent = initialData.map((emp, i) => (
-        `${RANK_LABELS[i]} ${emp.name} — ${emp.points.toLocaleString('vi-VN')} điểm`
-    )).join('   ✦   ');
+    const marqueeContent = data
+        .slice(0, 3) // chỉ hiện top 3 trên marquee
+        .map((emp, i) => `${RANK_LABELS[i]} ${emp.name} — ${emp.points.toLocaleString('vi-VN')} điểm`)
+        .join('   ✦   ');
 
     const fullText = `🏆 Bảng vàng chiến thần vịt vàng tháng ${monthName.toUpperCase()} 🦆   ${marqueeContent}`;
 
@@ -59,30 +93,13 @@ export default function TopReferralMarquee({ className, initialData = [], onClic
                     <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-amber-500 to-transparent z-10" />
                     <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-amber-500 to-transparent z-10" />
 
-                    {/* Scrolling content - duplicate for seamless loop */}
                     <div className="w-full overflow-hidden flex">
-
-                        {/* Khung chuyển động: Thêm w-max để nó tính toán đúng -50% chiều dài */}
                         <div className="animate-marquee [animation-duration:15s] whitespace-nowrap flex w-max items-center">
-
-                            {/* Cục 1 */}
-                            <span className="inline-block text-[12px] font-bold text-white tracking-wide drop-shadow-sm mx-8">
-                                {fullText}
-                            </span>
-
-                            {/* Cục 2 (Bản sao hoàn hảo để đánh lừa thị giác) */}
-                            <span className="inline-block text-[12px] font-bold text-white tracking-wide drop-shadow-sm mx-8">
-                                {fullText}
-                            </span>
-
-                            <span className="inline-block text-[12px] font-bold text-white tracking-wide drop-shadow-sm mx-8">
-                                {fullText}
-                            </span>
-
-                            <span className="inline-block text-[12px] font-bold text-white tracking-wide drop-shadow-sm mx-8">
-                                {fullText}
-                            </span>
-
+                            {[fullText, fullText, fullText, fullText].map((text, i) => (
+                                <span key={i} className="inline-block text-[12px] font-bold text-white tracking-wide drop-shadow-sm mx-8">
+                                    {text}
+                                </span>
+                            ))}
                         </div>
                     </div>
                 </div>
