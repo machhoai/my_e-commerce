@@ -276,6 +276,17 @@ export async function syncReferralPoints(): Promise<SyncReferralResult> {
 
         await batch.commit();
 
+        // Broadcast congratulatory notification for each employee who earned points
+        for (const [uid, { total }] of userPointDeltas.entries()) {
+            // Look up employee name from the pending docs
+            const pendingForUser = pendingDocs.find(p => p.saleEmployeeId === uid);
+            const empName = pendingForUser?.saleEmployeeName || 'Nhân viên';
+            broadcastByEvent({
+                eventName: 'REFERRAL_POINTS_EARNED',
+                dataContext: { employeeName: empName, points: total },
+            }).catch(err => console.error('[syncReferralPoints] broadcastByEvent error:', err));
+        }
+
         console.log(`[syncReferralPoints] matched=${matched}, expired=${expired}`);
         return { matched, expired, skipped: 0 };
     } catch (err) {
