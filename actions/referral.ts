@@ -155,7 +155,7 @@ export async function syncReferralPoints(): Promise<SyncReferralResult> {
         const past30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         const fmt = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, '-');
         const startTime = `${fmt(past30)} 00:00:00`;
-        const endTime   = `${fmt(now)} 23:59:59`;
+        const endTime = `${fmt(now)} 23:59:59`;
 
         // 4. Fetch đơn hàng từ Joyworld (lấy tối đa 500 đơn gần nhất — đủ cho thực tế)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -184,9 +184,9 @@ export async function syncReferralPoints(): Promise<SyncReferralResult> {
 
         // Point rules per package
         const POINTS_MAP: Record<string, number> = {
-            Silver:  1,
-            Gold:    2,
-            Diamond: 3,
+            Silver: 1,
+            Gold: 1,
+            Diamond: 1,
         };
 
         let matched = 0;
@@ -214,7 +214,7 @@ export async function syncReferralPoints(): Promise<SyncReferralResult> {
             // Lấy đơn hàng đầu tiên để match (theo thứ tự thời gian mới nhất)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const order: any = orders[0];
-            const orderCode  = String(order.orderId || order.orderCode || order.id || '');
+            const orderCode = String(order.orderId || order.orderCode || order.id || '');
             const orderValue = parseFloat(order.realMoney || order.totalMoney || order.payMoney || 0);
 
             const points = POINTS_MAP[pending.expectedPackage] ?? 1;
@@ -224,10 +224,10 @@ export async function syncReferralPoints(): Promise<SyncReferralResult> {
             const pendingRef = db.collection('pending_referrals').doc(pending.id);
             batch.update(pendingRef, {
                 status: 'matched',
-                matchedOrderCode:  orderCode,
+                matchedOrderCode: orderCode,
                 matchedOrderValue: orderValue,
-                pointsAwarded:     points,
-                resolvedAt:        now.toISOString(),
+                pointsAwarded: points,
+                resolvedAt: now.toISOString(),
             });
 
             // Create point_transaction doc
@@ -235,14 +235,14 @@ export async function syncReferralPoints(): Promise<SyncReferralResult> {
             txnDocs.push({
                 ref: txnRef,
                 data: {
-                    employeeId:    pending.saleEmployeeId,
-                    type:          'earned',
+                    employeeId: pending.saleEmployeeId,
+                    type: 'earned',
                     customerPhone: pending.customerPhone,
                     orderCode,
                     orderValue,
                     points,
-                    packageName:   pending.expectedPackage,
-                    createdAt:     now.toISOString(),
+                    packageName: pending.expectedPackage,
+                    createdAt: now.toISOString(),
                 },
             });
 
