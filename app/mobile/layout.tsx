@@ -8,6 +8,7 @@ import ProfileCompletionGuard from '@/components/auth/ProfileCompletionGuard';
 import UniversalScannerModal from '@/components/scanner/UniversalScannerModal';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import ReferralCelebrationModal from '@/components/referral/ReferralCelebrationModal';
+import PWAGatekeeper from '@/components/shared/PWAGatekeeper';
 
 export default function MobileLayout({
     children,
@@ -26,7 +27,9 @@ export default function MobileLayout({
     return (
         <AuthGuard>
             <ProfileCompletionGuard>
-                <MobileLayoutInner>{children}</MobileLayoutInner>
+                <PWAGatekeeper>
+                    <MobileLayoutInner>{children}</MobileLayoutInner>
+                </PWAGatekeeper>
             </ProfileCompletionGuard>
         </AuthGuard>
     );
