@@ -30,7 +30,7 @@ function barColor(v: number) {
     return v >= 80 ? 'bg-emerald-400' : v >= 50 ? 'bg-amber-400' : v > 0 ? 'bg-red-400' : 'bg-gray-200';
 }
 function formatDate(dateStr: string) {
-    try { const [, m, d] = dateStr.split('-'); return `${d}/${m}/${y}`; } catch { return dateStr; }
+    try { const [y, m, d] = dateStr.split('-'); return `${d}/${m}/${y}`; } catch { return dateStr; }
 }
 function formatMonthLabel(m: string) {
     const [y, mo] = m.split('-'); return `T${mo}/${y.slice(2)}`;

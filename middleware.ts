@@ -90,7 +90,15 @@ export function middleware(request: NextRequest) {
         if (!hasSession) {
             return NextResponse.redirect(new URL('/login', request.url));
         }
-        if (!ADMIN_ROLES.has(userRole)) {
+        
+        // Allow custom roles to access specific admin boundaries.
+        // These underlying pages MUST implement their own AuthGuard or hasPermission checks.
+        const isBypassedAdminRoute = 
+            pathname.startsWith('/admin/vouchers') || 
+            pathname.startsWith('/admin/events') || 
+            pathname.startsWith('/admin/daily-report');
+
+        if (!isBypassedAdminRoute && !ADMIN_ROLES.has(userRole)) {
             return NextResponse.redirect(new URL('/403', request.url));
         }
     }
