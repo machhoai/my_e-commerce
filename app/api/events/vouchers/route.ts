@@ -9,8 +9,21 @@ async function verifyAdmin(req: NextRequest) {
     const decoded = await getAdminAuth().verifyIdToken(token);
     const adminDb = getAdminDb();
     const callerSnap = await adminDb.collection('users').doc(decoded.uid).get();
-    if (!callerSnap.exists || !['admin', 'super_admin'].includes(callerSnap.data()?.role)) return null;
-    return { uid: decoded.uid, name: callerSnap.data()?.name || 'Admin' };
+    if (!callerSnap.exists) return null;
+    
+    const userData = callerSnap.data();
+    if (userData?.role === 'admin' || userData?.role === 'super_admin') {
+        return { uid: decoded.uid, name: userData.name || 'Admin' };
+    }
+
+    if (userData?.customRoleId) {
+        const roleSnap = await adminDb.collection('custom_roles').doc(userData.customRoleId).get();
+        const permissions = roleSnap.data()?.permissions || [];
+        if (permissions.includes('page.admin.events')) {
+            return { uid: decoded.uid, name: userData.name || 'Admin' };
+        }
+    }
+    return null;
 }
 
 // ── GET /api/events/vouchers ────────────────────────────────────

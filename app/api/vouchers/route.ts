@@ -16,8 +16,16 @@ async function verifyAdmin(req: NextRequest) {
     const decoded = await getAdminAuth().verifyIdToken(token);
     const adminDb = getAdminDb();
     const callerSnap = await adminDb.collection('users').doc(decoded.uid).get();
-    if (!callerSnap.exists || !['admin', 'super_admin'].includes(callerSnap.data()?.role)) return null;
-    return decoded.uid;
+    if (!callerSnap.exists) return null;
+    const userData = callerSnap.data();
+    if (userData?.role === 'admin' || userData?.role === 'super_admin') return decoded.uid;
+
+    if (userData?.customRoleId) {
+        const roleSnap = await adminDb.collection('custom_roles').doc(userData.customRoleId).get();
+        const permissions = roleSnap.data()?.permissions || [];
+        if (permissions.includes('page.admin.vouchers')) return decoded.uid;
+    }
+    return null;
 }
 
 // ── GET /api/vouchers ───────────────────────────────────────────
