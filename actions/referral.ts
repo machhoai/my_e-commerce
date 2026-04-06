@@ -214,7 +214,8 @@ export async function syncReferralPoints(): Promise<SyncReferralResult> {
             // Lấy đơn hàng đầu tiên để match (theo thứ tự thời gian mới nhất)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const order: any = orders[0];
-            const orderCode = String(order.orderId || order.orderCode || order.id || '');
+            console.log(order);
+            const orderCode = String(order.orderNumber || order.orderCode || order.id || '');
             const orderValue = parseFloat(order.realMoney || order.totalMoney || order.payMoney || 0);
 
             const points = POINTS_MAP[pending.expectedPackage] ?? 1;

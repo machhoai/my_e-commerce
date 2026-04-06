@@ -27,9 +27,9 @@ export default function MobileLayout({
     return (
         <AuthGuard>
             <ProfileCompletionGuard>
-                <PWAGatekeeper>
-                    <MobileLayoutInner>{children}</MobileLayoutInner>
-                </PWAGatekeeper>
+                {/* <PWAGatekeeper> */}
+                <MobileLayoutInner>{children}</MobileLayoutInner>
+                {/* </PWAGatekeeper> */}
             </ProfileCompletionGuard>
         </AuthGuard>
     );

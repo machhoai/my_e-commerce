@@ -18,7 +18,7 @@ import {
     BarChart3, Banknote, ArrowUpDown, Coins, XCircle, RefreshCw,
     Wifi, WifiOff, CalendarDays, CalendarRange,
     // Extra icons for new routes
-    FileText, Repeat, LayoutDashboard, Star,
+    FileText, Repeat, LayoutDashboard, Star, Ticket, Link2,
 } from 'lucide-react';
 import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -1844,6 +1844,15 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
             group: 'Doanh thu',
             items: [
                 { icon: DollarSign, label: 'Báo cáo', route: '/office/revenue', color: 'bg-amber-50 text-amber-600', permKey: 'page.office.revenue' },
+            ],
+        },
+        // ── Marketing ─────────────────────────────────────────
+        {
+            group: 'Marketing',
+            items: [
+                { icon: Link2, label: 'Tracking Links', route: '/office/tracking', color: 'bg-pink-50 text-pink-600', permKey: 'page.office.tracking' },
+                { icon: Ticket, label: 'Quản lý Voucher', route: '/admin/vouchers', color: 'bg-pink-50 text-pink-600', permKey: 'page.admin.vouchers' },
+                { icon: CalendarDays, label: 'Quản lý Sự kiện', route: '/admin/events', color: 'bg-pink-50 text-pink-600', permKey: 'page.admin.events' },
             ],
         },
         // ── Admin (admin only) ─────────────────────────────────────────

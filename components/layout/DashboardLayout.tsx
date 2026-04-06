@@ -32,7 +32,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return false;
     });
 
-    const [expandedGroups, setExpandedGroups] = useState<string[]>(['NhÃ¢n sá»±', 'Kho hÃ ng', 'VÄƒn phÃ²ng', 'Há»‡ thá»‘ng']);
+    const [expandedGroups, setExpandedGroups] = useState<string[]>(['Nhân Sự', 'Kho Hàng', 'Văn Phòng', 'Marketing', 'Hệ thống']);
 
     const toggleCollapsed = () => {
         if (mobileOpen) {
@@ -292,9 +292,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             show: isAdmin || isSuperAdmin || isOfficeContext ||
                 hasPermission('page.office.tracking'),
             matchPrefix: '/office/tracking',
-            group: 'Văn Phòng',
+            group: 'Marketing',
         },
-
+        {
+            label: 'Quản lý Voucher',
+            href: '/admin/vouchers',
+            icon: Ticket,
+            show: hasPermission('page.admin.vouchers') || isSuperAdmin || isAdmin,
+            matchPrefix: '/admin/vouchers',
+            group: 'Marketing',
+        },
+        {
+            label: 'Quản lý Sự kiện',
+            href: '/admin/events',
+            icon: CalendarDays,
+            show: hasPermission('page.admin.events') || isSuperAdmin || isAdmin,
+            matchPrefix: '/admin/events',
+            group: 'Marketing',
+        },
         {
             label: 'Quản lý Cửa Hàng',
             href: '/admin/stores',
@@ -322,22 +337,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             href: '/admin/users',
             icon: Users,
             show: isAdmin || isSuperAdmin,
-            group: 'Hệ thống',
-        },
-        {
-            label: 'Quản lý Voucher',
-            href: '/admin/vouchers',
-            icon: Ticket,
-            show: isAdmin || isSuperAdmin || hasPermission('page.admin.vouchers'),
-            matchPrefix: '/admin/vouchers',
-            group: 'Hệ thống',
-        },
-        {
-            label: 'Quản lý Sự kiện',
-            href: '/admin/events',
-            icon: CalendarDays,
-            show: isAdmin || isSuperAdmin || hasPermission('page.admin.events'),
-            matchPrefix: '/admin/events',
             group: 'Hệ thống',
         },
         {
@@ -383,6 +382,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         'Nhân Sự': Users,
         'Kho Hàng': Package,
         'Văn Phòng': Building2,
+        'Marketing': Ticket,
         'Cài Đặt': SettingsIcon,
         'Hệ thống': SettingsIcon,
         'Khác': SettingsIcon,
@@ -409,7 +409,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (isCollapsed) {
             // Flatten all visible routes into icon list, keep group separation
             const iconGroups: { items: typeof visibleRoutes }[] = [];
-            const groupOrder = ['Cá Nhân', "Báo cáo", 'Nhân Sự', 'Kho Hàng', 'Văn Phòng', 'Cài Đặt', 'Hệ thống'];
+            const groupOrder = ['Cá Nhân', "Báo cáo", 'Nhân Sự', 'Kho Hàng', 'Văn Phòng', 'Marketing', 'Cài Đặt', 'Hệ thống'];
             groupOrder.forEach(gTitle => {
                 const items = visibleRoutes.filter(r => r.group === gTitle);
                 if (items.length > 0) iconGroups.push({ items });
@@ -526,13 +526,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
 
         const groups: { title: string, items: typeof visibleRoutes }[] = [];
-        const groupOrder = ['Cá Nhân', "Báo cáo", 'Nhân Sự', 'Kho Hàng', 'Văn Phòng', 'Cài Đặt', 'Hệ thống'];
+        const groupOrder = ['Cá Nhân', "Báo cáo", 'Nhân Sự', 'Kho Hàng', 'Văn Phòng', 'Marketing', 'Cài Đặt', 'Hệ thống'];
         groupOrder.forEach(gTitle => {
             const items = visibleRoutes.filter(r => r.group === gTitle);
             if (items.length > 0) groups.push({ title: gTitle, items });
         });
         const ungroupedItems = visibleRoutes.filter(r => !r.group);
-        if (ungroupedItems.length > 0) groups.push({ title: 'KhÃ¡c', items: ungroupedItems });
+        if (ungroupedItems.length > 0) groups.push({ title: 'Khác', items: ungroupedItems });
 
         return (
             <div className="flex flex-col h-full px-2 w-full">
