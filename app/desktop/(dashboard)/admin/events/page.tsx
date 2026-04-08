@@ -6,10 +6,15 @@ import {
     BarChart3, CalendarDays, Plus, Loader2, CheckCircle2, AlertCircle,
     LayoutDashboard, FileText, Ticket, X, Code2, Users, Download, FileDown, Search,
     TrendingUp, Ban, Play, Hash, Gift, ChevronDown, ChevronRight, Dices, Trophy, Eye,
-    Pencil, PlusCircle, Sparkles, Zap, Activity, MapPin,
+    Pencil, PlusCircle, Sparkles, Zap, Activity, MapPin, Globe, Target, Percent,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import EventIntegrationGuide from '@/components/admin/EventIntegrationGuide';
+import {
+    ChartCard, ChartTitle, EmptyChart,
+    TrendAreaChart, DonutPieChart, FunnelChart, HorizontalBarChart,
+    CHART_PALETTE,
+} from '@/components/admin/MarketingCharts';
 import type {
     EventDoc, VoucherCampaign, AuditLogDoc, PrizePoolEntry, EventParticipation,
 } from '@/types';
@@ -564,6 +569,74 @@ function DashboardTab({ events, participations, recentPlays, getToken }: {
         [recentPlays, selectedId]
     );
 
+    // ── Marketing Analytics: computed data ──────────────────────────
+    const voucherTrendData = useMemo(() => {
+        if (!selected?.dailyStats) return [];
+        return Object.entries(selected.dailyStats)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([date, stats]) => {
+                const row: { date: string;[key: string]: string | number } = { date };
+                let total = 0;
+                (selected.campaignStocks || []).forEach(cs => {
+                    const v = stats[cs.campaignId] || 0;
+                    row[cs.campaignName] = v;
+                    total += v;
+                });
+                row['Tổng'] = total;
+                return row;
+            });
+    }, [selected]);
+
+    const voucherTrendKeys = useMemo(() => {
+        if (!selected?.campaignStocks?.length) return [];
+        const keys = selected.campaignStocks.map((cs, i) => ({
+            key: cs.campaignName,
+            color: CHART_PALETTE[i % CHART_PALETTE.length],
+            name: cs.campaignName,
+        }));
+        return keys;
+    }, [selected]);
+
+    const funnelData = useMemo(() => {
+        if (!selected) return [];
+        return [
+            { name: 'Tổng mã voucher', value: selected.totalStock, color: '#6366f1' },
+            { name: 'Đã phát', value: selected.codesDistributed + selected.codesUsed, color: '#22d3ee' },
+            { name: 'Khách tham gia', value: pStats.totalPlayers, color: '#f59e0b' },
+            { name: 'Giải trúng', value: pStats.totalPrizesWon, color: '#10b981' },
+            { name: 'Đã sử dụng', value: selected.codesUsed, color: '#ec4899' },
+        ].filter(d => d.value > 0);
+    }, [selected, pStats]);
+
+    const prizePoolPieData = useMemo(() => {
+        if (!selected?.campaignStocks?.length) return [];
+        return selected.campaignStocks.map(cs => ({
+            name: cs.campaignName,
+            value: cs.totalStock,
+        })).filter(d => d.value > 0);
+    }, [selected]);
+
+    const sourceData = useMemo(() => {
+        const map: Record<string, number> = {};
+        selectedParticipations.forEach(p => {
+            const src = p.source || 'Không rõ';
+            map[src] = (map[src] || 0) + 1;
+        });
+        return Object.entries(map)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value);
+    }, [selectedParticipations]);
+
+    const locationData = useMemo(() => {
+        const map: Record<string, number> = {};
+        selectedParticipations.forEach(p => {
+            if (p.location) map[p.location] = (map[p.location] || 0) + 1;
+        });
+        return Object.entries(map)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value);
+    }, [selectedParticipations]);
+
     if (events.length === 0) {
         return (
             <div className="p-12 text-center text-surface-400">
@@ -684,8 +757,119 @@ function DashboardTab({ events, participations, recentPlays, getToken }: {
                                 </span>
                             </div>
                         </div>
+
                         <div className="p-5 space-y-5">
                             <EventDetailPanel event={selected} />
+
+                            {/* ═════════ MARKETING ANALYTICS ═════════ */}
+                            <div className="pt-2">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-500 to-accent-600 flex items-center justify-center shadow-sm">
+                                        <BarChart3 className="w-4 h-4 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-surface-700">Phân tích Marketing</h3>
+                                        <p className="text-[10px] text-surface-400">Biểu đồ conversion, phân phối voucher & nguồn khách</p>
+                                    </div>
+                                    <div className="flex-1 h-px bg-gradient-to-r from-surface-200 to-transparent ml-2" />
+                                </div>
+
+                                {/* Row 1: Voucher Trend + Conversion Funnel */}
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                                    {/* Voucher Distribution Trend */}
+                                    <ChartCard>
+                                        <ChartTitle
+                                            icon={<TrendingUp className="w-4 h-4 text-indigo-500" />}
+                                            title="Phát voucher theo ngày"
+                                            subtitle="Xu hướng phân phối voucher qua từng ngày"
+                                        />
+                                        {voucherTrendData.length >= 2 ? (
+                                            <TrendAreaChart
+                                                data={voucherTrendData}
+                                                dataKeys={voucherTrendKeys}
+                                                gradientPrefix="evt"
+                                                height={240}
+                                            />
+                                        ) : (
+                                            <EmptyChart
+                                                icon={<TrendingUp className="w-5 h-5 text-surface-300" />}
+                                                message="Cần ít nhất 2 ngày dữ liệu để hiển thị xu hướng"
+                                            />
+                                        )}
+                                    </ChartCard>
+
+                                    {/* Conversion Funnel */}
+                                    <ChartCard>
+                                        <ChartTitle
+                                            icon={<Target className="w-4 h-4 text-cyan-500" />}
+                                            title="Phễu chuyển đổi"
+                                            subtitle="Từ tổng mã → phát → tham gia → trúng → sử dụng"
+                                        />
+                                        {funnelData.length > 0 ? (
+                                            <FunnelChart data={funnelData} height={240} />
+                                        ) : (
+                                            <EmptyChart
+                                                icon={<Target className="w-5 h-5 text-surface-300" />}
+                                                message="Chưa có dữ liệu chuyển đổi"
+                                            />
+                                        )}
+                                    </ChartCard>
+                                </div>
+
+                                {/* Row 2: Prize Pool + Source + Location */}
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                    {/* Prize Pool Distribution */}
+                                    <ChartCard>
+                                        <ChartTitle
+                                            icon={<Gift className="w-4 h-4 text-amber-500" />}
+                                            title="Phân bổ Prize Pool"
+                                            subtitle="Tỉ lệ mã theo chiến dịch"
+                                        />
+                                        {prizePoolPieData.length > 0 ? (
+                                            <DonutPieChart data={prizePoolPieData} height={180} />
+                                        ) : (
+                                            <EmptyChart
+                                                icon={<Gift className="w-5 h-5 text-surface-300" />}
+                                                message="Chưa có chiến dịch nào"
+                                            />
+                                        )}
+                                    </ChartCard>
+
+                                    {/* Source Attribution */}
+                                    <ChartCard>
+                                        <ChartTitle
+                                            icon={<Globe className="w-4 h-4 text-blue-500" />}
+                                            title="Nguồn khách hàng"
+                                            subtitle="Kênh thu hút khách tham gia"
+                                        />
+                                        {sourceData.length > 0 ? (
+                                            <DonutPieChart data={sourceData} height={180} />
+                                        ) : (
+                                            <EmptyChart
+                                                icon={<Globe className="w-5 h-5 text-surface-300" />}
+                                                message="Chưa có dữ liệu nguồn"
+                                            />
+                                        )}
+                                    </ChartCard>
+
+                                    {/* Location Distribution */}
+                                    <ChartCard>
+                                        <ChartTitle
+                                            icon={<MapPin className="w-4 h-4 text-rose-500" />}
+                                            title="Phân bổ địa điểm"
+                                            subtitle="Top khu vực tham gia"
+                                        />
+                                        {locationData.length > 0 ? (
+                                            <HorizontalBarChart data={locationData} color="#ec4899" height={200} barSize={16} />
+                                        ) : (
+                                            <EmptyChart
+                                                icon={<MapPin className="w-5 h-5 text-surface-300" />}
+                                                message="Chưa có dữ liệu địa điểm"
+                                            />
+                                        )}
+                                    </ChartCard>
+                                </div>
+                            </div>
 
                             {/* ── Player KPIs ── */}
                             <div className="grid grid-cols-3 gap-3">
@@ -1103,33 +1287,33 @@ function EventListTab({
                                                 return eventCampaigns.map(c => {
                                                     const isPaused = c.status === 'paused';
                                                     return (
-                                                    <label
-                                                        key={c.id}
-                                                        className={cn(
-                                                            'flex items-center gap-3 px-4 py-3 border-b z-50 border-surface-50 last:border-0 transition-colors',
-                                                            isPaused
-                                                                ? 'opacity-50 cursor-not-allowed bg-surface-50'
-                                                                : 'hover:bg-surface-50 cursor-pointer',
-                                                            selectedCampIds.has(c.id) && 'bg-accent-50/50'
-                                                        )}
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedCampIds.has(c.id)}
-                                                            onChange={() => !isPaused && toggleCampaign(c)}
-                                                            disabled={isPaused}
-                                                            className="w-4 h-4 rounded border-surface-300 text-accent-500 focus:ring-accent-400 disabled:opacity-50"
-                                                        />
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-semibold text-surface-800 truncate">
-                                                                {c.name}
-                                                                {isPaused && <span className="ml-1.5 text-[10px] font-bold text-warning-600 bg-warning-50 px-1 py-0.5 rounded border border-warning-200">Tạm dừng</span>}
-                                                            </p>
-                                                            <p className="text-xs text-surface-400">
-                                                                {REWARD_LABELS[c.rewardType]} • {c.totalIssued} mã
-                                                            </p>
-                                                        </div>
-                                                    </label>
+                                                        <label
+                                                            key={c.id}
+                                                            className={cn(
+                                                                'flex items-center gap-3 px-4 py-3 border-b z-50 border-surface-50 last:border-0 transition-colors',
+                                                                isPaused
+                                                                    ? 'opacity-50 cursor-not-allowed bg-surface-50'
+                                                                    : 'hover:bg-surface-50 cursor-pointer',
+                                                                selectedCampIds.has(c.id) && 'bg-accent-50/50'
+                                                            )}
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedCampIds.has(c.id)}
+                                                                onChange={() => !isPaused && toggleCampaign(c)}
+                                                                disabled={isPaused}
+                                                                className="w-4 h-4 rounded border-surface-300 text-accent-500 focus:ring-accent-400 disabled:opacity-50"
+                                                            />
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-semibold text-surface-800 truncate">
+                                                                    {c.name}
+                                                                    {isPaused && <span className="ml-1.5 text-[10px] font-bold text-warning-600 bg-warning-50 px-1 py-0.5 rounded border border-warning-200">Tạm dừng</span>}
+                                                                </p>
+                                                                <p className="text-xs text-surface-400">
+                                                                    {REWARD_LABELS[c.rewardType]} • {c.totalIssued} mã
+                                                                </p>
+                                                            </div>
+                                                        </label>
                                                     );
                                                 });
                                             })()}

@@ -1,15 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     Link as LinkIcon, MousePointerClick, Smartphone, Globe,
     Plus, Copy, BarChart2, ExternalLink, X, Check, Loader2,
     Hash, Calendar, Search, ArrowUpRight, RefreshCw,
+    TrendingUp, Activity, Target,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
+import {
+    ChartCard, ChartTitle, EmptyChart,
+    DonutPieChart, VerticalBarChart, CHART_PALETTE,
+} from '@/components/admin/MarketingCharts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -171,6 +176,36 @@ export default function TrackingPage() {
             l.slug.toLowerCase().includes(search.toLowerCase()),
     );
 
+    // ── Marketing Analytics: computed data ──────────────────────────
+    const campaignBarData = useMemo(() => {
+        return links
+            .filter(l => l.clicks > 0)
+            .sort((a, b) => b.clicks - a.clicks)
+            .slice(0, 10)
+            .map(l => ({ name: l.campaignName, value: l.clicks }));
+    }, [links]);
+
+    const sourceDistribution = useMemo(() => {
+        const map: Record<string, number> = {};
+        links.forEach(l => {
+            if (l.topSource) {
+                map[l.topSource] = (map[l.topSource] || 0) + l.clicks;
+            }
+        });
+        return Object.entries(map)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value);
+    }, [links]);
+
+    const engagementStats = useMemo(() => {
+        const totalClicks = links.reduce((s, l) => s + l.clicks, 0);
+        const totalDevices = links.reduce((s, l) => s + l.uniqueDevices, 0);
+        const activeLinks = links.filter(l => l.active).length;
+        const avgClicksPerLink = links.length > 0 ? Math.round(totalClicks / links.length) : 0;
+        const engagementRate = totalDevices > 0 ? ((totalClicks / totalDevices) * 100).toFixed(1) : '0';
+        return { totalClicks, totalDevices, activeLinks, avgClicksPerLink, engagementRate };
+    }, [links]);
+
     // ── Loading state ────────────────────────────────────────────────────
     if (loading) {
         return (
@@ -259,6 +294,78 @@ export default function TrackingPage() {
                     <p className="text-[10px] text-surface-500 font-medium mt-1">/ {stats.totalLinks} tổng số link</p>
                 </div>
             </div>
+
+            {/* ═══ MARKETING ANALYTICS CHARTS ═══ */}
+            {links.length > 0 && (
+                <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center shadow-sm">
+                            <BarChart2 className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-bold text-surface-700">Phân tích hiệu suất</h2>
+                            <p className="text-[10px] text-surface-400">So sánh chiến dịch, nguồn truy cập & tương tác</p>
+                        </div>
+                        <div className="flex-1 h-px bg-gradient-to-r from-surface-200 to-transparent ml-2" />
+                    </div>
+
+                    {/* Engagement Quick Stats */}
+                    <div className="grid grid-cols-3 gap-3">
+                        {[
+                            { label: 'Tổng thiết bị', value: formatNumber(engagementStats.totalDevices), icon: Smartphone, gradient: 'from-info-500 to-info-600', bgLight: 'bg-info-50' },
+                            { label: 'Trung bình click/link', value: formatNumber(engagementStats.avgClicksPerLink), icon: Target, gradient: 'from-accent-500 to-accent-600', bgLight: 'bg-accent-50' },
+                            { label: 'Tỉ lệ tương tác', value: `${engagementStats.engagementRate}%`, icon: Activity, gradient: 'from-success-500 to-success-600', bgLight: 'bg-success-50' },
+                        ].map(k => (
+                            <div key={k.label} className="rounded-xl border border-surface-200 bg-white p-4 hover:shadow-md hover:border-surface-300 transition-all duration-200">
+                                <div className="flex items-center gap-2.5 mb-3">
+                                    <div className={cn('w-8 h-8 rounded-lg bg-gradient-to-br flex items-center justify-center shadow-sm', k.gradient)}>
+                                        <k.icon className="w-4 h-4 text-white" />
+                                    </div>
+                                    <span className="text-xs font-medium text-surface-500">{k.label}</span>
+                                </div>
+                                <p className="text-2xl font-black text-surface-800">{k.value}</p>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Charts Row */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {/* Campaign Comparison */}
+                        <ChartCard>
+                            <ChartTitle
+                                icon={<TrendingUp className="w-4 h-4 text-indigo-500" />}
+                                title="Top chiến dịch theo Clicks"
+                                subtitle="Xếp hạng 10 chiến dịch có lượt click cao nhất"
+                            />
+                            {campaignBarData.length > 0 ? (
+                                <VerticalBarChart data={campaignBarData} height={260} />
+                            ) : (
+                                <EmptyChart
+                                    icon={<TrendingUp className="w-5 h-5 text-surface-300" />}
+                                    message="Chưa có dữ liệu click"
+                                />
+                            )}
+                        </ChartCard>
+
+                        {/* Source Distribution */}
+                        <ChartCard>
+                            <ChartTitle
+                                icon={<Globe className="w-4 h-4 text-blue-500" />}
+                                title="Phân bố nguồn truy cập"
+                                subtitle="Tổng hợp nguồn clicks từ tất cả link"
+                            />
+                            {sourceDistribution.length > 0 ? (
+                                <DonutPieChart data={sourceDistribution} height={220} />
+                            ) : (
+                                <EmptyChart
+                                    icon={<Globe className="w-5 h-5 text-surface-300" />}
+                                    message="Chưa có dữ liệu nguồn"
+                                />
+                            )}
+                        </ChartCard>
+                    </div>
+                </div>
+            )}
 
             {/* ═══ SEARCH BAR ═══ */}
             <div className="relative">
