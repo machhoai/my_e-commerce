@@ -10,7 +10,7 @@ import {
     Users, TrendingUp, Activity, DollarSign, Clock,
     Package, PackagePlus, ArrowLeftRight, Building2,
     Calendar, Loader2, BarChart3, Banknote, ArrowUpDown, Coins, XCircle, RefreshCw,
-    Wifi, WifiOff, CalendarDays, CalendarRange, CheckCircle2,
+    Wifi, WifiOff, CalendarDays, CalendarRange, CheckCircle2, Star,
 } from 'lucide-react';
 import {
     AreaChart, Area, PieChart, Pie, Cell,
@@ -29,6 +29,7 @@ import TopReferralMarquee from '@/components/referral/TopReferralMarquee';
 
 type ManagementTab = 'operation' | 'revenue' | 'inventory';
 
+/* ── Helpers ──────────────────────────────────────────────────────────── */
 function toLocalISO(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -51,27 +52,36 @@ function fmtShort(v: number) {
 }
 function todayStr() { const d = new Date(); return toLocalISO(d); }
 function monthStart() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`; }
-const REV_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#06b6d4', '#ec4899', '#8b5cf6'];
+const REV_PALETTE = ['#FFCD00', '#FF8200', '#00A9E0', '#97D700', '#E83668', '#8b5cf6'];
 
-function StatCard({ title, value, sub, icon: Icon, iconBg, iconColor, alert }: {
+/* ── Brand-aligned StatCard ───────────────────────────────────────────── */
+function StatCard({ title, value, sub, icon: Icon, accentColor, alert }: {
     title: string; value: string | number; sub?: string;
-    icon: React.ElementType; iconBg: string; iconColor: string; alert?: boolean;
+    icon: React.ElementType; accentColor: string; alert?: boolean;
 }) {
     return (
-        <div className={cn('rounded-2xl bg-white border shadow-sm p-5 flex items-start gap-4', alert ? 'border-amber-200' : 'border-gray-100')}>
-            <span className={cn('w-12 h-12 rounded-xl flex items-center justify-center shrink-0', iconBg)}>
-                <Icon className={cn('w-6 h-6', iconColor)} strokeWidth={1.75} />
-            </span>
-            <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">{title}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1 tracking-tight leading-tight">{value}</p>
-                {sub && <p className={cn('text-xs mt-1', alert ? 'text-amber-500 font-medium' : 'text-gray-400')}>{sub}</p>}
+        <div className={cn(
+            'relative rounded-2xl bg-white overflow-hidden shadow-sm border transition-all duration-200 hover:shadow-md hover:-translate-y-0.5',
+            alert ? 'border-amber-200' : 'border-gray-100/80'
+        )}>
+            {/* Left accent bar */}
+            <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ background: accentColor }} />
+            <div className="pl-5 pr-5 py-5 flex items-start gap-4">
+                <span className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${accentColor}18` }}>
+                    <Icon className="w-5 h-5" style={{ color: accentColor }} strokeWidth={2} />
+                </span>
+                <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">{title}</p>
+                    <p className="text-2xl font-bold text-gray-900 mt-1 tracking-tight leading-tight" style={{ fontFamily: 'Poppins, sans-serif' }}>{value}</p>
+                    {sub && <p className={cn('text-xs mt-1.5', alert ? 'text-amber-500 font-semibold' : 'text-gray-400')}>{sub}</p>}
+                </div>
+                {alert && <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-1" strokeWidth={2} />}
             </div>
-            {alert && <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-1" strokeWidth={2} />}
         </div>
     );
 }
 
+/* ── Store Selector ───────────────────────────────────────────────────── */
 function DesktopStoreSelector() {
     const { user, userDoc, managedStoreIds, effectiveStoreId, setEffectiveStoreId } = useAuth();
     const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
@@ -92,20 +102,61 @@ function DesktopStoreSelector() {
     if (!isAdmin && managedStoreIds.length === 0) return null;
     if (stores.length === 0) return null;
     return (
-        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-50 border border-gray-200">
-            <Building2 className="w-4 h-4 text-gray-400" />
+        <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-white border border-gray-200 shadow-sm hover:border-gray-300 transition-colors">
+            <Building2 className="w-4 h-4 text-gray-400 shrink-0" />
             <select value={effectiveStoreId} onChange={(e) => setEffectiveStoreId(e.target.value)}
-                className="appearance-none bg-transparent text-sm font-medium text-gray-700 cursor-pointer outline-none flex-1" title="Chọn cửa hàng">
+                className="appearance-none bg-transparent text-sm font-semibold text-gray-700 cursor-pointer outline-none flex-1 pr-1" title="Chọn cửa hàng">
                 <option value="">Tất cả cửa hàng</option>
                 {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
-            <ChevronDown className="w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            <ChevronDown className="w-3.5 h-3.5 text-gray-400 pointer-events-none shrink-0" />
         </div>
     );
 }
 
+/* ── Section Panel Wrapper ────────────────────────────────────────────── */
+function SectionPanel({ title, icon: Icon, iconColor = '#FFCD00', rightSlot, children }: {
+    title: string; icon: React.ElementType; iconColor?: string; rightSlot?: React.ReactNode; children: React.ReactNode;
+}) {
+    return (
+        <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2.5">
+                    <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${iconColor}20` }}>
+                        <Icon className="w-4 h-4" style={{ color: iconColor }} strokeWidth={2} />
+                    </span>
+                    {title}
+                </h3>
+                {rightSlot}
+            </div>
+            {children}
+        </div>
+    );
+}
 
-// ─── OperationSection with FULL employee names ──────────────────────────────
+/* ── Week Nav Row ─────────────────────────────────────────────────────── */
+function WeekNav({ offset, days, onPrev, onNext, badge }: {
+    offset: number; days: Date[]; onPrev: () => void; onNext: () => void; badge?: React.ReactNode;
+}) {
+    return (
+        <div className="flex items-center gap-1">
+            <button onClick={onPrev} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700">
+                <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-sm font-semibold text-gray-600 min-w-[150px] text-center select-none">
+                {days.length > 0
+                    ? `${days[0].toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} – ${days[6].toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}`
+                    : '…'}
+            </span>
+            {badge}
+            <button onClick={onNext} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700">
+                <ChevronRight className="w-4 h-4" />
+            </button>
+        </div>
+    );
+}
+
+/* ── Operation Section ────────────────────────────────────────────────── */
 function OperationSection({ effectiveStoreId }: { effectiveStoreId: string }) {
     const [loading, setLoading] = useState(true);
     const [staffCount, setStaffCount] = useState<number | null>(null);
@@ -116,7 +167,6 @@ function OperationSection({ effectiveStoreId }: { effectiveStoreId: string }) {
     const [shiftNames, setShiftNames] = useState<string[]>([]);
     const [userMap, setUserMap] = useState<Map<string, UserDoc>>(new Map());
     const [nextWeekCount, setNextWeekCount] = useState<number | null>(null);
-    // Calendar section
     const [calendarWeekOffset, setCalendarWeekOffset] = useState(0);
     const [calendarWeekDays, setCalendarWeekDays] = useState<Date[]>([]);
     const [calendarWeekSchedules, setCalendarWeekSchedules] = useState<ScheduleDoc[]>([]);
@@ -171,7 +221,6 @@ function OperationSection({ effectiveStoreId }: { effectiveStoreId: string }) {
         return () => { cancelled = true; };
     }, [effectiveStoreId, weekOffset]);
 
-    // Calendar fetch
     useEffect(() => {
         if (!effectiveStoreId) { setCalendarWeekDays([]); setCalendarWeekSchedules([]); setCalendarLoading(false); return; }
         let cancelled = false;
@@ -192,7 +241,6 @@ function OperationSection({ effectiveStoreId }: { effectiveStoreId: string }) {
 
     const today = toLocalISO(new Date());
 
-    // Build matrix with FULL employee info (not just counts)
     type EmpInfo = { uid: string; name: string; role: string; type?: string };
     const matrix: EmpInfo[][][] = shiftNames.map(shift =>
         weekDays.map(d => {
@@ -210,10 +258,10 @@ function OperationSection({ effectiveStoreId }: { effectiveStoreId: string }) {
     const shortName = (name: string) => { const p = name.trim().split(' '); return p.length >= 2 ? `${p[p.length - 2]} ${p[p.length - 1]}` : name; };
 
     const getBadgeStyle = (role: string, type?: string) => {
-        if (role === 'store_manager') return 'bg-red-50 text-red-700 border-red-100';
-        if (role === 'manager') return 'bg-amber-50 text-amber-700 border-amber-100';
-        if (type === 'FT') return 'bg-blue-50 text-blue-700 border-blue-100';
-        return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+        if (role === 'store_manager') return 'bg-rose-50 text-rose-700 border border-rose-100';
+        if (role === 'manager') return 'bg-amber-50 text-amber-700 border border-amber-100';
+        if (type === 'FT') return 'bg-sky-50 text-sky-700 border border-sky-100';
+        return 'bg-emerald-50 text-emerald-700 border border-emerald-100';
     };
     const getRoleLabel = (role: string) => {
         if (role === 'store_manager') return 'CTH';
@@ -221,7 +269,6 @@ function OperationSection({ effectiveStoreId }: { effectiveStoreId: string }) {
         return '';
     };
 
-    // Calendar registration data
     const calendarDays = calendarWeekDays.map(d => {
         const iso = toLocalISO(d);
         const dayShifts = shiftNames.map(shift => {
@@ -244,46 +291,50 @@ function OperationSection({ effectiveStoreId }: { effectiveStoreId: string }) {
         <div className="flex flex-col gap-6">
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <StatCard title="Nhân sự hoạt động" value={loading ? '…' : staffCount ?? '-'} sub="Nhân viên đang làm việc" icon={Users} iconBg="bg-blue-50" iconColor="text-blue-500" />
-                <StatCard title="KPI trung bình / tháng" value={loading ? '…' : kpiAvg !== null ? kpiAvg : '-'} sub="Điểm trung bình tháng này" icon={TrendingUp} iconBg="bg-emerald-50" iconColor="text-emerald-500" />
-                <StatCard title="Đăng ký tuần sau" value={loading ? '…' : nextWeekCount ?? '-'} sub="Nhân viên đã đăng ký ca" icon={Calendar} iconBg="bg-violet-50" iconColor="text-violet-500" />
+                <StatCard title="Nhân sự hoạt động" value={loading ? '…' : staffCount ?? '-'} sub="Nhân viên đang làm việc" icon={Users} accentColor="#00A9E0" />
+                <StatCard title="KPI trung bình / tháng" value={loading ? '…' : kpiAvg !== null ? kpiAvg : '-'} sub="Điểm trung bình tháng này" icon={TrendingUp} accentColor="#97D700" />
+                <StatCard title="Đăng ký tuần sau" value={loading ? '…' : nextWeekCount ?? '-'} sub="Nhân viên đã đăng ký ca" icon={Calendar} accentColor="#FF8200" />
             </div>
 
-            {/* ── Schedule Table (FULL NAMES) ─────────────────────────────── */}
-            <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-primary-500" />Lịch làm việc cửa hàng
-                    </h3>
-                    <div className="flex items-center gap-2">
-                        <button onClick={() => setWeekOffset(w => w - 1)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors"><ChevronLeft className="w-4 h-4 text-gray-500" /></button>
-                        <span className="text-sm font-medium text-gray-600 min-w-[160px] text-center">
-                            {weekDays.length > 0 ? `${weekDays[0].toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} – ${weekDays[6].toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}` : 'Tuần này'}
-                            {weekOffset === 0 && <span className="ml-2 px-2 py-0.5 rounded-full bg-primary-50 text-primary-600 text-[10px] font-bold">Hiện tại</span>}
-                        </span>
-                        <button onClick={() => setWeekOffset(w => w + 1)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors"><ChevronRight className="w-4 h-4 text-gray-500" /></button>
-                    </div>
-                </div>
-
+            {/* Schedule Table */}
+            <SectionPanel
+                title="Lịch làm việc cửa hàng"
+                icon={Calendar}
+                iconColor="#FFCD00"
+                rightSlot={
+                    <WeekNav
+                        offset={weekOffset}
+                        days={weekDays}
+                        onPrev={() => setWeekOffset(w => w - 1)}
+                        onNext={() => setWeekOffset(w => w + 1)}
+                        badge={weekOffset === 0 && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: '#FFCD0025', color: '#B8890A' }}>
+                                Hiện tại
+                            </span>
+                        )}
+                    />
+                }
+            >
                 {!effectiveStoreId ? (
-                    <div className="h-48 flex items-center justify-center"><p className="text-sm text-gray-400">Chọn cửa hàng để xem lịch</p></div>
+                    <div className="h-44 flex items-center justify-center"><p className="text-sm text-gray-400">Chọn cửa hàng để xem lịch</p></div>
                 ) : loading ? (
-                    <div className="h-48 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-gray-300" /></div>
+                    <div className="h-44 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-gray-300" /></div>
                 ) : shiftNames.length === 0 ? (
-                    <div className="h-48 flex items-center justify-center"><p className="text-sm text-gray-400">Chưa có dữ liệu ca</p></div>
+                    <div className="h-44 flex items-center justify-center"><p className="text-sm text-gray-400">Chưa có dữ liệu ca</p></div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm border-collapse">
                             <thead>
                                 <tr className="bg-gray-50">
-                                    <th className="sticky left-0 z-10 bg-gray-50 px-4 py-3 text-left font-semibold text-gray-500 text-xs uppercase tracking-wider w-[100px] border-r border-gray-100">Ca</th>
+                                    <th className="sticky left-0 z-10 bg-gray-50 px-4 py-3 text-left font-semibold text-gray-500 text-[11px] uppercase tracking-widest w-[100px] border-r border-gray-100">Ca</th>
                                     {weekDays.map(d => {
                                         const iso = toLocalISO(d);
                                         const isToday = iso === today;
                                         return (
-                                            <th key={iso} className={cn('px-2 py-3 font-semibold text-center min-w-[140px]', isToday ? 'bg-primary-50 text-primary-600' : 'text-gray-500')}>
-                                                <div className="text-xs">{DAY_LABELS[d.getDay()]}</div>
-                                                <div className={cn('text-base font-bold leading-tight mt-0.5', isToday ? 'text-primary-500' : 'text-gray-700')}>{d.getDate()}</div>
+                                            <th key={iso} className="px-2 py-3 font-semibold text-center min-w-[140px]"
+                                                style={isToday ? { background: '#FFCD0015', color: '#B8890A' } : { color: '#6b7280' }}>
+                                                <div className="text-[10px] font-bold uppercase tracking-widest">{DAY_LABELS[d.getDay()]}</div>
+                                                <div className={cn('text-base font-bold leading-tight mt-0.5', isToday ? '' : 'text-gray-700')}>{d.getDate()}</div>
                                             </th>
                                         );
                                     })}
@@ -291,21 +342,21 @@ function OperationSection({ effectiveStoreId }: { effectiveStoreId: string }) {
                             </thead>
                             <tbody className="divide-y divide-gray-50">
                                 {shiftNames.map((shift, si) => (
-                                    <tr key={shift} className={si % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
-                                        <td className="sticky left-0 z-10 px-4 py-3 text-sm font-bold text-gray-700 border-r border-gray-100 align-top" style={{ background: 'inherit' }}>{shift}</td>
+                                    <tr key={shift} className={si % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}>
+                                        <td className="sticky left-0 z-10 px-4 py-3 text-xs font-bold text-gray-700 border-r border-gray-100 align-top" style={{ background: 'inherit' }}>{shift}</td>
                                         {weekDays.map((d, di) => {
                                             const iso = toLocalISO(d);
                                             const isToday = iso === today;
                                             const emps = matrix[si]?.[di] ?? [];
                                             return (
-                                                <td key={iso} className={cn('px-2 py-3 align-top', isToday ? 'bg-primary-50/50' : '')}>
+                                                <td key={iso} className="px-2 py-3 align-top" style={isToday ? { background: '#FFCD0008' } : {}}>
                                                     {emps.length === 0 ? (
                                                         <span className="text-gray-200 text-sm block text-center">—</span>
                                                     ) : (
                                                         <div className="flex flex-col gap-1">
                                                             {emps.map(emp => (
-                                                                <span key={emp.uid} className={cn('inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium border', getBadgeStyle(emp.role, emp.type))}>
-                                                                    {getRoleLabel(emp.role) && <span className="font-bold text-[10px] opacity-70">{getRoleLabel(emp.role)}</span>}
+                                                                <span key={emp.uid} className={cn('inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium', getBadgeStyle(emp.role, emp.type))}>
+                                                                    {getRoleLabel(emp.role) && <span className="font-bold text-[10px] opacity-60">{getRoleLabel(emp.role)}</span>}
                                                                     <span className="truncate max-w-[100px]">{shortName(emp.name)}</span>
                                                                 </span>
                                                             ))}
@@ -321,68 +372,83 @@ function OperationSection({ effectiveStoreId }: { effectiveStoreId: string }) {
                     </div>
                 )}
                 {!loading && shiftNames.length > 0 && (
-                    <div className="flex items-center gap-6 px-6 py-3 border-t border-gray-100 bg-gray-50/50">
-                        <span className="flex items-center gap-2 text-xs text-gray-500"><span className="w-3 h-3 rounded border bg-red-50 border-red-100 inline-block" />CTH = Cửa hàng trưởng</span>
-                        <span className="flex items-center gap-2 text-xs text-gray-500"><span className="w-3 h-3 rounded border bg-amber-50 border-amber-100 inline-block" />QL = Quản lý</span>
-                        <span className="flex items-center gap-2 text-xs text-gray-500"><span className="w-3 h-3 rounded border bg-blue-50 border-blue-100 inline-block" />FT = Full-time</span>
-                        <span className="flex items-center gap-2 text-xs text-gray-500"><span className="w-3 h-3 rounded border bg-emerald-50 border-emerald-100 inline-block" />PT = Part-time</span>
+                    <div className="flex items-center gap-5 px-6 py-3 border-t border-gray-100 bg-gray-50/30">
+                        {[
+                            { dot: 'bg-rose-400', label: 'CTH = Cửa hàng trưởng' },
+                            { dot: 'bg-amber-400', label: 'QL = Quản lý' },
+                            { dot: 'bg-sky-400', label: 'FT = Full-time' },
+                            { dot: 'bg-emerald-400', label: 'PT = Part-time' },
+                        ].map(({ dot, label }) => (
+                            <span key={label} className="flex items-center gap-1.5 text-xs text-gray-400">
+                                <span className={cn('w-2.5 h-2.5 rounded-full', dot)} />
+                                {label}
+                            </span>
+                        ))}
                     </div>
                 )}
-            </div>
+            </SectionPanel>
 
-            {/* ── Registration Calendar ────────────────────────────────── */}
-            <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                        <CalendarDays className="w-4 h-4 text-violet-500" />Lịch đăng ký ca nhân viên
-                    </h3>
-                    <div className="flex items-center gap-2">
-                        <button onClick={() => setCalendarWeekOffset(w => w - 1)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors"><ChevronLeft className="w-4 h-4 text-gray-500" /></button>
-                        <span className="text-sm font-medium text-gray-600 min-w-[180px] text-center">
-                            {calendarWeekDays.length > 0 ? `${calendarWeekDays[0].toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} – ${calendarWeekDays[6].toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}` : '…'}
-                            {calendarWeekOffset === 0 && <span className="ml-2 px-2 py-0.5 rounded-full bg-primary-50 text-primary-600 text-[10px] font-bold">Hiện tại</span>}
-                            {calendarWeekOffset === 1 && <span className="ml-2 px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 text-[10px] font-bold">Tuần sau</span>}
-                        </span>
-                        <button onClick={() => setCalendarWeekOffset(w => w + 1)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors"><ChevronRight className="w-4 h-4 text-gray-500" /></button>
-                    </div>
-                </div>
-
+            {/* Registration Calendar */}
+            <SectionPanel
+                title="Lịch đăng ký ca nhân viên"
+                icon={CalendarDays}
+                iconColor="#8b5cf6"
+                rightSlot={
+                    <WeekNav
+                        offset={calendarWeekOffset}
+                        days={calendarWeekDays}
+                        onPrev={() => setCalendarWeekOffset(w => w - 1)}
+                        onNext={() => setCalendarWeekOffset(w => w + 1)}
+                        badge={
+                            calendarWeekOffset === 0
+                                ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: '#FFCD0025', color: '#B8890A' }}>Hiện tại</span>
+                                : calendarWeekOffset === 1
+                                    ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-50 text-violet-600">Tuần sau</span>
+                                    : null
+                        }
+                    />
+                }
+            >
                 {!effectiveStoreId ? (
-                    <div className="h-48 flex items-center justify-center"><p className="text-sm text-gray-400">Chọn cửa hàng để xem lịch đăng ký</p></div>
+                    <div className="h-44 flex items-center justify-center"><p className="text-sm text-gray-400">Chọn cửa hàng để xem lịch đăng ký</p></div>
                 ) : calendarLoading ? (
-                    <div className="h-48 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-gray-300" /></div>
+                    <div className="h-44 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-gray-300" /></div>
                 ) : shiftNames.length === 0 ? (
-                    <div className="h-48 flex items-center justify-center"><p className="text-sm text-gray-400">Chưa cấu hình ca</p></div>
+                    <div className="h-44 flex items-center justify-center"><p className="text-sm text-gray-400">Chưa cấu hình ca</p></div>
                 ) : (
                     <div className="grid grid-cols-7 divide-x divide-gray-100">
                         {calendarDays.map(({ iso, date, dayShifts, total }) => {
                             const isToday = iso === today;
                             const isPast = iso < today;
                             return (
-                                <div key={iso} className={cn('min-h-[200px] flex flex-col', isPast && 'opacity-60')}>
+                                <div key={iso} className={cn('min-h-[200px] flex flex-col', isPast && 'opacity-55')}>
                                     {/* Day header */}
-                                    <div className={cn('px-3 py-2.5 border-b flex items-center justify-between', isToday ? 'bg-primary-500 border-primary-400' : 'bg-gray-50 border-gray-100')}>
+                                    <div className={cn('px-3 py-2.5 border-b flex items-center justify-between', isToday ? 'border-amber-200' : 'bg-gray-50 border-gray-100')}
+                                        style={isToday ? { background: 'linear-gradient(135deg, #FFCD00 0%, #FF8200 100%)' } : {}}>
                                         <div>
-                                            <p className={cn('text-[10px] font-semibold uppercase', isToday ? 'text-primary-100' : 'text-gray-400')}>{DAY_LABELS[date.getDay()]}</p>
-                                            <p className={cn('text-lg font-bold leading-tight', isToday ? 'text-white' : 'text-gray-700')}>{date.getDate()}</p>
+                                            <p className={cn('text-[10px] font-bold uppercase tracking-widest', isToday ? 'text-amber-900/70' : 'text-gray-400')}>{DAY_LABELS[date.getDay()]}</p>
+                                            <p className={cn('text-lg font-extrabold leading-tight', isToday ? 'text-gray-900' : 'text-gray-700')}>{date.getDate()}</p>
                                         </div>
                                         <span className={cn('flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold',
-                                            total > 0 ? isToday ? 'bg-white/25 text-white' : 'bg-blue-50 text-blue-600' : isToday ? 'bg-white/10 text-primary-200' : 'bg-gray-100 text-gray-300')}>
+                                            total > 0
+                                                ? isToday ? 'bg-white/40 text-gray-900' : 'bg-sky-50 text-sky-600'
+                                                : isToday ? 'bg-black/10 text-amber-800/60' : 'bg-gray-100 text-gray-300'
+                                        )}>
                                             {total > 0 ? total : '—'}
                                         </span>
                                     </div>
                                     {/* Per-shift employee list */}
-                                    <div className="flex-1 flex flex-col divide-y divide-gray-50 p-2 gap-2">
+                                    <div className="flex-1 flex flex-col p-2 gap-2">
                                         {dayShifts.map(({ shift, employees }) => (
                                             <div key={shift}>
-                                                <p className={cn('text-[10px] font-bold uppercase tracking-wide mb-1', employees.length > 0 ? 'text-gray-500' : 'text-gray-300')}>{shift}</p>
+                                                <p className={cn('text-[10px] font-bold uppercase tracking-wider mb-1', employees.length > 0 ? 'text-gray-500' : 'text-gray-300')}>{shift}</p>
                                                 {employees.length === 0 ? (
                                                     <p className="text-[10px] text-gray-300 italic">Chưa có</p>
                                                 ) : (
                                                     <div className="flex flex-col gap-0.5">
                                                         {employees.map(emp => (
                                                             <span key={emp.uid} className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium w-fit', getBadgeStyle(emp.role, emp.type))}>
-                                                                {getRoleLabel(emp.role) && <span className="font-bold text-[9px] opacity-70">{getRoleLabel(emp.role)}</span>}
+                                                                {getRoleLabel(emp.role) && <span className="font-bold text-[9px] opacity-60">{getRoleLabel(emp.role)}</span>}
                                                                 {shortName(emp.name)}
                                                             </span>
                                                         ))}
@@ -396,13 +462,13 @@ function OperationSection({ effectiveStoreId }: { effectiveStoreId: string }) {
                         })}
                     </div>
                 )}
-            </div>
+            </SectionPanel>
         </div>
     );
 }
 
 
-// ─── RevenueSection (same as before) ────────────────────────────────────────
+/* ── Revenue Section ──────────────────────────────────────────────────── */
 type RevFilterMode = 'day' | 'month' | 'custom';
 
 function RevenueSection() {
@@ -495,103 +561,264 @@ function RevenueSection() {
         return sellData.flatMap(c => c.items).sort((a, b) => b.realMoney - a.realMoney).slice(0, 10);
     }, [sellData, dailyPanel]);
 
+    const filterLabels = ['Ngày', 'Tháng', 'Tùy chọn'];
+    const filterIcons = [Calendar, CalendarDays, CalendarRange];
+    const filterModes: RevFilterMode[] = ['day', 'month', 'custom'];
+
     return (
         <div className="flex flex-col gap-6">
             {/* Filter Bar */}
             <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4">
                 <div className="flex items-center gap-4 flex-wrap">
-                    <div className="flex gap-1.5 bg-gray-100 rounded-xl p-1">
-                        {(['day', 'month', 'custom'] as RevFilterMode[]).map((m, i) => {
-                            const labels = ['Ngày', 'Tháng', 'Tùy chọn'];
-                            const Icons = [Calendar, CalendarDays, CalendarRange];
+                    {/* Mode selector */}
+                    <div className="flex gap-1 bg-gray-100/80 rounded-xl p-1">
+                        {filterModes.map((m, i) => {
+                            const Ic = filterIcons[i];
                             return (
                                 <button key={m} onClick={() => setFilterMode(m)}
-                                    className={cn('flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all', filterMode === m ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
-                                    {(() => { const Ic = Icons[i]; return <Ic className="w-3.5 h-3.5" />; })()}{labels[i]}
+                                    className={cn('flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200',
+                                        filterMode === m ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
+                                    <Ic className="w-3.5 h-3.5" />{filterLabels[i]}
                                 </button>
                             );
                         })}
                     </div>
                     <div className="flex items-center gap-3 flex-1">
-                        {filterMode === 'day' && <input type="date" value={dayDate} onChange={e => setDayDate(e.target.value)} className="rounded-xl bg-gray-50 px-4 py-2 text-sm text-gray-700 border border-gray-200 outline-none focus:ring-2 focus:ring-primary-200" />}
-                        {filterMode === 'month' && <input type="month" value={monthDate} onChange={e => setMonthDate(e.target.value)} className="rounded-xl bg-gray-50 px-4 py-2 text-sm text-gray-700 border border-gray-200 outline-none focus:ring-2 focus:ring-primary-200" />}
-                        {filterMode === 'custom' && (<><input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="rounded-xl bg-gray-50 px-3 py-2 text-sm border border-gray-200 outline-none focus:ring-2 focus:ring-primary-200" /><span className="text-gray-300">→</span><input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="rounded-xl bg-gray-50 px-3 py-2 text-sm border border-gray-200 outline-none focus:ring-2 focus:ring-primary-200" /></>)}
-                        <button onClick={handleSync} disabled={syncing || loading} className="p-2.5 rounded-xl bg-primary-50 hover:bg-primary-100 transition-colors disabled:opacity-40"><RefreshCw className={cn('w-4 h-4 text-primary-600', (syncing || loading) && 'animate-spin')} /></button>
+                        {filterMode === 'day' && <input type="date" value={dayDate} onChange={e => setDayDate(e.target.value)} className="rounded-xl bg-gray-50 px-4 py-2 text-sm text-gray-700 border border-gray-200 outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300" />}
+                        {filterMode === 'month' && <input type="month" value={monthDate} onChange={e => setMonthDate(e.target.value)} className="rounded-xl bg-gray-50 px-4 py-2 text-sm text-gray-700 border border-gray-200 outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300" />}
+                        {filterMode === 'custom' && (<>
+                            <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="rounded-xl bg-gray-50 px-3 py-2 text-sm border border-gray-200 outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300" />
+                            <span className="text-gray-300 font-semibold">→</span>
+                            <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="rounded-xl bg-gray-50 px-3 py-2 text-sm border border-gray-200 outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300" />
+                        </>)}
+                        <button onClick={handleSync} disabled={syncing || loading}
+                            className="p-2.5 rounded-xl transition-colors disabled:opacity-40"
+                            style={{ background: syncing || loading ? '#F3F4F6' : '#FFCD0020' }}>
+                            <RefreshCw className={cn('w-4 h-4', (syncing || loading) ? 'text-gray-400 animate-spin' : 'text-amber-700')} />
+                        </button>
                     </div>
                     <div className="flex items-center gap-2">
-                        {isListening ? <span className="flex items-center gap-1 text-xs font-semibold text-green-500 bg-green-50 px-2.5 py-1 rounded-full"><Wifi className="w-3 h-3" />Live</span> : <WifiOff className="w-3.5 h-3.5 text-gray-300" />}
+                        {isListening
+                            ? <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full"><Wifi className="w-3 h-3" />Live</span>
+                            : <WifiOff className="w-3.5 h-3.5 text-gray-300" />}
                         {updatedAt && <span className="text-xs text-gray-400">Cập nhật: {new Date(updatedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>}
                     </div>
                 </div>
             </div>
-            {error && <div className="rounded-2xl border border-red-200 bg-red-50 p-4 flex items-center gap-3"><AlertTriangle className="w-5 h-5 text-red-500 shrink-0" /><p className="text-sm text-red-700 flex-1">{error}</p></div>}
-            {loading && !hasFetched && <div className="rounded-2xl bg-white border shadow-sm h-48 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-gray-300" /></div>}
+
+            {error && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 flex items-center gap-3">
+                    <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+                    <p className="text-sm text-red-700 flex-1">{error}</p>
+                </div>
+            )}
+            {loading && !hasFetched && (
+                <div className="rounded-2xl bg-white border shadow-sm h-48 flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-gray-200" />
+                </div>
+            )}
+
             {hasFetched && !error && data.length > 0 && (
                 <div className={cn('flex flex-col gap-6 transition-opacity duration-300', (loading || syncing) && 'opacity-50 pointer-events-none')}>
+                    {/* Hero revenue card + mini KPIs */}
                     <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-                        <div className="lg:col-span-2 relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary-600 to-primary-800 p-6 shadow-lg">
-                            <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
-                            <p className="text-xs font-bold uppercase tracking-widest text-primary-100">Thực thu</p>
-                            <p className="text-4xl font-extrabold text-white mt-2 tracking-tight">{fmtShort(kpis.totalSys)}</p>
-                            <p className="text-sm text-primary-200 mt-2">{fmtVND(kpis.totalSys)}</p>
+                        {/* Hero card */}
+                        <div className="lg:col-span-2 relative rounded-2xl overflow-hidden shadow-lg" style={{ background: 'linear-gradient(135deg, #FFCD00 0%, #FF8200 100%)' }}>
+                            <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: 'radial-gradient(circle at 75% 15%, white 1.5px, transparent 1.5px)', backgroundSize: '20px 20px' }} />
+                            <div className="relative p-6">
+                                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-900/60">Thực thu</p>
+                                <p className="text-5xl font-black text-gray-900 mt-2 tracking-tight leading-none" style={{ fontFamily: 'Poppins, sans-serif' }}>{fmtShort(kpis.totalSys)}</p>
+                                <p className="text-sm text-amber-900/60 mt-3 font-medium">{fmtVND(kpis.totalSys)}</p>
+                            </div>
                         </div>
+                        {/* Mini KPI grid */}
                         <div className="lg:col-span-3 grid grid-cols-2 gap-4">
                             {[
-                                { l: 'Tiền mặt', v: fmtShort(kpis.totalCash), s: `${kpis.totalSys > 0 ? ((kpis.totalCash / kpis.totalSys) * 100).toFixed(0) : 0}%`, ic: Banknote, bg: 'bg-blue-50', c: 'text-blue-600' },
-                                { l: 'Chuyển khoản', v: fmtShort(kpis.totalTransfer), s: `${kpis.totalSys > 0 ? ((kpis.totalTransfer / kpis.totalReal) * 100).toFixed(0) : 0}%`, ic: ArrowUpDown, bg: 'bg-violet-50', c: 'text-violet-600' },
-                                { l: 'Xu bán', v: fmtV(kpis.totalCoins), s: `${fmtShort(data[0]?.sellCoinPrice || 0)}/xu`, ic: Coins, bg: 'bg-amber-50', c: 'text-amber-600' },
-                                isMultiDay ? { l: 'Ngày cao nhất', v: kpis.peakDay ? fmtShort(kpis.peakDay.realMoney) : '—', s: kpis.peakDay?.forDate || '', ic: TrendingUp, bg: 'bg-pink-50', c: 'text-pink-600' }
-                                    : { l: 'Đã hủy', v: fmtShort(kpis.totalRefund), s: kpis.totalRefund > 0 ? 'Giao dịch hủy' : 'Không có', ic: XCircle, bg: 'bg-red-50', c: 'text-red-600' },
-                            ].map(({ l, v, s, ic: Ic, bg, c }) => (
-                                <div key={l} className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4 flex items-start gap-3">
-                                    <span className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', bg)}><Ic className={cn('w-5 h-5', c)} strokeWidth={1.75} /></span>
-                                    <div><p className="text-[10px] uppercase tracking-widest text-gray-400 font-semibold">{l}</p><p className={cn('text-lg font-bold mt-0.5 leading-tight', c)}>{v}</p><p className="text-[11px] text-gray-400 mt-0.5">{s}</p></div>
+                                { l: 'Tiền mặt', v: fmtShort(kpis.totalCash), s: `${kpis.totalSys > 0 ? ((kpis.totalCash / kpis.totalSys) * 100).toFixed(0) : 0}%`, ic: Banknote, accent: '#00A9E0' },
+                                { l: 'Chuyển khoản', v: fmtShort(kpis.totalTransfer), s: `${kpis.totalSys > 0 ? ((kpis.totalTransfer / kpis.totalReal) * 100).toFixed(0) : 0}%`, ic: ArrowUpDown, accent: '#8b5cf6' },
+                                { l: 'Xu bán', v: fmtV(kpis.totalCoins), s: `${fmtShort(data[0]?.sellCoinPrice || 0)}/xu`, ic: Coins, accent: '#FFCD00' },
+                                isMultiDay
+                                    ? { l: 'Ngày cao nhất', v: kpis.peakDay ? fmtShort(kpis.peakDay.realMoney) : '—', s: kpis.peakDay?.forDate || '', ic: TrendingUp, accent: '#E83668' }
+                                    : { l: 'Đã hủy', v: fmtShort(kpis.totalRefund), s: kpis.totalRefund > 0 ? 'Giao dịch hủy' : 'Không có', ic: XCircle, accent: '#fc4c02' },
+                            ].map(({ l, v, s, ic: Ic, accent }) => (
+                                <div key={l} className="relative rounded-2xl bg-white border border-gray-100 shadow-sm p-4 flex items-start gap-3 overflow-hidden hover:shadow-md transition-shadow">
+                                    <div className="absolute bottom-0 right-0 w-16 h-16 rounded-tl-[40px] opacity-[0.06]" style={{ background: accent }} />
+                                    <span className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${accent}18` }}>
+                                        <Ic className="w-5 h-5" style={{ color: accent }} strokeWidth={1.75} />
+                                    </span>
+                                    <div>
+                                        <p className="text-[10px] uppercase tracking-widest text-gray-400 font-semibold">{l}</p>
+                                        <p className="text-lg font-bold mt-0.5 leading-tight" style={{ color: accent, fontFamily: 'Poppins, sans-serif' }}>{v}</p>
+                                        <p className="text-[11px] text-gray-400 mt-0.5">{s}</p>
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     </div>
+
+                    {/* Chart + Pie */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                         <div className="lg:col-span-2 rounded-2xl bg-white border border-gray-100 shadow-sm p-5">
-                            {isMultiDay ? (<><p className="text-sm font-bold text-gray-700 mb-4">Doanh thu theo ngày</p><div className="h-[240px]"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData} margin={{ top: 5, right: 15, left: 0, bottom: 0 }}><defs><linearGradient id="gD" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={0.25} /><stop offset="100%" stopColor="#10b981" stopOpacity={0.01} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} /><XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={fmtShort} width={50} /><RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 8px 24px rgb(0 0 0 / 0.1)', fontSize: '12px' }} /><Area type="monotone" dataKey="Thực thu" stroke="#10b981" strokeWidth={2} fill="url(#gD)" dot={false} activeDot={{ r: 4 }} /><Area type="monotone" dataKey="Tiền mặt" stroke="#3b82f6" strokeWidth={1.5} fill="transparent" dot={false} /><Area type="monotone" dataKey="Chuyển khoản" stroke="#8b5cf6" strokeWidth={1.5} fill="transparent" dot={false} /></AreaChart></ResponsiveContainer></div></>
-                            ) : dailyPanel?.shopSummary ? (<><p className="text-sm font-bold text-gray-700 mb-4">Tổng kết ngày</p><div className="grid grid-cols-3 gap-3">{[{ l: 'Tổng hoá đơn', v: fmtVND(dailyPanel.shopSummary.shopMoney), c: 'text-gray-700', bg: 'bg-gray-50' }, { l: 'Thực thu', v: fmtVND(dailyPanel.shopSummary.shopRealMoney), c: 'text-green-700', bg: 'bg-green-50' }, { l: 'Đã hủy', v: fmtVND(dailyPanel.shopSummary.refundMoney), c: 'text-red-600', bg: 'bg-red-50' }, { l: 'Tiền mặt', v: fmtVND(kpis.totalCash), c: 'text-blue-700', bg: 'bg-blue-50' }, { l: 'Chuyển khoản', v: fmtVND(kpis.totalTransfer), c: 'text-violet-700', bg: 'bg-violet-50' }, { l: 'Xu bán', v: fmtV(kpis.totalCoins), c: 'text-amber-700', bg: 'bg-amber-50' }].map(item => (<div key={item.l} className={cn('rounded-xl p-4', item.bg)}><p className="text-[10px] uppercase tracking-widest text-gray-400 font-semibold">{item.l}</p><p className={cn('text-sm font-bold mt-1', item.c)}>{item.v}</p></div>))}</div></>
-                            ) : <div className="h-[240px] flex items-center justify-center text-sm text-gray-400">Không có dữ liệu</div>}
+                            {isMultiDay ? (
+                                <>
+                                    <p className="text-sm font-bold text-gray-700 mb-4">Doanh thu theo ngày</p>
+                                    <div className="h-[240px]">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <AreaChart data={chartData} margin={{ top: 5, right: 15, left: 0, bottom: 0 }}>
+                                                <defs>
+                                                    <linearGradient id="gRevenue" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor="#FFCD00" stopOpacity={0.3} />
+                                                        <stop offset="100%" stopColor="#FFCD00" stopOpacity={0.02} />
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                                                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={fmtShort} width={50} />
+                                                <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 8px 24px rgb(0 0 0 / 0.1)', fontSize: '12px' }} />
+                                                <Area type="monotone" dataKey="Thực thu" stroke="#FF8200" strokeWidth={2.5} fill="url(#gRevenue)" dot={false} activeDot={{ r: 5, fill: '#FF8200' }} />
+                                                <Area type="monotone" dataKey="Tiền mặt" stroke="#00A9E0" strokeWidth={1.5} fill="transparent" dot={false} />
+                                                <Area type="monotone" dataKey="Chuyển khoản" stroke="#8b5cf6" strokeWidth={1.5} fill="transparent" dot={false} />
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </>
+                            ) : dailyPanel?.shopSummary ? (
+                                <>
+                                    <p className="text-sm font-bold text-gray-700 mb-4">Tổng kết ngày</p>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {[
+                                            { l: 'Tổng hoá đơn', v: fmtVND(dailyPanel.shopSummary.shopMoney), accent: '#6b7280', bg: '#f3f4f6' },
+                                            { l: 'Thực thu', v: fmtVND(dailyPanel.shopSummary.shopRealMoney), accent: '#16a34a', bg: '#f0fdf4' },
+                                            { l: 'Đã hủy', v: fmtVND(dailyPanel.shopSummary.refundMoney), accent: '#dc2626', bg: '#fef2f2' },
+                                            { l: 'Tiền mặt', v: fmtVND(kpis.totalCash), accent: '#00A9E0', bg: '#e0f7ff' },
+                                            { l: 'Chuyển khoản', v: fmtVND(kpis.totalTransfer), accent: '#8b5cf6', bg: '#f5f3ff' },
+                                            { l: 'Xu bán', v: fmtV(kpis.totalCoins), accent: '#B8890A', bg: '#FFCD0015' },
+                                        ].map(item => (
+                                            <div key={item.l} className="rounded-xl p-4" style={{ background: item.bg }}>
+                                                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-semibold">{item.l}</p>
+                                                <p className="text-sm font-bold mt-1" style={{ color: item.accent }}>{item.v}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="h-[240px] flex items-center justify-center text-sm text-gray-400">Không có dữ liệu</div>
+                            )}
                         </div>
+
+                        {/* Payment Pie */}
                         <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-5">
                             <p className="text-sm font-bold text-gray-700 mb-4">Phương thức thanh toán</p>
-                            {paymentPieData.length > 0 ? (<div className="flex flex-col items-center gap-4"><div className="h-[160px] w-[160px]"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={paymentPieData} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={3} dataKey="value" labelLine={false}>{paymentPieData.map((_, i) => <Cell key={i} fill={REV_PALETTE[i % REV_PALETTE.length]} />)}</Pie><RechartsTooltip contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 4px 16px rgb(0 0 0 / 0.1)', fontSize: '12px' }} /></PieChart></ResponsiveContainer></div><div className="flex flex-col gap-2 w-full">{paymentPieData.map((item, i) => { const t = paymentPieData.reduce((s, d) => s + d.value, 0); return (<div key={item.name} className="flex items-center justify-between px-2"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: REV_PALETTE[i % REV_PALETTE.length] }} /><span className="text-xs text-gray-600">{item.name}</span></div><span className="text-xs font-bold text-gray-800">{fmtShort(item.value)} <span className="text-gray-400">{t > 0 ? ((item.value / t) * 100).toFixed(0) : 0}%</span></span></div>); })}</div></div>) : <div className="h-[200px] flex items-center justify-center text-sm text-gray-400">Không có dữ liệu</div>}
+                            {paymentPieData.length > 0 ? (
+                                <div className="flex flex-col items-center gap-4">
+                                    <div className="h-[160px] w-[160px]">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie data={paymentPieData} cx="50%" cy="50%" innerRadius={42} outerRadius={72} paddingAngle={3} dataKey="value" labelLine={false}>
+                                                    {paymentPieData.map((_, i) => <Cell key={i} fill={REV_PALETTE[i % REV_PALETTE.length]} />)}
+                                                </Pie>
+                                                <RechartsTooltip contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 4px 16px rgb(0 0 0 / 0.1)', fontSize: '12px' }} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                    <div className="flex flex-col gap-2.5 w-full">
+                                        {paymentPieData.map((item, i) => {
+                                            const t = paymentPieData.reduce((s, d) => s + d.value, 0);
+                                            return (
+                                                <div key={item.name} className="flex items-center justify-between px-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: REV_PALETTE[i % REV_PALETTE.length] }} />
+                                                        <span className="text-xs text-gray-600 font-medium">{item.name}</span>
+                                                    </div>
+                                                    <span className="text-xs font-bold text-gray-800">{fmtShort(item.value)} <span className="text-gray-400 font-normal">{t > 0 ? ((item.value / t) * 100).toFixed(0) : 0}%</span></span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ) : <div className="h-[200px] flex items-center justify-center text-sm text-gray-400">Không có dữ liệu</div>}
                         </div>
                     </div>
+
+                    {/* Top Products */}
                     {topProducts.length > 0 && (
                         <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
-                            <div className="px-6 py-4 border-b border-gray-100"><p className="text-sm font-bold text-gray-700">Top sản phẩm bán chạy</p></div>
-                            <table className="w-full text-sm"><thead><tr className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider"><th className="px-6 py-3 text-left w-10">#</th><th className="px-6 py-3 text-left">Sản phẩm</th><th className="px-6 py-3 text-right">SL</th><th className="px-6 py-3 text-right">Doanh thu</th><th className="px-6 py-3 text-left w-[200px]">Tỉ lệ</th></tr></thead>
-                                <tbody className="divide-y divide-gray-50">{topProducts.map((item, i) => { const maxV = topProducts[0]?.realMoney || 1; return (<tr key={item.goodsName} className="hover:bg-gray-50/50"><td className="px-6 py-3"><span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">{i + 1}</span></td><td className="px-6 py-3 font-medium text-gray-800">{item.goodsName}</td><td className="px-6 py-3 text-right text-gray-600">{item.realQty}</td><td className="px-6 py-3 text-right font-semibold text-gray-800">{fmtShort(item.realMoney)}</td><td className="px-6 py-3"><div className="h-2 rounded-full bg-gray-100 overflow-hidden"><div className="h-full rounded-full bg-primary-500" style={{ width: `${(item.realMoney / maxV) * 100}%` }} /></div></td></tr>); })}</tbody></table>
+                            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center gap-2.5">
+                                <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#FFCD0020' }}>
+                                    <Star className="w-4 h-4" style={{ color: '#B8890A' }} strokeWidth={2} />
+                                </span>
+                                <p className="text-sm font-bold text-gray-700">Top sản phẩm bán chạy</p>
+                            </div>
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="bg-gray-50 text-[11px] text-gray-500 uppercase tracking-widest">
+                                        <th className="px-6 py-3 text-left w-10">#</th>
+                                        <th className="px-6 py-3 text-left">Sản phẩm</th>
+                                        <th className="px-6 py-3 text-right">SL</th>
+                                        <th className="px-6 py-3 text-right">Doanh thu</th>
+                                        <th className="px-6 py-3 text-left w-[200px]">Tỉ lệ</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {topProducts.map((item, i) => {
+                                        const maxV = topProducts[0]?.realMoney || 1;
+                                        const pct = (item.realMoney / maxV) * 100;
+                                        return (
+                                            <tr key={item.goodsName} className="hover:bg-gray-50/50 transition-colors">
+                                                <td className="px-6 py-3">
+                                                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                                                        style={i === 0 ? { background: '#FFCD00', color: '#78600A' } : i === 1 ? { background: '#FF820020', color: '#FF8200' } : { background: '#f3f4f6', color: '#6b7280' }}>
+                                                        {i + 1}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-3 font-semibold text-gray-800">{item.goodsName}</td>
+                                                <td className="px-6 py-3 text-right text-gray-500 font-medium">{item.realQty}</td>
+                                                <td className="px-6 py-3 text-right font-bold text-gray-800">{fmtShort(item.realMoney)}</td>
+                                                <td className="px-6 py-3">
+                                                    <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                                                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #FFCD00, #FF8200)' }} />
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
                     )}
                 </div>
             )}
+
             {hasFetched && !error && data.length === 0 && !loading && (
                 <div className="rounded-2xl bg-white border shadow-sm flex flex-col items-center justify-center gap-4 py-16">
-                    <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center"><BarChart3 className="w-7 h-7 text-gray-300" /></div>
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: '#FFCD0018' }}>
+                        <BarChart3 className="w-7 h-7" style={{ color: '#B8890A' }} />
+                    </div>
                     <p className="text-base font-semibold text-gray-600">Không có dữ liệu</p>
-                    <button onClick={handleSync} disabled={syncing} className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 disabled:opacity-50"><RefreshCw className={cn('w-4 h-4', syncing && 'animate-spin')} />{syncing ? 'Đang tải...' : 'Đồng bộ ngay'}</button>
+                    <button onClick={handleSync} disabled={syncing}
+                        className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-sm font-bold disabled:opacity-50 transition-opacity"
+                        style={{ background: 'linear-gradient(135deg, #FFCD00, #FF8200)', color: '#5c3d00' }}>
+                        <RefreshCw className={cn('w-4 h-4', syncing && 'animate-spin')} />
+                        {syncing ? 'Đang tải...' : 'Đồng bộ ngay'}
+                    </button>
                 </div>
             )}
         </div>
     );
 }
 
+/* ── Inventory Section ────────────────────────────────────────────────── */
 function InventorySection() {
     return (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <StatCard title="Tổng SKU theo dõi" value="1,204" sub="Đang theo dõi trong kho" icon={Package} iconBg="bg-sky-50" iconColor="text-sky-500" />
-            <StatCard title="Dưới tồn tối thiểu" value="18 SKU" sub="Cần bổ sung sớm" icon={PackagePlus} iconBg="bg-rose-50" iconColor="text-rose-500" alert />
-            <StatCard title="Chờ xác nhận" value="3" sub="Chờ xác nhận từ kho tổng" icon={ArrowLeftRight} iconBg="bg-orange-50" iconColor="text-orange-500" />
+            <StatCard title="Tổng SKU theo dõi" value="1,204" sub="Đang theo dõi trong kho" icon={Package} accentColor="#00A9E0" />
+            <StatCard title="Dưới tồn tối thiểu" value="18 SKU" sub="Cần bổ sung sớm" icon={PackagePlus} accentColor="#fc4c02" alert />
+            <StatCard title="Chờ xác nhận" value="3" sub="Chờ xác nhận từ kho tổng" icon={ArrowLeftRight} accentColor="#FF8200" />
         </div>
     );
 }
 
-// ─── Personal Schedule for employees ────────────────────────────────────────
+/* ── Personal Schedule Section ────────────────────────────────────────── */
 function PersonalScheduleSection() {
     const { user, userDoc, effectiveStoreId: contextStoreId } = useAuth();
     const storeId = contextStoreId || userDoc?.storeId || '';
@@ -617,11 +844,10 @@ function PersonalScheduleSection() {
                 const myScheds = schedSnap.docs
                     .map(d => d.data() as ScheduleDoc)
                     .filter(s => s.storeId === storeId && s.employeeIds?.includes(userDoc?.uid ?? ''));
-
-                const todayS = myScheds.filter(s => s.date === today).map(s => ({ shiftId: s.shiftId, counterId: s.counterId }));
+                const today2 = toLocalISO(new Date());
+                const todayS = myScheds.filter(s => s.date === today2).map(s => ({ shiftId: s.shiftId, counterId: s.counterId }));
                 setTodayShifts(todayS);
-
-                const future = myScheds.filter(s => s.date > today).sort((a, b) => a.date.localeCompare(b.date) || a.shiftId.localeCompare(b.shiftId));
+                const future = myScheds.filter(s => s.date > today2).sort((a, b) => a.date.localeCompare(b.date) || a.shiftId.localeCompare(b.shiftId));
                 setNextShift(future.length > 0 ? { date: future[0].date, shiftId: future[0].shiftId } : null);
             } catch (e) { console.error('[PersonalSchedule]', e); }
             finally { if (!cancelled) setLoading(false); }
@@ -636,37 +862,36 @@ function PersonalScheduleSection() {
 
     return (
         <div className="mb-8">
-            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-primary-500" />Lịch làm việc của tôi
+            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <Clock className="w-4 h-4" style={{ color: '#FF8200' }} />
+                Lịch làm việc của tôi
             </h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Today's shift */}
+                {/* Today */}
                 <button onClick={() => router.push('/employee/dashboard')}
-                    className="text-left rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="h-1 bg-gradient-to-r from-primary-400 to-primary-600" />
+                    className="text-left rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                    <div className="h-1" style={{ background: 'linear-gradient(90deg, #FFCD00, #FF8200)' }} />
                     <div className="p-5 flex items-center gap-4">
-                        <span className="w-12 h-12 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center shrink-0">
-                            <Clock className="w-6 h-6" strokeWidth={1.75} />
+                        <span className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#FFCD0018' }}>
+                            <Clock className="w-6 h-6" style={{ color: '#B8890A' }} strokeWidth={1.75} />
                         </span>
                         <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">Hôm nay</p>
+                            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Hôm nay</p>
                             {loading ? (
-                                <p className="text-lg font-bold text-gray-300 mt-1">Đang tải...</p>
+                                <p className="text-lg font-bold text-gray-200 mt-1">Đang tải...</p>
                             ) : todayShifts.length > 0 ? (
                                 <>
-                                    <p className="text-xl font-bold text-gray-900 mt-0.5 tracking-tight">
+                                    <p className="text-xl font-bold text-gray-900 mt-0.5 tracking-tight" style={{ fontFamily: 'Poppins, sans-serif' }}>
                                         {todayShifts.map(s => s.shiftId).join(', ')}
                                     </p>
-                                    <p className="text-xs text-gray-500 mt-0.5">
-                                        {todayShifts.length} ca · {todayShifts.map(s => s.counterId).filter(Boolean).join(', ')}
-                                    </p>
+                                    <p className="text-xs text-gray-400 mt-0.5">{todayShifts.length} ca · {todayShifts.map(s => s.counterId).filter(Boolean).join(', ')}</p>
                                 </>
                             ) : (
-                                <p className="text-lg font-semibold text-gray-400 mt-1">Không có ca hôm nay</p>
+                                <p className="text-base font-semibold text-gray-400 mt-1">Không có ca hôm nay</p>
                             )}
                         </div>
                         {todayShifts.length > 0 && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-50 text-green-600 text-xs font-semibold shrink-0">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold shrink-0" style={{ background: '#97D70020', color: '#4a7c00' }}>
                                 <CheckCircle2 className="w-3.5 h-3.5" />Có ca
                             </span>
                         )}
@@ -676,17 +901,17 @@ function PersonalScheduleSection() {
 
                 {/* Next shift */}
                 <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-5 flex items-center gap-4">
-                    <span className="w-12 h-12 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
-                        <CalendarDays className="w-6 h-6" strokeWidth={1.75} />
+                    <span className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#FF820018' }}>
+                        <CalendarDays className="w-6 h-6" style={{ color: '#FF8200' }} strokeWidth={1.75} />
                     </span>
                     <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">Ca tiếp theo</p>
+                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Ca tiếp theo</p>
                         {loading ? (
-                            <p className="text-lg font-bold text-gray-300 mt-1">Đang tải...</p>
+                            <p className="text-lg font-bold text-gray-200 mt-1">Đang tải...</p>
                         ) : nextShift ? (
                             <>
-                                <p className="text-lg font-bold text-gray-900 mt-0.5">{nextShift.shiftId}</p>
-                                <p className="text-xs text-gray-500 mt-0.5">{formatDate(nextShift.date)}</p>
+                                <p className="text-lg font-bold text-gray-900 mt-0.5" style={{ fontFamily: 'Poppins, sans-serif' }}>{nextShift.shiftId}</p>
+                                <p className="text-xs text-gray-400 mt-0.5">{formatDate(nextShift.date)}</p>
                             </>
                         ) : (
                             <p className="text-sm font-medium text-gray-400 mt-1">Chưa có ca nào sắp tới</p>
@@ -698,19 +923,19 @@ function PersonalScheduleSection() {
     );
 }
 
-// ─── Tab config with permission keys ────────────────────────────────────────
+/* ── Tab config ───────────────────────────────────────────────────────── */
 const ALL_TABS: { key: ManagementTab; label: string; icon: React.ElementType; permKeys: string[] }[] = [
     { key: 'operation', label: 'Vận hành', icon: Activity, permKeys: ['page.scheduling.overview', 'page.scheduling.register', 'page.scheduling.builder'] },
     { key: 'revenue', label: 'Doanh thu', icon: DollarSign, permKeys: ['page.office.revenue'] },
     { key: 'inventory', label: 'Kho bãi', icon: Package, permKeys: ['page.manager.inventory', 'page.admin.inventory'] },
 ];
 
+/* ── Main DesktopView ─────────────────────────────────────────────────── */
 export default function DesktopView({ topReferralData }: { topReferralData?: { uid: string; name: string; points: number }[] }) {
     const { userDoc, effectiveStoreId, hasPermission } = useAuth();
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
     const isStoreEmployee = !!userDoc?.storeId;
 
-    // Filter tabs by permission
     const visibleTabs = useMemo(() =>
         ALL_TABS.filter(tab => isAdmin || tab.permKeys.some(k => hasPermission(k))),
         [isAdmin, hasPermission]
@@ -718,43 +943,64 @@ export default function DesktopView({ topReferralData }: { topReferralData?: { u
 
     const [activeTab, setActiveTab] = useState<ManagementTab | null>(null);
 
-    // Set initial active tab to the first visible one
     useEffect(() => {
         if (visibleTabs.length > 0 && (!activeTab || !visibleTabs.find(t => t.key === activeTab))) {
             setActiveTab(visibleTabs[0].key);
         }
     }, [visibleTabs]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    /* Get greeting based on time */
+    const greeting = useMemo(() => {
+        const h = new Date().getHours();
+        if (h < 12) return 'Chào buổi sáng';
+        if (h < 18) return 'Chào buổi chiều';
+        return 'Chào buổi tối';
+    }, []);
+
     return (
-        <div className="max-w-[1400px] mx-auto">
-            <div className="flex items-center justify-between mb-8">
+        <div className="max-w-[1400px] mx-auto" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            {/* Dashboard Header */}
+            <div className="flex items-start justify-between mb-8 gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Xin chào, {userDoc?.name ?? 'Người dùng'} 👋</h1>
-                    <p className="text-sm text-gray-500 mt-1">Tổng quan hoạt động cửa hàng</p>
+                    {/* Greeting line */}
+                    <p className="text-sm font-semibold text-gray-400 mb-1">{greeting} 👋</p>
+                    <h1 className="text-3xl font-black tracking-tight leading-none" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                        <span className="text-gray-900">{userDoc?.name?.split(' ').pop() ?? 'Người dùng'}</span>
+                        <span className="inline-block ml-3 text-transparent bg-clip-text" style={{ backgroundImage: 'linear-gradient(135deg, #FFCD00, #FF8200)' }}>Dashboard</span>
+                    </h1>
+                    <p className="text-sm text-gray-400 mt-1.5 font-medium">Tổng quan hoạt động cửa hàng</p>
                 </div>
                 <DesktopStoreSelector />
             </div>
 
-            {/* Top Referral Employees Marquee */}
+            {/* Top Referral Marquee */}
             <TopReferralMarquee className="mb-6" initialData={topReferralData} />
 
-            {/* Personal schedule for store employees */}
+            {/* Personal Schedule */}
             {isStoreEmployee && <PersonalScheduleSection />}
 
-            {/* Management tabs — only shown if user has any visible tabs */}
+            {/* Management Tabs */}
             {visibleTabs.length > 0 && (
                 <>
-                    <div className="flex items-center gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
+                    {/* Tab pills */}
+                    <div className="flex items-center gap-1.5 mb-6 bg-gray-100/70 rounded-2xl p-1.5 w-fit">
                         {visibleTabs.map((tab) => {
-                            const Ic = tab.icon; return (
+                            const Ic = tab.icon;
+                            const isActive = activeTab === tab.key;
+                            return (
                                 <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                                    className={cn('flex items-center gap-2 px-5 py-2.5 text-sm rounded-lg font-medium transition-all duration-200',
-                                        activeTab === tab.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
-                                    <Ic className="w-4 h-4" />{tab.label}
+                                    className={cn(
+                                        'flex items-center gap-2 px-5 py-2.5 text-sm rounded-xl font-semibold transition-all duration-200',
+                                        isActive ? 'text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                                    )}
+                                    style={isActive ? { background: 'linear-gradient(135deg, #FFCD00 0%, #FF8200 100%)' } : {}}>
+                                    <Ic className="w-4 h-4" />
+                                    {tab.label}
                                 </button>
                             );
                         })}
                     </div>
+
                     <div>
                         {activeTab === 'operation' && <OperationSection effectiveStoreId={effectiveStoreId} />}
                         {activeTab === 'revenue' && <RevenueSection />}

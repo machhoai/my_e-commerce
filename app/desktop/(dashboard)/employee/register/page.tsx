@@ -227,8 +227,20 @@ export default function EmployeeRegisterPage() {
                 setError(`Ca này đã đầy (${currentCount}/${maxCount}). Vui lòng chọn ca khác.`);
                 return;
             }
-            // Only 1 shift per day
-            newSelections[dayIndex] = [shiftId];
+
+            // Enforce max shifts per day
+            const maxShiftsPerDay = settings?.maxShiftsPerDay ?? 1;
+            if (dayShifts.length >= maxShiftsPerDay) {
+                if (maxShiftsPerDay === 1) {
+                    // Replace current selection (original behavior)
+                    newSelections[dayIndex] = [shiftId];
+                } else {
+                    setError(`Bạn chỉ được chọn tối đa ${maxShiftsPerDay} ca trong ngày này.`);
+                    return;
+                }
+            } else {
+                newSelections[dayIndex] = [...dayShifts, shiftId];
+            }
         }
         setSelectedShifts(newSelections);
     };
@@ -242,11 +254,12 @@ export default function EmployeeRegisterPage() {
 
         for (let i = 0; i < 7; i++) {
             const count = selectedShifts[i].length;
+            const maxPerDay = settings?.maxShiftsPerDay ?? 1;
             if (count === 0) emptyDays++;
             else {
                 workDaysCount++;
-                if (count > 1)
-                    return { valid: false, message: 'Mỗi ngày đi làm chỉ được chọn tối đa 1 ca.' };
+                if (count > maxPerDay)
+                    return { valid: false, message: `Mỗi ngày đi làm chỉ được chọn tối đa ${maxPerDay} ca.` };
             }
         }
 
@@ -463,7 +476,7 @@ export default function EmployeeRegisterPage() {
                         </ul>
                     ) : (
                         <ul className="list-disc pl-5 space-y-0.5 marker:text-primary-400 text-primary-700">
-                            <li>Bạn chỉ chọn <strong>tối đa 1 ca</strong> mỗi ngày.</li>
+                            <li>Bạn chỉ chọn <strong>tối đa {settings?.maxShiftsPerDay ?? 1} ca</strong> mỗi ngày.</li>
                             <li>Không bắt buộc ngày nghỉ, nhưng có thể nghỉ nhiều ngày nếu muốn.</li>
                         </ul>
                     )}

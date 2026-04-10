@@ -146,7 +146,19 @@ export default function MobileEmployeeRegisterPage() {
             const max = getShiftQuota(dateStr, shiftId);
             const isManager = userDoc?.role === 'manager' || userDoc?.role === 'store_manager';
             if (strictShiftLimit && count >= max && !isManager) { setError(`Ca đã đầy (${count}/${max}).`); return; }
-            newSelections[dayIndex] = [shiftId];
+
+            // Enforce max shifts per day
+            const maxShiftsPerDay = settings?.maxShiftsPerDay ?? 1;
+            if (dayShifts.length >= maxShiftsPerDay) {
+                if (maxShiftsPerDay === 1) {
+                    newSelections[dayIndex] = [shiftId]; // Replace (original behavior)
+                } else {
+                    setError(`Tối đa ${maxShiftsPerDay} ca/ngày.`);
+                    return;
+                }
+            } else {
+                newSelections[dayIndex] = [...dayShifts, shiftId];
+            }
         }
         setSelectedShifts(newSelections);
     };
@@ -157,7 +169,8 @@ export default function MobileEmployeeRegisterPage() {
         const warnings: string[] = [];
         let emptyDays = 0; let workDays = 0;
         for (let i = 0; i < 7; i++) {
-            if (selectedShifts[i].length === 0) emptyDays++; else { workDays++; if (selectedShifts[i].length > 1) return { valid: false, message: 'Mỗi ngày chỉ được chọn 1 ca.' }; }
+            const maxPerDay = settings?.maxShiftsPerDay ?? 1;
+            if (selectedShifts[i].length === 0) emptyDays++; else { workDays++; if (selectedShifts[i].length > maxPerDay) return { valid: false, message: `Mỗi ngày chỉ được chọn ${maxPerDay} ca.` }; }
         }
         if (workDays === 0) return { valid: false, message: 'Vui lòng chọn lịch làm việc.' };
         if (type === 'FT' || role === 'manager') {
@@ -260,7 +273,10 @@ export default function MobileEmployeeRegisterPage() {
             <div className="flex items-start gap-2 bg-primary-50 border border-primary-100 rounded-xl px-3 py-2 mb-2">
                 <Info className="w-3.5 h-3.5 text-primary-500 shrink-0 mt-0.5" />
                 <p className="text-[10px] text-primary-700">
-                    {userDoc?.role === 'manager' || isFT ? 'FT/QL: Nghỉ tối đa 1 ngày, không nghỉ cuối tuần.' : 'PT: Chọn 1 ca/ngày, nghỉ tùy ý.'}
+                    {userDoc?.role === 'manager' || isFT
+                        ? 'FT/QL: Nghỉ tối đa 1 ngày, không nghỉ cuối tuần.'
+                        : `Chọn tối đa ${settings?.maxShiftsPerDay ?? 1} ca/ngày, nghỉ tùy ý.`
+                    }
                 </p>
             </div>
 

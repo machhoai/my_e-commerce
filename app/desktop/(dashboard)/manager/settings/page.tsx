@@ -83,6 +83,7 @@ export default function ManagerSettingsPage() {
                     id: storeId,
                     registrationOpen: data.registrationOpen ?? false,
                     strictShiftLimit: data.strictShiftLimit ?? true,
+                    maxShiftsPerDay: data.maxShiftsPerDay ?? undefined,
                     shiftTimes: data.shiftTimes || [],
                     quotas: {
                         defaultWeekday: data.quotas?.defaultWeekday || {},
@@ -467,6 +468,40 @@ export default function ManagerSettingsPage() {
                                 {(settings?.strictShiftLimit ?? true) ? 'BẬT — Chặn đăng ký khi đầy' : 'TẮT — Cho phép đăng ký vượt định mức'}
                             </span>
                         </label>
+                    </div>
+
+                    {/* Max Shifts Per Day Card */}
+                    <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden p-6 transition-all hover:shadow-md">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-bold text-surface-800 flex items-center gap-2">
+                                <Users className="w-5 h-5 text-primary-500" />
+                                Số ca tối đa / ngày
+                            </h2>
+                        </div>
+                        <p className="text-sm text-surface-500 mb-5">
+                            Giới hạn số ca tối đa nhân viên có thể chọn trong <strong>một ngày</strong>.
+                            Mặc định là <strong>1</strong> ca/ngày. Tăng lên để cho phép chọn nhiều ca trong ngày.
+                        </p>
+                        <div className="flex items-center gap-3">
+                            <input
+                                type="number" min="1" max="10"
+                                value={settings?.maxShiftsPerDay ?? 1}
+                                onChange={e => {
+                                    const val = Math.max(1, parseInt(e.target.value) || 1);
+                                    setSettings(s => s ? { ...s, maxShiftsPerDay: val } : null);
+                                    setSuccess('Cài đặt đã cập nhật cục bộ. Nhớ bấm Lưu.');
+                                }}
+                                className="w-24 bg-surface-50 border border-surface-200 text-sm font-bold rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 outline-none"
+                            />
+                            <span className="text-sm text-surface-600 font-medium">ca/ngày</span>
+                            <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${
+                                (settings?.maxShiftsPerDay ?? 1) > 1
+                                    ? 'bg-primary-50 text-primary-700 border-primary-200'
+                                    : 'bg-surface-100 text-surface-500 border-surface-200'
+                            }`}>
+                                {(settings?.maxShiftsPerDay ?? 1) === 1 ? 'Mặc định — 1 ca/ngày' : `Tối đa ${settings?.maxShiftsPerDay} ca/ngày`}
+                            </span>
+                        </div>
                     </div>
 
                     {/* Shift Times Card */}
