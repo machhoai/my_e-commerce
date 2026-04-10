@@ -3,15 +3,16 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     X, Send, Loader2, CheckCircle2, XCircle, AlertTriangle,
-    Mail, MailCheck, Hash, ChevronLeft, ChevronRight,
-    RefreshCw, PlusCircle, CheckSquare, Square, Filter,
+    Mail, MailCheck, ChevronLeft, ChevronRight,
+    RefreshCw, PlusCircle, CheckSquare, Square,
+    Pencil, User, MessageSquare, AtSign, Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { VoucherCampaign, VoucherCode, TicketTemplateConfig } from '@/types';
 
 type EmailFilter = 'all' | 'unsent' | 'sent';
 type EmailMode = 'single' | 'multi';
-type Step = 1 | 2 | 3;
+type Step = 1 | 2 | 3 | 4;
 
 interface SendResult {
     id: string;
@@ -57,15 +58,21 @@ export default function BulkEmailModal({
     const [unsentCount, setUnsentCount] = useState<number | null>(null);
     const [creatingMore, setCreatingMore] = useState(false);
 
-    // ── Step 2 state ─────────────────────────────────────────
+    // ── Step 2: email recipients ──────────────────────────────
     const [emailMode, setEmailMode] = useState<EmailMode>('single');
     const [singleEmail, setSingleEmail] = useState('');
     const [multiEmails, setMultiEmails] = useState('');
 
-    // ── Step 3 state ─────────────────────────────────────────
+    // ── Step 3: email composition ─────────────────────────────
+    const [customSubject, setCustomSubject] = useState('');
+    const [senderName, setSenderName] = useState(templateConfig.title || campaign.name);
+    const [introText, setIntroText] = useState(`Chào bạn,\n\nBạn đã nhận được một voucher ưu đãi từ chúng tôi. Hãy sử dụng mã bên dưới để nhận ưu đãi đặc biệt nhé!\n\nTrân trọng,\n${templateConfig.title || campaign.name}`);
+
+    // ── Step 4 state ─────────────────────────────────────────
     const [sending, setSending] = useState(false);
     const [results, setResults] = useState<SendResult[]>([]);
     const [sendDone, setSendDone] = useState(false);
+    const [emailsSent, setEmailsSent] = useState(0);
 
     // ── Fetch codes for this campaign ─────────────────────────
     const fetchCodes = useCallback(async () => {
@@ -142,7 +149,7 @@ export default function BulkEmailModal({
 
     const emailCountMismatch = emailMode === 'multi' && parsedEmails.length > 0 && parsedEmails.length !== activeIds.length;
 
-    // ── Step 3: Send ──────────────────────────────────────────
+    // ── Step 4: Send ──────────────────────────────────────────
     const handleSend = async () => {
         setSending(true);
         setSendDone(false);
@@ -153,6 +160,10 @@ export default function BulkEmailModal({
                 voucherCodeIds: activeIds,
                 campaignId: campaign.id,
                 templateConfig,
+                // Composition fields
+                customSubject: customSubject.trim() || undefined,
+                senderName: senderName.trim() || undefined,
+                introText: introText.trim() || undefined,
             };
             if (emailMode === 'single') {
                 body.singleEmail = singleEmail;
@@ -166,12 +177,13 @@ export default function BulkEmailModal({
             });
             const data = await res.json();
             setResults(data.results || []);
+            setEmailsSent(data.emailsSent ?? 0);
         } catch {
             setResults([{ id: '?', email: '?', success: false, error: 'Lỗi kết nối' }]);
         } finally {
             setSending(false);
             setSendDone(true);
-            await fetchCodes(); // refresh emailed status
+            await fetchCodes();
         }
     };
 
@@ -187,7 +199,7 @@ export default function BulkEmailModal({
     };
 
     // ── UI ────────────────────────────────────────────────────
-    const stepLabels = ['Chọn voucher', 'Nhập email', 'Gửi & Kết quả'];
+    const stepLabels = ['Chọn voucher', 'Địa chỉ email', 'Soạn nội dung', 'Gửi & Kết quả'];
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
@@ -392,18 +404,19 @@ export default function BulkEmailModal({
                         </div>
                     )}
 
-                    {/* ════ STEP 2 ════ */}
+                    {/* ════ STEP 2: Email Recipients ════ */}
                     {step === 2 && (
                         <div className="p-5 space-y-5">
-                            <div className="bg-surface-50 rounded-xl p-4 border border-surface-200">
-                                <p className="text-sm font-semibold text-surface-700">
-                                    Sẽ gửi <strong className="text-accent-600">{activeIds.length}</strong> voucher
+                            <div className="flex items-center gap-3 bg-accent-50 border border-accent-100 rounded-xl p-4">
+                                <AtSign className="w-5 h-5 text-accent-600 shrink-0" />
+                                <p className="text-sm text-surface-700">
+                                    Sẽ gửi <strong className="text-accent-600">{activeIds.length}</strong> voucher — nhập địa chỉ email nhận.
                                 </p>
                             </div>
 
                             {/* Mode select */}
                             <div>
-                                <label className="text-sm font-bold text-surface-700 block mb-2">Chế độ nhập email</label>
+                                <label className="text-xs font-bold text-surface-500 uppercase tracking-wide block mb-2">Chế độ nhập email</label>
                                 <div className="flex gap-2 p-1 bg-surface-100 rounded-xl w-fit">
                                     {[['single', 'Một địa chỉ (gửi tất cả)'] as const, ['multi', 'Từng địa chỉ (map theo thứ tự)'] as const].map(([m, label]) => (
                                         <button key={m} onClick={() => setEmailMode(m)}
@@ -417,28 +430,31 @@ export default function BulkEmailModal({
 
                             {emailMode === 'single' ? (
                                 <div>
-                                    <label className="text-sm font-semibold text-surface-700 block mb-1.5">Địa chỉ email</label>
-                                    <input
-                                        type="email" value={singleEmail}
-                                        onChange={e => setSingleEmail(e.target.value)}
-                                        placeholder="nguoinhận@email.com"
-                                        className="w-full bg-surface-50 border border-surface-200 rounded-xl p-3 text-sm focus:ring-accent-500 focus:border-accent-400"
-                                    />
-                                    <p className="text-xs text-surface-400 mt-1">
+                                    <label className="text-xs font-bold text-surface-500 uppercase tracking-wide block mb-1.5">Địa chỉ email</label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
+                                        <input
+                                            type="email" value={singleEmail}
+                                            onChange={e => setSingleEmail(e.target.value)}
+                                            placeholder="nguoinhận@email.com"
+                                            className="w-full bg-surface-50 border border-surface-200 rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-1 focus:ring-accent-300 focus:border-accent-400 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <p className="text-xs text-surface-400 mt-1.5">
                                         Tất cả {activeIds.length} voucher sẽ được gửi đến địa chỉ này (mỗi voucher 1 email riêng).
                                     </p>
                                 </div>
                             ) : (
                                 <div>
-                                    <label className="text-sm font-semibold text-surface-700 block mb-1.5">
-                                        Danh sách email <span className="text-surface-400 font-normal">(1 dòng = 1 email)</span>
+                                    <label className="text-xs font-bold text-surface-500 uppercase tracking-wide block mb-1.5">
+                                        Danh sách email <span className="text-surface-400 font-normal normal-case">(1 dòng = 1 email)</span>
                                     </label>
                                     <textarea
                                         value={multiEmails}
                                         onChange={e => setMultiEmails(e.target.value)}
                                         placeholder={"email1@gmail.com\nemail2@gmail.com\nemail3@gmail.com"}
                                         rows={8}
-                                        className="w-full bg-surface-50 border border-surface-200 rounded-xl p-3 text-sm font-mono resize-none focus:ring-accent-500 focus:border-accent-400"
+                                        className="w-full bg-surface-50 border border-surface-200 rounded-xl p-3 text-sm font-mono resize-none focus:ring-1 focus:ring-accent-300 focus:border-accent-400 outline-none transition-all"
                                     />
                                     <div className="flex items-center justify-between mt-1">
                                         <p className="text-xs text-surface-400">{parsedEmails.length} địa chỉ đã nhập</p>
@@ -453,37 +469,107 @@ export default function BulkEmailModal({
                         </div>
                     )}
 
-                    {/* ════ STEP 3 ════ */}
+                    {/* ════ STEP 3: Email Composition ════ */}
                     {step === 3 && (
+                        <div className="p-5 space-y-5">
+                            <div className="flex items-center gap-3 bg-primary-50 border border-primary-100 rounded-xl p-4">
+                                <Pencil className="w-5 h-5 text-primary-500 shrink-0" />
+                                <div>
+                                    <p className="text-sm font-semibold text-surface-700">Soạn nội dung email</p>
+                                    <p className="text-xs text-surface-400 mt-0.5">Tùy chỉnh chủ đề, tên người gửi và nội dung giới thiệu.</p>
+                                </div>
+                            </div>
+
+                            {/* Sender name */}
+                            <div>
+                                <label className="text-xs font-bold text-surface-500 uppercase tracking-wide flex items-center gap-1.5 mb-2">
+                                    <User className="w-3.5 h-3.5" /> Tên người gửi
+                                </label>
+                                <input
+                                    type="text"
+                                    value={senderName}
+                                    onChange={e => setSenderName(e.target.value)}
+                                    placeholder={campaign.name}
+                                    className="w-full bg-surface-50 border border-surface-200 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-accent-300 focus:border-accent-400 outline-none transition-all"
+                                />
+                                <p className="text-xs text-surface-400 mt-1">Hiển thị là: <em>{senderName || campaign.name} &lt;noreply@...&gt;</em></p>
+                            </div>
+
+                            {/* Subject */}
+                            <div>
+                                <label className="text-xs font-bold text-surface-500 uppercase tracking-wide flex items-center gap-1.5 mb-2">
+                                    <Sparkles className="w-3.5 h-3.5" /> Chủ đề email
+                                </label>
+                                <input
+                                    type="text"
+                                    value={customSubject}
+                                    onChange={e => setCustomSubject(e.target.value)}
+                                    placeholder={`Voucher ưu đãi — ${templateConfig.title || campaign.name}`}
+                                    className="w-full bg-surface-50 border border-surface-200 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-accent-300 focus:border-accent-400 outline-none transition-all"
+                                />
+                                <p className="text-xs text-surface-400 mt-1">Để trống sẽ dùng chủ đề mặc định theo loại ưu đãi.</p>
+                            </div>
+
+                            {/* Intro text */}
+                            <div>
+                                <label className="text-xs font-bold text-surface-500 uppercase tracking-wide flex items-center gap-1.5 mb-2">
+                                    <MessageSquare className="w-3.5 h-3.5" /> Nội dung giới thiệu
+                                </label>
+                                <textarea
+                                    value={introText}
+                                    onChange={e => setIntroText(e.target.value)}
+                                    rows={7}
+                                    placeholder="Nhập nội dung lời chào, giới thiệu voucher..."
+                                    className="w-full bg-surface-50 border border-surface-200 rounded-xl px-4 py-3 text-sm resize-none focus:ring-1 focus:ring-accent-300 focus:border-accent-400 outline-none transition-all"
+                                />
+                                <p className="text-xs text-surface-400 mt-1">Nội dung này sẽ xuất hiện phía trên vé trong email. Để trống nếu không muốn thêm lời chào.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ════ STEP 4: Send & Results ════ */}
+                    {step === 4 && (
                         <div className="p-5 space-y-4">
                             {!sendDone ? (
-                                <div className="text-center py-12">
-                                    <div className="w-16 h-16 rounded-full bg-accent-50 flex items-center justify-center mx-auto mb-4">
-                                        <Send className="w-8 h-8 text-accent-500" />
+                                <div className="text-center py-10">
+                                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-accent-400 to-accent-600 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-accent-200">
+                                        <Send className="w-9 h-9 text-white" />
                                     </div>
-                                    <h3 className="text-lg font-bold text-surface-800 mb-1">Xác nhận gửi email</h3>
-                                    <p className="text-sm text-surface-500 mb-6">
-                                        Gửi <strong>{activeIds.length}</strong> voucher đến{' '}
-                                        <strong>{emailMode === 'single' ? singleEmail : `${parsedEmails.length} địa chỉ`}</strong>
-                                    </p>
+                                    <h3 className="text-lg font-bold text-surface-800 mb-2">Xác nhận gửi email</h3>
+                                    <div className="text-sm text-surface-500 mb-2 space-y-1">
+                                        <p>Gửi <strong className="text-accent-600">{activeIds.length}</strong> voucher đến{' '}
+                                        <strong>{emailMode === 'single' ? singleEmail : `${parsedEmails.length} địa chỉ`}</strong></p>
+                                        {emailMode === 'single' && activeIds.length > 1 && (
+                                            <p className="text-xs text-primary-600 bg-primary-50 border border-primary-100 rounded-lg px-3 py-1.5">
+                                                ✦ {activeIds.length} voucher sẽ được gộp vào <strong>1 email duy nhất</strong>
+                                            </p>
+                                        )}
+                                        {senderName && <p>Người gửi: <em>{senderName}</em></p>}
+                                        {customSubject && <p>Chủ đề: <em>{customSubject}</em></p>}
+                                    </div>
                                     <button onClick={handleSend} disabled={sending}
-                                        className="flex items-center gap-2 mx-auto px-8 py-3 bg-accent-500 hover:bg-accent-600 disabled:bg-accent-400 text-white font-bold rounded-xl transition-colors">
+                                        className="flex items-center gap-2 mx-auto mt-6 px-8 py-3 bg-gradient-to-r from-accent-500 to-amber-500 hover:from-accent-600 hover:to-amber-600 disabled:bg-surface-300 text-white font-bold rounded-xl transition-all shadow-md shadow-accent-200 active:scale-95">
                                         {sending ? <><Loader2 className="w-5 h-5 animate-spin" /> Đang gửi...</> : <><Send className="w-5 h-5" /> Gửi ngay</>}
                                     </button>
                                 </div>
                             ) : (
                                 <>
                                     {/* Summary */}
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div className="bg-primary-50 border border-primary-200 rounded-xl p-4 text-center">
+                                            <Mail className="w-6 h-6 text-primary-500 mx-auto mb-1" />
+                                            <p className="text-2xl font-black text-primary-700">{emailsSent}</p>
+                                            <p className="text-xs text-primary-600 font-medium">Email đã gửi</p>
+                                        </div>
                                         <div className="bg-success-50 border border-success-200 rounded-xl p-4 text-center">
                                             <CheckCircle2 className="w-6 h-6 text-success-500 mx-auto mb-1" />
                                             <p className="text-2xl font-black text-success-700">{results.filter(r => r.success).length}</p>
-                                            <p className="text-xs text-success-600 font-medium">Gửi thành công</p>
+                                            <p className="text-xs text-success-600 font-medium">Voucher thành công</p>
                                         </div>
                                         <div className="bg-danger-50 border border-danger-200 rounded-xl p-4 text-center">
                                             <XCircle className="w-6 h-6 text-danger-500 mx-auto mb-1" />
                                             <p className="text-2xl font-black text-danger-700">{results.filter(r => !r.success).length}</p>
-                                            <p className="text-xs text-danger-600 font-medium">Gửi thất bại</p>
+                                            <p className="text-xs text-danger-600 font-medium">Voucher thất bại</p>
                                         </div>
                                     </div>
 
@@ -540,10 +626,10 @@ export default function BulkEmailModal({
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-between px-6 py-4 border-t border-surface-100 bg-white">
+                <div className="flex items-center justify-between px-6 py-4 border-t border-surface-100 bg-surface-50/50">
                     <button
                         onClick={() => step > 1 ? setStep(s => (s - 1) as Step) : onClose()}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-surface-100 hover:bg-surface-200 text-surface-700 text-sm font-semibold rounded-xl transition-colors"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-surface-100 text-surface-700 border border-surface-200 text-sm font-semibold rounded-xl transition-all active:scale-95"
                     >
                         <ChevronLeft className="w-4 h-4" />
                         {step === 1 ? 'Hủy' : 'Quay lại'}
@@ -554,7 +640,7 @@ export default function BulkEmailModal({
                             <button
                                 onClick={() => setStep(2)}
                                 disabled={activeIds.length === 0 || (insufficient && !creatingMore)}
-                                className="flex items-center gap-2 px-6 py-2.5 bg-accent-500 hover:bg-accent-600 disabled:bg-surface-300 text-white text-sm font-semibold rounded-xl transition-colors"
+                                className="flex items-center gap-2 px-6 py-2.5 bg-accent-500 hover:bg-accent-600 disabled:bg-surface-300 text-white text-sm font-semibold rounded-xl transition-all active:scale-95"
                             >
                                 Tiếp theo ({activeIds.length} mã)
                                 <ChevronRight className="w-4 h-4" />
@@ -564,15 +650,24 @@ export default function BulkEmailModal({
                             <button
                                 onClick={() => setStep(3)}
                                 disabled={!emailsValid || emailCountMismatch}
-                                className="flex items-center gap-2 px-6 py-2.5 bg-accent-500 hover:bg-accent-600 disabled:bg-surface-300 text-white text-sm font-semibold rounded-xl transition-colors"
+                                className="flex items-center gap-2 px-6 py-2.5 bg-accent-500 hover:bg-accent-600 disabled:bg-surface-300 text-white text-sm font-semibold rounded-xl transition-all active:scale-95"
+                            >
+                                Tiếp theo: Soạn nội dung
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        )}
+                        {step === 3 && (
+                            <button
+                                onClick={() => setStep(4)}
+                                className="flex items-center gap-2 px-6 py-2.5 bg-accent-500 hover:bg-accent-600 text-white text-sm font-semibold rounded-xl transition-all active:scale-95"
                             >
                                 Xem trước & Gửi
                                 <ChevronRight className="w-4 h-4" />
                             </button>
                         )}
-                        {step === 3 && sendDone && (
+                        {step === 4 && sendDone && (
                             <button onClick={onClose}
-                                className="px-6 py-2.5 bg-surface-800 hover:bg-surface-900 text-white text-sm font-semibold rounded-xl transition-colors">
+                                className="px-6 py-2.5 bg-surface-800 hover:bg-surface-900 text-white text-sm font-semibold rounded-xl transition-all active:scale-95">
                                 Đóng
                             </button>
                         )}
