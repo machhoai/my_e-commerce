@@ -145,6 +145,11 @@ export async function POST(req: NextRequest) {
         const generatedCodes = new Set<string>();
         const codeDocuments: VoucherCode[] = [];
 
+        // Xác định trạng thái ban đầu của mã voucher:
+        // - in ấn (print): phát hành ngay → 'distributed', distributedAt = now
+        // - sự kiện (event): chưa phát hành → 'available'
+        const isPrint = body.purpose === 'print';
+
         for (let i = 0; i < body.quantity; i++) {
             let code: string;
             let attempts = 0;
@@ -163,9 +168,9 @@ export async function POST(req: NextRequest) {
                 rewardType: body.rewardType,
                 rewardValue: body.rewardValue || 0,
                 validTo: body.validTo,
-                status: 'available',
+                status: isPrint ? 'distributed' : 'available',
                 distributedToPhone: null,
-                distributedAt: null,
+                distributedAt: isPrint ? now : null,
                 usedAt: null,
                 usedByStaffId: null,
             });
@@ -244,6 +249,7 @@ export async function PATCH(req: NextRequest) {
             validFrom?: string;
             purpose?: 'print' | 'event';
             imageUrl?: string;
+            ticketTemplate?: import('@/types').TicketTemplateConfig;
             // Chunking params
             limit?: number;
             lastDocId?: string;
@@ -268,6 +274,7 @@ export async function PATCH(req: NextRequest) {
             if (body.validTo) update.validTo = body.validTo;
             if (body.purpose) update.purpose = body.purpose;
             if (body.imageUrl !== undefined) update.image = body.imageUrl || null;
+            if (body.ticketTemplate !== undefined) update.ticketTemplate = body.ticketTemplate;
 
             if (Object.keys(update).length === 0) {
                 return NextResponse.json({ error: 'Không có trường nào để cập nhật' }, { status: 400 });
@@ -323,6 +330,8 @@ export async function PATCH(req: NextRequest) {
             if (!campSnap.exists) return NextResponse.json({ error: 'Chiến dịch không tồn tại' }, { status: 404 });
 
             const camp = campSnap.data() as VoucherCampaign;
+            const isPrint = camp.purpose === 'print';
+            const now = new Date().toISOString();
             const generatedCodes = new Set<string>();
             const codeDocuments: VoucherCode[] = [];
 
@@ -345,9 +354,9 @@ export async function PATCH(req: NextRequest) {
                     rewardType: camp.rewardType,
                     rewardValue: camp.rewardValue || 0,
                     validTo: camp.validTo,
-                    status: 'available',
+                    status: isPrint ? 'distributed' : 'available',
                     distributedToPhone: null,
-                    distributedAt: null,
+                    distributedAt: isPrint ? now : null,
                     usedAt: null,
                     usedByStaffId: null,
                 });

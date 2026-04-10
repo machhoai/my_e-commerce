@@ -550,6 +550,17 @@ export type VoucherCampaignStatus = 'active' | 'paused' | 'ended';
 export type VoucherCodeStatus = 'available' | 'distributed' | 'used' | 'revoked' | 'expired';
 export type VoucherCampaignPurpose = 'print' | 'event';
 
+export interface TicketTemplateConfig {
+    bgColor: string;            // e.g. '#1a1a2e'
+    accentColor: string;        // e.g. '#f59e0b'
+    logoUrl?: string;           // Firebase Storage URL
+    title: string;              // Tiêu đề in trên vé
+    showExpiry: boolean;
+    showDescription: boolean;
+    showRewardValue: boolean;
+    qrSize: 'sm' | 'md' | 'lg'; // 100 | 140 | 180px
+}
+
 export interface VoucherCampaign {
     id: string;
     name: string;
@@ -564,7 +575,8 @@ export interface VoucherCampaign {
     totalIssued: number;
     status: VoucherCampaignStatus;
     purpose: VoucherCampaignPurpose;
-    image?: string;      // Firebase Storage URL (WebP, optional)
+    image?: string;           // Firebase Storage URL (WebP, optional)
+    ticketTemplate?: TicketTemplateConfig; // Mẫu thiết kế vé (chỉ cho in ấn)
     createdAt?: string;
     createdBy?: string;
 }
@@ -581,6 +593,8 @@ export interface VoucherCode {
     distributedAt: string | null;
     usedAt: string | null;
     usedByStaffId: string | null;
+    emailedAt?: string | null;   // ISO timestamp của lần gửi email gần nhất
+    emailedTo?: string | null;   // Địa chỉ email đã gửi
 }
 
 // ============================================================

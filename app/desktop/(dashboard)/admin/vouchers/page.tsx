@@ -5,13 +5,16 @@ import imageCompression from 'browser-image-compression';
 import { storage } from '@/lib/firebase';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '@/contexts/AuthContext';
+import TicketDesigner from '@/components/vouchers/TicketDesigner';
+import BulkEmailModal from '@/components/vouchers/BulkEmailModal';
 import {
     BarChart3, PieChart as PieChartIcon, Ticket, Plus, Hash, Search,
     ShieldX, Loader2, CheckCircle2, AlertCircle, LayoutDashboard,
     Megaphone, Archive, Sparkles, CalendarDays, Tag, Gift,
     EyeOff, ArchiveRestore, X as XIcon, CheckSquare, Square,
     ImagePlus, Upload, Pause, Play, PlusCircle, FileDown, Printer, Dices,
-    ArrowUpDown, ArrowUp, ArrowDown, Pencil, Save,
+    ArrowUpDown, ArrowUp, ArrowDown, Pencil, Save, Palette, Send,
+    Mail, MailCheck,
 } from 'lucide-react';
 import { cn, generateSecureCode } from '@/lib/utils';
 import { useBatchProcessor } from '@/hooks/useBatchProcessor';
@@ -22,6 +25,7 @@ import {
 } from 'recharts';
 import type {
     VoucherCampaign, VoucherCode, VoucherRewardType, VoucherCampaignPurpose,
+    TicketTemplateConfig,
 } from '@/types';
 
 // ─── Constants ──────────────────────────────────────────────────
@@ -87,6 +91,13 @@ export default function VouchersPage() {
         setMsg({ type, text });
         setTimeout(() => setMsg(null), 5000);
     };
+
+    // ── Designer & Email modal state ─────────────────────────────
+    const [designingCampaign, setDesigningCampaign] = useState<VoucherCampaign | null>(null);
+    const [bulkEmailState, setBulkEmailState] = useState<{
+        campaign: VoucherCampaign;
+        templateConfig: TicketTemplateConfig;
+    } | null>(null);
 
     const getToken = useCallback(async () => user ? await user.getIdToken() : undefined, [user]);
 
@@ -184,6 +195,7 @@ export default function VouchersPage() {
                             fetchData={fetchStats}
                             onSuccess={(m) => { fetchStats(); showMsg('success', m || 'Thao tác thành công!'); }}
                             onError={(e) => showMsg('error', e)}
+                            onDesign={(camp) => setDesigningCampaign(camp)}
                         />
                     )}
                     {tab === 'codes' && (
@@ -192,9 +204,42 @@ export default function VouchersPage() {
                             getToken={getToken}
                             onRevoke={() => { fetchStats(); showMsg('success', 'Đã vô hiệu hóa mã voucher'); }}
                             onError={(e) => showMsg('error', e)}
+                            onBulkEmail={(camp, tpl) => setBulkEmailState({ campaign: camp, templateConfig: tpl })}
                         />
                     )}
                 </>
+            )}
+
+            {/* ── Ticket Designer Modal */}
+            {designingCampaign && (
+                <TicketDesigner
+                    campaign={designingCampaign}
+                    getToken={getToken}
+                    onClose={() => setDesigningCampaign(null)}
+                    onOpenBulkEmail={(tpl) => {
+                        setBulkEmailState({ campaign: designingCampaign, templateConfig: tpl });
+                        setDesigningCampaign(null);
+                    }}
+                />
+            )}
+
+            {/* ── Bulk Email Modal */}
+            {bulkEmailState && (
+                <BulkEmailModal
+                    campaign={bulkEmailState.campaign}
+                    templateConfig={bulkEmailState.templateConfig}
+                    getToken={getToken}
+                    onClose={() => setBulkEmailState(null)}
+                    onAddCodes={async (qty) => {
+                        const token = await getToken();
+                        await fetch('/api/vouchers', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                            body: JSON.stringify({ action: 'add_codes', campaignId: bulkEmailState.campaign.id, quantity: qty }),
+                        });
+                        await fetchStats();
+                    }}
+                />
             )}
         </div>
     );
@@ -326,6 +371,7 @@ function CampaignTab({
     fetchData,
     onSuccess,
     onError,
+    onDesign,
 }: {
     campaigns: VoucherCampaign[];
     campaignStats: Record<string, VoucherStats>;
@@ -333,6 +379,7 @@ function CampaignTab({
     fetchData: () => void;
     onSuccess: (msg?: string) => void;
     onError: (msg: string) => void;
+    onDesign: (campaign: VoucherCampaign) => void;
 }) {
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
@@ -1203,6 +1250,16 @@ function CampaignTab({
                                                 <CalendarDays className="w-3.5 h-3.5" />
                                                 Gia hạn
                                             </button>
+                                            {/* ── Thiết kế vé (chỉ in ấn) */}
+                                            {camp.purpose === 'print' && (
+                                                <button
+                                                    onClick={() => onDesign(camp)}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100"
+                                                >
+                                                    <Palette className="w-3.5 h-3.5" />
+                                                    Thiết kế vé
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={() => handleToggleCampaign(camp.id, camp.status)}
                                                 disabled={isLoading}
@@ -1458,11 +1515,13 @@ function CodeInventoryTab({
     getToken,
     onRevoke,
     onError,
+    onBulkEmail,
 }: {
     campaigns: VoucherCampaign[];
     getToken: () => Promise<string | undefined>;
     onRevoke: () => void;
     onError: (msg: string) => void;
+    onBulkEmail: (campaign: VoucherCampaign, tpl: TicketTemplateConfig) => void;
 }) {
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [filterCampaign, setFilterCampaign] = useState('');
@@ -1684,6 +1743,24 @@ function CodeInventoryTab({
                         <option value="">Tất cả trạng thái</option>
                         {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                     </select>
+                    {/* ── Send Email button for print campaigns */}
+                    {(() => {
+                        const camp = filterCampaign ? campaigns.find(c => c.id === filterCampaign) : null;
+                        if (!camp || camp.purpose !== 'print') return null;
+                        return (
+                            <button
+                                onClick={() => onBulkEmail(camp, camp.ticketTemplate ?? {
+                                    bgColor: '#1e293b', accentColor: '#f59e0b',
+                                    logoUrl: camp.image || '', title: camp.name,
+                                    showExpiry: true, showDescription: true, showRewardValue: true, qrSize: 'md',
+                                })}
+                                className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold rounded-lg bg-accent-500 hover:bg-accent-600 text-white transition-colors shrink-0"
+                            >
+                                <Send className="w-4 h-4" />
+                                Gửi Email
+                            </button>
+                        );
+                    })()}
                 </div>
                 <p className="text-xs text-surface-400 mt-2">
                     Hiển thị {codes.length.toLocaleString()} mã
@@ -1778,6 +1855,7 @@ function CodeInventoryTab({
                                             Người kích hoạt <SortIcon col="staff" />
                                         </button>
                                     </th>
+                                    <th className="px-4 py-3.5 font-semibold">Email</th>
                                     <th className="px-4 py-3.5 font-semibold text-right">Thao tác</th>
                                 </tr>
                             </thead>
@@ -1807,6 +1885,21 @@ function CodeInventoryTab({
                                             </td>
                                             <td className="px-4 py-3.5 text-surface-500 text-xs">
                                                 {c.usedByStaffName || c.usedByStaffId ? <span className="font-medium text-surface-700">{c.usedByStaffName || c.usedByStaffId}</span> : <span className="text-surface-300">—</span>}
+                                            </td>
+                                            {/* Email status column */}
+                                            <td className="px-4 py-3.5">
+                                                {c.emailedAt ? (
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-success-600 bg-success-50 border border-success-200 rounded-full px-2 py-0.5 w-fit">
+                                                            <MailCheck className="w-3 h-3" /> Đã gửi
+                                                        </span>
+                                                        <span className="text-[10px] text-surface-400 truncate max-w-[120px]" title={c.emailedTo || ''}>{c.emailedTo}</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-surface-400 bg-surface-100 rounded-full px-2 py-0.5">
+                                                        <Mail className="w-3 h-3" /> Chưa gửi
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-4 py-3.5 text-right">
                                                 {canRevoke && (
