@@ -31,6 +31,7 @@ const RANK_EMOJI = ['🐉', '🐅', '🦅', '📜', '🏮'];
 const RANK_COLOR = ['#C9252D', '#8B7355', '#8B4513', '#4A5568', '#6B7280'];
 const RANK_LABEL = ['Trạng Nguyên', 'Bảng Nhãn', 'Thám Hoa', 'Hoàng Giáp', 'Tiến Sĩ'];
 const SESSION_KEY = 'referral_celebration_shown';
+const DAILY_SKIP_KEY = 'referral_celebration_skip_date';
 
 export async function fetchTop5(): Promise<TopEmployee[]> {
     const now = new Date();
@@ -113,11 +114,14 @@ export default function ReferralCelebrationModal({
     const [unrolling, setUnrolling] = useState(false); // scroll-open animation
     const [closing, setClosing] = useState(false);
     const [employees, setEmployees] = useState<TopEmployee[]>(initialData ?? []);
+    const [dontShowToday, setDontShowToday] = useState(false);
     const checked = useRef(false);
+
+    const todayStr = () => new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
 
     useEffect(() => {
         // Luôn fetch dữ liệu mới nhất từ Firestore khi mount — không cache
-        fetchTop5().then(data => { if (data.length > 0) setEmployees(data); }).catch(() => {});
+        fetchTop5().then(data => { if (data.length > 0) setEmployees(data); }).catch(() => { });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -126,7 +130,7 @@ export default function ReferralCelebrationModal({
             // Opened via user tap — fetch fresh data then show
             fetchTop5()
                 .then(data => { if (data.length > 0) setEmployees(data); })
-                .catch(() => {})
+                .catch(() => { })
                 .finally(() => triggerOpen());
             return;
         }
@@ -136,12 +140,16 @@ export default function ReferralCelebrationModal({
         checked.current = true;
         if (sessionStorage.getItem(SESSION_KEY)) return;
 
+        // Kiểm tra "không xuất hiện lại hôm nay"
+        const skipDate = localStorage.getItem(DAILY_SKIP_KEY);
+        if (skipDate === todayStr()) return;
+
         fetchTop5().then(data => {
             if (data.length > 0) {
                 setEmployees(data);
                 setTimeout(() => triggerOpen(), 700);
             }
-        }).catch(() => {});
+        }).catch(() => { });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [forceOpen]);
 
@@ -156,6 +164,8 @@ export default function ReferralCelebrationModal({
     const handleClose = () => {
         setClosing(true);
         if (!forceOpen) sessionStorage.setItem(SESSION_KEY, '1');
+        // Nếu user tích "không xuất hiện lại hôm nay"
+        if (dontShowToday) localStorage.setItem(DAILY_SKIP_KEY, todayStr());
         setTimeout(() => {
             setVisible(false);
             setClosing(false);
@@ -200,7 +210,7 @@ export default function ReferralCelebrationModal({
 
             {/* ── Scroll container ────────────────────────────────── */}
             <div
-                className="relative mx-4 w-full"
+                className="relative mx-4 mt-5 w-full h-full"
                 style={{
                     maxWidth: 360,
                     transition: closing
@@ -322,25 +332,46 @@ export default function ReferralCelebrationModal({
                             ))}
                         </div>
 
-                        {/* Imperial seal */}
-                        <div className="flex justify-center mt-4 mb-1">
-                            <div className="relative w-16 h-16 flex items-center justify-center">
-                                <div className="absolute inset-0 rounded-full border-2 border-dashed" style={{ borderColor: 'rgba(180,30,30,0.5)' }} />
-                                <div className="w-12 h-12 rounded-full flex flex-col items-center justify-center"
-                                    style={{ background: 'rgba(180,30,30,0.12)', border: '1.5px solid rgba(180,30,30,0.45)' }}>
-                                    <p className="text-[8px] font-black leading-tight tracking-widest text-center" style={{ color: '#8B1A1A' }}>玉<br />璽</p>
-                                </div>
-                            </div>
-                        </div>
-                        <p className="text-center text-[9px] leading-relaxed" style={{ color: '#8B6914', letterSpacing: '0.1em' }}>Khâm thử ! 欽此</p>
+
+
+                        {/* Checkbox "Không xuất hiện lại hôm nay" */}
+                        <label
+                            className="flex items-center justify-center gap-2 mt-3 mb-1 cursor-pointer select-none group"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <span
+                                className="relative flex items-center justify-center shrink-0"
+                                style={{ width: 16, height: 16 }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={dontShowToday}
+                                    onChange={e => setDontShowToday(e.target.checked)}
+                                    className="sr-only"
+                                />
+                                <span
+                                    className="w-4 h-4 rounded-sm flex items-center justify-center transition-all"
+                                    style={{
+                                        border: '1.5px solid rgba(139,26,26,0.5)',
+                                        background: dontShowToday
+                                            ? 'linear-gradient(135deg, #8B1A1A, #C9252D)'
+                                            : 'rgba(255,255,255,0.6)',
+                                    }}
+                                >
+                                    {dontShowToday && (
+                                        <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                                            <path d="M1 3.5L3.5 6L8 1" stroke="#FFF8E7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                    )}
+                                </span>
+                            </span>
+                            <span className="text-[9px] font-semibold" style={{ color: '#5C3317', letterSpacing: '0.05em' }}>
+                                Không xuất hiện lại hôm nay
+                            </span>
+                        </label>
                     </div>
 
-                    {/* Bottom ornament */}
-                    <div className="mx-7 mb-3 flex items-center gap-1">
-                        <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, transparent, #8B1A1A, transparent)' }} />
-                        <svg width="12" height="12" viewBox="0 0 12 12"><polygon points="6,0 12,6 6,12 0,6" fill="#8B1A1A" opacity="0.8" /></svg>
-                        <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, transparent, #8B1A1A, transparent)' }} />
-                    </div>
+
                 </div>
 
                 {/* ═══ BOTTOM SCROLL ROLL — slides DOWN during unroll ═ */}
@@ -356,7 +387,7 @@ export default function ReferralCelebrationModal({
 
                 {/* Close button */}
                 <button onClick={handleClose}
-                    className="absolute -top-3 -right-3 z-30 w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-lg"
+                    className="absolute top-0 -right-4 z-30 w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-lg"
                     style={{ background: 'linear-gradient(135deg, #8B1A1A, #C9252D)', border: '2px solid rgba(255,220,100,0.6)' }}
                     aria-label="Đóng thánh chỉ">
                     <X className="w-4 h-4 text-yellow-100" />
