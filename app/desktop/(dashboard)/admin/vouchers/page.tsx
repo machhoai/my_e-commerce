@@ -1526,6 +1526,7 @@ function CodeInventoryTab({
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [filterCampaign, setFilterCampaign] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
+    const [filterRewardType, setFilterRewardType] = useState('');
     const [revoking, setRevoking] = useState(false);
     const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -1562,6 +1563,7 @@ function CodeInventoryTab({
         append?: boolean;
         campaignId?: string;
         status?: string;
+        rewardType?: string;
         search?: string;
         after?: string | null;
     } = {}) => {
@@ -1574,6 +1576,7 @@ function CodeInventoryTab({
             const params = new URLSearchParams({ mode: 'codes', pageSize: String(PAGE_SIZE) });
             if (opts.campaignId) params.set('campaignId', opts.campaignId);
             if (opts.status) params.set('status', opts.status);
+            if (opts.rewardType) params.set('rewardType', opts.rewardType);
             if (opts.search) params.set('search', opts.search);
             if (after) params.set('after', after);
 
@@ -1605,9 +1608,10 @@ function CodeInventoryTab({
         fetchCodes({
             campaignId: filterCampaign || undefined,
             status: filterStatus || undefined,
+            rewardType: filterRewardType || undefined,
             search: debouncedSearch || undefined,
         });
-    }, [filterCampaign, filterStatus, debouncedSearch, fetchCodes]);
+    }, [filterCampaign, filterStatus, filterRewardType, debouncedSearch, fetchCodes]);
 
     // Load more handler
     const handleLoadMore = () => {
@@ -1615,6 +1619,7 @@ function CodeInventoryTab({
             append: true,
             campaignId: filterCampaign || undefined,
             status: filterStatus || undefined,
+            rewardType: filterRewardType || undefined,
             search: debouncedSearch || undefined,
             after: lastDocId,
         });
@@ -1684,7 +1689,7 @@ function CodeInventoryTab({
             if (!res.ok) throw new Error(data.error || 'Thao tác thất bại');
             clearSelection();
             onRevoke();
-            fetchCodes({ campaignId: filterCampaign || undefined, status: filterStatus || undefined, search: debouncedSearch || undefined });
+            fetchCodes({ campaignId: filterCampaign || undefined, status: filterStatus || undefined, rewardType: filterRewardType || undefined, search: debouncedSearch || undefined });
         } catch (err: unknown) {
             onError(err instanceof Error ? err.message : 'Lỗi');
         } finally {
@@ -1705,7 +1710,7 @@ function CodeInventoryTab({
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Thao tác thất bại');
             onRevoke();
-            fetchCodes({ campaignId: filterCampaign || undefined, status: filterStatus || undefined, search: debouncedSearch || undefined });
+            fetchCodes({ campaignId: filterCampaign || undefined, status: filterStatus || undefined, rewardType: filterRewardType || undefined, search: debouncedSearch || undefined });
         } catch (err: unknown) {
             onError(err instanceof Error ? err.message : 'Lỗi');
         } finally {
@@ -1742,6 +1747,14 @@ function CodeInventoryTab({
                     >
                         <option value="">Tất cả trạng thái</option>
                         {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    </select>
+                    <select
+                        value={filterRewardType}
+                        onChange={e => setFilterRewardType(e.target.value)}
+                        className="bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 p-2.5 min-w-[140px]"
+                    >
+                        <option value="">Tất cả loại thưởng</option>
+                        {Object.entries(REWARD_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                     </select>
                     {/* ── Send Email button for print campaigns */}
                     {(() => {

@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
             const result = await getVouchersPaginated({
                 campaignId: searchParams.get('campaignId') || undefined,
                 status: searchParams.get('status') || undefined,
+                rewardType: searchParams.get('rewardType') || undefined,
                 search: searchParams.get('search') || undefined,
                 lastDocId: searchParams.get('after') || undefined,
                 pageSize: Math.min(Number(searchParams.get('pageSize')) || 50, 100),

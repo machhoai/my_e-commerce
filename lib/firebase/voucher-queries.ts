@@ -29,7 +29,6 @@ export interface PaginatedVouchersResult {
     hasMore: boolean;
 }
 
-// ─── 1. Aggregate Stats (zero doc reads) ─────────────────────────
 export async function getCampaignVoucherStats(campaignId: string): Promise<CampaignVoucherStats> {
     const db = getAdminDb();
     const codesRef = db.collection('voucher_codes');
@@ -91,16 +90,37 @@ export async function getGlobalVoucherStats(): Promise<CampaignVoucherStats> {
 export async function getVouchersPaginated(opts: {
     campaignId?: string;
     status?: string;       // 'available' | 'distributed' | 'used' | 'revoked'
-    search?: string;       // phone number partial match
+    rewardType?: string;   // 'discount_percent' | 'free_ticket' etc
+    search?: string;       // phone number partial match or exact voucher ID
     lastDocId?: string;    // cursor for pagination
     pageSize?: number;
 }): Promise<PaginatedVouchersResult> {
     const db = getAdminDb();
-    const { campaignId, status, search, lastDocId, pageSize = 50 } = opts;
+    const { campaignId, status, rewardType, search, lastDocId, pageSize = 50 } = opts;
 
-    // If search is a phone number, use the indexed phone lookup
-    if (search && /^[0-9]{3,}$/.test(search.trim())) {
-        return findVouchersByPhonePaginated(search.trim(), lastDocId, pageSize);
+    // If search is provided
+    if (search) {
+        const s = search.trim();
+        // Check if it's a phone number (only numbers, min 3 length)
+        if (/^[0-9]{3,}$/.test(s)) {
+            return findVouchersByPhonePaginated(s, lastDocId, pageSize);
+        } else {
+            // Treat as exact Voucher ID search
+            const docRef = db.collection('voucher_codes').doc(s.toUpperCase());
+            const docSnap = await docRef.get();
+            if (docSnap.exists) {
+                const code = { id: docSnap.id, ...docSnap.data() } as VoucherCode;
+                // Client-side verify if it matches other conditions
+                if (status && code.status !== status) return { codes: [], lastDocId: null, hasMore: false };
+                if (campaignId && code.campaignId !== campaignId) return { codes: [], lastDocId: null, hasMore: false };
+                if (rewardType && code.rewardType !== rewardType) return { codes: [], lastDocId: null, hasMore: false };
+                
+                const returnCodes = [code];
+                await enrichStaffNames(db, returnCodes);
+                return { codes: returnCodes, lastDocId: docSnap.id, hasMore: false };
+            }
+            return { codes: [], lastDocId: null, hasMore: false };
+        }
     }
 
     let q: FirebaseFirestore.Query = db.collection('voucher_codes');
@@ -111,6 +131,9 @@ export async function getVouchersPaginated(opts: {
     }
     if (status) {
         q = q.where('status', '==', status);
+    }
+    if (rewardType) {
+        q = q.where('rewardType', '==', rewardType);
     }
 
     // Order by document ID for stable cursor pagination
@@ -147,7 +170,7 @@ export async function findVouchersByPhone(phone: string, limit = 10): Promise<Vo
     const db = getAdminDb();
     const snapshot = await db.collection('voucher_codes')
         .where('distributedToPhone', '==', phone)
-        .orderBy('distributedAt', 'desc')
+        .orderBy('__name__')
         .limit(limit)
         .get();
 
@@ -163,7 +186,7 @@ async function findVouchersByPhonePaginated(
     const db = getAdminDb();
     let q: FirebaseFirestore.Query = db.collection('voucher_codes')
         .where('distributedToPhone', '==', phone)
-        .orderBy('distributedAt', 'desc');
+        .orderBy('__name__');
 
     if (lastDocId) {
         const lastDocSnap = await db.collection('voucher_codes').doc(lastDocId).get();
