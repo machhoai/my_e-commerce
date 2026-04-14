@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback, Suspense, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { UserDoc, StoreDoc, OfficeDoc, WarehouseDoc, CustomRoleDoc } from '@/types';
+import { UserDoc, StoreDoc, OfficeDoc, WarehouseDoc, CustomRoleDoc, EmployeeType, UserRole } from '@/types';
 import {
     Users, Search, ShieldAlert, UserCheck, UserX, Phone,
     Award, Briefcase, ChevronRight, SlidersHorizontal, Building2, ChevronDown,
+    Plus, UserPlus, X, Check, Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import MobilePageShell from '@/components/mobile/MobilePageShell';
@@ -159,6 +160,54 @@ interface LocationItem {
 }
 
 // ── Main Content ────────────────────────────────────────────────────────────
+// ── Styled form input ───────────────────────────────────────────────────────
+function FormInput({ label, required, ...props }: { label: string; required?: boolean } & React.InputHTMLAttributes<HTMLInputElement>) {
+    return (
+        <div className="space-y-1.5">
+            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
+                {label} {required && <span className="text-red-500">*</span>}
+            </label>
+            <input
+                {...props}
+                className={cn(
+                    'w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-800',
+                    'outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-400 focus:bg-white',
+                    'transition-all duration-200 placeholder:text-gray-400',
+                    props.className,
+                )}
+            />
+        </div>
+    );
+}
+
+// ── Chip selector ───────────────────────────────────────────────────────────
+function ChipSelector<T extends string>({ options, value, onChange }: {
+    options: { value: T; label: string; color?: string }[];
+    value: T;
+    onChange: (v: T) => void;
+}) {
+    return (
+        <div className="flex flex-wrap gap-2">
+            {options.map(o => (
+                <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => onChange(o.value)}
+                    className={cn(
+                        'px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all active:scale-95',
+                        value === o.value
+                            ? 'bg-primary-600 text-white border-primary-600 shadow-sm shadow-primary-200'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300',
+                    )}
+                >
+                    {value === o.value && <Check className="w-3 h-3 inline mr-1 -ml-0.5" />}
+                    {o.label}
+                </button>
+            ))}
+        </div>
+    );
+}
+
 function MobileHRUsersContent() {
     const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId } = useAuth();
     const [employees, setEmployees] = useState<UserDoc[]>([]);
@@ -172,6 +221,19 @@ function MobileHRUsersContent() {
     const [storeSheetOpen, setStoreSheetOpen] = useState(false);
     const [offices, setOffices] = useState<OfficeDoc[]>([]);
     const [warehouses, setWarehouses] = useState<WarehouseDoc[]>([]);
+
+    // ── Create employee states ──────────────────────────────────────────────
+    const [createSheetOpen, setCreateSheetOpen] = useState(false);
+    const [createLoading, setCreateLoading] = useState(false);
+    const [createMsg, setCreateMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [newName, setNewName] = useState('');
+    const [newPhone, setNewPhone] = useState('');
+    const [newType, setNewType] = useState<EmployeeType>('PT');
+    const [newRole, setNewRole] = useState<UserRole>('employee');
+    const [newDob, setNewDob] = useState('');
+    const [newJobTitle, setNewJobTitle] = useState('');
+    const [newEmail, setNewEmail] = useState('');
+    const [newCustomRoleId, setNewCustomRoleId] = useState('');
 
     // Admin store selector
     const [stores, setStores] = useState<StoreDoc[]>([]);
@@ -327,6 +389,78 @@ function MobileHRUsersContent() {
                 color: r.color || 'slate',
             }));
     }, [customRoles, selectedLocationType]);
+
+    // ── Available roles for create form ──────────────────────────────────────
+    const creatableRoles = useMemo(() => {
+        const isAdm = userDoc?.role === 'admin';
+        const isSM = userDoc?.role === 'store_manager';
+        if (isAdm) return [{ value: 'store_manager' as UserRole, label: 'CH Trưởng' }, { value: 'manager' as UserRole, label: 'Quản lý' }, { value: 'employee' as UserRole, label: 'Nhân viên' }];
+        if (isSM) return [{ value: 'manager' as UserRole, label: 'Quản lý' }, { value: 'employee' as UserRole, label: 'Nhân viên' }];
+        return [{ value: 'employee' as UserRole, label: 'Nhân viên' }];
+    }, [userDoc?.role]);
+
+    // Custom roles for assignment (filtered by selected location type)
+    const assignableCustomRoles = useMemo(() => {
+        return customRoles.filter(r => {
+            if (r.isLocked || r.isSystem) return false;
+            if (selectedLocationType && r.applicableTo && r.applicableTo.length > 0) {
+                return r.applicableTo.includes(selectedLocationType);
+            }
+            return true;
+        });
+    }, [customRoles, selectedLocationType]);
+
+    // ── Create employee handlers ────────────────────────────────────────────
+    const resetCreateForm = useCallback(() => {
+        setNewName(''); setNewPhone(''); setNewType('PT'); setNewRole('employee');
+        setNewDob(''); setNewJobTitle(''); setNewEmail(''); setNewCustomRoleId('');
+        setCreateMsg(null);
+    }, []);
+
+    const openCreateSheet = useCallback(() => {
+        resetCreateForm();
+        setCreateSheetOpen(true);
+    }, [resetCreateForm]);
+
+    const handleCreateEmployee = useCallback(async () => {
+        if (!newName.trim() || !newPhone.trim()) {
+            setCreateMsg({ type: 'error', text: 'Vui lòng nhập tên và số điện thoại.' });
+            return;
+        }
+        setCreateLoading(true);
+        setCreateMsg(null);
+        try {
+            const token = await user?.getIdToken();
+            const body: Record<string, unknown> = {
+                name: newName.trim(),
+                phone: newPhone.trim(),
+                type: newType,
+                role: newRole,
+                ...(newDob && { dob: newDob }),
+                ...(newJobTitle && { jobTitle: newJobTitle }),
+                ...(newEmail && { email: newEmail }),
+                ...(newCustomRoleId && { customRoleId: newCustomRoleId }),
+            };
+            const res = await fetch('/api/auth/create-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify(body),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Không thể tạo nhân viên');
+            setCreateMsg({ type: 'success', text: `Nhân viên ${newName} đã được tạo thành công!` });
+            setTimeout(() => { setCreateSheetOpen(false); resetCreateForm(); }, 1200);
+        } catch (err: unknown) {
+            setCreateMsg({ type: 'error', text: err instanceof Error ? err.message : 'Đã xảy ra lỗi.' });
+        } finally {
+            setCreateLoading(false);
+        }
+    }, [user, newName, newPhone, newType, newRole, newDob, newJobTitle, newEmail, newCustomRoleId, resetCreateForm]);
+
+    // Can this user create employees?
+    const canCreate = userDoc?.role === 'admin' || userDoc?.role === 'store_manager'
+        || (userDoc?.role === 'manager' && userDoc?.canManageHR === true)
+        || hasPermission('action.hr.manage');
 
     // Permission check
     if (!user || (
@@ -622,6 +756,181 @@ function MobileHRUsersContent() {
                     )}
                 </div>
             </BottomSheet>
+
+            {/* ── Create Employee BottomSheet ────────────────────────────── */}
+            <BottomSheet
+                isOpen={createSheetOpen}
+                onClose={() => { setCreateSheetOpen(false); resetCreateForm(); }}
+                title="Thêm nhân viên mới"
+                maxHeightClass="max-h-[92vh]"
+            >
+                <div className="flex flex-col gap-5 px-4 pt-4 pb-8">
+                    {/* Status message */}
+                    {createMsg && (
+                        <div className={cn(
+                            'flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-semibold border transition-all animate-in slide-in-from-top-1 duration-200',
+                            createMsg.type === 'success'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-red-50 text-red-700 border-red-200',
+                        )}>
+                            {createMsg.type === 'success'
+                                ? <Check className="w-4 h-4 shrink-0" />
+                                : <X className="w-4 h-4 shrink-0" />}
+                            <span className="flex-1">{createMsg.text}</span>
+                            <button onClick={() => setCreateMsg(null)} className="shrink-0 opacity-50 active:opacity-100">
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
+
+                    {/* ── Section: Basic info ─────────────────────────────────── */}
+                    <div className="space-y-1">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                            <UserPlus className="w-3.5 h-3.5" /> Thông tin cơ bản
+                        </p>
+                        <div className="h-px bg-gray-100" />
+                    </div>
+
+                    <FormInput
+                        label="Họ và tên"
+                        required
+                        placeholder="Nguyễn Văn A"
+                        value={newName}
+                        onChange={e => setNewName(e.target.value)}
+                    />
+                    <FormInput
+                        label="Số điện thoại (ID đăng nhập)"
+                        required
+                        placeholder="0901234567"
+                        inputMode="tel"
+                        value={newPhone}
+                        onChange={e => setNewPhone(e.target.value)}
+                    />
+
+                    {/* Employee type */}
+                    <div className="space-y-2">
+                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Loại hợp đồng <span className="text-red-500">*</span></p>
+                        <ChipSelector
+                            options={[
+                                { value: 'FT' as EmployeeType, label: '⏰ Toàn thời gian' },
+                                { value: 'PT' as EmployeeType, label: '🕐 Bán thời gian' },
+                            ]}
+                            value={newType}
+                            onChange={setNewType}
+                        />
+                    </div>
+
+                    {/* Base role */}
+                    {creatableRoles.length > 1 && (
+                        <div className="space-y-2">
+                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Vai trò <span className="text-red-500">*</span></p>
+                            <ChipSelector
+                                options={creatableRoles}
+                                value={newRole}
+                                onChange={setNewRole}
+                            />
+                        </div>
+                    )}
+
+                    {/* Custom role assignment */}
+                    {assignableCustomRoles.length > 0 && (
+                        <div className="space-y-2">
+                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Nhóm quyền tùy chỉnh</p>
+                            <select
+                                value={newCustomRoleId}
+                                onChange={e => setNewCustomRoleId(e.target.value)}
+                                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-400 focus:bg-white transition-all"
+                            >
+                                <option value="">— Không chọn —</option>
+                                {assignableCustomRoles.map(r => (
+                                    <option key={r.id} value={r.id}>{r.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    {/* ── Section: Extended info ──────────────────────────────── */}
+                    <div className="space-y-1 pt-2">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                            <Briefcase className="w-3.5 h-3.5" /> Thông tin bổ sung
+                        </p>
+                        <div className="h-px bg-gray-100" />
+                    </div>
+
+                    <FormInput
+                        label="Chức danh"
+                        placeholder="Nhân viên bán hàng"
+                        value={newJobTitle}
+                        onChange={e => setNewJobTitle(e.target.value)}
+                    />
+                    <FormInput
+                        label="Ngày sinh"
+                        type="date"
+                        value={newDob}
+                        onChange={e => setNewDob(e.target.value)}
+                    />
+                    <FormInput
+                        label="Email"
+                        type="email"
+                        placeholder="example@email.com"
+                        value={newEmail}
+                        onChange={e => setNewEmail(e.target.value)}
+                    />
+
+                    {/* Submit button */}
+                    <button
+                        type="button"
+                        onClick={handleCreateEmployee}
+                        disabled={createLoading || !newName.trim() || !newPhone.trim()}
+                        className={cn(
+                            'w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl text-sm font-bold',
+                            'transition-all duration-200 active:scale-[0.97] shadow-lg',
+                            createLoading || !newName.trim() || !newPhone.trim()
+                                ? 'bg-gray-200 text-gray-400 shadow-none cursor-not-allowed'
+                                : 'bg-gradient-to-r from-primary-500 to-accent-500 text-white shadow-primary-300/40 hover:shadow-primary-400/50',
+                        )}
+                    >
+                        {createLoading ? (
+                            <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Đang tạo...
+                            </>
+                        ) : (
+                            <>
+                                <UserPlus className="w-4 h-4" />
+                                Tạo nhân viên
+                            </>
+                        )}
+                    </button>
+
+                    {/* Hint */}
+                    <p className="text-[10px] text-gray-400 text-center leading-relaxed">
+                        Mật khẩu mặc định sẽ được tạo tự động từ số điện thoại.
+                        <br />Nhân viên có thể đổi mật khẩu sau khi đăng nhập.
+                    </p>
+                </div>
+            </BottomSheet>
+
+            {/* ── Floating Action Button ──────────────────────────────────── */}
+            {canCreate && (
+                <button
+                    onClick={openCreateSheet}
+                    className={cn(
+                        'fixed bottom-6 right-5 z-30',
+                        'w-14 h-14 rounded-2xl',
+                        'bg-gradient-to-br from-primary-500 to-accent-500',
+                        'text-white shadow-xl shadow-primary-500/30',
+                        'flex items-center justify-center',
+                        'active:scale-90 transition-all duration-200',
+                        'hover:shadow-2xl hover:shadow-primary-500/40',
+                    )}
+                    aria-label="Thêm nhân viên"
+                >
+                    <Plus className="w-6 h-6" strokeWidth={2.5} />
+                    {/* Pulse ring */}
+                    <span className="absolute inset-0 rounded-2xl bg-primary-400 animate-ping opacity-20" />
+                </button>
+            )}
 
             {/* Employee profile popup */}
             {profileUid && (
