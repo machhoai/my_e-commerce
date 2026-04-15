@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
     transpilePackages: [
         '@ionic/react', '@ionic/core', '@stencil/core', 'ionicons',
     ],
-    serverExternalPackages: ['ai', '@ai-sdk/google', '@ai-sdk/react', '@ai-sdk/provider', '@ai-sdk/provider-utils'],
+    serverExternalPackages: ['ai', '@ai-sdk/google', '@ai-sdk/react', '@ai-sdk/provider', '@ai-sdk/provider-utils', 'zkteco-js'],
     env: {
         NEXT_PUBLIC_BUILD_VERSION: buildVer,
     },
