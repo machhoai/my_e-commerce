@@ -4,13 +4,15 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
-import { UserDoc, KpiRecordDoc, ScheduleDoc, SettingsDoc, StoreDoc, CounterDoc } from '@/types';
+import { UserDoc, KpiRecordDoc, ScheduleDoc, SettingsDoc, StoreDoc, CounterDoc, DailyAttendance, ZkUserDoc } from '@/types';
+
 import { cn, getWeekStart, toLocalDateString } from '@/lib/utils';
 import Popup from '@/components/ui/Popup';
 import {
     User, Award, CalendarDays, Phone, Mail, CreditCard, GraduationCap,
     Briefcase, Building2, ChevronLeft, ChevronRight, CheckCircle2, Clock,
     Loader2, Ban, TrendingUp, MapPin, UserCircle, Image as ImageIcon, X, Coins,
+    TimerIcon, LogIn, LogOut, AlertCircle,
 } from 'lucide-react';
 import ReferralHistorySection from '@/components/referral/ReferralHistorySection';
 
@@ -18,9 +20,11 @@ interface EmployeeProfilePopupProps {
     employeeUid: string;
     storeId?: string;
     onClose: () => void;
+    initialTab?: TabKey;
 }
 
-type TabKey = 'info' | 'kpi' | 'shifts' | 'points';
+type TabKey = 'info' | 'kpi' | 'shifts' | 'points' | 'attendance';
+
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function scoreColor(v: number) {
@@ -40,10 +44,201 @@ function initials(name: string) {
     return p.length >= 2 ? (p[0][0] + p[p.length - 1][0]).toUpperCase() : name.substring(0, 2).toUpperCase();
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
-export default function EmployeeProfilePopup({ employeeUid, storeId, onClose }: EmployeeProfilePopupProps) {
-    const { user, userDoc: currentUserDoc } = useAuth();
-    const [activeTab, setActiveTab] = useState<TabKey>('info');
+import { calculateAttendanceStatus } from '@/lib/attendance-rules';
+import type { User as FirebaseUser } from 'firebase/auth';
+
+// ── Punch-status colour tokens ─────────────────────────────────────────────────
+const IN_STATUS = {
+    EARLY: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Vào sớm' },
+    ON_TIME: { bg: 'bg-green-100', text: 'text-green-700', label: 'Đúng giờ' },
+    LATE: { bg: 'bg-red-100', text: 'text-red-700', label: 'Vào trễ' },
+    UNKNOWN: { bg: 'bg-gray-100', text: 'text-gray-500', label: '—' },
+} as const;
+
+const OUT_STATUS = {
+    EARLY_OUT: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Về sớm' },
+    ON_TIME_OUT: { bg: 'bg-green-100', text: 'text-green-700', label: 'Đúng giờ' },
+    OVERTIME: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Tăng ca' },
+    UNKNOWN: { bg: 'bg-gray-100', text: 'text-gray-500', label: '—' },
+} as const;
+
+function fmtTime(iso?: string | null) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+}
+function fmtHours(h: number | null) {
+    if (h === null) return '—';
+    const hrs = Math.floor(h);
+    const mins = Math.round((h - hrs) * 60);
+    return mins > 0 ? `${hrs}h${String(mins).padStart(2, '0')}m` : `${hrs}h`;
+}
+
+// ── AttendanceTabContent ───────────────────────────────────────────────────────
+interface AttendanceTabContentProps {
+    employeeUid: string;
+    employee: UserDoc | null;
+    storeId: string;
+    user: FirebaseUser | null;
+    month: string;
+    onMonthChange: (m: string) => void;
+}
+
+function AttendanceTabContent({ employeeUid, storeId, user, month, onMonthChange }: AttendanceTabContentProps) {
+    const [records, setRecords] = useState<DailyAttendance[]>([]);
+    const [settings, setSettings] = useState<SettingsDoc | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const prevMonth = () => {
+        const d = new Date(`${month}-01`); d.setMonth(d.getMonth() - 1);
+        onMonthChange(d.toISOString().slice(0, 7));
+    };
+    const nextMonth = () => {
+        const d = new Date(`${month}-01`); d.setMonth(d.getMonth() + 1);
+        onMonthChange(d.toISOString().slice(0, 7));
+    };
+
+    useEffect(() => {
+        if (!user) return;
+        setLoading(true); setError(null);
+        (async () => {
+            try {
+                const token = await user.getIdToken();
+                const res = await fetch(`/api/hr/attendance?month=${month}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!res.ok) throw new Error('Lỗi tải dữ liệu');
+                const all: DailyAttendance[] = await res.json();
+                setRecords(all.filter(r => r.mapped_system_uid === employeeUid));
+            } catch (e) {
+                setError(e instanceof Error ? e.message : 'Lỗi');
+            } finally {
+                setLoading(false);
+            }
+        })();
+    }, [month, employeeUid, user]);
+
+    // Load global settings for attendance rules
+    useEffect(() => {
+        if (!storeId) return;
+        (async () => {
+            try {
+                const snap = await getDoc(doc(db, 'settings', 'global'));
+                if (snap.exists()) setSettings(snap.data() as SettingsDoc);
+            } catch { /* silent */ }
+        })();
+    }, [storeId]);
+
+    const rows = useMemo(() => records.sort((a, b) => a.date.localeCompare(b.date)), [records]);
+
+    const totals = useMemo(() => {
+        let hrs = 0;
+        for (const r of rows) {
+            if (r.checkIn) {
+                const s = calculateAttendanceStatus(r.checkIn, r.checkOut, r.date, settings);
+                if (s.workHours) hrs += s.workHours;
+            }
+        }
+        return { days: rows.length, hours: hrs };
+    }, [rows, settings]);
+
+    return (
+        <div className="space-y-3">
+            {/* Month navigator */}
+            <div className="flex items-center justify-between bg-gray-50 rounded-2xl p-3">
+                <button onClick={prevMonth} className="w-8 h-8 rounded-xl bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition-colors">
+                    <ChevronLeft className="w-4 h-4 text-gray-500" />
+                </button>
+                <span className="text-sm font-bold text-gray-700">
+                    {new Date(`${month}-01`).toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })}
+                </span>
+                <button onClick={nextMonth} className="w-8 h-8 rounded-xl bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition-colors">
+                    <ChevronRight className="w-4 h-4 text-gray-500" />
+                </button>
+            </div>
+
+            {/* Totals */}
+            <div className="grid grid-cols-2 gap-2">
+                <div className="bg-primary-50 rounded-2xl p-3 text-center border border-primary-100">
+                    <p className="text-2xl font-black text-primary-700">{totals.days}</p>
+                    <p className="text-[10px] font-semibold text-primary-500 uppercase tracking-wide mt-0.5">Ngày có mặt</p>
+                </div>
+                <div className="bg-emerald-50 rounded-2xl p-3 text-center border border-emerald-100">
+                    <p className="text-2xl font-black text-emerald-700">{fmtHours(totals.hours)}</p>
+                    <p className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wide mt-0.5">Tổng giờ làm</p>
+                </div>
+            </div>
+
+            {/* Table */}
+            {loading ? (
+                <div className="flex items-center justify-center py-10">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
+                </div>
+            ) : error ? (
+                <div className="flex items-center gap-2 p-3 bg-red-50 rounded-2xl border border-red-100">
+                    <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                    <p className="text-xs text-red-700">{error}</p>
+                </div>
+            ) : rows.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-8 text-gray-400">
+                    <TimerIcon className="w-8 h-8" />
+                    <p className="text-sm">Không có dữ liệu chấm công</p>
+                </div>
+            ) : (
+                <div className="space-y-2">
+                    {rows.map(r => {
+                        const s = r.checkIn ? calculateAttendanceStatus(r.checkIn, r.checkOut, r.date, settings) : null;
+                        const inToken = s ? IN_STATUS[s.status] : IN_STATUS.UNKNOWN;
+                        const outToken = s ? OUT_STATUS[s.checkOutStatus] : OUT_STATUS.UNKNOWN;
+                        const [, mm, dd] = r.date.split('-');
+                        return (
+                            <div key={r.date} className="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden">
+                                <div className="px-3 py-1.5 bg-gray-100 border-b border-gray-200 flex items-center gap-2">
+                                    <span className="text-[11px] font-black text-gray-600">{dd}/{mm}</span>
+                                    {s && (
+                                        <span className={cn('ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-lg', inToken.bg, inToken.text)}>
+                                            {inToken.label}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="grid grid-cols-3 divide-x divide-gray-100">
+                                    <div className="flex flex-col items-center py-2 px-1">
+                                        <LogIn className="w-3 h-3 text-gray-400 mb-0.5" />
+                                        <span className="text-[12px] font-bold text-gray-800">{fmtTime(r.checkIn)}</span>
+                                        <span className="text-[9px] text-gray-400">Vào</span>
+                                    </div>
+                                    <div className="flex flex-col items-center py-2 px-1">
+                                        <LogOut className="w-3 h-3 text-gray-400 mb-0.5" />
+                                        <span className={cn('text-[12px] font-bold', r.checkOut ? 'text-gray-800' : 'text-gray-300')}>
+                                            {fmtTime(r.checkOut)}
+                                        </span>
+                                        {s && r.checkOut && (
+                                            <span className={cn('text-[9px] font-bold', outToken.text)}>{outToken.label}</span>
+                                        )}
+                                        {!r.checkOut && <span className="text-[9px] text-gray-400">Ra</span>}
+                                    </div>
+                                    <div className="flex flex-col items-center py-2 px-1">
+                                        <Clock className="w-3 h-3 text-gray-400 mb-0.5" />
+                                        <span className="text-[12px] font-bold text-emerald-700">{s ? fmtHours(s.workHours) : '—'}</span>
+                                        <span className="text-[9px] text-gray-400">Giờ làm</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
+
+
+export default function EmployeeProfilePopup({ employeeUid, storeId, onClose, initialTab }: EmployeeProfilePopupProps) {
+    const { user, userDoc: currentUserDoc, hasPermission } = useAuth();
+    const isAdmin = currentUserDoc?.role === 'admin' || currentUserDoc?.role === 'super_admin';
+    const canViewAttendance = isAdmin || hasPermission('page.hr.attendance');
+
+    const [activeTab, setActiveTab] = useState<TabKey>(initialTab ?? 'info');
     const [employee, setEmployee] = useState<UserDoc | null>(null);
     const [loadingUser, setLoadingUser] = useState(true);
 
@@ -69,6 +264,12 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose }: 
     const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
+
+    // Attendance tab state
+    const [attendanceMonth, setAttendanceMonth] = useState(() => {
+        const n = new Date();
+        return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`;
+    });
 
     // ── Fetch employee ────────────────────────────────────────────────────────
     useEffect(() => {
@@ -205,11 +406,13 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose }: 
     ] : [];
 
     const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-        { key: 'info', label: 'Cá nhân', icon: <User className="w-3.5 h-3.5" /> },
-        { key: 'kpi', label: 'KPI', icon: <Award className="w-3.5 h-3.5" /> },
-        { key: 'shifts', label: 'Lịch ca', icon: <CalendarDays className="w-3.5 h-3.5" /> },
-        { key: 'points', label: 'Tích điểm', icon: <Coins className="w-3.5 h-3.5" /> },
+        { key: 'info', label: 'Cá nhân', icon: <User className="w-5 h-5" /> },
+        { key: 'kpi', label: 'KPI', icon: <Award className="w-5 h-5" /> },
+        { key: 'shifts', label: 'Lịch ca', icon: <CalendarDays className="w-5 h-5" /> },
+        { key: 'points', label: 'Tích điểm', icon: <Coins className="w-5 h-5" /> },
+        ...(canViewAttendance ? [{ key: 'attendance' as TabKey, label: 'Chấm công', icon: <TimerIcon className="w-5 h-5" /> }] : []),
     ];
+
 
     // ── Popup header ──────────────────────────────────────────────────────────
     const popupHeaderLeft = loadingUser ? (
@@ -263,7 +466,7 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose }: 
                 isOpen={true}
                 onClose={onClose}
                 title={popupHeaderLeft}
-                maxWidth="max-w-lg"
+                maxWidth="max-w-3xl"
                 fixedHeight="h-[88vh]"
             >
                 {/* ── Pill Tabs ── */}
@@ -274,13 +477,16 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose }: 
                                 key={tab.key}
                                 onClick={() => setActiveTab(tab.key)}
                                 className={cn(
-                                    'flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-[12px] font-bold transition-all duration-200',
+                                    'flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-[16px] font-bold transition-all duration-200',
                                     activeTab === tab.key
                                         ? 'bg-white text-primary-700 shadow-sm'
                                         : 'text-gray-500 hover:text-gray-700'
                                 )}
                             >
-                                {tab.icon}{tab.label}
+                                {tab.icon}
+                                <div className="md:block hidden text-[14px] truncate">
+                                    {tab.label}
+                                </div>
                             </button>
                         ))}
                     </div>
@@ -581,6 +787,18 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose }: 
                             compact
                             isAdmin={currentUserDoc?.role === 'admin'}
                             adminId={user?.uid}
+                        />
+                    )}
+
+                    {/* ── Attendance Tab ── */}
+                    {activeTab === 'attendance' && canViewAttendance && (
+                        <AttendanceTabContent
+                            employeeUid={employeeUid}
+                            employee={employee}
+                            storeId={effectiveStoreId}
+                            user={user}
+                            month={attendanceMonth}
+                            onMonthChange={setAttendanceMonth}
                         />
                     )}
 

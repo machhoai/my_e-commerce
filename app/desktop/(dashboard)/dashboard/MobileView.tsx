@@ -1757,12 +1757,13 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
             permKeys: ['page.hr.users'],
         },
         {
-            icon: Package,
-            label: 'Kho cửa hàng',
-            colorClass: 'bg-emerald-300 text-emerald-900',
-            route: '/manager/inventory/order',
-            permKeys: ['page.manager.inventory'],
+            icon: Clock,
+            label: 'Chấm công',
+            route: '/manager/hr/attendance',
+            colorClass: 'bg-teal-300 text-teal-900',
+            permKey: 'page.hr.attendance'
         },
+
         {
             icon: DollarSign,
             label: 'Doanh thu',
@@ -1823,6 +1824,7 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
                 { icon: ClipboardCheck, label: 'KPI Chấm điểm', route: '/manager/hr/kpi-scoring', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_scoring' },
                 { icon: Settings, label: 'Mẫu KPI', route: '/manager/settings/kpi-templates', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_templates' },
                 { icon: Star, label: 'Lịch sử tích điểm', route: '/employee/referral-history', color: 'bg-amber-50 text-amber-600', permKey: 'page.referral.history' },
+                { icon: Clock, label: 'Chấm công', route: '/manager/hr/attendance', color: 'bg-teal-50 text-teal-600', permKey: 'page.hr.attendance' },
             ],
         },
         // ── Store Inventory (manager+) ─────────────────────────────────

@@ -293,6 +293,27 @@ export interface CustomRoleDoc {
 }
 
 // Per-store configurable settings (stored as a field in the store document)
+
+/**
+ * Time-boundary rule for a shift / day type.
+ * Used to classify Check-In status: EARLY | ON_TIME | LATE
+ */
+export interface AttendanceRule {
+    startTime: string;         // HH:mm — shift start (e.g. "09:30")
+    endTime: string;           // HH:mm — shift end   (e.g. "16:30")
+    allowedEarlyMins: number;  // Grace period BEFORE startTime that still counts as ON_TIME
+    allowedLateMins: number;   // Grace period AFTER  startTime that still counts as ON_TIME
+}
+
+/**
+ * A complete rule set for ONE shift: weekday, weekend, and per-date overrides.
+ */
+export interface AttendanceRuleSet {
+    defaultWeekday: AttendanceRule;
+    defaultWeekend: AttendanceRule;
+    specialDates: Record<string, AttendanceRule>; // "YYYY-MM-DD" → Rule
+}
+
 export interface StoreSettings {
     registrationOpen: boolean;
     strictShiftLimit?: boolean; // true (default) = block when full; false = allow over-registration
@@ -309,6 +330,14 @@ export interface StoreSettings {
         ptMaxShifts: number;
     };
     registrationSchedule?: RegistrationSchedule;
+    /**
+     * Per-shift attendance rules, keyed by shift name from shiftTimes.
+     * Example: { "Ca 1": { defaultWeekday: {...}, ... }, "Ca 2": {...} }
+     * Shift is auto-detected at check-in time (closest startTime wins).
+     */
+    attendanceRules?: {
+        byShift: Record<string, AttendanceRuleSet>;
+    };
 }
 
 export interface StoreDoc {
@@ -431,6 +460,10 @@ export interface SettingsDoc {
     };
     registrationSchedule?: RegistrationSchedule;
     eventMappings?: Record<string, string>; // Maps system event keys like 'SHIFT_CHANGED' -> templateId
+    /** Per-shift attendance rules. Same shape as StoreSettings.attendanceRules. */
+    attendanceRules?: {
+        byShift: Record<string, AttendanceRuleSet>;
+    };
 }
 
 export interface RegistrationSchedule {
@@ -720,3 +753,55 @@ export interface PointTransactionDoc {
     isRevoked?: boolean;         // Whether this transaction was revoked
     createdAt: string;           // ISO timestamp
 }
+
+// ============================================================
+// ZKTeco Time Attendance
+// ============================================================
+
+/** Status of a ZKTeco device user relative to the ERP system */
+export type ZkUserStatus = 'unmapped' | 'mapped' | 'ignored';
+
+/** Mirrors a user enrolled on the ZKTeco device */
+export interface ZkUserDoc {
+    id: string;                      // Firestore doc ID = zk_user_id (card/employee number string)
+    zk_uid: number;                  // Device's internal numeric slot (1-based)
+    zk_name: string;                 // Display name as stored on the device
+    zk_user_id: string;              // Employee/card number string from device
+    status: ZkUserStatus;
+    mapped_system_uid?: string | null;   // UID of matched UserDoc
+    mapped_system_name?: string | null;  // Denormalized for display
+    lastSyncedAt: string;            // ISO timestamp of last device sync
+}
+
+/**
+ * Punch type as reported by ZKTeco GT100 hardware.
+ * In practice, use FILO logic (first punch = in, last = out) because
+ * staff frequently forget to press status buttons.
+ */
+export type ZkPunchType = 0 | 1 | 2 | 3 | 4 | 5;
+// 0=Check-In, 1=Check-Out, 2=Break-Out, 3=Break-In, 4=OT-In, 5=OT-Out
+
+/** A single raw punch event imported from the ZKTeco device */
+export interface AttendanceLogDoc {
+    id: string;               // "{zk_user_id}_{timestamp_epoch}" — natural dedup key
+    zk_user_id: string;       // Card/employee number
+    zk_uid: number;           // Device's internal numeric uid
+    timestamp: string;        // ISO string (local time as reported by device)
+    status: number;           // Device status code (unused in MVP)
+    punch: ZkPunchType;       // Raw hardware punch type
+    mapped_system_uid?: string | null;  // Populated at sync time from zkteco_users mapping
+    syncedAt: string;         // ISO timestamp of when this record was imported
+}
+
+/** Aggregated view for a single employee on a single day (FILO resolved) */
+export interface DailyAttendance {
+    zk_user_id: string;
+    mapped_system_uid?: string | null;
+    mapped_system_name?: string | null;
+    zk_name: string;
+    date: string;             // YYYY-MM-DD
+    checkIn?: string | null;  // ISO timestamp of first punch
+    checkOut?: string | null; // ISO timestamp of last punch (only when >1 punch)
+    punchCount: number;       // Total raw punch count for the day
+}
+
