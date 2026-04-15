@@ -65,7 +65,7 @@ def get_users():
             timeout=DEVICE_TIMEOUT,
             password=0,
             force_udp=False,
-            ommit_ping=False,
+            ommit_ping=True,
         )
         conn = zk.connect()
         conn.disable_device()  # Lock the physical UI during data transfer
