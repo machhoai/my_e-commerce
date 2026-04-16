@@ -600,6 +600,7 @@ export type VoucherCampaignPurpose = 'print' | 'event';
 export interface TicketTemplateConfig {
     bgColor: string;            // e.g. '#1a1a2e'
     accentColor: string;        // e.g. '#f59e0b'
+    ticketColor?: string;       // Overall ticket accent color for email (falls back to accentColor)
     logoUrl?: string;           // Firebase Storage URL
     title: string;              // Tiêu đề in trên vé
     showExpiry: boolean;

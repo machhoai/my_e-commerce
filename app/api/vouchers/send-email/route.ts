@@ -84,11 +84,10 @@ async function fetchLogoAttachment(logoUrl: string): Promise<EmailAttachment | n
 
 // ═══════════════════════════════════════════════════════════════
 // buildTicketHtml
-// Reproduces TicketPreview component pixel-for-pixel as email HTML.
-// ─ Header band (gradient, decorative blobs, logo, badge, title, desc)
-// ─ Perforation row (notches + dashed line)
-// ─ Body (reward badge | code | expiry) + QR
-// ─ Footer (subtle gradient, privacy text)
+// Horizontal ticket-stub layout matching real event ticket design.
+// ─ Left panel: logo, title, code ID, status badges, CTA button
+// ─ Vertical perforation (notches + dashed line)
+// ─ Right panel: QR code
 // ═══════════════════════════════════════════════════════════════
 function buildTicketHtml(
     code: VoucherCode,
@@ -98,66 +97,59 @@ function buildTicketHtml(
     index: number,
     total: number,
 ): string {
-    // QR sizes: sm=88, md=120, lg=160
-    const qrPx = tpl.qrSize === 'sm' ? 88 : tpl.qrSize === 'md' ? 120 : 160;
+    const qrPx = tpl.qrSize === 'sm' ? 100 : tpl.qrSize === 'md' ? 140 : 180;
     const qid = safeCid(code.id);
     const expiry = formatDate(code.validTo);
     const rewardShort = formatRewardShort(code.rewardType, code.rewardValue);
+    // ticketColor falls back to accentColor
+    const tc = tpl.ticketColor || tpl.accentColor || '#22c55e';
 
-    // ─── 1. Multi-Label: Thêm dấu, Bold, màu ấm hơn ───
+    // ─── Multi-Label ───
     const multiLabel = total > 1
         ? `<tr>
-             <td align="center" style="padding:${index === 0 ? '0' : '24px'} 0 12px; font-size: 11px; font-weight: 800; color: #5C3317; text-transform: uppercase; letter-spacing: 2px;">
+             <td align="center" style="padding:${index === 0 ? '0' : '24px'} 0 12px; font-size: 11px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 2px;">
                VÉ SỐ ${index + 1} / ${total}
              </td>
            </tr>`
         : (index === 0 ? '' : '<tr><td style="height:24px;"></td></tr>');
 
-    // ─── 2. Logo Row (Nếu có) ───
-    const logoRow = hasLogo
-        ? `<tr>
-             <td style="padding-bottom: 16px;">
-               <img src="cid:logo@voucher" alt="Logo" height="40"
-                 style="display: block; max-height: 40px; max-width: 160px; object-fit: contain;" />
-             </td>
-           </tr>`
-        : '';
+    // ─── Logo ───
+    const logoHtml = hasLogo
+        ? `<img src="cid:logo@voucher" alt="Logo" width="44" height="44"
+             style="display: block; width: 44px; height: 44px; border-radius: 12px; object-fit: cover; border: 2px solid #f3f4f6;" />`
+        : `<div style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, ${tc}20 0%, ${tc}10 100%); display: flex; align-items: center; justify-content: center; border: 2px solid ${tc}30;">
+             <span style="font-size: 20px;">🎫</span>
+           </div>`;
 
-    // ─── 3. Description: Sửa lại opacity và padding ───
-    const descRow = tpl.showDescription && campaign.description
+    // ─── Reward Badge (optional) ───
+    const rewardRow = tpl.showRewardValue
         ? `<tr>
-             <td style="padding-top: 10px; font-size: 13px; color: rgba(255,255,255,0.75); line-height: 1.6;">
-               ${esc(campaign.description)}
-             </td>
-           </tr>`
-        : '';
-
-    // ─── 4. Reward Badge: Tăng kích thước, đậm, shadow nổi khối ───
-    const rewardBadge = tpl.showRewardValue
-        ? `<tr>
-             <td style="padding-bottom: 20px;">
-               <div style="display: inline-block; background: linear-gradient(135deg, ${tpl.accentColor} 0%, #FF8200 100%); border-radius: 14px; padding: 12px 18px; box-shadow: 0 6px 16px ${tpl.accentColor}50;">
-                 <span style="color: #FFFFFF; font-weight: 900; font-size: 24px; letter-spacing: -1px;">${rewardShort}</span>
+             <td style="padding-top: 10px;">
+               <div style="display: inline-block; background: ${tc}; border-radius: 8px; padding: 4px 10px;">
+                 <span style="color: #FFFFFF; font-weight: 800; font-size: 13px; letter-spacing: -0.3px;">${rewardShort}</span>
                </div>
              </td>
            </tr>`
         : '';
 
-    // ─── 5. Expiry: "Hết hạn ngày", tông màu ấm ───
-    const expiryRow = tpl.showExpiry && expiry
+    // ─── Expiry (optional) ───
+    const expiryBadge = tpl.showExpiry && expiry
+        ? `<span style="display: inline-flex; align-items: center; gap: 4px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 600; color: #6b7280;">
+             &#128197; HSD: ${expiry}
+           </span>`
+        : '';
+
+    // ─── Description (optional) ───
+    const descRow = tpl.showDescription && campaign.description
         ? `<tr>
-             <td>
-               <table cellpadding="0" cellspacing="0"><tr>
-                 <td style="width: 4px; background-color: ${tpl.accentColor}; border-radius: 2px;">&nbsp;</td>
-                 <td style="width: 10px;">&nbsp;</td>
-                 <td>
-                   <div style="font-size: 10px; font-weight: 800; color: #8B6914; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 2px;">HẾT HẠN NGÀY</div>
-                   <div style="font-size: 14px; font-weight: 700; color: #3D1F0A;">${expiry}</div>
-                 </td>
-               </tr></table>
+             <td style="padding-top: 8px;">
+               <p style="margin: 0; font-size: 12px; color: #9ca3af; line-height: 1.5;">${esc(campaign.description)}</p>
              </td>
            </tr>`
         : '';
+
+    // QR panel width calculation
+    const qrCellWidth = qrPx + 44; // padding around QR
 
     // ─── MAIN TICKET RETURN ───
     return `
@@ -165,79 +157,105 @@ function buildTicketHtml(
     <tr>
       <td>
         <table width="100%" cellpadding="0" cellspacing="0"
-          style="border-radius: 24px; overflow: hidden; background-color: #FFFFFF; box-shadow: 0 20px 50px rgba(92, 51, 23, 0.15), 0 4px 12px rgba(0,0,0,0.1); font-family: 'Nunito', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+          style="border-radius: 20px; overflow: hidden; background-color: #FFFFFF; box-shadow: 0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04); font-family: 'Segoe UI', -apple-system, 'Helvetica Neue', Arial, sans-serif;">
 
           <tr>
-            <td colspan="2"
-              style="background: linear-gradient(135deg, ${tpl.bgColor} 0%, #FFCD00 100%); padding: 32px 32px 28px; border-bottom: 1px solid #FFCD00;">
-              <table width="100%" cellpadding="0" cellspacing="0">
-                ${logoRow}
+            <!-- LEFT: Info Panel -->
+            <td valign="top" style="padding: 24px 20px 24px 24px; width: auto;">
+              <table cellpadding="0" cellspacing="0" width="100%">
+                <!-- Logo + Title row -->
                 <tr>
-                  <td style="padding-bottom: 12px;">
+                  <td>
                     <table cellpadding="0" cellspacing="0"><tr>
-                      <td style="background-color: rgba(255,255,255,0.7); border: 1px solid rgba(139, 26, 26, 0.2); border-radius: 20px; padding: 5px 14px;">
-                        <table cellpadding="0" cellspacing="0"><tr>
-                          <td style="color: #8B1A1A; font-size: 10px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; white-space: nowrap;">
-                            ${esc(tpl.title || campaign.name)}
-                          </td>
-                        </tr></table>
+                      <td valign="top" style="width: 44px; padding-right: 12px;">
+                        ${logoHtml}
+                      </td>
+                      <td valign="top">
+                        <p style="margin: 0; font-size: 15px; font-weight: 800; color: #111827; line-height: 1.3;">
+                          ${esc(tpl.title || campaign.name)}
+                        </p>
+                        <p style="margin: 3px 0 0; font-size: 12px; color: #9ca3af; font-family: 'Courier New', Courier, monospace; font-weight: 600; letter-spacing: 0.5px;">
+                          #${esc(code.id)}
+                        </p>
                       </td>
                     </tr></table>
                   </td>
                 </tr>
-                ${descRow}
-              </table>
-            </td>
-          </tr>
 
-          <tr>
-            <td colspan="2" bgcolor="#FFFFAF" style="padding: 0; background-color: #FFFFFF;">
-              <table width="100%" cellpadding="0" cellspacing="0"><tr>
-                <td width="12" height="24" style="background-color: #FFF8E7; border-radius: 0 12px 12px 0; border: 1px solid rgba(255, 205, 0, 0.3); border-left: 0;">&nbsp;</td>
-                <td style="border-top: 2.5px dashed rgba(139, 26, 26, 0.25);">&nbsp;</td>
-                <td width="12" height="24" style="background-color: #FFF8E7; border-radius: 12px 0 0 12px; border: 1px solid rgba(255, 205, 0, 0.3); border-right: 0;">&nbsp;</td>
-              </tr></table>
-            </td>
-          </tr>
-
-          <tr>
-            <td bgcolor="#FFFFFF" valign="top" style="padding: 28px 0 24px 32px;">
-              <table cellpadding="0" cellspacing="0">
-                ${rewardBadge}
-
+                <!-- Status badges -->
                 <tr>
-                  <td style="font-size: 10px; font-weight: 800; color: #8B6914; text-transform: uppercase; letter-spacing: 1.5px; padding-bottom: 4px;">
-                    MÃ VOUCHER
+                  <td style="padding-top: 14px;">
+                    <table cellpadding="0" cellspacing="0"><tr>
+                      <td style="padding-right: 6px;">
+                        <span style="display: inline-flex; align-items: center; gap: 4px; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 700; color: #16a34a;">
+                          &#9989; Active
+                        </span>
+                      </td>
+                      <td style="padding-right: 6px;">
+                        ${expiryBadge}
+                      </td>
+                    </tr></table>
                   </td>
                 </tr>
+
+                ${rewardRow}
+                ${descRow}
+
+                <!-- Instruction text -->
                 <tr>
-                  <td style="padding-bottom: 20px;">
-                    <div style="display: inline-block; background-color: #FFF8CC; border-radius: 12px; padding: 12px 16px; border: 1px solid rgba(255, 205, 0, 0.5); box-shadow: inset 0 2px 4px rgba(92, 51, 23, 0.05);">
-                      <span style="font-size: 18px; font-weight: 900; color: #FC4C02; letter-spacing: 3px; font-family: 'Courier New', Courier, monospace;">
-                        ${esc(code.id)}
-                      </span>
+                  <td style="padding-top: 14px;">
+                    <p style="margin: 0; font-size: 12px; color: #9ca3af; line-height: 1.4;">
+                      Xuất trình mã QR này tại quầy để sử dụng voucher
+                    </p>
+                  </td>
+                </tr>
+
+                <!-- CTA Button -->
+                <tr>
+                  <td style="padding-top: 14px;">
+                    <div style="display: inline-block; background-color: #111827; border-radius: 12px; padding: 10px 20px; cursor: pointer;">
+                      <span style="color: #FFFFFF; font-size: 13px; font-weight: 700; letter-spacing: 0.3px;">🎫&nbsp; Xem Voucher</span>
                     </div>
                   </td>
                 </tr>
-
-                ${expiryRow}
               </table>
             </td>
 
-            <td bgcolor="#FFFFFF" valign="top" align="center" style="padding: 28px 32px 24px 24px; white-space: nowrap;">
-              <div style="display: inline-block; background-color: #FFFFFF; padding: 10px; border-radius: 16px; border: 3px solid #FC4C02; box-shadow: 0 4px 20px rgba(252, 76, 2, 0.25);">
-                <img src="cid:${qid}" alt="QR" width="${qrPx}" height="${qrPx}" style="display: block; border-radius: 8px;" />
-              </div>
-              <div style="margin-top: 10px; font-size: 11px; color: #8B1A1A; font-weight: 700; letter-spacing: 0.3px;">QUÉT ĐỂ SỬ DỤNG</div>
+            <!-- PERFORATION: Vertical dashed separator with notches -->
+            <td width="1" valign="top" style="position: relative; width: 1px; padding: 0;">
+              <table cellpadding="0" cellspacing="0" width="1" style="width: 1px;">
+                <!-- Top notch -->
+                <tr>
+                  <td align="center" style="width: 1px; padding: 0;">
+                    <div style="width: 24px; height: 12px; background-color: #FFF8E7; border-radius: 0 0 12px 12px; margin-left: -12px;"></div>
+                  </td>
+                </tr>
+                <!-- Dashed line -->
+                <tr>
+                  <td style="width: 1px; border-left: 2px dashed #e5e7eb; height: 100%; padding: 0;">
+                    &nbsp;
+                  </td>
+                </tr>
+                <!-- Bottom notch -->
+                <tr>
+                  <td align="center" style="width: 1px; padding: 0;">
+                    <div style="width: 24px; height: 12px; background-color: #FFF8E7; border-radius: 12px 12px 0 0; margin-left: -12px;"></div>
+                  </td>
+                </tr>
+              </table>
             </td>
-          </tr>
 
-          <tr>
-            <td colspan="2"
-              style="background-color: #FFF9E6; border-top: 1px solid rgba(255, 205, 0, 0.2); padding: 14px 32px; text-align: center;">
-              <span style="font-size: 11px; color: #8B6914; font-weight: 500; letter-spacing: 0.2px;">
-                Voucher này chỉ dành cho bạn. Vui lòng không chia sẻ mã nhé! Quạck!
-              </span>
+            <!-- RIGHT: QR Code Panel -->
+            <td valign="middle" align="center" width="${qrCellWidth}" style="padding: 24px 24px 24px 20px; background-color: #fafafa;">
+              <table cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <div style="background-color: #FFFFFF; padding: 10px; border-radius: 14px; border: 2px solid #e5e7eb; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                      <img src="cid:${qid}" alt="QR" width="${qrPx}" height="${qrPx}" style="display: block; border-radius: 6px;" />
+                    </div>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
@@ -258,13 +276,14 @@ function buildEmailHtml(
     introText?: string,
 ): string {
     const total = codes.length;
+    const tc = tpl.ticketColor || tpl.accentColor || '#22c55e';
 
-    // Intro Block: Đổi từ viền trái cứng nhắc sang dạng Card bo tròn, viền đứt nét dễ thương
+    // Intro Block
     const introBlock = introText
         ? `<tr>
              <td style="padding: 0 0 24px;">
-               <div style="background-color: #FFFFFF; border: 2px dashed #FFCD00; border-radius: 16px; padding: 20px 24px; text-align: left; box-shadow: 0 4px 12px rgba(255, 205, 0, 0.1);">
-                 <p style="margin: 0; font-size: 15px; color: #5C3317; line-height: 1.6; white-space: pre-line; font-weight: 500;">
+               <div style="background-color: #FFFFFF; border: 2px dashed ${tc}40; border-radius: 16px; padding: 20px 24px; text-align: left; box-shadow: 0 4px 12px ${tc}10;">
+                 <p style="margin: 0; font-size: 15px; color: #374151; line-height: 1.6; white-space: pre-line; font-weight: 500;">
                    ${esc(introText)}
                  </p>
                </div>
@@ -272,21 +291,21 @@ function buildEmailHtml(
            </tr>`
         : '';
 
-    // Header Note: Đổi thành dạng Pill (viên thuốc) màu cam nổi bật thay vì text mờ ảo
+    // Header Note for multiple vouchers
     const headerNote = total > 1
         ? `<tr>
              <td align="center" style="padding: 0 0 24px;">
-               <span style="display: inline-block; background-color: #FF8200; color: #FFFFFF; font-size: 13px; font-weight: bold; padding: 8px 16px; border-radius: 20px; letter-spacing: 0.5px;">
+               <span style="display: inline-block; background-color: ${tc}; color: #FFFFFF; font-size: 13px; font-weight: bold; padding: 8px 16px; border-radius: 20px; letter-spacing: 0.5px;">
                  🎉 BẠN CÓ ${total} VOUCHER BÊN DƯỚI 👇
                </span>
              </td>
            </tr>`
         : '';
 
-    // Nối các vé lại và chèn một khoảng trống (24px) giữa các vé để không bị dính chùm
+    // Join tickets with spacing
     const tickets = codes
         .map(({ code }, i) => buildTicketHtml(code, tpl, campaign, hasLogo, i, total))
-        .join(`<tr><td height="24"></td></tr>`);
+        .join(`<tr><td height="20"></td></tr>`);
 
     return `<!DOCTYPE html>
 <html lang="vi">
@@ -295,12 +314,12 @@ function buildEmailHtml(
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Voucher ${esc(campaign.name)}</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #FFF8E7; font-family: 'Nunito', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-font-smoothing: antialiased;">
+<body style="margin: 0; padding: 0; background-color: #FFF8E7; font-family: 'Segoe UI', -apple-system, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased;">
 
 <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#FFF8E7" style="padding: 40px 0 60px; background-color: #FFF8E7;">
 <tr><td align="center">
 
-  <table width="520" cellpadding="0" cellspacing="0" style="max-width: 520px; width: 100%;">
+  <table width="580" cellpadding="0" cellspacing="0" style="max-width: 580px; width: 100%;">
 
     <tr>
       <td align="center" style="padding-bottom: 24px;">
