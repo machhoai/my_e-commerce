@@ -30,17 +30,17 @@ import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const IN_TOKENS: Record<PunchStatus, { pill: string; dot: string; label: string }> = {
-    EARLY:   { pill: 'bg-blue-100 text-blue-700',    dot: 'bg-blue-400',   label: 'Vào sớm' },
+    EARLY: { pill: 'bg-blue-100 text-blue-700', dot: 'bg-blue-400', label: 'Vào sớm' },
     ON_TIME: { pill: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-400', label: 'Đúng giờ' },
-    LATE:    { pill: 'bg-red-100 text-red-700',      dot: 'bg-red-400',    label: 'Vào trễ' },
-    UNKNOWN: { pill: 'bg-gray-100 text-gray-500',    dot: 'bg-gray-300',   label: '—' },
+    LATE: { pill: 'bg-red-100 text-red-700', dot: 'bg-red-400', label: 'Vào trễ' },
+    UNKNOWN: { pill: 'bg-gray-100 text-gray-500', dot: 'bg-gray-300', label: '—' },
 };
 
 const OUT_TOKENS: Record<PunchOutStatus, { pill: string; label: string }> = {
-    EARLY_OUT:   { pill: 'bg-amber-100 text-amber-700',   label: 'Về sớm' },
+    EARLY_OUT: { pill: 'bg-amber-100 text-amber-700', label: 'Về sớm' },
     ON_TIME_OUT: { pill: 'bg-emerald-100 text-emerald-700', label: 'Đúng giờ' },
-    OVERTIME:    { pill: 'bg-purple-100 text-purple-700', label: 'Tăng ca' },
-    UNKNOWN:     { pill: 'bg-gray-100 text-gray-500',     label: '—' },
+    OVERTIME: { pill: 'bg-purple-100 text-purple-700', label: 'Tăng ca' },
+    UNKNOWN: { pill: 'bg-gray-100 text-gray-500', label: '—' },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -95,8 +95,8 @@ function DetailSheet({ employee, record, settings, date, onClose }: DetailSheetP
     const st = record?.checkIn
         ? calculateAttendanceStatus(record.checkIn, record.checkOut, date, settings)
         : null;
-    const inTok  = st ? IN_TOKENS[st.status]        : IN_TOKENS.UNKNOWN;
-    const outTok = st ? OUT_TOKENS[st.checkOutStatus]: OUT_TOKENS.UNKNOWN;
+    const inTok = st ? IN_TOKENS[st.status] : IN_TOKENS.UNKNOWN;
+    const outTok = st ? OUT_TOKENS[st.checkOutStatus] : OUT_TOKENS.UNKNOWN;
 
     const initials = (name: string) => {
         const p = name.trim().split(' ').filter(Boolean);
@@ -211,8 +211,8 @@ function EmployeeCard({ employee, record, settings, date, onClick }: EmpCardProp
     const st = record?.checkIn
         ? calculateAttendanceStatus(record.checkIn, record.checkOut, date, settings)
         : null;
-    const inTok  = st ? IN_TOKENS[st.status]        : IN_TOKENS.UNKNOWN;
-    const outTok = st ? OUT_TOKENS[st.checkOutStatus]: OUT_TOKENS.UNKNOWN;
+    const inTok = st ? IN_TOKENS[st.status] : IN_TOKENS.UNKNOWN;
+    const outTok = st ? OUT_TOKENS[st.checkOutStatus] : OUT_TOKENS.UNKNOWN;
 
     const initials = (name: string) => {
         const p = name.trim().split(' ').filter(Boolean);
@@ -321,6 +321,7 @@ export default function MobileAttendancePage() {
 
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
     const canView = isAdmin || hasPermission('page.hr.attendance');
+    const canConfigure = isAdmin || hasPermission('hr.attendance.configure');
 
     type Mode = 'day' | 'month';
     const [mode, setMode] = useState<Mode>('day');

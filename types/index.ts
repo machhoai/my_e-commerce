@@ -72,6 +72,20 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         type: 'action',
     },
     {
+        key: 'page.hr.attendance',
+        label: 'Xem Lịch Sử Chấm Công',
+        description: 'Truy cập trang xem lịch sử chấm công từ máy ZKTeco',
+        group: 'Nhân sự & Lịch',
+        type: 'page',
+    },
+    {
+        key: 'hr.attendance.configure',
+        label: 'Cấu Hình Chấm Công',
+        description: 'Cấu hình chấm công',
+        group: 'Nhân sự & Lịch',
+        type: 'action',
+    },
+    {
         key: 'page.hr.kpi_stats',
         label: 'Xem KPI Nhân Viên',
         description: 'Truy cập trang xem thống kê KPI toàn shop',
