@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore';
@@ -8,15 +8,17 @@ import { NotificationDoc } from '@/types';
 import { Bell, Check, CheckCircle2, ChevronRight, ChevronLeft, Info, BellOff, Sparkles, ExternalLink, Bug } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
-import { vi } from 'date-fns/locale';
+import { vi, zhCN } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { PushDebugPanel } from '@/components/debug/PushDebugPanel';
+import { useMobileTranslation } from '@/lib/i18n';
 
 type FilterTab = 'all' | 'unread';
 
 export default function MobileNotificationsPage() {
     const { user } = useAuth();
     const router = useRouter();
+    const { t, locale } = useMobileTranslation();
     const [notifications, setNotifications] = useState<NotificationDoc[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<FilterTab>('all');
@@ -24,6 +26,9 @@ export default function MobileNotificationsPage() {
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [debugTaps, setDebugTaps] = useState(0);
     const [showDebug, setShowDebug] = useState(false);
+
+    // date-fns locale based on current i18n locale
+    const dateFnsLocale = useMemo(() => locale === 'zh' ? zhCN : vi, [locale]);
 
     // Triple-tap the header icon to reveal the debug panel
     const handleDebugTap = () => {
@@ -59,7 +64,7 @@ export default function MobileNotificationsPage() {
             setNotifications(data);
             setLoading(false);
         }, (error) => {
-            console.error("Lỗi khi lấy thông báo:", error);
+            console.error(t('notifications.errorLoading'), error);
             setLoading(false);
         });
 
@@ -139,15 +144,16 @@ export default function MobileNotificationsPage() {
         const todayStr = today.toDateString();
         const yestStr = yesterday.toDateString();
 
+        const dateLocaleCode = locale === 'zh' ? 'zh-CN' : 'vi-VN';
         const map = new Map<string, NotificationDoc[]>();
 
         items.forEach(item => {
             const d = new Date(item.createdAt);
             let key: string;
             const dStr = d.toDateString();
-            if (dStr === todayStr) key = 'Hôm nay';
-            else if (dStr === yestStr) key = 'Hôm qua';
-            else key = d.toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' });
+            if (dStr === todayStr) key = t('common.today');
+            else if (dStr === yestStr) key = t('common.yesterday');
+            else key = d.toLocaleDateString(dateLocaleCode, { weekday: 'long', day: 'numeric', month: 'long' });
 
             if (!map.has(key)) map.set(key, []);
             map.get(key)!.push(item);
@@ -167,15 +173,15 @@ export default function MobileNotificationsPage() {
                     <button
                         onClick={() => router.back()}
                         className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center active:scale-95 transition-transform shrink-0"
-                        aria-label="Quay lại"
+                        aria-label={t('common.back')}
                     >
                         <ChevronLeft className="w-5 h-5 text-gray-600" />
                     </button>
                     <div className="flex-1 min-w-0">
-                        <h1 className="text-base font-bold text-gray-900 truncate">Thông báo</h1>
+                        <h1 className="text-base font-bold text-gray-900 truncate">{t('notifications.title')}</h1>
                         {unreadCount > 0 && (
                             <p className="text-[11px] text-gray-400">
-                                {unreadCount} chưa đọc
+                                {t('notifications.unreadCount', { count: unreadCount })}
                             </p>
                         )}
                     </div>
@@ -190,7 +196,7 @@ export default function MobileNotificationsPage() {
                             ) : (
                                 <Check className="w-3.5 h-3.5" />
                             )}
-                            Đọc hết
+                            {t('notifications.markAllRead')}
                         </button>
                     )}
                     {/* Hidden debug entry — triple-tap to toggle */}
@@ -214,7 +220,7 @@ export default function MobileNotificationsPage() {
                                 : 'bg-gray-100 text-gray-500'
                         )}
                     >
-                        Tất cả ({notifications.length})
+                        {t('notifications.tabAll')} ({notifications.length})
                     </button>
                     <button
                         onClick={() => setActiveTab('unread')}
@@ -225,7 +231,7 @@ export default function MobileNotificationsPage() {
                                 : 'bg-gray-100 text-gray-500'
                         )}
                     >
-                        Chưa đọc
+                        {t('notifications.tabUnread')}
                         {unreadCount > 0 && (
                             <span className={cn(
                                 'ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[10px] font-bold px-1',
@@ -245,7 +251,7 @@ export default function MobileNotificationsPage() {
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-20">
                         <div className="w-8 h-8 border-[3px] border-primary-500 border-t-transparent rounded-full animate-spin mb-3" />
-                        <p className="text-xs text-gray-400">Đang tải thông báo...</p>
+                        <p className="text-xs text-gray-400">{t('notifications.loading')}</p>
                     </div>
                 ) : filteredNotifications.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20">
@@ -257,12 +263,12 @@ export default function MobileNotificationsPage() {
                             )}
                         </div>
                         <h3 className="text-sm font-bold text-gray-700 mb-1">
-                            {activeTab === 'unread' ? 'Tuyệt vời! 🎉' : 'Chưa có thông báo'}
+                            {activeTab === 'unread' ? t('notifications.allRead') : t('notifications.noNotifications')}
                         </h3>
                         <p className="text-xs text-gray-400 text-center max-w-[200px]">
                             {activeTab === 'unread'
-                                ? 'Bạn đã đọc tất cả thông báo.'
-                                : 'Thông báo mới sẽ xuất hiện ở đây.'}
+                                ? t('notifications.allReadDesc')
+                                : t('notifications.noNotificationsDesc')}
                         </p>
                     </div>
                 ) : (
@@ -328,7 +334,7 @@ export default function MobileNotificationsPage() {
                                                             {notification.body}
                                                         </p>
                                                         <p className="text-[10px] text-gray-300 mt-1.5 font-medium">
-                                                            {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: vi })}
+                                                            {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: dateFnsLocale })}
                                                         </p>
                                                     </div>
                                                 </button>
@@ -341,7 +347,7 @@ export default function MobileNotificationsPage() {
                                                             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary-50 text-primary-600 text-xs font-bold active:scale-95 transition-all"
                                                         >
                                                             <ExternalLink className="w-3.5 h-3.5" />
-                                                            Xem chi tiết
+                                                            {t('notifications.viewDetails')}
                                                         </button>
                                                     </div>
                                                 )}
@@ -360,8 +366,8 @@ export default function MobileNotificationsPage() {
                 <div className="animate-in slide-in-from-bottom-4 duration-300 border-t-2 border-dashed border-gray-200 bg-gray-50 pb-safe">
                     <div className="flex items-center gap-2 px-4 py-2">
                         <Bug className="w-3.5 h-3.5 text-gray-400" />
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Push Debug Mode</p>
-                        <button onClick={() => setShowDebug(false)} className="ml-auto text-[10px] text-gray-400 underline">Ẩn</button>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('notifications.debugMode')}</p>
+                        <button onClick={() => setShowDebug(false)} className="ml-auto text-[10px] text-gray-400 underline">{t('notifications.hide')}</button>
                     </div>
                     <PushDebugPanel inline />
                 </div>

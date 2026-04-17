@@ -10,6 +10,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import MobilePageShell from '@/components/mobile/MobilePageShell';
+import { useMobileTranslation } from '@/lib/i18n';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -53,6 +54,7 @@ function formatNumber(n: number): string {
 export default function MobileTrackingPage() {
     const { user } = useAuth();
     const router = useRouter();
+    const { t } = useMobileTranslation();
 
     const [links, setLinks] = useState<TrackingLink[]>([]);
     const [stats, setStats] = useState<TrackingStats>({
@@ -139,7 +141,7 @@ export default function MobileTrackingPage() {
     );
 
     return (
-        <MobilePageShell title="Tracking Links" headerRight={
+        <MobilePageShell title={t('nav.trackingLinks')} headerRight={
             <div className="flex items-center gap-1.5">
                 <button onClick={() => fetchData()} disabled={loading}
                     className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center active:scale-95 transition-transform disabled:opacity-40">

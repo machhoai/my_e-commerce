@@ -20,6 +20,7 @@ import MobileOrdersPanel from '@/components/mobile/MobileOrdersPanel';
 import MobilePageShell from '@/components/mobile/MobilePageShell';
 import BottomSheet from '@/components/shared/BottomSheet';
 import { cn } from '@/lib/utils';
+import { useMobileTranslation } from '@/lib/i18n';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 const fmt = (v: number) => v.toLocaleString('vi-VN');
@@ -62,6 +63,7 @@ function PieLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) 
 // ═══════════════════════════════════════════════════════════════════════════
 export default function MobileOfficeRevenuePage() {
     const { userDoc, hasPermission } = useAuth();
+    const { t } = useMobileTranslation();
 
     const [filterMode, setFilterMode] = useState<FilterMode>('day');
     const [dayDate, setDayDate] = useState(todayStr());
@@ -192,14 +194,14 @@ export default function MobileOfficeRevenuePage() {
     const isAdminOrSuper = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
     if (userDoc && !isAdminOrSuper && !hasPermission('page.office.revenue')) {
         return (
-            <MobilePageShell title="Doanh thu">
+            <MobilePageShell title={t('nav.revenue')}>
                 <div className="p-8 text-center"><AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-2" /><p className="text-sm text-red-600 font-bold">Không có quyền truy cập</p></div>
             </MobilePageShell>
         );
     }
 
     return (
-        <MobilePageShell title="Doanh thu" headerRight={
+        <MobilePageShell title={t('nav.revenue')} headerRight={
             <button onClick={handleSync} disabled={syncing || loading}
                 className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center active:scale-95 transition-transform disabled:opacity-40">
                 <RefreshCw className={cn('w-4 h-4 text-gray-600', syncing && 'animate-spin')} />

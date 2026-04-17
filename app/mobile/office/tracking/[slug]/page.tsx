@@ -14,6 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import MobilePageShell from '@/components/mobile/MobilePageShell';
+import { useMobileTranslation } from '@/lib/i18n';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -131,6 +132,7 @@ export default function MobileTrackingDetailPage() {
     const router = useRouter();
     const params = useParams();
     const slug = params.slug as string;
+    const { t } = useMobileTranslation();
 
     const [data, setData] = useState<DetailData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -183,7 +185,7 @@ export default function MobileTrackingDetailPage() {
     };
 
     return (
-        <MobilePageShell title={data?.link.campaignName || 'Chi tiết'} headerRight={
+        <MobilePageShell title={data?.link.campaignName || t('common.viewDetails')} headerRight={
             <div className="flex items-center gap-1.5">
                 <button onClick={handleExport} disabled={exporting}
                     className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50">

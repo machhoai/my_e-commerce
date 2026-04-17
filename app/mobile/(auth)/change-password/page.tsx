@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import AuthGuard from '@/components/layout/AuthGuard';
+import { useMobileTranslation } from '@/lib/i18n';
 
 export default function MobileChangePasswordPage() {
     const [currentPassword, setCurrentPassword] = useState('');
@@ -24,6 +25,7 @@ export default function MobileChangePasswordPage() {
 
     const { changePassword } = useAuth();
     const router = useRouter();
+    const { t } = useMobileTranslation();
 
     // Password strength
     const strength = (() => {
@@ -37,15 +39,15 @@ export default function MobileChangePasswordPage() {
         return score;
     })();
 
-    const strengthLabel = ['', 'Yếu', 'Trung bình', 'Khá', 'Mạnh', 'Rất mạnh'][strength] ?? '';
+    const strengthLabel = ['', t('auth.strengthWeak'), t('auth.strengthFair'), t('auth.strengthGood'), t('auth.strengthStrong'), t('auth.strengthVeryStrong')][strength] ?? '';
     const strengthColors = ['', 'bg-red-500', 'bg-amber-500', 'bg-amber-400', 'bg-emerald-500', 'bg-emerald-400'];
     const passwordsMatch = newPassword && confirmPassword && newPassword === confirmPassword;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        if (newPassword !== confirmPassword) return setError('Mật khẩu mới không khớp');
-        if (newPassword.length < 6) return setError('Mật khẩu mới phải có ít nhất 6 ký tự');
+        if (newPassword !== confirmPassword) return setError(t('auth.passwordMismatch'));
+        if (newPassword.length < 6) return setError(t('auth.passwordTooShort'));
 
         setLoading(true);
         try {
@@ -54,8 +56,8 @@ export default function MobileChangePasswordPage() {
             setTimeout(() => router.push('/dashboard'), 2000);
         } catch (err: unknown) {
             if (err instanceof Error) {
-                setError(err.message.includes('auth/invalid-credential') ? 'Mật khẩu hiện tại không đúng' : err.message || 'Đổi mật khẩu thất bại');
-            } else { setError('Đã xảy ra lỗi'); }
+                setError(err.message.includes('auth/invalid-credential') ? t('auth.wrongCurrentPassword') : err.message || t('auth.changePasswordFailed'));
+            } else { setError(t('auth.unknownError')); }
         } finally { setLoading(false); }
     };
 
@@ -67,7 +69,7 @@ export default function MobileChangePasswordPage() {
                     <Link href="/dashboard" className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center active:scale-95 transition-transform">
                         <ArrowLeft className="w-4 h-4 text-gray-600" />
                     </Link>
-                    <h1 className="text-sm font-bold text-gray-800">Đổi mật khẩu</h1>
+                    <h1 className="text-sm font-bold text-gray-800">{t('auth.changePassword')}</h1>
                 </div>
 
                 <div className="flex-1 px-4 py-6">
@@ -76,7 +78,7 @@ export default function MobileChangePasswordPage() {
                         <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mb-3">
                             <ShieldCheck className="w-6 h-6 text-emerald-500" />
                         </div>
-                        <p className="text-xs text-gray-500 text-center">Bảo vệ tài khoản với mật khẩu mạnh</p>
+                        <p className="text-xs text-gray-500 text-center">{t('auth.protectAccount')}</p>
                     </div>
 
                     {success ? (
@@ -84,8 +86,8 @@ export default function MobileChangePasswordPage() {
                             <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-200">
                                 <CheckCircle2 className="w-8 h-8 text-emerald-500" />
                             </div>
-                            <h3 className="text-sm font-bold text-gray-800 mb-1">Cập nhật thành công!</h3>
-                            <p className="text-xs text-gray-500">Đang chuyển hướng...</p>
+                            <h3 className="text-sm font-bold text-gray-800 mb-1">{t('auth.passwordUpdated')}</h3>
+                            <p className="text-xs text-gray-500">{t('auth.redirecting')}</p>
                         </div>
                     ) : (
                         <form onSubmit={handleSubmit} className="space-y-4 max-w-sm mx-auto w-full">
@@ -98,7 +100,7 @@ export default function MobileChangePasswordPage() {
 
                             {/* Current password */}
                             <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Mật khẩu hiện tại</label>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">{t('auth.currentPassword')}</label>
                                 <div className="relative">
                                     <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                                     <input type={showCurrent ? 'text' : 'password'} required value={currentPassword}
@@ -115,7 +117,7 @@ export default function MobileChangePasswordPage() {
 
                             {/* New password */}
                             <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Mật khẩu mới</label>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">{t('auth.newPassword')}</label>
                                 <div className="relative">
                                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                                     <input type={showNew ? 'text' : 'password'} required value={newPassword}
@@ -134,7 +136,7 @@ export default function MobileChangePasswordPage() {
                                             ))}
                                         </div>
                                         <p className="text-[10px] text-gray-500 mt-1">
-                                            Độ mạnh: <span className={cn('font-bold', strength >= 4 ? 'text-emerald-500' : strength >= 2 ? 'text-amber-500' : 'text-red-500')}>{strengthLabel}</span>
+                                            {t('auth.passwordStrength')}: <span className={cn('font-bold', strength >= 4 ? 'text-emerald-500' : strength >= 2 ? 'text-amber-500' : 'text-red-500')}>{strengthLabel}</span>
                                         </p>
                                     </div>
                                 )}
@@ -142,7 +144,7 @@ export default function MobileChangePasswordPage() {
 
                             {/* Confirm password */}
                             <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Xác nhận mật khẩu mới</label>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">{t('auth.confirmNewPassword')}</label>
                                 <div className="relative">
                                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                                     <input type={showConfirm ? 'text' : 'password'} required value={confirmPassword}
@@ -154,17 +156,17 @@ export default function MobileChangePasswordPage() {
                                         {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                     </button>
                                 </div>
-                                {confirmPassword && !passwordsMatch && <p className="text-[10px] text-red-500 mt-1 ml-1">Mật khẩu không khớp</p>}
-                                {passwordsMatch && <p className="text-[10px] text-emerald-500 mt-1 ml-1 flex items-center gap-0.5"><CheckCircle2 className="w-2.5 h-2.5" /> Mật khẩu khớp</p>}
+                                {confirmPassword && !passwordsMatch && <p className="text-[10px] text-red-500 mt-1 ml-1">{t('auth.passwordNotMatch')}</p>}
+                                {passwordsMatch && <p className="text-[10px] text-emerald-500 mt-1 ml-1 flex items-center gap-0.5"><CheckCircle2 className="w-2.5 h-2.5" /> {t('auth.passwordMatch')}</p>}
                             </div>
 
                             {/* Submit */}
                             <button type="submit" disabled={loading}
                                 className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl py-3.5 text-sm transition-all disabled:opacity-60 shadow-md shadow-emerald-200 active:scale-[0.98] flex items-center justify-center gap-2">
                                 {loading ? (
-                                    <><Loader2 className="w-4 h-4 animate-spin" /> Đang cập nhật...</>
+                                    <><Loader2 className="w-4 h-4 animate-spin" /> {t('auth.updating')}</>
                                 ) : (
-                                    <><ShieldCheck className="w-4 h-4" /> Cập nhật mật khẩu</>
+                                    <><ShieldCheck className="w-4 h-4" /> {t('auth.updatePassword')}</>
                                 )}
                             </button>
                         </form>

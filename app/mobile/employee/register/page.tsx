@@ -11,9 +11,11 @@ import {
     Lock, ChevronDown, Loader2, Trash2, Users2, Info,
 } from 'lucide-react';
 import MobilePageShell from '@/components/mobile/MobilePageShell';
+import { useMobileTranslation } from '@/lib/i18n';
 
 export default function MobileEmployeeRegisterPage() {
     const { user, userDoc, effectiveStoreId: contextStoreId } = useAuth();
+    const { t, locale } = useMobileTranslation();
 
     const [settings, setSettings] = useState<StoreSettings | null>(null);
     const strictShiftLimit = settings?.strictShiftLimit ?? true;
@@ -89,7 +91,7 @@ export default function MobileEmployeeRegisterPage() {
                 });
                 setManagers(mgrs);
                 setActiveEmployeeList(validUids);
-            } catch (err) { console.error('Error:', err); setError('Không thể tải dữ liệu'); }
+            } catch (err) { console.error('Error:', err); setError(t('register.cannotLoad')); }
             finally { setLoading(false); }
         })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -132,8 +134,8 @@ export default function MobileEmployeeRegisterPage() {
 
     const toggleShift = (dayIndex: number, shiftId: string) => {
         setError(''); setSuccess('');
-        if (!settings?.registrationOpen) { setError('Cổng đăng ký đã đóng.'); return; }
-        if (!isWeekEditable) { setError('Chỉ đăng ký được cho tuần tiếp theo.'); return; }
+        if (!settings?.registrationOpen) { setError(t('register.registrationClosed')); return; }
+        if (!isWeekEditable) { setError(t('register.onlyNextWeek')); return; }
 
         const dateStr = weekDays[dayIndex];
         const newSelections = [...selectedShifts];
@@ -145,7 +147,7 @@ export default function MobileEmployeeRegisterPage() {
             const count = getShiftCount(dateStr, shiftId);
             const max = getShiftQuota(dateStr, shiftId);
             const isManager = userDoc?.role === 'manager' || userDoc?.role === 'store_manager';
-            if (strictShiftLimit && count >= max && !isManager) { setError(`Ca đã đầy (${count}/${max}).`); return; }
+            if (strictShiftLimit && count >= max && !isManager) { setError(t('register.shiftFull', { count: String(count), max: String(max) })); return; }
 
             // Enforce max shifts per day
             const maxShiftsPerDay = settings?.maxShiftsPerDay ?? 1;
@@ -153,7 +155,7 @@ export default function MobileEmployeeRegisterPage() {
                 if (maxShiftsPerDay === 1) {
                     newSelections[dayIndex] = [shiftId]; // Replace (original behavior)
                 } else {
-                    setError(`Tối đa ${maxShiftsPerDay} ca/ngày.`);
+                    setError(t('register.maxShiftsPerDay', { max: String(maxShiftsPerDay) }));
                     return;
                 }
             } else {
@@ -170,22 +172,22 @@ export default function MobileEmployeeRegisterPage() {
         let emptyDays = 0; let workDays = 0;
         for (let i = 0; i < 7; i++) {
             const maxPerDay = settings?.maxShiftsPerDay ?? 1;
-            if (selectedShifts[i].length === 0) emptyDays++; else { workDays++; if (selectedShifts[i].length > maxPerDay) return { valid: false, message: `Mỗi ngày chỉ được chọn ${maxPerDay} ca.` }; }
+            if (selectedShifts[i].length === 0) emptyDays++; else { workDays++; if (selectedShifts[i].length > maxPerDay) return { valid: false, message: t('register.maxShiftsPerDayError', { max: String(maxPerDay) }) }; }
         }
-        if (workDays === 0) return { valid: false, message: 'Vui lòng chọn lịch làm việc.' };
+        if (workDays === 0) return { valid: false, message: t('register.selectSchedule') };
         if (type === 'FT' || role === 'manager') {
-            if (emptyDays > 1) return { valid: false, message: `${role === 'manager' ? 'Quản lý' : 'NV Toàn thời gian'} chỉ nghỉ tối đa 1 ngày/tuần.` };
+            if (emptyDays > 1) return { valid: false, message: t('register.ftMaxDayOff', { role: role === 'manager' ? t('register.roleManager') : t('register.roleFT') }) };
             for (let i = 0; i < 7; i++) {
                 const d = new Date(weekDays[i] + 'T00:00:00').getDay();
                 if ((d === 0 || d === 6) && selectedShifts[i].length === 0)
-                    return { valid: false, message: `Không được nghỉ cuối tuần.` };
+                    return { valid: false, message: t('register.noWeekendOff') };
             }
         }
         if (role === 'manager') {
             for (let i = 0; i < 7; i++) {
                 if (selectedShifts[i].length === 0) {
                     const off = getManagersOff(weekDays[i]).filter(n => n !== userDoc?.name);
-                    if (off.length > 0) warnings.push(`Trùng ngày nghỉ với QL: ${off.join(', ')}`);
+                    if (off.length > 0) warnings.push(t('register.overlappingManagerOff', { names: off.join(', ') }));
                 }
             }
         }
@@ -195,7 +197,7 @@ export default function MobileEmployeeRegisterPage() {
     const handleSave = async () => {
         if (!user || !userDoc) return;
         setError(''); setSuccess('');
-        if (isClosed) { setError('Đã đóng đăng ký.'); return; }
+        if (isClosed) { setError(t('register.registrationClosed')); return; }
         const v = validateRegistration();
         if (!v.valid) { setError(v.message); return; }
         if (v.warnings?.length && !window.confirm(v.warnings.join('\n') + '\n\nTiếp tục?')) return;
@@ -213,14 +215,14 @@ export default function MobileEmployeeRegisterPage() {
             const res = await fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(payload) });
             if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Lỗi'); }
             setExistingRegId(regId);
-            setSuccess('Đăng ký thành công!');
+            setSuccess(t('register.registrationSuccess'));
         } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Lỗi'); }
         finally { setSaving(false); }
     };
 
     const handleDelete = async () => {
         if (!existingRegId || !user) return;
-        if (!window.confirm('Xóa toàn bộ lịch đã đăng ký?')) return;
+        if (!window.confirm(t('register.confirmDelete'))) return;
         setSaving(true); setError(''); setSuccess('');
         try {
             const token = await user.getIdToken();
@@ -229,7 +231,7 @@ export default function MobileEmployeeRegisterPage() {
             setSelectedShifts(Array(7).fill([]));
             setAllRegistrations(prev => prev.filter(r => r.id !== existingRegId));
             setExistingRegId(null);
-            setSuccess('Đã xóa đăng ký.');
+            setSuccess(t('register.registrationDeleted'));
         } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Lỗi'); }
         finally { setSaving(false); }
     };
@@ -238,16 +240,17 @@ export default function MobileEmployeeRegisterPage() {
     const nextWeek = () => { setCurrentWeekStart(d => { const nd = new Date(d); nd.setDate(nd.getDate() + 7); return nd; }); setError(''); setSuccess(''); };
     const toggleDay = (dateStr: string) => setExpandedDays(prev => { const next = new Set(prev); if (next.has(dateStr)) next.delete(dateStr); else next.add(dateStr); return next; });
     const isToday = (dateStr: string) => new Date().toDateString() === new Date(dateStr + 'T00:00:00').toDateString();
-    const dayLabels = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+    const dayLabels = [t('employee.daySunday'), t('employee.dayMonday'), t('employee.dayTuesday'), t('employee.dayWednesday'), t('employee.dayThursday'), t('employee.dayFriday'), t('employee.daySaturday')];
 
+    const dateLocale = locale === 'zh' ? 'zh-CN' : 'vi-VN';
     const weekLabel = weekDays.length > 0
-        ? `${new Date(weekDays[0] + 'T00:00:00').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} — ${new Date(weekDays[6] + 'T00:00:00').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}`
+        ? `${new Date(weekDays[0] + 'T00:00:00').toLocaleDateString(dateLocale, { day: '2-digit', month: '2-digit' })} — ${new Date(weekDays[6] + 'T00:00:00').toLocaleDateString(dateLocale, { day: '2-digit', month: '2-digit' })}`
         : '';
 
     const totalSelected = selectedShifts.reduce((s, d) => s + d.length, 0);
 
     return (
-        <MobilePageShell title="Đăng ký ca làm">
+        <MobilePageShell title={t('register.title')}>
             {/* Week nav */}
             <div className="flex items-center gap-1 mb-2">
                 <button onClick={previousWeek} className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center active:scale-95 transition-transform shrink-0">
@@ -264,7 +267,7 @@ export default function MobileEmployeeRegisterPage() {
                 <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 mb-2">
                     <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                     <p className="text-xs text-amber-800 font-medium">
-                        {!isWeekEditable ? 'Chỉ đăng ký được cho tuần tiếp theo.' : 'Cổng đăng ký đã đóng.'}
+                        {!isWeekEditable ? t('register.onlyNextWeek') : t('register.registrationClosed')}
                     </p>
                 </div>
             )}
@@ -274,8 +277,8 @@ export default function MobileEmployeeRegisterPage() {
                 <Info className="w-3.5 h-3.5 text-primary-500 shrink-0 mt-0.5" />
                 <p className="text-[10px] text-primary-700">
                     {userDoc?.role === 'manager' || isFT
-                        ? 'FT/QL: Nghỉ tối đa 1 ngày, không nghỉ cuối tuần.'
-                        : `Chọn tối đa ${settings?.maxShiftsPerDay ?? 1} ca/ngày, nghỉ tùy ý.`
+                        ? t('register.ftManagerRule')
+                        : t('register.ptRule', { max: String(settings?.maxShiftsPerDay ?? 1) })
                     }
                 </p>
             </div>
@@ -311,16 +314,16 @@ export default function MobileEmployeeRegisterPage() {
                             <div key={dateStr} className={cn('bg-white rounded-xl border overflow-hidden transition-all', today ? 'border-primary-200 shadow-sm' : 'border-gray-100')}>
                                 <button onClick={() => toggleDay(dateStr)} className="w-full flex items-center gap-2.5 px-3 py-2.5 active:bg-gray-50 transition-colors">
                                     <div className={cn('w-9 h-9 rounded-lg flex flex-col items-center justify-center shrink-0', today ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600')}>
-                                        <span className="text-[8px] font-bold leading-none uppercase">{dateObj.toLocaleDateString('vi-VN', { weekday: 'short' })}</span>
+                                        <span className="text-[8px] font-bold leading-none uppercase">{dateObj.toLocaleDateString(dateLocale, { weekday: 'short' })}</span>
                                         <span className="text-sm font-black leading-tight">{dateObj.getDate()}</span>
                                     </div>
                                     <div className="flex-1 text-left">
                                         <p className={cn('text-xs font-bold', today ? 'text-primary-700' : 'text-gray-700')}>
                                             {dayLabels[dateObj.getDay()]}
-                                            {today && <span className="ml-1.5 text-[9px] bg-primary-100 text-primary-600 px-1.5 py-0.5 rounded font-bold">Hôm nay</span>}
+                                            {today && <span className="ml-1.5 text-[9px] bg-primary-100 text-primary-600 px-1.5 py-0.5 rounded font-bold">{t('common.today')}</span>}
                                         </p>
                                         <p className="text-[10px] text-gray-500 font-medium">
-                                            {daySelected.length > 0 ? `Đã chọn: ${daySelected.join(', ')}` : 'Nghỉ'}
+                                            {daySelected.length > 0 ? t('register.selected', { shifts: daySelected.join(', ') }) : t('register.dayOff')}
                                         </p>
                                     </div>
                                     {daySelected.length > 0 && <CheckCircle2 className="w-4 h-4 text-primary-500 shrink-0" />}
@@ -355,19 +358,19 @@ export default function MobileEmployeeRegisterPage() {
                                                     <div className="flex-1 text-left">
                                                         <p className={cn('text-sm font-bold', isSelected ? 'text-primary-700' : 'text-gray-700')}>{shiftId}</p>
                                                         <p className={cn('text-[10px] font-medium', count >= max ? 'text-red-500' : 'text-gray-400')}>
-                                                            {count}/{max} nhân viên
-                                                            {isFull && ' · Đã đủ'}
+                                                            {t('register.employeeCount', { count: String(count), max: String(max) })}
+                                                            {isFull && ` · ${t('register.shiftFullLabel')}`}
                                                         </p>
                                                     </div>
                                                 </button>
                                             );
                                         })}
-                                        {shifts.length === 0 && <p className="text-[10px] text-gray-400 text-center py-2">Chưa cấu hình ca.</p>}
+                                        {shifts.length === 0 && <p className="text-[10px] text-gray-400 text-center py-2">{t('register.noShiftConfig')}</p>}
 
                                         {/* Manager off warning */}
                                         {userDoc?.role === 'manager' && getManagersOff(dateStr).length > 0 && (
                                             <div className="text-[10px] text-fuchsia-700 bg-fuchsia-50 p-2 rounded-lg text-center border border-fuchsia-100 font-medium">
-                                                QL nghỉ: {getManagersOff(dateStr).join(', ')}
+                                                {t('register.managerOff', { names: getManagersOff(dateStr).join(', ') })}
                                             </div>
                                         )}
                                     </div>
@@ -385,10 +388,10 @@ export default function MobileEmployeeRegisterPage() {
                     <div className="text-center">
                         {existingRegId ? (
                             <p className="text-xs text-emerald-600 font-medium flex items-center justify-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> Đã lưu đăng ký · {totalSelected} ca
+                                <CheckCircle2 className="w-3 h-3" /> {t('register.savedCount', { count: String(totalSelected) })}
                             </p>
                         ) : (
-                            <p className="text-xs text-gray-400">{totalSelected > 0 ? `Đã chọn ${totalSelected} ca` : 'Chưa chọn ca nào'}</p>
+                            <p className="text-xs text-gray-400">{totalSelected > 0 ? t('register.selectedCount', { count: String(totalSelected) }) : t('register.noneSelected')}</p>
                         )}
                     </div>
 
@@ -397,14 +400,14 @@ export default function MobileEmployeeRegisterPage() {
                         {existingRegId && (
                             <button onClick={handleDelete} disabled={saving || isClosed}
                                 className="flex-1 flex items-center justify-center gap-1.5 bg-red-50 border border-red-200 text-red-600 rounded-xl py-3 text-xs font-bold active:scale-[0.98] disabled:opacity-50">
-                                <Trash2 className="w-3.5 h-3.5" /> Xóa
+                                <Trash2 className="w-3.5 h-3.5" /> {t('common.delete')}
                             </button>
                         )}
                         <button onClick={handleSave} disabled={saving || isClosed}
                             className={cn('flex-1 flex items-center justify-center gap-1.5 rounded-xl py-3 text-xs font-bold active:scale-[0.98] disabled:opacity-50 transition-all',
                                 isClosed ? 'bg-gray-200 text-gray-500' : 'bg-primary-600 text-white shadow-md shadow-primary-200')}>
                             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isClosed ? <Lock className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-                            {isClosed ? 'Đã đóng' : 'Lưu đăng ký'}
+                            {isClosed ? t('register.closed') : t('register.saveButton')}
                         </button>
                     </div>
                 </div>

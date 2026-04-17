@@ -1,9 +1,13 @@
+'use client';
+
 import DesktopPage from '@/app/desktop/(dashboard)/admin/warehouses/page';
 import MobilePageShell from '@/components/mobile/MobilePageShell';
+import { useMobileTranslation } from '@/lib/i18n';
 
 export default function MobileAdminWarehousesPage() {
+    const { t } = useMobileTranslation();
     return (
-        <MobilePageShell title="Kho">
+        <MobilePageShell title={t('nav.warehouses')}>
             <DesktopPage />
         </MobilePageShell>
     );

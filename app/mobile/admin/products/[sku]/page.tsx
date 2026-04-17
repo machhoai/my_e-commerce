@@ -3,7 +3,7 @@ import MobilePageShell from '@/components/mobile/MobilePageShell';
 
 export default async function MobileAdminProductsDetailPage(props: { params: Promise<{ sku: string }> }) {
     return (
-        <MobilePageShell title="Chi tiết sản phẩm">
+        <MobilePageShell title="Sản phẩm">
             <DesktopPage {...props} />
         </MobilePageShell>
     );

@@ -38,6 +38,8 @@ import {
 import ReferralPointsWidget from '@/components/referral/ReferralPointsWidget';
 import TopReferralMarquee from '@/components/referral/TopReferralMarquee';
 import ReferralCelebrationModal from '@/components/referral/ReferralCelebrationModal';
+import { useMobileTranslation } from '@/lib/i18n';
+import MobileLanguageSwitcher from '@/components/mobile/MobileLanguageSwitcher';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -1634,6 +1636,7 @@ function MobileStoreSelector() {
 export default function MobileView({ topReferralData }: { topReferralData?: { uid: string; name: string; points: number }[] }) {
     const router = useRouter();
     const { userDoc, user, hasPermission } = useAuth();
+    const { t } = useMobileTranslation();
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
 
     // ── Sticky header detection ───────────────────────────────────────────────
@@ -1680,12 +1683,12 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
 
     // ── Role display maps ─────────────────────────────────────────────────────
     const roleLabelMap: Record<string, string> = {
-        super_admin: 'Siêu Quản Trị',
-        admin: 'Quản Trị Viên',
-        store_manager: 'Cửa Hàng Trưởng',
-        manager: 'Quản Lý',
-        employee: 'Nhân Viên',
-        office: 'Văn Phòng',
+        super_admin: t('dashboard.roleSuperAdmin'),
+        admin: t('dashboard.roleAdmin'),
+        store_manager: t('dashboard.roleStoreManager'),
+        manager: t('dashboard.roleManager'),
+        employee: t('dashboard.roleEmployee'),
+        office: t('dashboard.roleOffice'),
     };
     const roleBadgeClass: Record<string, string> = {
         super_admin: 'bg-bduck-yellow/20 text-bduck-yellow border border-bduck-yellow/30',
@@ -1716,25 +1719,25 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
     const employeeQuickAccessItems = [
         {
             icon: LayoutDashboard,
-            label: 'Lịch của tôi',
+            label: t('dashboard.mySchedule'),
             colorClass: 'bg-blue-300 text-blue-900',
             route: '/employee/dashboard',
         },
         {
             icon: PlusSquare,
-            label: 'Đăng ký ca',
+            label: t('dashboard.registerShift'),
             colorClass: 'bg-emerald-300 text-emerald-900',
             route: '/employee/register',
         },
         {
             icon: TrendingUp,
-            label: 'KPI của tôi',
+            label: t('dashboard.myKPI'),
             colorClass: 'bg-amber-300 text-amber-900',
             route: '/employee/kpi-stats',
         },
         {
             icon: Repeat,
-            label: 'Bàn giao hàng',
+            label: t('dashboard.handover'),
             colorClass: 'bg-violet-300 text-violet-900',
             route: '/employee/inventory/handover',
         },
@@ -1744,21 +1747,21 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
     const managerQuickAccessItems = [
         {
             icon: Calendar,
-            label: 'Lịch làm',
+            label: t('dashboard.workSchedule'),
             colorClass: 'bg-blue-300 text-blue-900',
             route: '/manager/scheduling/overview',
             permKeys: ['page.scheduling.overview'],
         },
         {
             icon: User,
-            label: 'Nhân sự',
+            label: t('dashboard.hrShort'),
             colorClass: 'bg-violet-300 text-violet-900',
             route: '/manager/hr/users',
             permKeys: ['page.hr.users'],
         },
         {
             icon: Clock,
-            label: 'Chấm công',
+            label: t('dashboard.attendance'),
             route: '/manager/hr/attendance',
             colorClass: 'bg-teal-300 text-teal-900',
             permKey: 'page.hr.attendance'
@@ -1766,7 +1769,7 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
 
         {
             icon: DollarSign,
-            label: 'Doanh thu',
+            label: t('dashboard.revenue'),
             colorClass: 'bg-amber-300 text-amber-900',
             route: '/office/revenue',
             permKeys: ['page.office.revenue'],
@@ -1785,7 +1788,7 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
         ...allQuickAccessItems,
         {
             icon: LayoutGrid,
-            label: 'Tất cả',
+            label: t('common.all'),
             colorClass: 'bg-gray-200 text-gray-700',
             route: '',
         },
@@ -1795,57 +1798,57 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
     const rawNavGroups = [
         // ── Employee-specific section ──────────────────────────────────
         ...(isEmployee ? [{
-            group: 'Nhân viên',
+            group: t('dashboard.navGroupEmployee'),
             items: [
-                { icon: LayoutDashboard, label: 'Lịch của tôi', route: '/employee/dashboard', color: 'bg-blue-50 text-blue-600' },
-                { icon: PlusSquare, label: 'Đăng ký ca', route: '/employee/register', color: 'bg-blue-50 text-blue-600' },
-                { icon: TrendingUp, label: 'KPI của tôi', route: '/employee/kpi-stats', color: 'bg-amber-50 text-amber-600' },
-                { icon: Star, label: 'Điểm giới thiệu', route: '/employee/referral-history', color: 'bg-amber-50 text-amber-600' },
-                { icon: Repeat, label: 'Bàn giao hàng', route: '/employee/inventory/handover', color: 'bg-emerald-50 text-emerald-600' },
-                { icon: FileText, label: 'Tiêu hao hàng', route: '/employee/inventory/usage', color: 'bg-emerald-50 text-emerald-600' },
+                { icon: LayoutDashboard, label: t('dashboard.mySchedule'), route: '/employee/dashboard', color: 'bg-blue-50 text-blue-600' },
+                { icon: PlusSquare, label: t('dashboard.registerShift'), route: '/employee/register', color: 'bg-blue-50 text-blue-600' },
+                { icon: TrendingUp, label: t('dashboard.myKPI'), route: '/employee/kpi-stats', color: 'bg-amber-50 text-amber-600' },
+                { icon: Star, label: t('dashboard.referralPoints'), route: '/employee/referral-history', color: 'bg-amber-50 text-amber-600' },
+                { icon: Repeat, label: t('dashboard.handover'), route: '/employee/inventory/handover', color: 'bg-emerald-50 text-emerald-600' },
+                { icon: FileText, label: t('dashboard.usageReport'), route: '/employee/inventory/usage', color: 'bg-emerald-50 text-emerald-600' },
             ],
         }] : []),
         // ── Scheduling (manager+) ───────────────────────────────────────
         {
-            group: 'Vận hành',
+            group: t('dashboard.navGroupOperations'),
             items: [
-                { icon: Calendar, label: 'Lịch làm việc', route: '/manager/scheduling/overview', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.overview' },
-                { icon: ClipboardList, label: 'Đăng ký ca', route: '/manager/scheduling/register', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.register' },
-                { icon: PlusSquare, label: 'Xây dựng lịch', route: '/manager/scheduling/builder', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.builder' },
-                { icon: Activity, label: 'Lịch sử ca', route: '/manager/scheduling/history', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.history' },
+                { icon: Calendar, label: t('dashboard.navWorkSchedule'), route: '/manager/scheduling/overview', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.overview' },
+                { icon: ClipboardList, label: t('dashboard.registerShift'), route: '/manager/scheduling/register', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.register' },
+                { icon: PlusSquare, label: t('dashboard.navBuildSchedule'), route: '/manager/scheduling/builder', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.builder' },
+                { icon: Activity, label: t('dashboard.navShiftHistory'), route: '/manager/scheduling/history', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.history' },
             ],
         },
         // ── HR (manager+) ──────────────────────────────────────────────
         {
-            group: 'Nhân sự',
+            group: t('dashboard.navGroupHR'),
             items: [
-                { icon: Users, label: 'Danh sách NV', route: '/manager/hr/users', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.users' },
-                { icon: TrendingUp, label: 'KPI Thống kê', route: '/manager/hr/kpi-stats', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_stats' },
-                { icon: ClipboardCheck, label: 'KPI Chấm điểm', route: '/manager/hr/kpi-scoring', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_scoring' },
-                { icon: Settings, label: 'Mẫu KPI', route: '/manager/settings/kpi-templates', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_templates' },
-                { icon: Star, label: 'Lịch sử tích điểm', route: '/employee/referral-history', color: 'bg-amber-50 text-amber-600', permKey: 'page.referral.history' },
-                { icon: Clock, label: 'Chấm công', route: '/manager/hr/attendance', color: 'bg-teal-50 text-teal-600', permKey: 'page.hr.attendance' },
+                { icon: Users, label: t('dashboard.navEmployeeList'), route: '/manager/hr/users', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.users' },
+                { icon: TrendingUp, label: t('dashboard.navKPIStats'), route: '/manager/hr/kpi-stats', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_stats' },
+                { icon: ClipboardCheck, label: t('dashboard.navKPIScoring'), route: '/manager/hr/kpi-scoring', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_scoring' },
+                { icon: Settings, label: t('dashboard.navKPITemplates'), route: '/manager/settings/kpi-templates', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_templates' },
+                { icon: Star, label: t('dashboard.navPointsHistory'), route: '/employee/referral-history', color: 'bg-amber-50 text-amber-600', permKey: 'page.referral.history' },
+                { icon: Clock, label: t('dashboard.attendance'), route: '/manager/hr/attendance', color: 'bg-teal-50 text-teal-600', permKey: 'page.hr.attendance' },
             ],
         },
         // ── Store Inventory (manager+) ─────────────────────────────────
         {
-            group: 'Kho cửa hàng',
+            group: t('dashboard.navGroupInventory'),
             items: [
-                { icon: Package, label: 'Đặt hàng', route: '/manager/inventory/order', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: PackagePlus, label: 'Nhập hàng', route: '/manager/inventory/receive', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: ArrowLeftRight, label: 'Chuyển kho', route: '/manager/inventory/transfer', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: ClipboardList, label: 'Sổ kho', route: '/manager/inventory/ledger', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: LayoutGrid, label: 'Quầy hàng', route: '/manager/inventory/counters', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: Repeat, label: 'Bàn giao', route: '/manager/inventory/handover', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: FileText, label: 'Tiêu hao', route: '/manager/inventory/usage', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: Package, label: 'Xuất kho', route: '/manager/inventory/dispatch', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: Package, label: t('dashboard.navOrder'), route: '/manager/inventory/order', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: PackagePlus, label: t('dashboard.navReceive'), route: '/manager/inventory/receive', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: ArrowLeftRight, label: t('dashboard.navTransfer'), route: '/manager/inventory/transfer', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: ClipboardList, label: t('dashboard.navLedger'), route: '/manager/inventory/ledger', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: LayoutGrid, label: t('dashboard.navCounters'), route: '/manager/inventory/counters', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: Repeat, label: t('dashboard.navHandover'), route: '/manager/inventory/handover', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: FileText, label: t('dashboard.navUsage'), route: '/manager/inventory/usage', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: Package, label: t('dashboard.navDispatch'), route: '/manager/inventory/dispatch', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
             ],
         },
         // ── Revenue (office+) ─────────────────────────────────────────
         {
-            group: 'Doanh thu',
+            group: t('dashboard.revenue'),
             items: [
-                { icon: DollarSign, label: 'Báo cáo', route: '/office/revenue', color: 'bg-amber-50 text-amber-600', permKey: 'page.office.revenue' },
+                { icon: DollarSign, label: t('dashboard.navReport'), route: '/office/revenue', color: 'bg-amber-50 text-amber-600', permKey: 'page.office.revenue' },
             ],
         },
         // ── Marketing ─────────────────────────────────────────
@@ -1853,24 +1856,24 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
             group: 'Marketing',
             items: [
                 { icon: Link2, label: 'Tracking Links', route: '/office/tracking', color: 'bg-pink-50 text-pink-600', permKey: 'page.office.tracking' },
-                { icon: Ticket, label: 'Quản lý Voucher', route: '/admin/vouchers', color: 'bg-pink-50 text-pink-600', permKey: 'page.admin.vouchers' },
-                { icon: CalendarDays, label: 'Quản lý Sự kiện', route: '/admin/events', color: 'bg-pink-50 text-pink-600', permKey: 'page.admin.events' },
+                { icon: Ticket, label: t('dashboard.navVouchers'), route: '/admin/vouchers', color: 'bg-pink-50 text-pink-600', permKey: 'page.admin.vouchers' },
+                { icon: CalendarDays, label: t('dashboard.navEvents'), route: '/admin/events', color: 'bg-pink-50 text-pink-600', permKey: 'page.admin.events' },
             ],
         },
         // ── Admin (admin only) ─────────────────────────────────────────
         {
-            group: 'Quản trị',
+            group: t('dashboard.navGroupAdmin'),
             items: [
-                { icon: BarChart3, label: 'Báo cáo ngày', route: '/admin/daily-report', color: 'bg-rose-50 text-rose-600', permKey: 'page.admin.daily_report' },
+                { icon: BarChart3, label: t('dashboard.navDailyReport'), route: '/admin/daily-report', color: 'bg-rose-50 text-rose-600', permKey: 'page.admin.daily_report' },
             ],
         },
         // ── Cá nhân  (always visible) ─────────────────────────────────
         {
-            group: 'Cá nhân',
+            group: t('dashboard.navGroupPersonal'),
             items: [
-                { icon: User, label: 'Hồ sơ', route: '/profile', color: 'bg-gray-100 text-gray-600' },
-                { icon: Bell, label: 'Thông báo', route: '/mobile/notifications', color: 'bg-gray-100 text-gray-600' },
-                { icon: Settings, label: 'Cài đặt CH', route: '/manager/settings', color: 'bg-gray-100 text-gray-600', permKey: 'page.manager.settings' },
+                { icon: User, label: t('dashboard.navProfile'), route: '/profile', color: 'bg-gray-100 text-gray-600' },
+                { icon: Bell, label: t('dashboard.navNotifications'), route: '/mobile/notifications', color: 'bg-gray-100 text-gray-600' },
+                { icon: Settings, label: t('dashboard.navStoreSettings'), route: '/manager/settings', color: 'bg-gray-100 text-gray-600', permKey: 'page.manager.settings' },
             ],
         },
     ];
@@ -1926,9 +1929,9 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
                     )}>
 
                         <div className="flex flex-col flex-1">
-                            <span className="text-primary-100 text-xs mb-1">Xin chào,</span>
+                            <span className="text-primary-100 text-xs mb-1">{t('dashboard.greeting')}</span>
                             <span className="text-lg text-white font-bold leading-tight">
-                                {userDoc?.name ?? 'Người dùng'}
+                                {userDoc?.name ?? t('dashboard.defaultUser')}
                             </span>
                             <span className="text-xs text-white">
                                 {userDoc && (
@@ -1945,7 +1948,8 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
                                 )}
                             </span>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-1.5">
+                            <MobileLanguageSwitcher className="!bg-white/20 !border-white/20 !text-white !shadow-none !px-2 !py-1.5" />
                             <button
                                 onClick={() => router.push('/profile')}
                                 className={cn(
@@ -1988,7 +1992,7 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
 
                 {/* ── Quick Access ─────────────────────────────────────────────── */}
                 <section className="px-3 mt-3">
-                    <p className="text-sm font-bold text-gray-800 mb-2">Truy cập nhanh</p>
+                    <p className="text-sm font-bold text-gray-800 mb-2">{t('dashboard.quickAccess')}</p>
                     <div className="flex items-center justify-between gap-1">
                         {quickAccessItems.map((item) => (
                             <QuickAccessItem
@@ -1996,7 +2000,7 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
                                 icon={item.icon}
                                 label={item.label}
                                 colorClass={item.colorClass}
-                                onClick={item.label === 'Tất cả' ? () => setShowAllSheet(true) : () => router.push(item.route)}
+                                onClick={item.label === t('common.all') ? () => setShowAllSheet(true) : () => router.push(item.route)}
                             />
                         ))}
                     </div>
@@ -2016,7 +2020,7 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
                 <BottomSheet
                     isOpen={showAllSheet}
                     onClose={() => setShowAllSheet(false)}
-                    title="Tất cả chức năng"
+                    title={t('dashboard.allFunctions')}
                 >
                     <div className="flex flex-col gap-4 px-4 pt-4 pb-6">
                         {allNavGroups.map((group) => (

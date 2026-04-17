@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useMobileTranslation } from '@/lib/i18n';
 
 interface MobilePageShellProps {
     title: string;
@@ -23,6 +24,7 @@ export default function MobilePageShell({
     onBack,
 }: MobilePageShellProps) {
     const router = useRouter();
+    const { t } = useMobileTranslation();
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -32,7 +34,7 @@ export default function MobilePageShell({
                     <button
                         onClick={onBack ?? (() => router.back())}
                         className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center active:scale-95 transition-transform shrink-0"
-                        aria-label="Quay lại"
+                        aria-label={t('common.back')}
                     >
                         <ChevronLeft className="w-5 h-5 text-gray-600" />
                     </button>
