@@ -36,8 +36,10 @@ export default function ExportEmployeesExcel({ employees }: ExportEmployeesExcel
 
         try {
             // Dynamic imports to keep bundle size small
-            const ExcelJS = (await import('exceljs')).default;
-            const { saveAs } = await import('file-saver');
+            const excelMod = await import('exceljs');
+            const ExcelJS = excelMod.default || excelMod;
+            const fileSaverMod = await import('file-saver');
+            const saveAs = fileSaverMod.saveAs || (fileSaverMod as any).default?.saveAs || fileSaverMod;
 
             const workbook = new ExcelJS.Workbook();
             workbook.creator = 'Joyworld ERP';
