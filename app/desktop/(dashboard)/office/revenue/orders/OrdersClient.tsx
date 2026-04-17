@@ -8,6 +8,7 @@ import {
     Store, Filter, ChevronDown, FileDown, Download,
 } from 'lucide-react';
 import { fetchOrdersAction, fetchOrderDetailAction, fetchOrderGoodsAction, OrderRecord, OrderFilters, OrderFoot, OrderDetailData, GoodsRecord, GoodsFilters } from './actions';
+import OrdersExcelExportDialog from './OrdersExcelExportDialog';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -431,6 +432,7 @@ export default function OrdersClient({ startDate, endDate }: Props) {
 
     // ── Export modal ─────────────────────────────────────────────────────────
     const [isExportOpen, setIsExportOpen] = useState(false);
+    const [showCustomExport, setShowCustomExport] = useState(false);
 
     // ── Fetch all data (orders + goods in parallel) ──────────────────────────
     const loadOrders = useCallback((start: string, end: string) => {
@@ -703,10 +705,10 @@ export default function OrdersClient({ startDate, endDate }: Props) {
 
                                 {/* Right-side controls */}
                                 <div className="ml-auto flex items-center gap-1.5">
-                                    {/* Export Excel */}
+                                    {/* Export Excel — custom dialog */}
                                     {filteredOrders.length > 0 && (
-                                        <button onClick={() => setIsExportOpen(true)}
-                                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-success-200 bg-success-50 hover:bg-success-100 text-success-700 text-xs font-semibold transition-colors">
+                                        <button onClick={() => setShowCustomExport(true)}
+                                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold transition-colors">
                                             <FileDown className="w-3.5 h-3.5" />
                                             Xuất Excel
                                         </button>
@@ -907,8 +909,8 @@ export default function OrdersClient({ startDate, endDate }: Props) {
                                 )}
                                 <div className="ml-auto flex items-center gap-1.5">
                                     {filteredGoods.length > 0 && (
-                                        <button onClick={() => setIsExportOpen(true)}
-                                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-success-200 bg-success-50 hover:bg-success-100 text-success-700 text-xs font-semibold transition-colors">
+                                        <button onClick={() => setShowCustomExport(true)}
+                                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold transition-colors">
                                             <FileDown className="w-3.5 h-3.5" />
                                             Xuất Excel
                                         </button>
@@ -1058,12 +1060,22 @@ export default function OrdersClient({ startDate, endDate }: Props) {
                 />
             )}
 
-            {/* ── Export Modal ─────────────────────────────────────────────────── */}
+            {/* ── Export Modal (legacy, kept for reference) ───────────────── */}
             <ExportModal
                 isOpen={isExportOpen}
                 onClose={() => setIsExportOpen(false)}
                 data={activeExportData}
                 columns={activeExportColumns}
+            />
+
+            {/* ── Orders Custom Excel Export Dialog ────────────────────────── */}
+            <OrdersExcelExportDialog
+                open={showCustomExport}
+                onClose={() => setShowCustomExport(false)}
+                orders={viewMode === 'orders' ? filteredOrders : allOrders}
+                goods={allGoods}
+                viewMode={viewMode}
+                activeRange={`${effectiveStart}_${effectiveEnd}`}
             />
         </div>
     );
