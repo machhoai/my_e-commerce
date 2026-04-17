@@ -1050,13 +1050,13 @@ function RevenueTab() {
     const chartData = useMemo(() =>
         [...data].sort((a, b) => a.forDate.localeCompare(b.forDate)).map(d => ({
             date: d.forDate.slice(5), [t('rev_realRevenue')]: d.sysMoney, [t('rev_cash')]: d.cashRealMoney, [t('rev_transfer')]: d.transferRealMoney,
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+            // eslint-disable-next-line react-hooks/exhaustive-deps
         })), [data, t]);
 
     const paymentPieData = useMemo(() => {
         if (dailyPanel?.paymentStats?.length) return dailyPanel.paymentStats.map(p => ({ name: p.paymentCategoryName, value: p.totalRealMoney })).filter(d => d.value > 0);
         return [{ name: t('rev_cash'), value: kpis.totalCash }, { name: t('rev_transfer'), value: kpis.totalTransfer }].filter(d => d.value > 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data, dailyPanel, kpis, t]);
 
     const topProducts = useMemo(() => {
@@ -1963,17 +1963,7 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
                         </div>
                         <div className="flex gap-2 items-center">
                             {/* Language toggle — VI / ZH */}
-                            <button
-                                onClick={() => setLang(lang === 'vi' ? 'zh' : 'vi')}
-                                className={cn(
-                                    'h-7 px-2 rounded-full flex items-center justify-center',
-                                    'bg-white/20 text-white active:scale-95 transition-transform',
-                                    'text-[11px] font-bold tracking-wide leading-none',
-                                )}
-                                title={lang === 'vi' ? 'Switch to Chinese' : '切换为越南语'}
-                            >
-                                {lang === 'vi' ? '中文' : 'VI'}
-                            </button>
+
                             <button
                                 onClick={() => router.push('/profile')}
                                 className={cn(
@@ -1997,6 +1987,17 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
                                     </span>
                                 )}
                             </button>
+                            <button
+                                onClick={() => setLang(lang === 'vi' ? 'zh' : 'vi')}
+                                className={cn(
+                                    'w-10 h-10 p-2 relative rounded-full flex items-center justify-center',
+                                    'bg-white/20 text-white active:scale-95 transition-transform',
+                                    'text-[11px] font-bold tracking-wide leading-none',
+                                )}
+                                title={lang === 'vi' ? 'Switch to Chinese' : '切换为越南语'}
+                            >
+                                <Image src={lang === 'vi' ? '/flag-icons/vietnam.png' : '/flag-icons/china.png'} alt="Language" fill className='object-contain size-8 ,auto' />
+                            </button>
                         </div>
                     </div>
 
@@ -2012,6 +2013,7 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
                     className="mx-3 mt-12"
                     initialData={topReferralData}
                     onClick={() => setShowScrollModal(true)}
+                    lang={lang}
                 />
 
                 {/* ── Quick Access ─────────────────────────────────────────────── */}
@@ -2078,6 +2080,7 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
                 <ReferralCelebrationModal
                     forceOpen
                     onClose={() => setShowScrollModal(false)}
+                    lang={lang}
                 />
             )}
         </>
