@@ -191,3 +191,116 @@ export async function getOrderDetail(token: string, orderId: string) {
     if (!res.ok) throw new Error('Lấy chi tiết đơn hàng thất bại');
     return res.json();
 }
+
+// ─────────────────────────── PRODUCT CATALOG APIs ───────────────────────────
+
+export interface SetMealCatalogItem {
+    setMealId: string;
+    setMealName: string;
+    typeName: string;
+    /** 1 = gói thẻ/coin, 4 = vé */
+    category: number;
+    afterTaxPrice: number;
+    isEnabled: boolean;
+    isOpenSales: boolean;
+}
+
+/**
+ * Fetch tất cả trang của một endpoint setmeal (auto-paginate)
+ */
+async function fetchPaginatedSetMeal(
+    token: string,
+    urlBase: string,
+    limit = 100,
+): Promise<SetMealCatalogItem[]> {
+    const all: SetMealCatalogItem[] = [];
+    let page = 1;
+    while (true) {
+        const url = `${urlBase}&page=${page}&limit=${limit}&_t=${Date.now()}`;
+        const res = await fetch(url, {
+            method: 'GET',
+            cache: 'no-store',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) break;
+        const json = await res.json();
+        const items: Record<string, unknown>[] = Array.isArray(json.data) ? json.data : [];
+        all.push(...items.map(i => ({
+            setMealId: String(i.setMealId ?? ''),
+            setMealName: String(i.setMealName ?? ''),
+            typeName: String(i.typeName ?? ''),
+            category: Number(i.category ?? 1),
+            afterTaxPrice: Number(i.afterTaxPrice ?? i.price ?? 0),
+            isEnabled: Boolean(i.isEnabled),
+            isOpenSales: Boolean(i.isOpenSales),
+        })));
+        if (all.length >= Number(json.totals) || items.length < limit) break;
+        page++;
+    }
+    return all;
+}
+
+/**
+ * Lấy toàn bộ danh sách sản phẩm (gói thẻ + vé) từ JoyWorld
+ * - Coin packages : /setmeal/manager/coin/list?category=1
+ * - Pass tickets  : /setmeal/manager/passticket/list?category=4&subCategory=1
+ */
+export async function getSetMealCatalog(token: string): Promise<SetMealCatalogItem[]> {
+    const BASE = 'http://joyworld.jingjianx.vip';
+    const [coins, tickets] = await Promise.all([
+        fetchPaginatedSetMeal(token, `${BASE}/setmeal/manager/coin/list?category=1`),
+        fetchPaginatedSetMeal(token, `${BASE}/setmeal/manager/passticket/list?category=4&subCategory=1`),
+    ]);
+    return [...coins, ...tickets];
+}
+
+// ─────────────────────────── GIFT / SOUVENIR CATALOG ────────────────────────
+
+export interface GiftCatalogItem {
+    goodsId: string;
+    giftNo: string;
+    giftName: string;
+    typeName: string;
+    price: number;
+    afterTaxPrice: number;
+    stockAmount: number;
+    isEnabled: boolean;
+    isOpenSales: boolean;
+}
+
+/**
+ * Lấy toàn bộ danh sách hàng hóa lưu niệm từ JoyWorld
+ * GET /gift/manager/base/list?page=1&limit=1000
+ * Auto-paginate nếu totals > limit
+ */
+export async function getGiftCatalog(token: string): Promise<GiftCatalogItem[]> {
+    const BASE = 'http://joyworld.jingjianx.vip';
+    const limit = 200;
+    const all: GiftCatalogItem[] = [];
+    let page = 1;
+    while (true) {
+        const url = `${BASE}/gift/manager/base/list?page=${page}&limit=${limit}&_t=${Date.now()}`;
+        const res = await fetch(url, {
+            method: 'GET',
+            cache: 'no-store',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) break;
+        const json = await res.json();
+        const items: Record<string, unknown>[] = Array.isArray(json.data) ? json.data : [];
+        all.push(...items.map(i => ({
+            goodsId:     String(i.goodsId ?? i.id ?? ''),
+            giftNo:      String(i.giftNo ?? ''),
+            giftName:    String(i.giftName ?? i.goodsName ?? ''),
+            typeName:    String(i.typeName ?? ''),
+            price:       Number(i.price ?? 0),
+            afterTaxPrice: Number(i.afterTaxPrice ?? i.price ?? 0),
+            stockAmount: Number(i.stockAmount ?? 0),
+            isEnabled:   Boolean(i.isEnabled),
+            isOpenSales: Boolean(i.isOpenSales),
+        })));
+        if (all.length >= Number(json.totals) || items.length < limit) break;
+        page++;
+    }
+    return all;
+}

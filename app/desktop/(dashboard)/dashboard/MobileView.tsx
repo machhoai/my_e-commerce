@@ -1,5 +1,7 @@
 'use client';
 
+import { MobileLangProvider, useMobileLang } from './MobileLangContext';
+
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -87,6 +89,7 @@ function QuickAccessItem({
 // View A: Personal Schedule + KPI (for Staff / employee role) — real Firestore data
 // ─────────────────────────────────────────────────────────────────────────────
 function PersonalScheduleView({ onNavigate, onNavigateRegister }: { onNavigate: () => void; onNavigateRegister: () => void }) {
+    const { t } = useMobileLang();
     const { user, userDoc, effectiveStoreId: contextStoreId } = useAuth();
     const storeId = contextStoreId || userDoc?.storeId || '';
     const [todayShift, setTodayShift] = useState<string | null>(null);
@@ -197,7 +200,7 @@ function PersonalScheduleView({ onNavigate, onNavigateRegister }: { onNavigate: 
 
     return (
         <section className="px-3 mt-4 flex flex-col gap-3">
-            <h2 className="text-sm font-bold text-gray-800">Ca làm việc của bạn</h2>
+            <h2 className="text-sm font-bold text-gray-800">{t('personalScheduleTitle')}</h2>
 
             {/* Today's shift card — tappable → /employee/dashboard */}
             <button
@@ -214,11 +217,11 @@ function PersonalScheduleView({ onNavigate, onNavigateRegister }: { onNavigate: 
                         <Clock className="w-6 h-6" strokeWidth={1.75} />
                     </span>
                     <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Hôm nay</p>
+                        <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{t('today')}</p>
                         {todayShift ? (
                             <p className="text-xl font-bold text-gray-900 mt-0.5 tracking-tight">{todayShift}</p>
                         ) : (
-                            <p className="text-lg font-bold text-gray-400 mt-0.5">Nghỉ hôm nay</p>
+                            <p className="text-lg font-bold text-gray-400 mt-0.5">{t('dayOff')}</p>
                         )}
                     </div>
                     <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
@@ -233,7 +236,7 @@ function PersonalScheduleView({ onNavigate, onNavigateRegister }: { onNavigate: 
                         <Calendar className="w-4 h-4" strokeWidth={2} />
                     </span>
                     <span className="text-lg font-black text-gray-900">{monthlyShifts}</span>
-                    <span className="text-[9px] font-medium text-gray-400 text-center leading-tight">Ca đã làm</span>
+                    <span className="text-[9px] font-medium text-gray-400 text-center leading-tight">{t('monthlyShifts')}</span>
                 </button>
 
                 {/* KPI average */}
@@ -242,7 +245,7 @@ function PersonalScheduleView({ onNavigate, onNavigateRegister }: { onNavigate: 
                         <TrendingUp className="w-4 h-4" strokeWidth={2} />
                     </span>
                     <span className="text-lg font-black text-gray-900">{kpiAvg !== null ? kpiAvg : '—'}</span>
-                    <span className="text-[9px] font-medium text-gray-400 text-center leading-tight">KPI TB</span>
+                    <span className="text-[9px] font-medium text-gray-400 text-center leading-tight">{t('kpiAvg')}</span>
                 </button>
 
                 {/* Registered shifts → /employee/register */}
@@ -251,7 +254,7 @@ function PersonalScheduleView({ onNavigate, onNavigateRegister }: { onNavigate: 
                         <Activity className="w-4 h-4" strokeWidth={2} />
                     </span>
                     <span className="text-lg font-black text-gray-900">{registeredCount}</span>
-                    <span className="text-[9px] font-medium text-gray-400 text-center leading-tight">Đã ĐK tuần tới</span>
+                    <span className="text-[9px] font-medium text-gray-400 text-center leading-tight">{t('registeredNextWeek')}</span>
                 </button>
             </div>
 
@@ -262,7 +265,7 @@ function PersonalScheduleView({ onNavigate, onNavigateRegister }: { onNavigate: 
                         <Clock className="w-5 h-5" strokeWidth={1.75} />
                     </span>
                     <div className="flex-1 min-w-0">
-                        <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">Ca tiếp theo</p>
+                        <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">{t('nextShift')}</p>
                         <p className="text-sm font-semibold text-gray-800">{nextShift.dayLabel} · {nextShift.shiftId}</p>
                     </div>
                 </div>
@@ -340,6 +343,7 @@ const DAY_LABELS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 // Operation Tab — real data
 // ─────────────────────────────────────────────────────────────────────────────
 function OperationTab({ effectiveStoreId }: { effectiveStoreId: string }) {
+    const { t } = useMobileLang();
     const [loading, setLoading] = useState(true);
     const [staffCount, setStaffCount] = useState<number | null>(null);
     const [kpiAvg, setKpiAvg] = useState<number | null>(null);
@@ -575,26 +579,26 @@ function OperationTab({ effectiveStoreId }: { effectiveStoreId: string }) {
             <div className="flex gap-3">
                 <MetricCard
                     value={loading ? '…' : staffCount ?? '-'}
-                    sub="Nhân sự"
+                    sub={t('metric_staff')}
                     icon={Users}
                     colorClass="bg-blue-50 text-blue-500"
                 />
                 <MetricCard
                     value={loading ? '…' : kpiAvg !== null ? kpiAvg : '-'}
-                    sub="KPI TB/tháng"
+                    sub={t('metric_kpiAvg')}
                     icon={TrendingUp}
                     colorClass="bg-emerald-50 text-emerald-500"
                 />
                 <MetricCard
                     value={loading ? '…' : nextWeekCount ?? '-'}
-                    sub="Đã đăng ký"
+                    sub={t('metric_registered')}
                     icon={Calendar}
                     colorClass="bg-violet-50 text-violet-500"
                 />
             </div>
 
             <div>
-                <p className="text-xs mb-1 font-semibold text-gray-700">Lịch làm việc cửa hàng</p>
+                <p className="text-xs mb-1 font-semibold text-gray-700">{t('storeSchedule')}</p>
                 {/* Weekly schedule — shift breakdown */}
                 <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
                     {/* Week nav */}
@@ -609,10 +613,10 @@ function OperationTab({ effectiveStoreId }: { effectiveStoreId: string }) {
                             <Calendar className="w-3.5 h-3.5 text-primary-500" />
                             {weekDays.length > 0
                                 ? `${weekDays[0].toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} – ${weekDays[6].toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}`
-                                : 'Tuần này'
+                                : t('thisWeek')
                             }
                             {weekOffset === 0 && (
-                                <span className="px-1.5 py-0.5 rounded-full bg-primary-50 text-primary-600 text-[10px] font-bold">Hiện tại</span>
+                                <span className="px-1.5 py-0.5 rounded-full bg-primary-50 text-primary-600 text-[10px] font-bold">{t('current')}</span>
                             )}
                         </span>
                         <button
@@ -626,7 +630,7 @@ function OperationTab({ effectiveStoreId }: { effectiveStoreId: string }) {
                     <div className="h-[200px] overflow-auto">
                         {!effectiveStoreId ? (
                             <div className="h-full flex items-center justify-center">
-                                <p className="text-center text-xs text-gray-400">Chọn cửa hàng để xem lịch</p>
+                                <p className="text-center text-xs text-gray-400">{t('noStore')}</p>
                             </div>
                         ) : loading ? (
                             <div className="h-full flex items-center justify-center">
@@ -634,14 +638,14 @@ function OperationTab({ effectiveStoreId }: { effectiveStoreId: string }) {
                             </div>
                         ) : shiftNames.length === 0 ? (
                             <div className="h-full flex items-center justify-center">
-                                <p className="text-center text-xs text-gray-400">Chưa có dữ liệu ca</p>
+                                <p className="text-center text-xs text-gray-400">{t('noShiftData')}</p>
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-xs border-collapse min-w-[340px]">
                                     <thead>
                                         <tr>
-                                            <th className="sticky left-0 z-10 bg-gray-50 px-3 py-2.5 text-left font-semibold text-gray-400 border-b border-gray-100 w-[60px] text-[11px]">Ca</th>
+                                            <th className="sticky left-0 z-10 bg-gray-50 px-3 py-2.5 text-left font-semibold text-gray-400 border-b border-gray-100 w-[60px] text-[11px]">{t('shiftColHeader')}</th>
                                             {weekDays.map(d => {
                                                 const iso = toLocalISO(d);
                                                 const isToday = iso === today;
@@ -721,13 +725,13 @@ function OperationTab({ effectiveStoreId }: { effectiveStoreId: string }) {
                     {!loading && shiftNames.length > 0 && (
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 border-t border-gray-100">
                             <span className="flex items-center gap-1.5 text-[11px] text-gray-500">
-                                <span className="w-2 h-2 rounded-sm bg-red-100 inline-block" />CTH = Cửa hàng trưởng
+                                <span className="w-2 h-2 rounded-sm bg-red-100 inline-block" />{t('legend_cth')}
                             </span>
                             <span className="flex items-center gap-1.5 text-[11px] text-gray-500">
-                                <span className="w-2 h-2 rounded-sm bg-amber-100 inline-block" />QL = Quản lý
+                                <span className="w-2 h-2 rounded-sm bg-amber-100 inline-block" />{t('legend_ql')}
                             </span>
                             <span className="flex items-center gap-1.5 text-[11px] text-gray-500">
-                                <span className="w-2 h-2 rounded-sm bg-blue-100 inline-block" />NV = Nhân viên
+                                <span className="w-2 h-2 rounded-sm bg-blue-100 inline-block" />{t('legend_nv')}
                             </span>
                         </div>
                     )}
@@ -737,7 +741,7 @@ function OperationTab({ effectiveStoreId }: { effectiveStoreId: string }) {
             {/* ── Employee schedule registration calendar ────────────────── */}
             <div>
                 <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-semibold text-gray-700">Lịch đăng ký ca nhân viên</p>
+                    <p className="text-xs font-semibold text-gray-700">{t('staffRegCalendar')}</p>
                     <div className="flex items-center gap-0.5">
                         <button
                             onClick={() => setCalendarWeekOffset(w => w - 1)}
@@ -752,12 +756,12 @@ function OperationTab({ effectiveStoreId }: { effectiveStoreId: string }) {
                             }
                             {calendarWeekOffset === 0 && (
                                 <span className="px-1.5 py-0.5 rounded-full bg-primary-50 text-primary-600 text-[10px] font-bold">
-                                    Hiện tại
+                                    {t('current')}
                                 </span>
                             )}
                             {calendarWeekOffset === 1 && (
                                 <span className="px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 text-[10px] font-bold">
-                                    Tuần sau
+                                    {t('nextWeekLabel')}
                                 </span>
                             )}
                         </span>
@@ -782,7 +786,7 @@ function OperationTab({ effectiveStoreId }: { effectiveStoreId: string }) {
                     ) : shiftNames.length === 0 ? (
                         <div className="h-full rounded-2xl bg-white border border-gray-100 shadow-sm flex flex-col items-center justify-center gap-1.5">
                             <Calendar className="w-7 h-7 text-gray-200" />
-                            <p className="text-xs text-gray-400">Chưa cấu hình ca làm việc</p>
+                            <p className="text-xs text-gray-400">{t('noShiftConfig')}</p>
                         </div>
                     ) : (
                         <div className="h-full flex gap-2.5 overflow-x-auto no-scrollbar pb-1 snap-x snap-mandatory">
@@ -841,7 +845,7 @@ function OperationTab({ effectiveStoreId }: { effectiveStoreId: string }) {
                                                         {shift}
                                                     </p>
                                                     {employees.length === 0 ? (
-                                                        <p className="text-[10px] text-gray-300 italic">Chưa có NV</p>
+                                                        <p className="text-[10px] text-gray-300 italic">{t('noStaff')}</p>
                                                     ) : (
                                                         <div className="flex flex-wrap gap-1">
                                                             {employees.slice(0, 3).map(emp => (
@@ -888,7 +892,7 @@ function OperationTab({ effectiveStoreId }: { effectiveStoreId: string }) {
             >
                 <div className="px-4 pb-6 pt-3 flex flex-col gap-3">
                     {selectedDaySchedule.length === 0 ? (
-                        <p className="text-center text-sm text-gray-400 py-6">Không có dữ liệu</p>
+                        <p className="text-center text-sm text-gray-400 py-6">{t('noData')}</p>
                     ) : (
                         selectedDaySchedule.map(({ shift, employees }) => (
                             <div key={shift} className="rounded-2xl border border-gray-100 overflow-hidden">
@@ -897,13 +901,13 @@ function OperationTab({ effectiveStoreId }: { effectiveStoreId: string }) {
                                     <Clock className="w-3.5 h-3.5 text-primary-500 flex-shrink-0" />
                                     <span className="text-xs font-bold text-gray-700">{shift}</span>
                                     <span className="ml-auto text-[10px] font-medium text-gray-400">
-                                        {employees.length} người
+                                        {employees.length} {t('personCount')}
                                     </span>
                                 </div>
 
                                 {/* Employee list */}
                                 {employees.length === 0 ? (
-                                    <p className="px-3 py-3 text-xs text-gray-400">Chưa có</p>
+                                    <p className="px-3 py-3 text-xs text-gray-400">{t('noPerson')}</p>
                                 ) : (
                                     <ul className="divide-y divide-gray-50">
                                         {employees.map(emp => (
@@ -937,8 +941,8 @@ function OperationTab({ effectiveStoreId }: { effectiveStoreId: string }) {
 // ── Revenue helpers ───────────────────────────────────────────────────────────
 const fmtV = (v: number) => v.toLocaleString('vi-VN');
 const fmtVND = (v: number) => v.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
-function fmtShort(v: number) {
-    if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)} tỷ`;
+function fmtShort(v: number, billion = 'tỷ') {
+    if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)} ${billion}`;
     if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
     if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
     return fmtV(v);
@@ -956,11 +960,15 @@ const REV_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#06b6d4', '#ec4899', '#8b
 type RevFilterMode = 'day' | 'month' | 'custom';
 
 function RevenueTab() {
+    const { t } = useMobileLang();
     const [filterMode, setFilterMode] = useState<RevFilterMode>('day');
     const [dayDate, setDayDate] = useState(todayStr());
     const [monthDate, setMonthDate] = useState(todayStr().slice(0, 7));
     const [customStart, setCustomStart] = useState(monthStart());
     const [customEnd, setCustomEnd] = useState(todayStr());
+
+    /** Language-aware short formatter — passes the billion unit from the dictionary */
+    const fmt = (v: number) => fmtShort(v, t('rev_billion'));
 
     const [data, setData] = useState<RevenueRecord[]>([]);
     const [sellData, setSellData] = useState<SellCategory[]>([]);
@@ -988,9 +996,9 @@ function RevenueTab() {
         setLoading(true); setError(null);
         try {
             const result = await fetchRevenueFromCache(start, end);
-            if (!result.success) { setError(result.error || 'Đã xảy ra lỗi.'); setData([]); setSellData([]); setDailyPanel(null); }
+            if (!result.success) { setError(result.error || t('rev_errDefault')); setData([]); setSellData([]); setDailyPanel(null); }
             else { setData(result.data); setSellData(result.sellData); setDailyPanel(result.dailyPanel ?? null); setUpdatedAt(result.updatedAt); }
-        } catch { setError('Không thể kết nối.'); setData([]); setSellData([]); setDailyPanel(null); }
+        } catch { setError(t('rev_errConnect')); setData([]); setSellData([]); setDailyPanel(null); }
         finally { setLoading(false); setHasFetched(true); }
     }, [getRange]);
 
@@ -1016,8 +1024,8 @@ function RevenueTab() {
         try {
             const result = await triggerSyncAction(start, end);
             if (result.success) { setData(result.data); setSellData(result.sellData); setDailyPanel(result.dailyPanel ?? null); setUpdatedAt(result.updatedAt); setError(null); }
-            else setError(result.error || 'Đồng bộ thất bại.');
-        } catch { setError('Đồng bộ thất bại.'); }
+            else setError(result.error || t('rev_errSync'));
+        } catch { setError(t('rev_errSync')); }
         finally { setSyncing(false); }
     }, [getRange]);
 
@@ -1043,13 +1051,15 @@ function RevenueTab() {
 
     const chartData = useMemo(() =>
         [...data].sort((a, b) => a.forDate.localeCompare(b.forDate)).map(d => ({
-            date: d.forDate.slice(5), 'Thực thu': d.sysMoney, 'Tiền mặt': d.cashRealMoney, 'Chuyển khoản': d.transferRealMoney,
-        })), [data]);
+            date: d.forDate.slice(5), [t('rev_realRevenue')]: d.sysMoney, [t('rev_cash')]: d.cashRealMoney, [t('rev_transfer')]: d.transferRealMoney,
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+        })), [data, t]);
 
     const paymentPieData = useMemo(() => {
         if (dailyPanel?.paymentStats?.length) return dailyPanel.paymentStats.map(p => ({ name: p.paymentCategoryName, value: p.totalRealMoney })).filter(d => d.value > 0);
-        return [{ name: 'Tiền mặt', value: kpis.totalCash }, { name: 'Chuyển khoản', value: kpis.totalTransfer }].filter(d => d.value > 0);
-    }, [data, dailyPanel, kpis]);
+        return [{ name: t('rev_cash'), value: kpis.totalCash }, { name: t('rev_transfer'), value: kpis.totalTransfer }].filter(d => d.value > 0);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [data, dailyPanel, kpis, t]);
 
     const topProducts = useMemo(() => {
         if (dailyPanel?.goodsTypeStats?.length) return dailyPanel.goodsTypeStats.flatMap(g => g.goodsItems).filter(i => i.realMoney > 0).sort((a, b) => b.realMoney - a.realMoney).slice(0, 8);
@@ -1062,7 +1072,7 @@ function RevenueTab() {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-2 flex flex-col gap-2">
                 <div className="flex gap-1.5">
                     {(['day', 'month', 'custom'] as RevFilterMode[]).map((m, i) => {
-                        const labels = ['Ngày', 'Tháng', 'Tùy chọn'];
+                        const labels = [t('rev_day'), t('rev_month'), t('rev_custom')];
                         const Icons = [Calendar, CalendarDays, CalendarRange];
                         const Ic = Icons[i];
                         return (
@@ -1091,7 +1101,7 @@ function RevenueTab() {
                     {isListening
                         ? <span className="flex items-center gap-1 text-[10px] font-semibold text-green-500 bg-green-50 px-1.5 py-0.5 rounded-full"><Wifi className="w-2.5 h-2.5" />Live</span>
                         : <WifiOff className="w-3 h-3 text-gray-300" />}
-                    {updatedAt && <span className="text-[10px] text-gray-400">Cập nhật: {new Date(updatedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>}
+                    {updatedAt && <span className="text-[10px] text-gray-400">{t('rev_updatedAt')}: {new Date(updatedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>}
                 </div>
             </div>
 
@@ -1117,9 +1127,9 @@ function RevenueTab() {
                     {/* Hero KPI — Thực thu */}
                     <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary-600 to-primary-800 p-4 shadow-lg">
                         <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-primary-100">Thực thu</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-primary-100">{t('rev_realRevenue')}</p>
                         <p className="text-3xl font-extrabold text-white mt-1 tracking-tight leading-tight">
-                            {fmtShort(dailyPanel?.shopSummary?.shopRealMoney ?? kpis.totalSys)}
+                            {fmt(dailyPanel?.shopSummary?.shopRealMoney ?? kpis.totalSys)}
                         </p>
                         <p className="text-xs text-primary-200 mt-1">{fmtVND(dailyPanel?.shopSummary?.shopRealMoney ?? kpis.totalSys)}</p>
                     </div>
@@ -1127,12 +1137,12 @@ function RevenueTab() {
                     {/* KPI grid */}
                     <div className="grid grid-cols-2 gap-2">
                         {[
-                            { label: 'Tiền mặt', value: fmtShort(kpis.totalCash), sub: `${kpis.totalReal > 0 ? ((kpis.totalCash / kpis.totalReal) * 100).toFixed(0) : 0}%`, color: 'bg-blue-50', textColor: 'text-blue-700', Icon: Banknote },
-                            { label: 'Chuyển khoản', value: fmtShort(kpis.totalTransfer), sub: `${kpis.totalReal > 0 ? ((kpis.totalTransfer / kpis.totalReal) * 100).toFixed(0) : 0}%`, color: 'bg-violet-50', textColor: 'text-violet-700', Icon: ArrowUpDown },
-                            { label: 'Xu bán', value: fmtV(kpis.totalCoins), sub: `Giá: ${fmtShort(data[0]?.sellCoinPrice || 0)}`, color: 'bg-amber-50', textColor: 'text-amber-700', Icon: Coins },
+                            { label: t('rev_cash'), value: fmt(kpis.totalCash), sub: `${kpis.totalReal > 0 ? ((kpis.totalCash / kpis.totalReal) * 100).toFixed(0) : 0}%`, color: 'bg-blue-50', textColor: 'text-blue-700', Icon: Banknote },
+                            { label: t('rev_transfer'), value: fmt(kpis.totalTransfer), sub: `${kpis.totalReal > 0 ? ((kpis.totalTransfer / kpis.totalReal) * 100).toFixed(0) : 0}%`, color: 'bg-violet-50', textColor: 'text-violet-700', Icon: ArrowUpDown },
+                            { label: t('rev_coins'), value: fmtV(kpis.totalCoins), sub: `${t('rev_coinPrice')}: ${fmt(data[0]?.sellCoinPrice || 0)}`, color: 'bg-amber-50', textColor: 'text-amber-700', Icon: Coins },
                             isMultiDay
-                                ? { label: 'Ngày cao nhất', value: kpis.peakDay ? fmtShort(kpis.peakDay.realMoney) : '—', sub: kpis.peakDay?.forDate || '', color: 'bg-pink-50', textColor: 'text-pink-700', Icon: TrendingUp }
-                                : { label: 'Đã hủy', value: fmtShort(kpis.totalRefund), sub: kpis.totalRefund > 0 ? 'Giao dịch hủy' : 'Không có', color: 'bg-red-50', textColor: 'text-red-600', Icon: XCircle },
+                                ? { label: t('rev_peakDay'), value: kpis.peakDay ? fmt(kpis.peakDay.realMoney) : '—', sub: kpis.peakDay?.forDate || '', color: 'bg-pink-50', textColor: 'text-pink-700', Icon: TrendingUp }
+                                : { label: t('rev_cancelled'), value: fmt(kpis.totalRefund), sub: kpis.totalRefund > 0 ? t('rev_cancelledSub') : t('rev_noCancelled'), color: 'bg-red-50', textColor: 'text-red-600', Icon: XCircle },
                         ].map(({ label, value, sub, color, textColor, Icon }) => (
                             <div key={label} className="rounded-2xl bg-white border border-gray-100 shadow-sm p-3">
                                 <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center mb-2', color)}>
@@ -1148,15 +1158,15 @@ function RevenueTab() {
                     {/* Single-day detail panel */}
                     {!isMultiDay && dailyPanel?.shopSummary && (
                         <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-3">
-                            <p className="text-xs font-bold text-gray-700 mb-2">Tổng kết ngày {data[0]?.forDate ?? dayDate}</p>
+                            <p className="text-xs font-bold text-gray-700 mb-2">{t('rev_dailySummary')} {data[0]?.forDate ?? dayDate}</p>
                             <div className="grid grid-cols-2 gap-1.5">
                                 {[
-                                    { l: 'Tổng hoá đơn', v: fmtVND(dailyPanel.shopSummary.shopMoney), c: 'text-gray-700', bg: 'bg-gray-50' },
-                                    { l: 'Thực thu', v: fmtVND(dailyPanel.shopSummary.shopRealMoney), c: 'text-green-700', bg: 'bg-green-50' },
-                                    { l: 'Đã hủy', v: fmtVND(dailyPanel.shopSummary.refundMoney), c: 'text-red-600', bg: 'bg-red-50' },
-                                    { l: 'Tiền mặt', v: fmtVND(kpis.totalCash), c: 'text-blue-700', bg: 'bg-blue-50' },
-                                    { l: 'Chuyển khoản', v: fmtVND(kpis.totalTransfer), c: 'text-violet-700', bg: 'bg-violet-50' },
-                                    { l: 'Xu bán', v: fmtV(kpis.totalCoins), c: 'text-amber-700', bg: 'bg-amber-50' },
+                                    { l: t('rev_totalBill'), v: fmtVND(dailyPanel.shopSummary.shopMoney), c: 'text-gray-700', bg: 'bg-gray-50' },
+                                    { l: t('rev_realRevenue'), v: fmtVND(dailyPanel.shopSummary.shopRealMoney), c: 'text-green-700', bg: 'bg-green-50' },
+                                    { l: t('rev_refunded'), v: fmtVND(dailyPanel.shopSummary.refundMoney), c: 'text-red-600', bg: 'bg-red-50' },
+                                    { l: t('rev_cash'), v: fmtVND(kpis.totalCash), c: 'text-blue-700', bg: 'bg-blue-50' },
+                                    { l: t('rev_transfer'), v: fmtVND(kpis.totalTransfer), c: 'text-violet-700', bg: 'bg-violet-50' },
+                                    { l: t('rev_coins'), v: fmtV(kpis.totalCoins), c: 'text-amber-700', bg: 'bg-amber-50' },
                                 ].map(item => (
                                     <div key={item.l} className={cn('rounded-xl p-2', item.bg)}>
                                         <p className="text-[9px] uppercase tracking-widest text-gray-400 font-semibold">{item.l}</p>
@@ -1170,7 +1180,7 @@ function RevenueTab() {
                     {/* Multi-day area chart */}
                     {isMultiDay && (
                         <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-3">
-                            <p className="text-xs font-bold text-gray-700 mb-3">Doanh thu theo ngày</p>
+                            <p className="text-xs font-bold text-gray-700 mb-3">{t('rev_revenueByDay')}</p>
                             <div className="h-[160px]">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
@@ -1182,11 +1192,11 @@ function RevenueTab() {
                                         </defs>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                                         <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} />
-                                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} tickFormatter={fmtShort} width={40} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} tickFormatter={fmt} width={40} />
                                         <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 8px 24px rgb(0 0 0 / 0.1)', fontSize: '11px' }} />
-                                        <Area type="monotone" dataKey="Thực thu" stroke="#10b981" strokeWidth={2} fill="url(#gR)" dot={false} activeDot={{ r: 3 }} />
-                                        <Area type="monotone" dataKey="Tiền mặt" stroke="#3b82f6" strokeWidth={1.5} fill="transparent" dot={false} activeDot={{ r: 3 }} />
-                                        <Area type="monotone" dataKey="Chuyển khoản" stroke="#8b5cf6" strokeWidth={1.5} fill="transparent" dot={false} activeDot={{ r: 3 }} />
+                                        <Area type="monotone" dataKey={t('rev_realRevenue')} stroke="#10b981" strokeWidth={2} fill="url(#gR)" dot={false} activeDot={{ r: 3 }} />
+                                        <Area type="monotone" dataKey={t('rev_cash')} stroke="#3b82f6" strokeWidth={1.5} fill="transparent" dot={false} activeDot={{ r: 3 }} />
+                                        <Area type="monotone" dataKey={t('rev_transfer')} stroke="#8b5cf6" strokeWidth={1.5} fill="transparent" dot={false} activeDot={{ r: 3 }} />
                                     </AreaChart>
                                 </ResponsiveContainer>
                             </div>
@@ -1196,7 +1206,7 @@ function RevenueTab() {
                     {/* Payment donut */}
                     {paymentPieData.length > 0 && (
                         <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-3">
-                            <p className="text-xs font-bold text-gray-700 mb-2">Phương thức thanh toán</p>
+                            <p className="text-xs font-bold text-gray-700 mb-2">{t('rev_paymentMethod')}</p>
                             <div className="flex items-center gap-3">
                                 <div className="h-[100px] w-[100px] shrink-0">
                                     <ResponsiveContainer width="100%" height="100%">
@@ -1219,7 +1229,7 @@ function RevenueTab() {
                                                     <span className="text-[11px] text-gray-600 truncate max-w-[100px]">{item.name}</span>
                                                 </div>
                                                 <div className="text-right">
-                                                    <span className="text-[11px] font-bold text-gray-800">{fmtShort(item.value)}</span>
+                                                    <span className="text-[11px] font-bold text-gray-800">{fmt(item.value)}</span>
                                                     <span className="ml-1 text-[10px] text-gray-400">{pct}%</span>
                                                 </div>
                                             </div>
@@ -1234,7 +1244,7 @@ function RevenueTab() {
                     {topProducts.length > 0 && (
                         <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
                             <div className="px-3 py-2.5 border-b border-gray-50">
-                                <p className="text-xs font-bold text-gray-700">Top sản phẩm</p>
+                                <p className="text-xs font-bold text-gray-700">{t('rev_topProducts')}</p>
                             </div>
                             {topProducts.map((item, i) => {
                                 const maxV = topProducts[0]?.realMoney || 1;
@@ -1248,8 +1258,8 @@ function RevenueTab() {
                                             </div>
                                         </div>
                                         <div className="text-right shrink-0">
-                                            <p className="text-[11px] font-bold text-gray-800">{fmtShort(item.realMoney)}</p>
-                                            <p className="text-[9px] text-gray-400">SL: {item.realQty}</p>
+                                            <p className="text-[11px] font-bold text-gray-800">{fmt(item.realMoney)}</p>
+                                            <p className="text-[9px] text-gray-400">{t('rev_qty')}: {item.realQty}</p>
                                         </div>
                                     </div>
                                 );
@@ -1266,13 +1276,13 @@ function RevenueTab() {
                         <BarChart3 className="w-6 h-6 text-gray-300" />
                     </div>
                     <div className="text-center">
-                        <p className="text-sm font-semibold text-gray-600">Không có dữ liệu</p>
-                        <p className="text-xs text-gray-400 mt-0.5">Nhấn sync để tải từ Joyworld</p>
+                        <p className="text-sm font-semibold text-gray-600">{t('rev_noData')}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{t('rev_syncPrompt')}</p>
                     </div>
                     <button onClick={handleSync} disabled={syncing}
                         className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-600 text-white text-xs font-semibold active:scale-95 transition-transform disabled:opacity-50">
                         <RefreshCw className={cn('w-3.5 h-3.5', syncing && 'animate-spin')} />
-                        {syncing ? 'Đang tải...' : 'Đồng bộ ngay'}
+                        {syncing ? t('rev_syncing') : t('rev_syncNow')}
                     </button>
                 </div>
             )}
@@ -1281,6 +1291,7 @@ function RevenueTab() {
 }
 
 function InventoryTab() {
+    const { t } = useMobileLang();
     const { user, userDoc, effectiveStoreId } = useAuth();
 
     type MergedProd = { id: string; name: string; companyCode: string; category: string; currentStock: number; minStock: number; stockStatus: 'safe' | 'low' | 'out'; image: string; unit: string };
@@ -1323,7 +1334,7 @@ function InventoryTab() {
             setProducts(merged);
             setOrders(Array.isArray(ordData) ? ordData : []);
         } catch (e) {
-            setError('Không thể tải dữ liệu kho');
+            setError(t('inv_errLoad'));
             console.error('[InventoryTab]', e);
         } finally { setLoading(false); }
     }, [user, storeId]);
@@ -1335,9 +1346,9 @@ function InventoryTab() {
     const pendingOrders = orders.filter(o => o.status === 'PENDING_OFFICE' || o.status === 'PENDING' || o.status === 'APPROVED_BY_OFFICE' || o.status === 'IN_TRANSIT');
 
     const STATUS_LABEL: Record<string, string> = {
-        PENDING_OFFICE: 'Chờ VP duyệt', APPROVED_BY_OFFICE: 'VP đã duyệt',
-        IN_TRANSIT: 'Đang giao', COMPLETED: 'Hoàn tất', REJECTED: 'Từ chối',
-        CANCELED: 'Đã hủy', PENDING: 'Chờ duyệt', DISPATCHED: 'Đã xuất kho',
+        PENDING_OFFICE: t('status_pendingOffice'), APPROVED_BY_OFFICE: t('status_approvedOffice'),
+        IN_TRANSIT: t('status_inTransit'), COMPLETED: t('status_completed'), REJECTED: t('status_rejected'),
+        CANCELED: t('status_canceled'), PENDING: t('status_pending'), DISPATCHED: t('status_dispatched'),
     };
     const STATUS_COLOR: Record<string, string> = {
         PENDING_OFFICE: 'bg-amber-50 text-amber-700', APPROVED_BY_OFFICE: 'bg-sky-50 text-sky-700',
@@ -1350,7 +1361,7 @@ function InventoryTab() {
         return (
             <div className="flex flex-col items-center justify-center py-12 gap-2">
                 <Package className="w-10 h-10 text-gray-200" />
-                <p className="text-sm text-gray-400">Chưa có cửa hàng được chọn</p>
+                <p className="text-sm text-gray-400">{t('inv_noStore')}</p>
             </div>
         );
     }
@@ -1366,7 +1377,7 @@ function InventoryTab() {
                     <p className="text-2xl font-bold text-gray-900 leading-tight">
                         {loading ? '…' : products.length}
                     </p>
-                    <p className="text-[10px] text-gray-400 font-medium text-center">SKU theo dõi</p>
+                    <p className="text-[10px] text-gray-400 font-medium text-center">{t('inv_sku')}</p>
                 </div>
                 <div className={cn('rounded-2xl border shadow-sm p-3 flex flex-col items-center gap-1', (outProds.length + lowProds.length) > 0 ? 'bg-amber-50 border-amber-100' : 'bg-white border-gray-100')}>
                     <span className="w-9 h-9 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center">
@@ -1375,7 +1386,7 @@ function InventoryTab() {
                     <p className="text-2xl font-bold text-gray-900 leading-tight">
                         {loading ? '…' : outProds.length + lowProds.length}
                     </p>
-                    <p className="text-[10px] text-gray-400 font-medium text-center">Cần bổ sung</p>
+                    <p className="text-[10px] text-gray-400 font-medium text-center">{t('inv_needRestock')}</p>
                 </div>
                 <div className={cn('rounded-2xl border shadow-sm p-3 flex flex-col items-center gap-1', pendingOrders.length > 0 ? 'bg-violet-50 border-violet-100' : 'bg-white border-gray-100')}>
                     <span className="w-9 h-9 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center">
@@ -1384,7 +1395,7 @@ function InventoryTab() {
                     <p className="text-2xl font-bold text-gray-900 leading-tight">
                         {loading ? '…' : pendingOrders.length}
                     </p>
-                    <p className="text-[10px] text-gray-400 font-medium text-center">Đơn đang xử lý</p>
+                    <p className="text-[10px] text-gray-400 font-medium text-center">{t('inv_pendingOrders')}</p>
                 </div>
             </div>
 
@@ -1392,7 +1403,7 @@ function InventoryTab() {
                 <div className="rounded-2xl bg-rose-50 border border-rose-100 px-4 py-3 flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
                     <p className="text-xs text-rose-600">{error}</p>
-                    <button onClick={fetchAll} className="ml-auto text-xs font-semibold text-rose-600 underline">Thử lại</button>
+                    <button onClick={fetchAll} className="ml-auto text-xs font-semibold text-rose-600 underline">{t('inv_retry')}</button>
                 </div>
             )}
 
@@ -1402,10 +1413,10 @@ function InventoryTab() {
                     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                         <p className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
                             <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                            Hàng cần nhập bổ sung
+                            {t('inv_lowStockTitle')}
                         </p>
                         <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-                            {outProds.length + lowProds.length} sản phẩm
+                            {outProds.length + lowProds.length} {t('inv_products')}
                         </span>
                     </div>
                     <div className="divide-y divide-gray-50 max-h-[200px] overflow-y-auto">
@@ -1418,15 +1429,15 @@ function InventoryTab() {
                                 <div className="flex-1 min-w-0">
                                     <p className="text-[12px] font-semibold text-gray-800 truncate">{p.name}</p>
                                     <p className="text-[10px] text-gray-400">
-                                        Tồn: <span className={cn('font-bold', p.stockStatus === 'out' ? 'text-red-500' : 'text-amber-500')}>{p.currentStock}</span>
-                                        {' '}/ Min: {p.minStock} {p.unit}
+                                        {t('inv_stock')}: <span className={cn('font-bold', p.stockStatus === 'out' ? 'text-red-500' : 'text-amber-500')}>{p.currentStock}</span>
+                                        {' '}/ {t('inv_min')}: {p.minStock} {p.unit}
                                     </p>
                                 </div>
                                 <span className={cn(
                                     'text-[10px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0',
                                     p.stockStatus === 'out' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600',
                                 )}>
-                                    {p.stockStatus === 'out' ? 'Hết hàng' : 'Sắp hết'}
+                                    {p.stockStatus === 'out' ? t('inv_outOfStock') : t('inv_lowStock')}
                                 </span>
                             </div>
                         ))}
@@ -1438,9 +1449,9 @@ function InventoryTab() {
             {!loading && pendingOrders.length > 0 && (
                 <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                        <p className="text-xs font-bold text-gray-700">Đơn đặt hàng đang xử lý</p>
+                        <p className="text-xs font-bold text-gray-700">{t('inv_pendingOrdersTitle')}</p>
                         <span className="text-[10px] font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">
-                            {pendingOrders.length} đơn
+                            {pendingOrders.length} {t('inv_orders')}
                         </span>
                     </div>
                     <div className="divide-y divide-gray-50">
@@ -1456,9 +1467,9 @@ function InventoryTab() {
                                         </span>
                                     </div>
                                     <p className="text-[11px] text-gray-600">
-                                        <span className="font-semibold text-gray-800">{order.items.length}</span> sản phẩm
+                                        <span className="font-semibold text-gray-800">{order.items.length}</span> {t('inv_items')}
                                         {' · '}
-                                        <span className="font-semibold text-gray-800">{order.items.reduce((s, i) => s + i.requestedQty, 0)}</span> đơn vị
+                                        <span className="font-semibold text-gray-800">{order.items.reduce((s, i) => s + i.requestedQty, 0)}</span> {t('inv_units')}
                                     </p>
                                 </div>
                                 <ClipboardList className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" />
@@ -1472,8 +1483,8 @@ function InventoryTab() {
             {!loading && outProds.length === 0 && lowProds.length === 0 && pendingOrders.length === 0 && products.length > 0 && (
                 <div className="rounded-2xl bg-emerald-50 border border-emerald-100 px-4 py-6 flex flex-col items-center gap-2">
                     <CheckCircle2 className="w-8 h-8 text-emerald-400" />
-                    <p className="text-sm font-semibold text-emerald-700">Kho đang ổn định</p>
-                    <p className="text-xs text-emerald-500">{products.length} SKU, không có hàng cần nhập bổ sung</p>
+                    <p className="text-sm font-semibold text-emerald-700">{t('inv_allGood')}</p>
+                    <p className="text-xs text-emerald-500">{products.length} {t('inv_allGoodSub')}</p>
                 </div>
             )}
 
@@ -1495,7 +1506,7 @@ function InventoryTab() {
                     <span className="w-8 h-8 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center">
                         <Package className="w-4 h-4" strokeWidth={1.75} />
                     </span>
-                    <span className="text-sm font-semibold text-gray-800">Xem toàn bộ kho hàng</span>
+                    <span className="text-sm font-semibold text-gray-800">{t('inv_viewAll')}</span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-gray-300" />
             </button>
@@ -1503,18 +1514,21 @@ function InventoryTab() {
     );
 }
 
-const ALL_MOBILE_TABS: { key: ManagementTab; label: string; permKeys: string[] }[] = [
-    { key: 'operation', label: 'Vận hành', permKeys: ['page.scheduling.overview', 'page.scheduling.register', 'page.scheduling.builder'] },
-    { key: 'revenue', label: 'Doanh thu', permKeys: ['page.office.revenue'] },
-    { key: 'inventory', label: 'Kho bãi', permKeys: ['page.manager.inventory', 'page.admin.inventory'] },
+const ALL_MOBILE_TAB_KEYS: { key: ManagementTab; labelKey: string; permKeys: string[] }[] = [
+    { key: 'operation', labelKey: 'tab_operation', permKeys: ['page.scheduling.overview', 'page.scheduling.register', 'page.scheduling.builder'] },
+    { key: 'revenue', labelKey: 'tab_revenue', permKeys: ['page.office.revenue'] },
+    { key: 'inventory', labelKey: 'tab_inventory', permKeys: ['page.manager.inventory', 'page.admin.inventory'] },
 ];
 
 function ManagementView() {
+    const { t } = useMobileLang();
     const { effectiveStoreId, userDoc, hasPermission } = useAuth();
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
 
+    const ALL_MOBILE_TABS = ALL_MOBILE_TAB_KEYS.map(tab => ({ ...tab, label: t(tab.labelKey) }));
     const visibleTabs = useMemo(() =>
         ALL_MOBILE_TABS.filter(tab => isAdmin || tab.permKeys.some(k => hasPermission(k))),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         [isAdmin, hasPermission]
     );
 
@@ -1565,6 +1579,7 @@ function ManagementView() {
 // Store Selector (inline in header)
 // ─────────────────────────────────────────────────────────────────────────────
 function MobileStoreSelector() {
+    const { t } = useMobileLang();
     const { user, userDoc, managedStoreIds, effectiveStoreId, setEffectiveStoreId } = useAuth();
     const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
 
@@ -1615,9 +1630,9 @@ function MobileStoreSelector() {
                     value={effectiveStoreId}
                     onChange={(e) => setEffectiveStoreId(e.target.value)}
                     className="appearance-none bg-transparent text-left text-sm font-medium text-white cursor-pointer pr-5 outline-none"
-                    title="Chọn cửa hàng để xem"
+                    title={t('selectStore')}
                 >
-                    <option value="" className="text-gray-900">Tất cả cửa hàng</option>
+                    <option value="" className="text-gray-900">{t('allStores')}</option>
                     {stores.map((s) => (
                         <option key={s.id} value={s.id} className="text-gray-900">
                             {s.name}
@@ -1633,10 +1648,10 @@ function MobileStoreSelector() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Root component
 // ─────────────────────────────────────────────────────────────────────────────
-export default function MobileView({ topReferralData }: { topReferralData?: { uid: string; name: string; points: number }[] }) {
+function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string; name: string; points: number }[] }) {
+    const { lang, setLang, t } = useMobileLang();
     const router = useRouter();
     const { userDoc, user, hasPermission } = useAuth();
-    const { t } = useMobileTranslation();
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
 
     // ── Sticky header detection ───────────────────────────────────────────────
@@ -1683,12 +1698,12 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
 
     // ── Role display maps ─────────────────────────────────────────────────────
     const roleLabelMap: Record<string, string> = {
-        super_admin: t('dashboard.roleSuperAdmin'),
-        admin: t('dashboard.roleAdmin'),
-        store_manager: t('dashboard.roleStoreManager'),
-        manager: t('dashboard.roleManager'),
-        employee: t('dashboard.roleEmployee'),
-        office: t('dashboard.roleOffice'),
+        super_admin: t('role_super_admin'),
+        admin: t('role_admin'),
+        store_manager: t('role_store_manager'),
+        manager: t('role_manager'),
+        employee: t('role_employee'),
+        office: t('role_office'),
     };
     const roleBadgeClass: Record<string, string> = {
         super_admin: 'bg-bduck-yellow/20 text-bduck-yellow border border-bduck-yellow/30',
@@ -1719,25 +1734,25 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
     const employeeQuickAccessItems = [
         {
             icon: LayoutDashboard,
-            label: t('dashboard.mySchedule'),
+            label: t('qa_mySchedule'),
             colorClass: 'bg-blue-300 text-blue-900',
             route: '/employee/dashboard',
         },
         {
             icon: PlusSquare,
-            label: t('dashboard.registerShift'),
+            label: t('qa_registerShift'),
             colorClass: 'bg-emerald-300 text-emerald-900',
             route: '/employee/register',
         },
         {
             icon: TrendingUp,
-            label: t('dashboard.myKPI'),
+            label: t('qa_myKpi'),
             colorClass: 'bg-amber-300 text-amber-900',
             route: '/employee/kpi-stats',
         },
         {
             icon: Repeat,
-            label: t('dashboard.handover'),
+            label: t('qa_handover'),
             colorClass: 'bg-violet-300 text-violet-900',
             route: '/employee/inventory/handover',
         },
@@ -1747,21 +1762,21 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
     const managerQuickAccessItems = [
         {
             icon: Calendar,
-            label: t('dashboard.workSchedule'),
+            label: t('qa_scheduling'),
             colorClass: 'bg-blue-300 text-blue-900',
             route: '/manager/scheduling/overview',
             permKeys: ['page.scheduling.overview'],
         },
         {
             icon: User,
-            label: t('dashboard.hrShort'),
+            label: t('qa_hr'),
             colorClass: 'bg-violet-300 text-violet-900',
             route: '/manager/hr/users',
             permKeys: ['page.hr.users'],
         },
         {
             icon: Clock,
-            label: t('dashboard.attendance'),
+            label: t('qa_attendance'),
             route: '/manager/hr/attendance',
             colorClass: 'bg-teal-300 text-teal-900',
             permKey: 'page.hr.attendance'
@@ -1769,7 +1784,7 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
 
         {
             icon: DollarSign,
-            label: t('dashboard.revenue'),
+            label: t('qa_revenue'),
             colorClass: 'bg-amber-300 text-amber-900',
             route: '/office/revenue',
             permKeys: ['page.office.revenue'],
@@ -1788,7 +1803,7 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
         ...allQuickAccessItems,
         {
             icon: LayoutGrid,
-            label: t('common.all'),
+            label: t('qa_all'),
             colorClass: 'bg-gray-200 text-gray-700',
             route: '',
         },
@@ -1798,82 +1813,82 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
     const rawNavGroups = [
         // ── Employee-specific section ──────────────────────────────────
         ...(isEmployee ? [{
-            group: t('dashboard.navGroupEmployee'),
+            group: t('group_employee'),
             items: [
-                { icon: LayoutDashboard, label: t('dashboard.mySchedule'), route: '/employee/dashboard', color: 'bg-blue-50 text-blue-600' },
-                { icon: PlusSquare, label: t('dashboard.registerShift'), route: '/employee/register', color: 'bg-blue-50 text-blue-600' },
-                { icon: TrendingUp, label: t('dashboard.myKPI'), route: '/employee/kpi-stats', color: 'bg-amber-50 text-amber-600' },
-                { icon: Star, label: t('dashboard.referralPoints'), route: '/employee/referral-history', color: 'bg-amber-50 text-amber-600' },
-                { icon: Repeat, label: t('dashboard.handover'), route: '/employee/inventory/handover', color: 'bg-emerald-50 text-emerald-600' },
-                { icon: FileText, label: t('dashboard.usageReport'), route: '/employee/inventory/usage', color: 'bg-emerald-50 text-emerald-600' },
+                { icon: LayoutDashboard, label: t('nav_mySchedule'), route: '/employee/dashboard', color: 'bg-blue-50 text-blue-600' },
+                { icon: PlusSquare, label: t('nav_registerShift'), route: '/employee/register', color: 'bg-blue-50 text-blue-600' },
+                { icon: TrendingUp, label: t('nav_myKpi'), route: '/employee/kpi-stats', color: 'bg-amber-50 text-amber-600' },
+                { icon: Star, label: t('nav_referralPoints'), route: '/employee/referral-history', color: 'bg-amber-50 text-amber-600' },
+                { icon: Repeat, label: t('nav_handover'), route: '/employee/inventory/handover', color: 'bg-emerald-50 text-emerald-600' },
+                { icon: FileText, label: t('nav_usageReport'), route: '/employee/inventory/usage', color: 'bg-emerald-50 text-emerald-600' },
             ],
         }] : []),
         // ── Scheduling (manager+) ───────────────────────────────────────
         {
-            group: t('dashboard.navGroupOperations'),
+            group: t('group_operation'),
             items: [
-                { icon: Calendar, label: t('dashboard.navWorkSchedule'), route: '/manager/scheduling/overview', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.overview' },
-                { icon: ClipboardList, label: t('dashboard.registerShift'), route: '/manager/scheduling/register', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.register' },
-                { icon: PlusSquare, label: t('dashboard.navBuildSchedule'), route: '/manager/scheduling/builder', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.builder' },
-                { icon: Activity, label: t('dashboard.navShiftHistory'), route: '/manager/scheduling/history', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.history' },
+                { icon: Calendar, label: t('nav_scheduling'), route: '/manager/scheduling/overview', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.overview' },
+                { icon: ClipboardList, label: t('nav_shiftRegister'), route: '/manager/scheduling/register', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.register' },
+                { icon: PlusSquare, label: t('nav_shiftBuilder'), route: '/manager/scheduling/builder', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.builder' },
+                { icon: Activity, label: t('nav_shiftHistory'), route: '/manager/scheduling/history', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.history' },
             ],
         },
         // ── HR (manager+) ──────────────────────────────────────────────
         {
-            group: t('dashboard.navGroupHR'),
+            group: t('group_hr'),
             items: [
-                { icon: Users, label: t('dashboard.navEmployeeList'), route: '/manager/hr/users', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.users' },
-                { icon: TrendingUp, label: t('dashboard.navKPIStats'), route: '/manager/hr/kpi-stats', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_stats' },
-                { icon: ClipboardCheck, label: t('dashboard.navKPIScoring'), route: '/manager/hr/kpi-scoring', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_scoring' },
-                { icon: Settings, label: t('dashboard.navKPITemplates'), route: '/manager/settings/kpi-templates', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_templates' },
-                { icon: Star, label: t('dashboard.navPointsHistory'), route: '/employee/referral-history', color: 'bg-amber-50 text-amber-600', permKey: 'page.referral.history' },
-                { icon: Clock, label: t('dashboard.attendance'), route: '/manager/hr/attendance', color: 'bg-teal-50 text-teal-600', permKey: 'page.hr.attendance' },
+                { icon: Users, label: t('nav_staffList'), route: '/manager/hr/users', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.users' },
+                { icon: TrendingUp, label: t('nav_kpiStats'), route: '/manager/hr/kpi-stats', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_stats' },
+                { icon: ClipboardCheck, label: t('nav_kpiScoring'), route: '/manager/hr/kpi-scoring', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_scoring' },
+                { icon: Settings, label: t('nav_kpiTemplates'), route: '/manager/settings/kpi-templates', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_templates' },
+                { icon: Star, label: t('nav_referralHistory'), route: '/employee/referral-history', color: 'bg-amber-50 text-amber-600', permKey: 'page.referral.history' },
+                { icon: Clock, label: t('nav_attendanceCheck'), route: '/manager/hr/attendance', color: 'bg-teal-50 text-teal-600', permKey: 'page.hr.attendance' },
             ],
         },
         // ── Store Inventory (manager+) ─────────────────────────────────
         {
-            group: t('dashboard.navGroupInventory'),
+            group: t('group_storeInventory'),
             items: [
-                { icon: Package, label: t('dashboard.navOrder'), route: '/manager/inventory/order', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: PackagePlus, label: t('dashboard.navReceive'), route: '/manager/inventory/receive', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: ArrowLeftRight, label: t('dashboard.navTransfer'), route: '/manager/inventory/transfer', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: ClipboardList, label: t('dashboard.navLedger'), route: '/manager/inventory/ledger', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: LayoutGrid, label: t('dashboard.navCounters'), route: '/manager/inventory/counters', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: Repeat, label: t('dashboard.navHandover'), route: '/manager/inventory/handover', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: FileText, label: t('dashboard.navUsage'), route: '/manager/inventory/usage', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: Package, label: t('dashboard.navDispatch'), route: '/manager/inventory/dispatch', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: Package, label: t('nav_orderGoods'), route: '/manager/inventory/order', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: PackagePlus, label: t('nav_receiveGoods'), route: '/manager/inventory/receive', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: ArrowLeftRight, label: t('nav_transferGoods'), route: '/manager/inventory/transfer', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: ClipboardList, label: t('nav_stockLedger'), route: '/manager/inventory/ledger', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: LayoutGrid, label: t('nav_counters'), route: '/manager/inventory/counters', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: Repeat, label: t('nav_handoverInv'), route: '/manager/inventory/handover', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: FileText, label: t('nav_usage'), route: '/manager/inventory/usage', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: Package, label: t('nav_dispatchGoods'), route: '/manager/inventory/dispatch', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
             ],
         },
         // ── Revenue (office+) ─────────────────────────────────────────
         {
-            group: t('dashboard.revenue'),
+            group: t('group_revenue'),
             items: [
-                { icon: DollarSign, label: t('dashboard.navReport'), route: '/office/revenue', color: 'bg-amber-50 text-amber-600', permKey: 'page.office.revenue' },
+                { icon: DollarSign, label: t('nav_revenueReport'), route: '/office/revenue', color: 'bg-amber-50 text-amber-600', permKey: 'page.office.revenue' },
             ],
         },
         // ── Marketing ─────────────────────────────────────────
         {
-            group: 'Marketing',
+            group: t('group_marketing'),
             items: [
-                { icon: Link2, label: 'Tracking Links', route: '/office/tracking', color: 'bg-pink-50 text-pink-600', permKey: 'page.office.tracking' },
-                { icon: Ticket, label: t('dashboard.navVouchers'), route: '/admin/vouchers', color: 'bg-pink-50 text-pink-600', permKey: 'page.admin.vouchers' },
-                { icon: CalendarDays, label: t('dashboard.navEvents'), route: '/admin/events', color: 'bg-pink-50 text-pink-600', permKey: 'page.admin.events' },
+                { icon: Link2, label: t('nav_trackingLinks'), route: '/office/tracking', color: 'bg-pink-50 text-pink-600', permKey: 'page.office.tracking' },
+                { icon: Ticket, label: t('nav_voucherMgmt'), route: '/admin/vouchers', color: 'bg-pink-50 text-pink-600', permKey: 'page.admin.vouchers' },
+                { icon: CalendarDays, label: t('nav_eventMgmt'), route: '/admin/events', color: 'bg-pink-50 text-pink-600', permKey: 'page.admin.events' },
             ],
         },
         // ── Admin (admin only) ─────────────────────────────────────────
         {
-            group: t('dashboard.navGroupAdmin'),
+            group: t('group_admin'),
             items: [
-                { icon: BarChart3, label: t('dashboard.navDailyReport'), route: '/admin/daily-report', color: 'bg-rose-50 text-rose-600', permKey: 'page.admin.daily_report' },
+                { icon: BarChart3, label: t('nav_dailyReport'), route: '/admin/daily-report', color: 'bg-rose-50 text-rose-600', permKey: 'page.admin.daily_report' },
             ],
         },
         // ── Cá nhân  (always visible) ─────────────────────────────────
         {
-            group: t('dashboard.navGroupPersonal'),
+            group: t('group_personal'),
             items: [
-                { icon: User, label: t('dashboard.navProfile'), route: '/profile', color: 'bg-gray-100 text-gray-600' },
-                { icon: Bell, label: t('dashboard.navNotifications'), route: '/mobile/notifications', color: 'bg-gray-100 text-gray-600' },
-                { icon: Settings, label: t('dashboard.navStoreSettings'), route: '/manager/settings', color: 'bg-gray-100 text-gray-600', permKey: 'page.manager.settings' },
+                { icon: User, label: t('nav_profile'), route: '/profile', color: 'bg-gray-100 text-gray-600' },
+                { icon: Bell, label: t('nav_notifications'), route: '/mobile/notifications', color: 'bg-gray-100 text-gray-600' },
+                { icon: Settings, label: t('nav_storeSettings'), route: '/manager/settings', color: 'bg-gray-100 text-gray-600', permKey: 'page.manager.settings' },
             ],
         },
     ];
@@ -1929,9 +1944,9 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
                     )}>
 
                         <div className="flex flex-col flex-1">
-                            <span className="text-primary-100 text-xs mb-1">{t('dashboard.greeting')}</span>
+                            <span className="text-primary-100 text-xs mb-1">{t('greeting')}</span>
                             <span className="text-lg text-white font-bold leading-tight">
-                                {userDoc?.name ?? t('dashboard.defaultUser')}
+                                {userDoc?.name ?? t('defaultUser')}
                             </span>
                             <span className="text-xs text-white">
                                 {userDoc && (
@@ -1948,8 +1963,9 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
                                 )}
                             </span>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                            <MobileLanguageSwitcher className="!bg-white/20 !border-white/20 !text-white !shadow-none !px-2 !py-1.5" />
+                        <div className="flex gap-2 items-center">
+                            {/* Language toggle — VI / ZH */}
+
                             <button
                                 onClick={() => router.push('/profile')}
                                 className={cn(
@@ -1973,6 +1989,17 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
                                     </span>
                                 )}
                             </button>
+                            <button
+                                onClick={() => setLang(lang === 'vi' ? 'zh' : 'vi')}
+                                className={cn(
+                                    'w-10 h-10 p-2 relative rounded-full flex items-center justify-center',
+                                    'bg-white/20 text-white active:scale-95 transition-transform',
+                                    'text-[11px] font-bold tracking-wide leading-none',
+                                )}
+                                title={lang === 'vi' ? 'Switch to Chinese' : '切换为越南语'}
+                            >
+                                <Image src={lang === 'vi' ? '/flag-icons/vietnam.png' : '/flag-icons/china.png'} alt="Language" fill className='object-contain size-8 ,auto' />
+                            </button>
                         </div>
                     </div>
 
@@ -1988,11 +2015,12 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
                     className="mx-3 mt-12"
                     initialData={topReferralData}
                     onClick={() => setShowScrollModal(true)}
+                    lang={lang}
                 />
 
                 {/* ── Quick Access ─────────────────────────────────────────────── */}
                 <section className="px-3 mt-3">
-                    <p className="text-sm font-bold text-gray-800 mb-2">{t('dashboard.quickAccess')}</p>
+                    <p className="text-sm font-bold text-gray-800 mb-2">{t('quickAccess')}</p>
                     <div className="flex items-center justify-between gap-1">
                         {quickAccessItems.map((item) => (
                             <QuickAccessItem
@@ -2000,7 +2028,7 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
                                 icon={item.icon}
                                 label={item.label}
                                 colorClass={item.colorClass}
-                                onClick={item.label === t('common.all') ? () => setShowAllSheet(true) : () => router.push(item.route)}
+                                onClick={item.route === '' ? () => setShowAllSheet(true) : () => router.push(item.route)}
                             />
                         ))}
                     </div>
@@ -2020,7 +2048,7 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
                 <BottomSheet
                     isOpen={showAllSheet}
                     onClose={() => setShowAllSheet(false)}
-                    title={t('dashboard.allFunctions')}
+                    title={t('allFunctions')}
                 >
                     <div className="flex flex-col gap-4 px-4 pt-4 pb-6">
                         {allNavGroups.map((group) => (
@@ -2054,8 +2082,17 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
                 <ReferralCelebrationModal
                     forceOpen
                     onClose={() => setShowScrollModal(false)}
+                    lang={lang}
                 />
             )}
         </>
+    );
+}
+
+export default function MobileView({ topReferralData }: { topReferralData?: { uid: string; name: string; points: number }[] }) {
+    return (
+        <MobileLangProvider>
+            <MobileViewInner topReferralData={topReferralData} />
+        </MobileLangProvider>
     );
 }

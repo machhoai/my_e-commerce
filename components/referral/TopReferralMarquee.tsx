@@ -15,9 +15,27 @@ interface TopReferralMarqueeProps {
     className?: string;
     initialData?: TopEmployee[];
     onClick?: () => void;
+    /** Language code — 'vi' (default) or 'zh' */
+    lang?: 'vi' | 'zh';
 }
 
 const RANK_LABELS = ['🥇', '🥈', '🥉'];
+
+// ── Mini bilingual dictionary ─────────────────────────────────────────────────
+const MARQUEE_DICT = {
+    vi: {
+        title: (month: string) => `🏆 Bảng vàng chiến thần vịt vàng tháng ${month} 🦆`,
+        points: 'điểm',
+        ariaLabel: 'Xem bảng vàng thánh chỉ',
+        monthLocale: 'vi-VN',
+    },
+    zh: {
+        title: (month: string) => `🏆 ${month}黄金鸭销售精英榜 🦆`,
+        points: '积分',
+        ariaLabel: '查看荣誉榜单',
+        monthLocale: 'zh-CN',
+    },
+} as const;
 
 /** Fetch top referral employees trực tiếp từ Firestore client-side (luôn fresh) */
 async function fetchTopReferralLive(): Promise<TopEmployee[]> {
@@ -42,34 +60,39 @@ async function fetchTopReferralLive(): Promise<TopEmployee[]> {
         .slice(0, 5);
 }
 
-export default function TopReferralMarquee({ className, initialData = [], onClick }: TopReferralMarqueeProps) {
-    // Hiện initialData ngay lập tức, sau đó thay bằng dữ liệu live từ Firestore
+export default function TopReferralMarquee({
+    className,
+    initialData = [],
+    onClick,
+    lang = 'vi',
+}: TopReferralMarqueeProps) {
     const [data, setData] = useState<TopEmployee[]>(initialData);
 
     useEffect(() => {
         fetchTopReferralLive()
             .then(live => { if (live.length > 0) setData(live); })
-            .catch(() => { /* giữ nguyên initialData nếu lỗi */ });
+            .catch(() => { });
     }, []);
 
     if (data.length === 0) return <div className={className} />;
 
+    const dict = MARQUEE_DICT[lang];
     const now = new Date();
-    const monthName = now.toLocaleDateString('vi-VN', { month: 'long' });
+    const monthName = now.toLocaleDateString(dict.monthLocale, { month: 'long' }).toUpperCase();
 
     const marqueeContent = data
-        .slice(0, 3) // chỉ hiện top 3 trên marquee
-        .map((emp, i) => `${RANK_LABELS[i]} ${emp.name} — ${emp.points.toLocaleString('vi-VN')} điểm`)
+        .slice(0, 3)
+        .map((emp, i) => `${RANK_LABELS[i]} ${emp.name} — ${emp.points.toLocaleString('vi-VN')} ${dict.points}`)
         .join('   ✦   ');
 
-    const fullText = `🏆 Bảng vàng chiến thần vịt vàng tháng ${monthName.toUpperCase()} 🦆   ${marqueeContent}`;
+    const fullText = `${dict.title(monthName)}   ${marqueeContent}`;
 
     return (
         <div
             className={`relative overflow-hidden rounded-xl ${className ?? ''} ${onClick ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''}`}
             onClick={onClick}
             role={onClick ? 'button' : undefined}
-            aria-label={onClick ? 'Xem bảng vàng thánh chỉ' : undefined}
+            aria-label={onClick ? dict.ariaLabel : undefined}
         >
             {/* Gradient background */}
             <div className="absolute inset-0 bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-500 opacity-95" />
@@ -82,14 +105,13 @@ export default function TopReferralMarquee({ className, initialData = [], onClic
             }} />
 
             <div className="relative flex items-center h-9 px-2">
-                {/* Trophy icon - fixed left */}
+                {/* Trophy icon */}
                 <div className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-white/20 mr-2 z-10">
                     <Star className="w-3.5 h-3.5 text-white" fill="currentColor" />
                 </div>
 
-                {/* Scrolling text container */}
+                {/* Scrolling text */}
                 <div className="flex-1 overflow-hidden relative">
-                    {/* Fade edges */}
                     <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-amber-500 to-transparent z-10" />
                     <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-amber-500 to-transparent z-10" />
 
