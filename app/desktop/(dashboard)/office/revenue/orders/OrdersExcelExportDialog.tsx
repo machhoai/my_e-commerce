@@ -1050,8 +1050,8 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                         <div className="flex flex-col items-center gap-2 w-fit">
                             {totalCustomized > 0 && (
                                 <label className="flex w-full items-center gap-2.5 py-1">
-                                    <div className="flex w-full items-center gap-4 leading-none">
-                                        <span className={`text-[11px] font-bold truncate uppercase tracking-wider transition-colors text-slate-600`}>
+                                    <div className="flex w-full items-center gap-4">
+                                        <span className={`text-[11px] font-bold truncate transition-colors text-slate-600`}>
                                             Dùng tên hệ thống?
                                         </span>
                                         <div className='flex gap-3 flex-1'>
