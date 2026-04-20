@@ -10,7 +10,6 @@ import {
 import type { OrderRecord, GoodsRecord, ProductCatalogItem, GiftCatalogItem } from './actions';
 import { fetchProductCatalog, fetchGiftCatalog } from './actions';
 
-
 // ── Types ────────────────────────────────────────────────────────────────────
 type ColumnTarget = 'goods' | 'category' | 'cols' | 'rows';
 type ViewMode = 'orders' | 'goods';
