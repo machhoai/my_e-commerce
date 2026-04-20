@@ -5,16 +5,18 @@ import {
     FileSpreadsheet, X, Search, RotateCcw, Download,
     Wand2, Tag, Package, CheckCircle2, AlertCircle, Layers,
     ShoppingCart, Save, FileDown, RefreshCw,
-    FileBarChart,
+    FileBarChart, GripVertical, Columns,
 } from 'lucide-react';
 import type { OrderRecord, GoodsRecord, ProductCatalogItem, GiftCatalogItem } from './actions';
 import { fetchProductCatalog, fetchGiftCatalog } from './actions';
 
 // ── Types ────────────────────────────────────────────────────────────────────
-type ColumnTarget = 'goods' | 'category';
+type ColumnTarget = 'goods' | 'category' | 'cols';
 type ViewMode = 'orders' | 'goods';
 
 interface NameMap { [originalName: string]: string; }
+interface ColDef { key: string; header: string; width: number; }
+type ColConfig = { key: string; enabled: boolean }[];
 
 interface Props {
     open: boolean;
@@ -26,8 +28,10 @@ interface Props {
 }
 
 // ── localStorage helpers ─────────────────────────────────────────────────────
-const LS_GOODS_KEY = 'orders_export_goods_name_map';
-const LS_CATEGORY_KEY = 'orders_export_category_name_map';
+const LS_GOODS_KEY      = 'orders_export_goods_name_map';
+const LS_CATEGORY_KEY   = 'orders_export_category_name_map';
+const LS_ORDERS_COLS_KEY = 'orders_export_orders_cols';
+const LS_GOODS_COLS_KEY  = 'orders_export_goods_cols';
 
 function loadFromLS(key: string): NameMap {
     if (typeof window === 'undefined') return {};
@@ -44,6 +48,61 @@ function saveToLS(key: string, map: NameMap) {
         localStorage.setItem(key, JSON.stringify(filtered));
     } catch { /* quota exceeded */ }
 }
+
+function loadColConfig(lsKey: string, defs: ColDef[]): ColConfig {
+    if (typeof window === 'undefined') return defs.map(d => ({ key: d.key, enabled: true }));
+    try {
+        const raw = localStorage.getItem(lsKey);
+        if (!raw) return defs.map(d => ({ key: d.key, enabled: true }));
+        const saved = JSON.parse(raw) as ColConfig;
+        // Keep saved order/enabled; append any new cols from defs at the end
+        const savedKeys = new Set(saved.map(c => c.key));
+        const merged = saved.filter(c => defs.some(d => d.key === c.key));
+        for (const d of defs) if (!savedKeys.has(d.key)) merged.push({ key: d.key, enabled: true });
+        return merged;
+    } catch { return defs.map(d => ({ key: d.key, enabled: true })); }
+}
+
+function saveColConfig(lsKey: string, config: ColConfig) {
+    if (typeof window === 'undefined') return;
+    try { localStorage.setItem(lsKey, JSON.stringify(config)); } catch { /* quota exceeded */ }
+}
+
+// ── Column Definitions ───────────────────────────────────────────────────────
+const COL_DEFS_ORDERS: ColDef[] = [
+    { key: 'orderNumber',   header: 'Mã Đơn Hàng',               width: 22 },
+    { key: 'createTime',    header: 'Thời Gian',                  width: 20 },
+    { key: 'employeeName',  header: 'Nhân Viên',                  width: 18 },
+    { key: 'goodsNames',    header: 'Sản Phẩm',                   width: 36 },
+    { key: 'totalQty',      header: 'SL',                         width: 8  },
+    { key: 'realMoney',     header: 'Thực Thu (VND)',              width: 20 },
+    { key: 'discountMoney', header: 'Giảm Giá (VND)',              width: 18 },
+    { key: 'cancelMoney',   header: 'Hoàn Huỷ (VND)',              width: 18 },
+    { key: 'taxMoney',      header: 'Tiền Thuế (VND)',             width: 18 },
+    { key: 'payModeNames',  header: 'Thanh Toán',                 width: 20 },
+    { key: 'statusName',    header: 'Trạng Thái',                 width: 14 },
+    { key: 'terminalName',  header: 'Quầy',                       width: 14 },
+];
+
+const COL_DEFS_GOODS: ColDef[] = [
+    { key: 'orderNumber',      header: 'Mã Đơn Hàng',                    width: 22 },
+    { key: 'createTime',       header: 'Thời Gian',                       width: 20 },
+    { key: 'goodsName',        header: 'Tên Sản Phẩm',                    width: 32 },
+    { key: 'showCategoryName', header: 'Danh Mục',                        width: 22 },
+    { key: 'price',            header: 'Đơn Giá (VND)',                   width: 18 },
+    { key: 'qty',              header: 'SL',                              width: 8  },
+    { key: 'totalBeforeTax',   header: 'Thành Tiền Trước Thuế (VND)',     width: 28 },
+    { key: 'taxMoney',         header: 'Thuế (VND)',                      width: 16 },
+    { key: 'realMoney',        header: 'Thực Thu (VND)',                  width: 20 },
+    { key: 'payModeNames',     header: 'Thanh Toán',                     width: 20 },
+    { key: 'employeeName',     header: 'Nhân Viên',                      width: 16 },
+    { key: 'statusName',       header: 'Trạng Thái',                     width: 14 },
+];
+
+const MONEY_KEYS = new Set(['realMoney', 'discountMoney', 'cancelMoney', 'taxMoney', 'price', 'totalBeforeTax']);
+const QTY_KEYS   = new Set(['totalQty', 'qty']);
+const LEFT_KEYS  = new Set(['orderNumber', 'createTime', 'employeeName', 'goodsNames', 'payModeNames',
+    'statusName', 'terminalName', 'goodsName', 'showCategoryName']);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const fmtVND = (v: number) => v.toLocaleString('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 });
@@ -92,6 +151,8 @@ async function exportOrdersExcel(
     goodsNameMap: NameMap,
     categoryNameMap: NameMap,
     activeRange: string,
+    ordersColConfig: ColConfig,
+    goodsColConfig: ColConfig,
 ) {
     const ExcelJS = (await import('exceljs')).default;
     const { saveAs } = await import('file-saver');
@@ -108,133 +169,142 @@ async function exportOrdersExcel(
     if (viewMode === 'orders') {
         // ── Sheet: Danh sách đơn hàng ─────────────────────────────────────
         const ws = wb.addWorksheet('Đơn hàng', { views: [{ state: 'frozen', ySplit: 1 }] });
-        ws.columns = [
-            { header: 'Mã Đơn Hàng', key: 'orderNumber', width: 22 },
-            { header: 'Thời Gian', key: 'createTime', width: 20 },
-            { header: 'Nhân Viên', key: 'employeeName', width: 18 },
-            { header: 'Sản Phẩm', key: 'goodsNames', width: 36 },
-            { header: 'SL', key: 'totalQty', width: 8 },
-            { header: 'Thực Thu (VND)', key: 'realMoney', width: 20 },
-            { header: 'Giảm Giá (VND)', key: 'discountMoney', width: 18 },
-            { header: 'Hoàn Huỷ (VND)', key: 'cancelMoney', width: 18 },
-            { header: 'Tiền Thuế (VND)', key: 'taxMoney', width: 18 },
-            { header: 'Thanh Toán', key: 'payModeNames', width: 20 },
-            { header: 'Trạng Thái', key: 'statusName', width: 14 },
-            { header: 'Quầy', key: 'terminalName', width: 14 },
-        ];
+        const activeCols = ordersColConfig
+            .filter(c => c.enabled)
+            .map(c => COL_DEFS_ORDERS.find(d => d.key === c.key))
+            .filter((d): d is ColDef => !!d);
+        ws.columns = activeCols;
 
         const hr = ws.getRow(1);
         hr.eachCell(cell => Object.assign(cell, HEADER_STYLE('FF4F46E5')));
         hr.height = 28;
 
         orders.forEach((o, idx) => {
-            const r = ws.addRow({
-                orderNumber: o.orderNumber,
-                createTime: o.createTime.slice(0, 16),
-                employeeName: o.employeeName,
-                goodsNames: o.goodsNames,
-                totalQty: o.totalQty,
-                realMoney: o.realMoney,
-                discountMoney: o.discountMoney,
-                cancelMoney: o.cancelMoney,
-                taxMoney: o.taxMoney,
-                payModeNames: o.payModeNames,
-                statusName: o.statusName,
-                terminalName: o.terminalName,
-            });
+            const rowData: Record<string, unknown> = {};
+            for (const col of activeCols) {
+                switch (col.key) {
+                    case 'orderNumber':   rowData[col.key] = o.orderNumber; break;
+                    case 'createTime':    rowData[col.key] = o.createTime.slice(0, 16); break;
+                    case 'employeeName':  rowData[col.key] = o.employeeName; break;
+                    case 'goodsNames':    rowData[col.key] = o.goodsNames; break;
+                    case 'totalQty':      rowData[col.key] = o.totalQty; break;
+                    case 'realMoney':     rowData[col.key] = o.realMoney; break;
+                    case 'discountMoney': rowData[col.key] = o.discountMoney; break;
+                    case 'cancelMoney':   rowData[col.key] = o.cancelMoney; break;
+                    case 'taxMoney':      rowData[col.key] = o.taxMoney; break;
+                    case 'payModeNames':  rowData[col.key] = o.payModeNames; break;
+                    case 'statusName':    rowData[col.key] = o.statusName; break;
+                    case 'terminalName':  rowData[col.key] = o.terminalName; break;
+                }
+            }
+            const r = ws.addRow(rowData);
             r.height = 20;
             const bg = idx % 2 === 0 ? 'FFFAFAFA' : 'FFFFFFFF';
-            r.eachCell((cell, col) => {
+            r.eachCell((cell, colNum) => {
+                const colKey = activeCols[colNum - 1]?.key ?? '';
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
-                cell.alignment = { vertical: 'middle', horizontal: col <= 2 || col >= 10 ? 'left' : 'right' };
+                cell.alignment = { vertical: 'middle', horizontal: LEFT_KEYS.has(colKey) ? 'left' : 'right' };
                 cell.border = { bottom: { style: 'thin', color: { argb: 'FFF1F5F9' } } };
-                if (col >= 6 && col <= 9) cell.numFmt = '#,##0';
+                if (MONEY_KEYS.has(colKey) || QTY_KEYS.has(colKey)) cell.numFmt = '#,##0';
             });
-            if (o.status === 3) r.getCell('realMoney').font = { bold: true, color: { argb: 'FF059669' } };
-            if (o.status === 4) r.getCell('realMoney').font = { color: { argb: 'FFD1D5DB' }, italic: true };
+            if (o.status === 3 && activeCols.some(c => c.key === 'realMoney'))
+                r.getCell('realMoney').font = { bold: true, color: { argb: 'FF059669' } };
+            if (o.status === 4 && activeCols.some(c => c.key === 'realMoney'))
+                r.getCell('realMoney').font = { color: { argb: 'FFD1D5DB' }, italic: true };
         });
 
         // Total row
-        const total = ws.addRow({
-            orderNumber: 'TỔNG CỘNG',
-            totalQty: orders.reduce((s, o) => s + o.totalQty, 0),
-            realMoney: orders.reduce((s, o) => s + o.realMoney, 0),
-            discountMoney: orders.reduce((s, o) => s + o.discountMoney, 0),
-            cancelMoney: orders.reduce((s, o) => s + o.cancelMoney, 0),
-            taxMoney: orders.reduce((s, o) => s + o.taxMoney, 0),
-        });
+        const totalData: Record<string, unknown> = {};
+        for (const col of activeCols) {
+            switch (col.key) {
+                case 'orderNumber':   totalData[col.key] = 'TỔNG CỘNG'; break;
+                case 'totalQty':      totalData[col.key] = orders.reduce((s, o) => s + o.totalQty, 0); break;
+                case 'realMoney':     totalData[col.key] = orders.reduce((s, o) => s + o.realMoney, 0); break;
+                case 'discountMoney': totalData[col.key] = orders.reduce((s, o) => s + o.discountMoney, 0); break;
+                case 'cancelMoney':   totalData[col.key] = orders.reduce((s, o) => s + o.cancelMoney, 0); break;
+                case 'taxMoney':      totalData[col.key] = orders.reduce((s, o) => s + o.taxMoney, 0); break;
+            }
+        }
+        if (!totalData['orderNumber'] && activeCols.length > 0)
+            totalData[activeCols[0].key] = 'TỔNG CỘNG';
+        const total = ws.addRow(totalData);
         total.height = 26;
-        total.eachCell((cell, col) => {
+        total.eachCell((cell, colNum) => {
+            const colKey = activeCols[colNum - 1]?.key ?? '';
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E7FF' } };
             cell.font = { bold: true, color: { argb: 'FF3730A3' } };
-            cell.alignment = { vertical: 'middle', horizontal: col === 1 ? 'left' : 'right' };
+            cell.alignment = { vertical: 'middle', horizontal: colNum === 1 ? 'left' : 'right' };
             cell.border = { top: { style: 'medium', color: { argb: 'FF6366F1' } } };
-            if (col >= 6 && col <= 9) cell.numFmt = '#,##0';
+            if (MONEY_KEYS.has(colKey) || QTY_KEYS.has(colKey)) cell.numFmt = '#,##0';
         });
 
     } else {
         // ── Sheet 1: Hàng hóa (by goods line) ────────────────────────────
         const ws = wb.addWorksheet('Hàng hóa', { views: [{ state: 'frozen', ySplit: 1 }] });
-        ws.columns = [
-            { header: 'Mã Đơn Hàng', key: 'orderNumber', width: 22 },
-            { header: 'Thời Gian', key: 'createTime', width: 20 },
-            { header: 'Tên Sản Phẩm', key: 'goodsName', width: 32 },
-            { header: 'Danh Mục', key: 'showCategoryName', width: 22 },
-            { header: 'Đơn Giá (VND)', key: 'price', width: 18 },
-            { header: 'SL', key: 'qty', width: 8 },
-            { header: 'Thành Tiền Trước Thuế (VND)', key: 'totalBeforeTax', width: 28 },
-            { header: 'Thuế (VND)', key: 'taxMoney', width: 16 },
-            { header: 'Thực Thu (VND)', key: 'realMoney', width: 20 },
-            { header: 'Thanh Toán', key: 'payModeNames', width: 20 },
-            { header: 'Nhân Viên', key: 'employeeName', width: 16 },
-            { header: 'Trạng Thái', key: 'statusName', width: 14 },
-        ];
+        const activeCols = goodsColConfig
+            .filter(c => c.enabled)
+            .map(c => COL_DEFS_GOODS.find(d => d.key === c.key))
+            .filter((d): d is ColDef => !!d);
+        ws.columns = activeCols;
 
         const hr = ws.getRow(1);
         hr.eachCell(cell => Object.assign(cell, HEADER_STYLE('FF065F46')));
         hr.height = 28;
 
         goods.forEach((g, idx) => {
-            const r = ws.addRow({
-                orderNumber: g.orderNumber,
-                createTime: g.createTime.slice(0, 16),
-                goodsName: goodsNameMap[g.goodsName] || g.goodsName,
-                showCategoryName: categoryNameMap[g.showCategoryName] || g.showCategoryName,
-                price: g.price,
-                qty: g.qty,
-                totalBeforeTax: g.totalBeforeTax,
-                taxMoney: g.taxMoney,
-                realMoney: g.realMoney,
-                payModeNames: g.payModeNames,
-                employeeName: g.employeeName,
-                statusName: g.statusName,
-            });
+            const rowData: Record<string, unknown> = {};
+            for (const col of activeCols) {
+                switch (col.key) {
+                    case 'orderNumber':      rowData[col.key] = g.orderNumber; break;
+                    case 'createTime':       rowData[col.key] = g.createTime.slice(0, 16); break;
+                    case 'goodsName':        rowData[col.key] = goodsNameMap[g.goodsName] || g.goodsName; break;
+                    case 'showCategoryName': rowData[col.key] = categoryNameMap[g.showCategoryName] || g.showCategoryName; break;
+                    case 'price':            rowData[col.key] = g.price; break;
+                    case 'qty':              rowData[col.key] = g.qty; break;
+                    case 'totalBeforeTax':   rowData[col.key] = g.totalBeforeTax; break;
+                    case 'taxMoney':         rowData[col.key] = g.taxMoney; break;
+                    case 'realMoney':        rowData[col.key] = g.realMoney; break;
+                    case 'payModeNames':     rowData[col.key] = g.payModeNames; break;
+                    case 'employeeName':     rowData[col.key] = g.employeeName; break;
+                    case 'statusName':       rowData[col.key] = g.statusName; break;
+                }
+            }
+            const r = ws.addRow(rowData);
             r.height = 20;
             const bg = idx % 2 === 0 ? 'FFFAFAFA' : 'FFFFFFFF';
-            r.eachCell((cell, col) => {
+            r.eachCell((cell, colNum) => {
+                const colKey = activeCols[colNum - 1]?.key ?? '';
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
-                cell.alignment = { vertical: 'middle', horizontal: col <= 2 || col >= 10 ? 'left' : 'right' };
+                cell.alignment = { vertical: 'middle', horizontal: LEFT_KEYS.has(colKey) ? 'left' : 'right' };
                 cell.border = { bottom: { style: 'thin', color: { argb: 'FFF1F5F9' } } };
-                if ([5, 7, 8, 9].includes(col)) cell.numFmt = '#,##0';
+                if (MONEY_KEYS.has(colKey) || QTY_KEYS.has(colKey)) cell.numFmt = '#,##0';
             });
-            r.getCell('realMoney').font = { bold: true, color: { argb: 'FF059669' } };
+            if (activeCols.some(c => c.key === 'realMoney'))
+                r.getCell('realMoney').font = { bold: true, color: { argb: 'FF059669' } };
         });
 
         // Total row
-        const total = ws.addRow({
-            orderNumber: 'TỔNG CỘNG',
-            qty: goods.reduce((s, g) => s + g.qty, 0),
-            totalBeforeTax: goods.reduce((s, g) => s + g.totalBeforeTax, 0),
-            taxMoney: goods.reduce((s, g) => s + g.taxMoney, 0),
-            realMoney: goods.reduce((s, g) => s + g.realMoney, 0),
-        });
+        const totalData: Record<string, unknown> = {};
+        for (const col of activeCols) {
+            switch (col.key) {
+                case 'orderNumber':    totalData[col.key] = 'TỔNG CỘNG'; break;
+                case 'qty':            totalData[col.key] = goods.reduce((s, g) => s + g.qty, 0); break;
+                case 'totalBeforeTax': totalData[col.key] = goods.reduce((s, g) => s + g.totalBeforeTax, 0); break;
+                case 'taxMoney':       totalData[col.key] = goods.reduce((s, g) => s + g.taxMoney, 0); break;
+                case 'realMoney':      totalData[col.key] = goods.reduce((s, g) => s + g.realMoney, 0); break;
+            }
+        }
+        if (!totalData['orderNumber'] && activeCols.length > 0)
+            totalData[activeCols[0].key] = 'TỔNG CỘNG';
+        const total = ws.addRow(totalData);
         total.height = 26;
-        total.eachCell((cell, col) => {
+        total.eachCell((cell, colNum) => {
+            const colKey = activeCols[colNum - 1]?.key ?? '';
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
             cell.font = { bold: true, color: { argb: 'FF065F46' } };
-            cell.alignment = { vertical: 'middle', horizontal: col === 1 ? 'left' : 'right' };
+            cell.alignment = { vertical: 'middle', horizontal: colNum === 1 ? 'left' : 'right' };
             cell.border = { top: { style: 'medium', color: { argb: 'FF10B981' } } };
-            if ([5, 7, 8, 9].includes(col)) cell.numFmt = '#,##0';
+            if (MONEY_KEYS.has(colKey) || QTY_KEYS.has(colKey)) cell.numFmt = '#,##0';
         });
 
         // ── Sheet 2: Tổng hợp theo sản phẩm ─────────────────────────────
@@ -738,10 +808,15 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
     const [savedFlash, setSavedFlash] = useState(false);
     const [bypassCustom, setBypassCustom] = useState(false);
     const overlayRef = useRef<HTMLDivElement>(null);
+    const [ordersColConfig, setOrdersColConfig] = useState<ColConfig>(() => loadColConfig(LS_ORDERS_COLS_KEY, COL_DEFS_ORDERS));
+    const [goodsColConfig, setGoodsColConfig] = useState<ColConfig>(() => loadColConfig(LS_GOODS_COLS_KEY, COL_DEFS_GOODS));
+    const [dragColIdx, setDragColIdx] = useState<number | null>(null);
 
     // Auto-save on every change
     useEffect(() => { saveToLS(LS_GOODS_KEY, goodsNameMap); }, [goodsNameMap]);
     useEffect(() => { saveToLS(LS_CATEGORY_KEY, categoryNameMap); }, [categoryNameMap]);
+    useEffect(() => { saveColConfig(LS_ORDERS_COLS_KEY, ordersColConfig); }, [ordersColConfig]);
+    useEffect(() => { saveColConfig(LS_GOODS_COLS_KEY, goodsColConfig); }, [goodsColConfig]);
 
     // Load product catalog + gift catalog in parallel when dialog opens (only once)
     useEffect(() => {
@@ -767,10 +842,15 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
     const goodsItems = useMemo(() => extractGoodsFromOrders(goods), [goods]);
     const categoryItems = useMemo(() => extractCategoriesFromOrders(goods), [goods]);
 
-    const currentItems = columnTarget === 'goods' ? goodsItems : categoryItems;
+    const currentItems = columnTarget === 'goods' ? goodsItems : columnTarget === 'category' ? categoryItems : [];
     const currentMap = columnTarget === 'goods' ? goodsNameMap : categoryNameMap;
     const setCurrentMap = columnTarget === 'goods' ? setGoodsNameMap : setCategoryNameMap;
     const customizedCount = Object.values(currentMap).filter(v => v !== '').length;
+
+    const activeColDefs = viewMode === 'orders' ? COL_DEFS_ORDERS : COL_DEFS_GOODS;
+    const activeColConfig = viewMode === 'orders' ? ordersColConfig : goodsColConfig;
+    const setActiveColConfig = viewMode === 'orders' ? setOrdersColConfig : setGoodsColConfig;
+    const enabledColCount = activeColConfig.filter(c => c.enabled).length;
 
     const filteredItems = useMemo(() => {
         let items = currentItems;
@@ -796,9 +876,11 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
     const handleManualSave = useCallback(() => {
         saveToLS(LS_GOODS_KEY, goodsNameMap);
         saveToLS(LS_CATEGORY_KEY, categoryNameMap);
+        saveColConfig(LS_ORDERS_COLS_KEY, ordersColConfig);
+        saveColConfig(LS_GOODS_COLS_KEY, goodsColConfig);
         setSavedFlash(true);
         setTimeout(() => setSavedFlash(false), 2000);
-    }, [goodsNameMap, categoryNameMap]);
+    }, [goodsNameMap, categoryNameMap, ordersColConfig, goodsColConfig]);
 
     const handleExport = useCallback(async () => {
         setIsExporting(true);
@@ -808,11 +890,13 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                 bypassCustom ? {} : goodsNameMap,
                 bypassCustom ? {} : categoryNameMap,
                 activeRange,
+                ordersColConfig,
+                goodsColConfig,
             );
         } finally {
             setIsExporting(false);
         }
-    }, [orders, goods, viewMode, goodsNameMap, categoryNameMap, activeRange, bypassCustom]);
+    }, [orders, goods, viewMode, goodsNameMap, categoryNameMap, activeRange, bypassCustom, ordersColConfig, goodsColConfig]);
 
     const handleExportQty = useCallback(async () => {
         setIsExportingQty(true);
@@ -893,28 +977,62 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                 )}
 
                 {/* ── Column Target Tabs ─────────────────────────────── */}
-                <div className="flex items-center gap-1.5 px-6 pt-4 pb-0 justify-between">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-surface-500 mr-1 whitespace-nowrap">Tùy chỉnh tên:</span>
+                <div className="flex items-center gap-2 px-6 pt-4 pb-0 justify-between flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-semibold text-surface-400 mr-0.5 whitespace-nowrap">Tùy chỉnh:</span>
                         {([
-                            { key: 'goods' as ColumnTarget, label: 'Tên sản phẩm', icon: <Package className="size-3.5" />, count: goodsItems.length, customized: Object.values(goodsNameMap).filter(v => v !== '').length },
-                            { key: 'category' as ColumnTarget, label: 'Tên danh mục', icon: <Layers className="size-3.5" />, count: categoryItems.length, customized: Object.values(categoryNameMap).filter(v => v !== '').length },
+                            {
+                                key: 'goods' as ColumnTarget,
+                                label: 'Tên sản phẩm',
+                                icon: <Package className="size-3.5" />,
+                                count: goodsItems.length,
+                                badge: Object.values(goodsNameMap).filter(v => v !== '').length || null,
+                                badgeFmt: (n: number) => `✓ ${n}`,
+                                activeColor: 'bg-emerald-600 shadow-emerald-200',
+                                badgeColor: 'bg-emerald-100 text-emerald-700',
+                            },
+                            {
+                                key: 'category' as ColumnTarget,
+                                label: 'Tên danh mục',
+                                icon: <Layers className="size-3.5" />,
+                                count: categoryItems.length,
+                                badge: Object.values(categoryNameMap).filter(v => v !== '').length || null,
+                                badgeFmt: (n: number) => `✓ ${n}`,
+                                activeColor: 'bg-emerald-600 shadow-emerald-200',
+                                badgeColor: 'bg-emerald-100 text-emerald-700',
+                            },
+                            {
+                                key: 'cols' as ColumnTarget,
+                                label: 'Cột xuất',
+                                icon: <Columns className="size-3.5" />,
+                                count: activeColDefs.length,
+                                badge: enabledColCount < activeColDefs.length ? enabledColCount : null,
+                                badgeFmt: (n: number) => `${n}/${activeColDefs.length}`,
+                                activeColor: 'bg-indigo-600 shadow-indigo-200',
+                                badgeColor: 'bg-indigo-100 text-indigo-700',
+                            },
                         ]).map(tab => (
                             <button
                                 key={tab.key}
                                 onClick={() => { setColumnTarget(tab.key); setSearch(''); setFilterMode('all'); }}
-                                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${columnTarget === tab.key
-                                    ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-200'
-                                    : 'text-surface-500 hover:text-surface-700 hover:bg-surface-100'}`}
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all shadow-sm ${
+                                    columnTarget === tab.key
+                                        ? `${tab.activeColor} text-white`
+                                        : 'text-surface-500 hover:text-surface-700 hover:bg-surface-100 shadow-none'
+                                }`}
                             >
                                 {tab.icon}
                                 {tab.label}
-                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${columnTarget === tab.key ? 'bg-white/25 text-white' : 'bg-surface-100 text-surface-500'}`}>
+                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                    columnTarget === tab.key ? 'bg-white/25 text-white' : 'bg-surface-100 text-surface-500'
+                                }`}>
                                     {tab.count}
                                 </span>
-                                {tab.customized > 0 && (
-                                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${columnTarget === tab.key ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
-                                        ✓ {tab.customized}
+                                {tab.badge !== null && tab.badge !== undefined && (
+                                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                        columnTarget === tab.key ? 'bg-white/20 text-white' : tab.badgeColor
+                                    }`}>
+                                        {tab.badgeFmt(tab.badge)}
                                     </span>
                                 )}
                             </button>
@@ -923,13 +1041,11 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                     {totalCustomized > 0 && (
                         <button
                             onClick={handleManualSave}
-                            className={`
-      flex items-center gap-2 px-4 py-2 text-xs rounded-xl text-sm font-semibold transition-all border
-      ${savedFlash
+                            className={`flex items-center gap-2 px-4 py-2 text-xs rounded-xl font-semibold transition-all border ${
+                                savedFlash
                                     ? 'bg-emerald-50 border-emerald-200 text-emerald-600 shadow-sm'
                                     : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm active:scale-95'
-                                }
-    `}
+                            }`}
                             title="Lưu cấu hình vào trình duyệt"
                         >
                             {savedFlash ? (
@@ -942,79 +1058,173 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                     )}
                 </div>
 
-                {/* ── Search + Filter bar ────────────────────────────── */}
-                <div className="flex items-center gap-2 px-6 py-3">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-surface-300 pointer-events-none" />
-                        <input
-                            type="text"
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            placeholder={`Tìm ${columnTarget === 'goods' ? 'sản phẩm' : 'danh mục'}...`}
-                            className="w-full text-xs pl-8 pr-3 py-2 rounded-xl border border-surface-200 bg-surface-50 text-surface-700 placeholder-surface-300 focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100 outline-none transition-all"
-                        />
-                    </div>
-                    <div className="flex items-center gap-1 bg-surface-100 rounded-xl p-0.5">
-                        {([
-                            { key: 'all', label: 'Tất cả' },
-                            { key: 'customized', label: '✓ Đã đổi' },
-                            { key: 'uncustomized', label: 'Chưa đổi' },
-                        ] as { key: typeof filterMode; label: string }[]).map(f => (
-                            <button
-                                key={f.key}
-                                onClick={() => setFilterMode(f.key)}
-                                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${filterMode === f.key
-                                    ? 'bg-white text-emerald-600 shadow-sm' : 'text-surface-400 hover:text-surface-600'}`}
-                            >
-                                {f.label}
-                            </button>
-                        ))}
-                    </div>
-                    {customizedCount > 0 && (
-                        <button
-                            onClick={handleResetAll}
-                            className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs text-danger-400 hover:text-danger-600 hover:bg-danger-50 transition-colors border border-transparent hover:border-danger-100"
-                        >
-                            <RotateCcw className="size-3" />
-                            Xóa hết
-                        </button>
-                    )}
-                </div>
-
-                {/* ── Item list info bar ─────────────────────────────── */}
-                <div className="px-6 pb-2 flex items-center justify-between">
-                    <p className="text-[10px] text-surface-400">
-                        Hiển thị <strong>{filteredItems.length}</strong> / {currentItems.length} {columnTarget === 'goods' ? 'sản phẩm' : 'danh mục'}
-                    </p>
-                    {customizedCount > 0 && (
-                        <p className="text-[10px] text-emerald-500 font-semibold">{customizedCount} tên đã tùy chỉnh</p>
-                    )}
-                </div>
-
-                {/* ── Scrollable item list ───────────────────────────── */}
-                <div className="flex-1 overflow-y-auto px-6 pb-2 space-y-0.5 scrollbar-thin" style={{ minHeight: 0 }}>
-                    {filteredItems.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-12 gap-3">
-                            <div className="w-12 h-12 rounded-2xl bg-surface-100 flex items-center justify-center">
-                                <AlertCircle className="size-6 text-surface-300" />
-                            </div>
-                            <p className="text-sm text-surface-400 font-medium">Không tìm thấy</p>
-                            <p className="text-xs text-surface-300">Thử điều chỉnh bộ lọc hoặc từ khóa tìm kiếm</p>
-                        </div>
-                    ) : (
-                        filteredItems.map((item: { name: string; revenue: number; category?: string }) => (
-                            <NameRow
-                                key={item.name}
-                                original={item.name}
-                                customized={currentMap[item.name] ?? ''}
-                                revenue={item.revenue}
-                                sub={'category' in item ? (item as { name: string; revenue: number; category: string }).category : undefined}
-                                onChange={val => handleChange(item.name, val)}
-                                onReset={() => handleReset(item.name)}
+                {/* ── Search + Filter bar (name tabs only) ───────────── */}
+                {columnTarget !== 'cols' && (
+                    <div className="flex items-center gap-2 px-6 py-3">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-surface-300 pointer-events-none" />
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                placeholder={`Tìm ${columnTarget === 'goods' ? 'sản phẩm' : 'danh mục'}...`}
+                                className="w-full text-xs pl-8 pr-3 py-2 rounded-xl border border-surface-200 bg-surface-50 text-surface-700 placeholder-surface-300 focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100 outline-none transition-all"
                             />
-                        ))
-                    )}
-                </div>
+                        </div>
+                        <div className="flex items-center gap-1 bg-surface-100 rounded-xl p-0.5">
+                            {([
+                                { key: 'all', label: 'Tất cả' },
+                                { key: 'customized', label: '✓ Đã đổi' },
+                                { key: 'uncustomized', label: 'Chưa đổi' },
+                            ] as { key: typeof filterMode; label: string }[]).map(f => (
+                                <button
+                                    key={f.key}
+                                    onClick={() => setFilterMode(f.key)}
+                                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${filterMode === f.key
+                                        ? 'bg-white text-emerald-600 shadow-sm' : 'text-surface-400 hover:text-surface-600'}`}
+                                >
+                                    {f.label}
+                                </button>
+                            ))}
+                        </div>
+                        {customizedCount > 0 && (
+                            <button
+                                onClick={handleResetAll}
+                                className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs text-danger-400 hover:text-danger-600 hover:bg-danger-50 transition-colors border border-transparent hover:border-danger-100"
+                            >
+                                <RotateCcw className="size-3" />
+                                Xóa hết
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {/* ── Item list info bar (name tabs only) ────────────── */}
+                {columnTarget !== 'cols' && (
+                    <div className="px-6 pb-2 flex items-center justify-between">
+                        <p className="text-[10px] text-surface-400">
+                            Hiển thị <strong>{filteredItems.length}</strong> / {currentItems.length} {columnTarget === 'goods' ? 'sản phẩm' : 'danh mục'}
+                        </p>
+                        {customizedCount > 0 && (
+                            <p className="text-[10px] text-emerald-500 font-semibold">{customizedCount} tên đã tùy chỉnh</p>
+                        )}
+                    </div>
+                )}
+
+                {/* ── Scrollable content ─────────────────────────────── */}
+                {columnTarget === 'cols' ? (
+                    /* ── Column Manager ─────────────────────────────── */
+                    <div className="flex-1 overflow-y-auto px-5 pb-4 scrollbar-thin" style={{ minHeight: 0 }}>
+                        {/* Controls */}
+                        <div className="flex items-center justify-between py-3">
+                            <p className="text-[11px] text-surface-500">
+                                <span className="font-bold text-surface-700">{enabledColCount}</span>/{activeColDefs.length} cột được chọn
+                                {enabledColCount < activeColDefs.length && (
+                                    <span className="ml-1.5 text-indigo-500 font-medium">· {activeColDefs.length - enabledColCount} ẩn</span>
+                                )}
+                            </p>
+                            <div className="flex gap-1.5">
+                                <button
+                                    onClick={() => setActiveColConfig(prev => prev.map(c => ({ ...c, enabled: true })))}
+                                    className="text-[11px] px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors font-semibold"
+                                >Chọn tất cả</button>
+                                <button
+                                    onClick={() => setActiveColConfig(prev => prev.map(c => ({ ...c, enabled: false })))}
+                                    className="text-[11px] px-2.5 py-1 rounded-lg bg-surface-100 text-surface-500 hover:bg-surface-200 transition-colors font-medium"
+                                >Bỏ chọn</button>
+                                <button
+                                    onClick={() => setActiveColConfig(activeColDefs.map(d => ({ key: d.key, enabled: true })))}
+                                    className="text-[11px] px-2.5 py-1 rounded-lg bg-surface-100 text-surface-500 hover:bg-surface-200 transition-colors font-medium"
+                                >Mặc định</button>
+                            </div>
+                        </div>
+                        {/* Hint */}
+                        <p className="text-[10px] text-surface-300 mb-2.5 flex items-center gap-1">
+                            <GripVertical className="size-3" /> Kéo thả để thay đổi thứ tự cột trong file Excel
+                        </p>
+                        {/* Column list */}
+                        <div className="space-y-1.5">
+                            {activeColConfig.map((col, idx) => {
+                                const def = activeColDefs.find(d => d.key === col.key);
+                                if (!def) return null;
+                                return (
+                                    <div
+                                        key={col.key}
+                                        draggable
+                                        onDragStart={() => setDragColIdx(idx)}
+                                        onDragOver={e => {
+                                            e.preventDefault();
+                                            if (dragColIdx === null || dragColIdx === idx) return;
+                                            setActiveColConfig(prev => {
+                                                const next = [...prev];
+                                                const [removed] = next.splice(dragColIdx, 1);
+                                                next.splice(idx, 0, removed);
+                                                return next;
+                                            });
+                                            setDragColIdx(idx);
+                                        }}
+                                        onDragEnd={() => setDragColIdx(null)}
+                                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border select-none transition-all
+                                            cursor-grab active:cursor-grabbing
+                                            ${ dragColIdx === idx
+                                                ? 'opacity-50 scale-[0.98] border-indigo-200 bg-indigo-50/60'
+                                                : col.enabled
+                                                    ? 'border-surface-100 hover:border-indigo-200 hover:bg-indigo-50/30 bg-white'
+                                                    : 'border-surface-100 bg-surface-50/50 opacity-50'
+                                            }`}
+                                    >
+                                        <GripVertical className="size-4 text-surface-300 shrink-0" />
+                                        <span className="text-[10px] font-mono text-surface-300 w-4 text-center shrink-0">{idx + 1}</span>
+                                        <span className={`flex-1 text-xs font-medium truncate ${
+                                            col.enabled ? 'text-surface-700' : 'text-surface-300 line-through'
+                                        }`}>
+                                            {def.header}
+                                        </span>
+                                        {/* Toggle switch */}
+                                        <button
+                                            onClick={() => setActiveColConfig(prev =>
+                                                prev.map((c, i) => i === idx ? { ...c, enabled: !c.enabled } : c)
+                                            )}
+                                            className={`relative w-9 h-5 rounded-full transition-colors shrink-0 focus:outline-none ${
+                                                col.enabled ? 'bg-indigo-500' : 'bg-surface-200'
+                                            }`}
+                                            title={col.enabled ? 'Ẩn cột này' : 'Hiện cột này'}
+                                        >
+                                            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                                                col.enabled ? 'translate-x-4' : 'translate-x-0'
+                                            }`} />
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ) : (
+                    /* ── Name editor list ─────────────────────────────── */
+                    <div className="flex-1 overflow-y-auto px-6 pb-2 space-y-0.5 scrollbar-thin" style={{ minHeight: 0 }}>
+                        {filteredItems.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 gap-3">
+                                <div className="w-12 h-12 rounded-2xl bg-surface-100 flex items-center justify-center">
+                                    <AlertCircle className="size-6 text-surface-300" />
+                                </div>
+                                <p className="text-sm text-surface-400 font-medium">Không tìm thấy</p>
+                                <p className="text-xs text-surface-300">Thử điều chỉnh bộ lọc hoặc từ khóa tìm kiếm</p>
+                            </div>
+                        ) : (
+                            filteredItems.map((item: { name: string; revenue: number; category?: string }) => (
+                                <NameRow
+                                    key={item.name}
+                                    original={item.name}
+                                    customized={currentMap[item.name] ?? ''}
+                                    revenue={item.revenue}
+                                    sub={'category' in item ? (item as { name: string; revenue: number; category: string }).category : undefined}
+                                    onChange={val => handleChange(item.name, val)}
+                                    onReset={() => handleReset(item.name)}
+                                />
+                            ))
+                        )}
+                    </div>
+                )}
 
                 {/* ── Footer ────────────────────────────────────────── */}
                 <div className="px-6 py-4 border-t border-surface-100 bg-surface-50/50 flex items-center justify-between gap-4 rounded-b-3xl flex-col">
