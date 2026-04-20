@@ -5,18 +5,19 @@ import {
     FileSpreadsheet, X, Search, RotateCcw, Download,
     Wand2, Tag, Package, CheckCircle2, AlertCircle, Layers,
     ShoppingCart, Save, FileDown, RefreshCw,
-    FileBarChart, GripVertical, Columns,
+    FileBarChart, GripVertical, Columns, AlignJustify, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import type { OrderRecord, GoodsRecord, ProductCatalogItem, GiftCatalogItem } from './actions';
 import { fetchProductCatalog, fetchGiftCatalog } from './actions';
 
 // ── Types ────────────────────────────────────────────────────────────────────
-type ColumnTarget = 'goods' | 'category' | 'cols';
+type ColumnTarget = 'goods' | 'category' | 'cols' | 'rows';
 type ViewMode = 'orders' | 'goods';
 
 interface NameMap { [originalName: string]: string; }
 interface ColDef { key: string; header: string; width: number; }
 type ColConfig = { key: string; enabled: boolean }[];
+type RowGroupConfig = { typeName: string; items: string[] }[];
 
 interface Props {
     open: boolean;
@@ -32,6 +33,7 @@ const LS_GOODS_KEY      = 'orders_export_goods_name_map';
 const LS_CATEGORY_KEY   = 'orders_export_category_name_map';
 const LS_ORDERS_COLS_KEY = 'orders_export_orders_cols';
 const LS_GOODS_COLS_KEY  = 'orders_export_goods_cols';
+const LS_ROW_CONFIG_KEY  = 'orders_export_row_config';
 
 function loadFromLS(key: string): NameMap {
     if (typeof window === 'undefined') return {};
@@ -66,6 +68,45 @@ function loadColConfig(lsKey: string, defs: ColDef[]): ColConfig {
 function saveColConfig(lsKey: string, config: ColConfig) {
     if (typeof window === 'undefined') return;
     try { localStorage.setItem(lsKey, JSON.stringify(config)); } catch { /* quota exceeded */ }
+}
+
+function buildDefaultRowConfig(catalog: ProductCatalogItem[]): RowGroupConfig {
+    const typeMap = new Map<string, string[]>();
+    for (const item of catalog) {
+        const t = item.typeName || 'Khác';
+        if (!typeMap.has(t)) typeMap.set(t, []);
+        typeMap.get(t)!.push(item.name);
+    }
+    return Array.from(typeMap.entries()).map(([typeName, items]) => ({ typeName, items }));
+}
+
+function mergeRowConfig(saved: RowGroupConfig, catalog: ProductCatalogItem[]): RowGroupConfig {
+    const catalogDefault = buildDefaultRowConfig(catalog);
+    const savedTypeNames = new Set(saved.map(g => g.typeName));
+    const merged = saved.map(sg => {
+        const cg = catalogDefault.find(c => c.typeName === sg.typeName);
+        if (!cg) return sg;
+        const existing = new Set(sg.items);
+        const newItems = cg.items.filter(n => !existing.has(n));
+        return { ...sg, items: [...sg.items, ...newItems] };
+    });
+    for (const cg of catalogDefault) {
+        if (!savedTypeNames.has(cg.typeName)) merged.push(cg);
+    }
+    return merged;
+}
+
+function loadRowConfig(): RowGroupConfig {
+    if (typeof window === 'undefined') return [];
+    try {
+        const raw = localStorage.getItem(LS_ROW_CONFIG_KEY);
+        return raw ? (JSON.parse(raw) as RowGroupConfig) : [];
+    } catch { return []; }
+}
+
+function saveRowConfig(config: RowGroupConfig) {
+    if (typeof window === 'undefined') return;
+    try { localStorage.setItem(LS_ROW_CONFIG_KEY, JSON.stringify(config)); } catch { /* quota exceeded */ }
 }
 
 // ── Column Definitions ───────────────────────────────────────────────────────
@@ -419,6 +460,7 @@ async function exportQtySummary(
     goodsNameMap: NameMap,
     categoryNameMap: NameMap,
     activeRange: string,
+    rowConfig: RowGroupConfig = [],
 ) {
     const excelMod = await import('exceljs');
     const ExcelJS = excelMod.default || excelMod;
@@ -542,24 +584,58 @@ async function exportQtySummary(
         typeMap.get(t)!.push(item);
     }
 
-    const sortedTypes = Array.from(typeMap.entries())
-        .map(([typeName, items]) => ({
-            typeName,
-            items,
-            totalRevenue: items.reduce((s, i) => s + (statsMap.get(i.name)?.revenue ?? 0), 0),
-        }))
-        .sort((a, b) => b.totalRevenue - a.totalRevenue || a.typeName.localeCompare(b.typeName));
+    // ── Apply rowConfig ordering (or default: sort by revenue) ─────────────
+    const useCustomOrder = rowConfig.length > 0;
+    let sortedTypes: { typeName: string; items: ProductCatalogItem[]; totalRevenue: number }[];
+
+    if (useCustomOrder) {
+        sortedTypes = [];
+        const configTypeNames = new Set(rowConfig.map(rc => rc.typeName));
+        for (const rc of rowConfig) {
+            const catalogItems = typeMap.get(rc.typeName);
+            if (!catalogItems) continue;
+            // order items per config; append new items not in config at end
+            const configItemSet = new Set(rc.items);
+            const orderedItems = [
+                ...rc.items.map(name => catalogItems.find(i => i.name === name)).filter((i): i is ProductCatalogItem => !!i),
+                ...catalogItems.filter(i => !configItemSet.has(i.name)),
+            ];
+            sortedTypes.push({
+                typeName: rc.typeName,
+                items: orderedItems,
+                totalRevenue: catalogItems.reduce((s, i) => s + (statsMap.get(i.name)?.revenue ?? 0), 0),
+            });
+        }
+        // append groups from catalog not in config
+        for (const [typeName, catalogItems] of typeMap.entries()) {
+            if (!configTypeNames.has(typeName)) {
+                sortedTypes.push({
+                    typeName,
+                    items: catalogItems,
+                    totalRevenue: catalogItems.reduce((s, i) => s + (statsMap.get(i.name)?.revenue ?? 0), 0),
+                });
+            }
+        }
+    } else {
+        sortedTypes = Array.from(typeMap.entries())
+            .map(([typeName, items]) => ({
+                typeName,
+                items,
+                totalRevenue: items.reduce((s, i) => s + (statsMap.get(i.name)?.revenue ?? 0), 0),
+            }))
+            .sort((a, b) => b.totalRevenue - a.totalRevenue || a.typeName.localeCompare(b.typeName));
+    }
 
     let gQty = 0, gRevenue = 0, gCash = 0, gTransfer = 0;
     let rowIdx = 0;
 
-    for (const { typeName, items, totalRevenue } of sortedTypes) {
+    for (const { typeName, items: typeItems, totalRevenue } of sortedTypes) {
         const displayCat = categoryNameMap[typeName] || typeName;
-        const kindLabel = items[0]?.categoryType === 'coin' ? 'Gói thẻ' : 'Vé';
+        const kindLabel = typeItems[0]?.categoryType === 'coin' ? 'Gói thẻ' : 'Vé';
 
-        const catQty = items.reduce((s, i) => s + (statsMap.get(i.name)?.qty ?? 0), 0);
-        const catCash = items.reduce((s, i) => s + (statsMap.get(i.name)?.cash ?? 0), 0);
-        const catTransfer = items.reduce((s, i) => s + (statsMap.get(i.name)?.transfer ?? 0), 0);
+        const catQty = typeItems.reduce((s, i) => s + (statsMap.get(i.name)?.qty ?? 0), 0);
+        const catCash = typeItems.reduce((s, i) => s + (statsMap.get(i.name)?.cash ?? 0), 0);
+        const catTransfer = typeItems.reduce((s, i) => s + (statsMap.get(i.name)?.transfer ?? 0), 0);
 
         // Category header
         const catRow = ws.addRow({ kind: kindLabel, category: displayCat, goodsName: '', qty: catQty, revenue: totalRevenue, cash: catCash, transfer: catTransfer });
@@ -573,11 +649,14 @@ async function exportQtySummary(
             if (col >= 5) cell.numFmt = numFmtMoney;
         });
 
-        const sortedItems = [...items].sort((a, b) => {
-            const ra = statsMap.get(a.name)?.revenue ?? 0;
-            const rb = statsMap.get(b.name)?.revenue ?? 0;
-            return rb - ra || a.name.localeCompare(b.name);
-        });
+        // items already ordered when useCustomOrder; otherwise sort by revenue desc
+        const sortedItems = useCustomOrder
+            ? typeItems
+            : [...typeItems].sort((a, b) => {
+                const ra = statsMap.get(a.name)?.revenue ?? 0;
+                const rb = statsMap.get(b.name)?.revenue ?? 0;
+                return rb - ra || a.name.localeCompare(b.name);
+            });
 
         for (const item of sortedItems) {
             const st = statsMap.get(item.name);
@@ -815,12 +894,28 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
     const [ordersColConfig, setOrdersColConfig] = useState<ColConfig>(() => loadColConfig(LS_ORDERS_COLS_KEY, COL_DEFS_ORDERS));
     const [goodsColConfig, setGoodsColConfig] = useState<ColConfig>(() => loadColConfig(LS_GOODS_COLS_KEY, COL_DEFS_GOODS));
     const [dragColIdx, setDragColIdx] = useState<number | null>(null);
+    const [rowConfig, setRowConfig] = useState<RowGroupConfig>(() => loadRowConfig());
+    const [rowDragState, setRowDragState] = useState<
+        | { level: 'group'; groupIdx: number }
+        | { level: 'item'; groupIdx: number; itemIdx: number }
+        | null
+    >(null);
+    const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
     // Auto-save on every change
     useEffect(() => { saveToLS(LS_GOODS_KEY, goodsNameMap); }, [goodsNameMap]);
     useEffect(() => { saveToLS(LS_CATEGORY_KEY, categoryNameMap); }, [categoryNameMap]);
     useEffect(() => { saveColConfig(LS_ORDERS_COLS_KEY, ordersColConfig); }, [ordersColConfig]);
     useEffect(() => { saveColConfig(LS_GOODS_COLS_KEY, goodsColConfig); }, [goodsColConfig]);
+    useEffect(() => { if (rowConfig.length > 0) saveRowConfig(rowConfig); }, [rowConfig]);
+
+    // Initialise / merge rowConfig whenever catalog is available
+    useEffect(() => {
+        if (catalog.length === 0) return;
+        setRowConfig(prev =>
+            prev.length === 0 ? buildDefaultRowConfig(catalog) : mergeRowConfig(prev, catalog)
+        );
+    }, [catalog]);
 
     // Load product catalog + gift catalog in parallel when dialog opens (only once)
     useEffect(() => {
@@ -882,9 +977,10 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
         saveToLS(LS_CATEGORY_KEY, categoryNameMap);
         saveColConfig(LS_ORDERS_COLS_KEY, ordersColConfig);
         saveColConfig(LS_GOODS_COLS_KEY, goodsColConfig);
+        saveRowConfig(rowConfig);
         setSavedFlash(true);
         setTimeout(() => setSavedFlash(false), 2000);
-    }, [goodsNameMap, categoryNameMap, ordersColConfig, goodsColConfig]);
+    }, [goodsNameMap, categoryNameMap, ordersColConfig, goodsColConfig, rowConfig]);
 
     const handleExport = useCallback(async () => {
         setIsExporting(true);
@@ -912,11 +1008,12 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                 bypassCustom ? {} : goodsNameMap,
                 bypassCustom ? {} : categoryNameMap,
                 activeRange,
+                rowConfig,
             );
         } finally {
             setIsExportingQty(false);
         }
-    }, [goods, catalog, giftCatalog, goodsNameMap, categoryNameMap, activeRange, bypassCustom]);
+    }, [goods, catalog, giftCatalog, goodsNameMap, categoryNameMap, activeRange, bypassCustom, rowConfig]);
 
     const handleOverlayClick = useCallback((e: React.MouseEvent) => {
         if (e.target === overlayRef.current) onClose();
@@ -1015,6 +1112,16 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                                 activeColor: 'bg-indigo-600 shadow-indigo-200',
                                 badgeColor: 'bg-indigo-100 text-indigo-700',
                             },
+                            {
+                                key: 'rows' as ColumnTarget,
+                                label: 'Thứ tự hàng',
+                                icon: <AlignJustify className="size-3.5" />,
+                                count: rowConfig.length,
+                                badge: null,
+                                badgeFmt: (n: number) => `${n}`,
+                                activeColor: 'bg-violet-600 shadow-violet-200',
+                                badgeColor: 'bg-violet-100 text-violet-700',
+                            },
                         ]).map(tab => (
                             <button
                                 key={tab.key}
@@ -1063,7 +1170,7 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                 </div>
 
                 {/* ── Search + Filter bar (name tabs only) ───────────── */}
-                {columnTarget !== 'cols' && (
+                {columnTarget !== 'cols' && columnTarget !== 'rows' && (
                     <div className="flex items-center gap-2 px-6 py-3">
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-surface-300 pointer-events-none" />
@@ -1104,7 +1211,7 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                 )}
 
                 {/* ── Item list info bar (name tabs only) ────────────── */}
-                {columnTarget !== 'cols' && (
+                {columnTarget !== 'cols' && columnTarget !== 'rows' && (
                     <div className="px-6 pb-2 flex items-center justify-between">
                         <p className="text-[10px] text-surface-400">
                             Hiển thị <strong>{filteredItems.length}</strong> / {currentItems.length} {columnTarget === 'goods' ? 'sản phẩm' : 'danh mục'}
@@ -1116,7 +1223,142 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                 )}
 
                 {/* ── Scrollable content ─────────────────────────────── */}
-                {columnTarget === 'cols' ? (
+                {columnTarget === 'rows' ? (
+                    /* ── Row Order Manager ──────────────────────────── */
+                    <div className="flex-1 overflow-y-auto px-5 pb-4 scrollbar-thin" style={{ minHeight: 0 }}>
+                        {/* Controls */}
+                        <div className="flex items-center justify-between py-3">
+                            <p className="text-[11px] text-surface-500">
+                                <span className="font-bold text-surface-700">{rowConfig.length}</span> nhóm
+                                {catalogLoading && <span className="ml-2 text-violet-400 animate-pulse">· Đang tải catalog...</span>}
+                            </p>
+                            <div className="flex gap-1.5">
+                                <button
+                                    onClick={() => setExpandedGroups(prev => {
+                                        if (prev.size === rowConfig.length) return new Set();
+                                        return new Set(rowConfig.map(g => g.typeName));
+                                    })}
+                                    className="text-[11px] px-2.5 py-1 rounded-lg bg-violet-50 text-violet-600 hover:bg-violet-100 transition-colors font-semibold"
+                                >
+                                    {expandedGroups.size === rowConfig.length ? 'Thu gọn' : 'Mở rộng ↕'}
+                                </button>
+                                <button
+                                    onClick={() => setRowConfig(buildDefaultRowConfig(catalog))}
+                                    disabled={catalog.length === 0}
+                                    className="text-[11px] px-2.5 py-1 rounded-lg bg-surface-100 text-surface-500 hover:bg-surface-200 transition-colors font-medium disabled:opacity-40"
+                                >Mặc định</button>
+                            </div>
+                        </div>
+                        {/* Hint */}
+                        <p className="text-[10px] text-surface-300 mb-2.5 flex items-center gap-1">
+                            <GripVertical className="size-3" /> Kéo nhóm để đổi thứ tự nhóm · Mở rộng để kéo từng sản phẩm trong nhóm
+                        </p>
+                        {catalog.length === 0 && !catalogLoading && (
+                            <div className="flex flex-col items-center justify-center py-10 gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-surface-100 flex items-center justify-center">
+                                    <AlertCircle className="size-5 text-surface-300" />
+                                </div>
+                                <p className="text-xs text-surface-400">Catalog chưa tải — mở dialog để catalog load tự động</p>
+                            </div>
+                        )}
+                        {/* Group list */}
+                        <div className="space-y-2">
+                            {rowConfig.map((group, gIdx) => {
+                                const isExpanded = expandedGroups.has(group.typeName);
+                                const isDraggingGroup = rowDragState?.level === 'group' && rowDragState.groupIdx === gIdx;
+                                return (
+                                    <div key={group.typeName} className="rounded-xl border border-surface-100 overflow-hidden">
+                                        {/* Group header row — draggable */}
+                                        <div
+                                            draggable
+                                            onDragStart={() => setRowDragState({ level: 'group', groupIdx: gIdx })}
+                                            onDragOver={e => {
+                                                e.preventDefault();
+                                                if (!rowDragState || rowDragState.level !== 'group') return;
+                                                const from = rowDragState.groupIdx;
+                                                if (from === gIdx) return;
+                                                setRowConfig(prev => {
+                                                    const next = [...prev];
+                                                    const [removed] = next.splice(from, 1);
+                                                    next.splice(gIdx, 0, removed);
+                                                    return next;
+                                                });
+                                                setRowDragState({ level: 'group', groupIdx: gIdx });
+                                            }}
+                                            onDragEnd={() => setRowDragState(null)}
+                                            className={`flex items-center gap-3 px-3 py-2.5 select-none cursor-grab active:cursor-grabbing transition-all
+                                                ${ isDraggingGroup
+                                                    ? 'opacity-50 bg-violet-50'
+                                                    : 'bg-white hover:bg-violet-50/40'
+                                                }`}
+                                        >
+                                            <GripVertical className="size-4 text-surface-300 shrink-0" />
+                                            <span className="text-[10px] font-mono text-surface-300 w-4 text-center shrink-0">{gIdx + 1}</span>
+                                            <span className="flex-1 text-xs font-semibold text-surface-700 truncate">
+                                                {group.typeName}
+                                            </span>
+                                            <span className="text-[10px] text-surface-400 shrink-0">{group.items.length} sản phẩm</span>
+                                            <button
+                                                onClick={() => setExpandedGroups(prev => {
+                                                    const next = new Set(prev);
+                                                    if (next.has(group.typeName)) next.delete(group.typeName);
+                                                    else next.add(group.typeName);
+                                                    return next;
+                                                })}
+                                                className="shrink-0 p-1 rounded-lg hover:bg-surface-100 transition-colors text-surface-400"
+                                            >
+                                                {isExpanded
+                                                    ? <ChevronDown className="size-3.5" />
+                                                    : <ChevronRight className="size-3.5" />}
+                                            </button>
+                                        </div>
+                                        {/* Item rows — shown when expanded */}
+                                        {isExpanded && (
+                                            <div className="border-t border-surface-100 bg-surface-50/50">
+                                                {group.items.map((itemName, iIdx) => {
+                                                    const isDraggingItem =
+                                                        rowDragState?.level === 'item' &&
+                                                        rowDragState.groupIdx === gIdx &&
+                                                        rowDragState.itemIdx === iIdx;
+                                                    return (
+                                                        <div
+                                                            key={itemName}
+                                                            draggable
+                                                            onDragStart={() => setRowDragState({ level: 'item', groupIdx: gIdx, itemIdx: iIdx })}
+                                                            onDragOver={e => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                if (!rowDragState || rowDragState.level !== 'item') return;
+                                                                if (rowDragState.groupIdx !== gIdx) return;
+                                                                const from = rowDragState.itemIdx;
+                                                                if (from === iIdx) return;
+                                                                setRowConfig(prev => prev.map((g, gi) => {
+                                                                    if (gi !== gIdx) return g;
+                                                                    const items = [...g.items];
+                                                                    const [removed] = items.splice(from, 1);
+                                                                    items.splice(iIdx, 0, removed);
+                                                                    return { ...g, items };
+                                                                }));
+                                                                setRowDragState({ level: 'item', groupIdx: gIdx, itemIdx: iIdx });
+                                                            }}
+                                                            onDragEnd={() => setRowDragState(null)}
+                                                            className={`flex items-center gap-3 pl-10 pr-3 py-2 select-none cursor-grab active:cursor-grabbing border-b border-surface-100 last:border-0 transition-all
+                                                                ${ isDraggingItem ? 'opacity-50 bg-violet-100/60' : 'hover:bg-violet-50/30' }`}
+                                                        >
+                                                            <GripVertical className="size-3.5 text-surface-300 shrink-0" />
+                                                            <span className="text-[10px] font-mono text-surface-300 w-5 text-center shrink-0">{iIdx + 1}</span>
+                                                            <span className="flex-1 text-[11px] text-surface-600 truncate">{itemName}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ) : columnTarget === 'cols' ? (
                     /* ── Column Manager ─────────────────────────────── */
                     <div className="flex-1 overflow-y-auto px-5 pb-4 scrollbar-thin" style={{ minHeight: 0 }}>
                         {/* Controls */}
