@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import MobilePageShell from '@/components/mobile/MobilePageShell';
 import { QRCodeCanvas } from 'qrcode.react';
 import BottomSheet from '@/components/shared/BottomSheet';
+import { useMobileTranslation } from '@/lib/i18n';
 
 // ── Helpers ───────────────────────────────────────────────────
 type TxWithName = PointTransactionDoc & { employeeName?: string };
@@ -34,19 +35,19 @@ function dateKey(iso: string) {
     catch { return iso; }
 }
 
-function txTypeLabel(tx: PointTransactionDoc) {
+function txTypeLabel(tx: PointTransactionDoc, tr: (key: string) => string) {
     const t = tx.type || 'earned';
-    if (t === 'manual_adjustment') return tx.points > 0 ? 'Cộng thủ công' : 'Trừ thủ công';
-    if (t === 'refund_revocation') return 'Thu hồi';
-    return 'Tích điểm';
+    if (t === 'manual_adjustment') return tx.points > 0 ? tr('referral.typeManualAdd') : tr('referral.typeManualSubtract');
+    if (t === 'refund_revocation') return tr('referral.typeRevocation');
+    return tr('referral.typeEarned');
 }
 
-function pendingStatusConfig(status: PendingReferralDoc['status']) {
-    if (status === 'waiting') return { label: 'Đang chờ', color: 'bg-amber-50 text-amber-700 border-amber-200', icon: Hourglass };
-    if (status === 'matched') return { label: 'Đã khớp', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle };
-    if (status === 'no_order') return { label: 'Không có đơn', color: 'bg-orange-50 text-orange-600 border-orange-200', icon: XCircle };
-    if (status === 'revoked') return { label: 'Đã thu hồi', color: 'bg-red-50 text-red-600 border-red-200', icon: Ban };
-    return { label: 'Hết hạn', color: 'bg-gray-100 text-gray-500 border-gray-200', icon: XCircle };
+function pendingStatusConfig(status: PendingReferralDoc['status'], tr: (key: string) => string) {
+    if (status === 'waiting') return { label: tr('referral.statusWaiting'), color: 'bg-amber-50 text-amber-700 border-amber-200', icon: Hourglass };
+    if (status === 'matched') return { label: tr('referral.statusMatched'), color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle };
+    if (status === 'no_order') return { label: tr('referral.statusNoOrder'), color: 'bg-orange-50 text-orange-600 border-orange-200', icon: XCircle };
+    if (status === 'revoked') return { label: tr('referral.statusRevoked'), color: 'bg-red-50 text-red-600 border-red-200', icon: Ban };
+    return { label: tr('referral.statusExpired'), color: 'bg-gray-100 text-gray-500 border-gray-200', icon: XCircle };
 }
 
 function txPointColor(tx: PointTransactionDoc) {
@@ -58,6 +59,7 @@ function txPointColor(tx: PointTransactionDoc) {
 // ── Page ──────────────────────────────────────────────────────
 export default function ReferralHistoryPage() {
     const { user, userDoc, hasPermission, loading: authLoading } = useAuth();
+    const { t } = useMobileTranslation();
 
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
     const canViewStore = isAdmin || hasPermission('page.referral.history');
@@ -164,7 +166,7 @@ export default function ReferralHistoryPage() {
         const res = await adjustPoints({ employeeId: empId, amount, reason: adjReason.trim(), adminId: user.uid });
         setAdjSubmitting(false);
         if (res.success) {
-            setFeedback({ type: 'success', text: `Đã ${amount > 0 ? 'cộng' : 'trừ'} ${Math.abs(amount)} điểm.` });
+            setFeedback({ type: 'success', text: t('referral.adjustedPoints', { action: amount > 0 ? t('referral.adjustAdd') : t('referral.adjustSubtract'), amount: String(Math.abs(amount)) }) });
             setShowAdjust(false); setAdjAmount(''); setAdjReason(''); setAdjTarget('');
             loadData();
         } else setFeedback({ type: 'error', text: res.error || 'Lỗi.' });
@@ -177,7 +179,7 @@ export default function ReferralHistoryPage() {
         const res = await revokeTransaction({ transactionId: revokeTarget.id, employeeId: revokeTarget.employeeId, originalPoints: revokeTarget.points, adminId: user.uid });
         setRevoking(false);
         if (res.success) {
-            setFeedback({ type: 'success', text: `Đã thu hồi ${revokeTarget.points} điểm.` });
+            setFeedback({ type: 'success', text: t('referral.revokedPoints', { points: String(revokeTarget.points) }) });
             setRevokeTarget(null);
             loadData();
         } else setFeedback({ type: 'error', text: res.error || 'Lỗi.' });
@@ -225,29 +227,29 @@ export default function ReferralHistoryPage() {
             if (data.success) {
                 const r = data.results || {};
                 const parts: string[] = [];
-                if (r.matched > 0) parts.push(`✅ ${r.matched} khớp mới`);
-                if (r.rematched > 0) parts.push(`🔄 ${r.rematched} khớp lại`);
-                if (r.expired > 0) parts.push(`⏰ ${r.expired} hết hạn`);
-                if (r.revoked > 0) parts.push(`❌ ${r.revoked} thu hồi`);
+                if (r.matched > 0) parts.push(`✅ ${r.matched} ${t('referral.matched')}`);
+                if (r.rematched > 0) parts.push(`🔄 ${r.rematched} ${t('referral.rematched')}`);
+                if (r.expired > 0) parts.push(`⏰ ${r.expired} ${t('referral.expired')}`);
+                if (r.revoked > 0) parts.push(`❌ ${r.revoked} ${t('referral.revoked')}`);
                 const msg = parts.length > 0
-                    ? `Đồng bộ xong (${data.totalOrders} đơn): ${parts.join(', ')}`
-                    : `Đã kiểm tra ${data.totalOrders} đơn hàng. Không có thay đổi.`;
+                    ? t('referral.syncDone', { totalOrders: String(data.totalOrders), details: parts.join(', ') })
+                    : t('referral.syncNoChanges', { totalOrders: String(data.totalOrders) });
                 setFeedback({ type: (r.matched > 0 || r.rematched > 0) ? 'success' : 'error', text: msg });
                 loadData();
             } else {
-                setFeedback({ type: 'error', text: data.error || 'Lỗi đồng bộ.' });
+                setFeedback({ type: 'error', text: data.error || t('referral.syncError') });
             }
         } catch {
-            setFeedback({ type: 'error', text: 'Không thể kết nối đến Joy World.' });
+            setFeedback({ type: 'error', text: t('referral.syncConnectionError') });
         } finally {
             setSyncing(false);
         }
     };
 
-    if (authLoading) return <MobilePageShell title="Lịch sử tích điểm"><div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-amber-500" /></div></MobilePageShell>;
+    if (authLoading) return <MobilePageShell title={t('referral.title')}><div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-amber-500" /></div></MobilePageShell>;
 
     return (
-        <MobilePageShell title="Lịch sử tích điểm">
+        <MobilePageShell title={t('referral.title')}>
             <div className="space-y-3">
                 {/* Feedback */}
                 {feedback && (
@@ -266,7 +268,7 @@ export default function ReferralHistoryPage() {
                                 <Award className="w-5 h-5 text-white" />
                             </span>
                             <div>
-                                <p className="text-[10px] text-amber-600 font-semibold uppercase tracking-wider">Tổng điểm tích lũy</p>
+                                <p className="text-[10px] text-amber-600 font-semibold uppercase tracking-wider">{t('referral.totalPoints')}</p>
                                 <p className="text-2xl font-black text-amber-800 leading-tight">{totalPoints.toLocaleString('vi-VN')}</p>
                             </div>
                         </div>
@@ -274,13 +276,13 @@ export default function ReferralHistoryPage() {
                             <div className="space-y-2">
                                 <button onClick={copyCode} className="w-full flex items-center justify-between bg-white/70 rounded-xl px-3 py-2 border border-amber-200/60">
                                     <div>
-                                        <p className="text-[9px] text-amber-600/70 font-bold uppercase tracking-wider">Mã giới thiệu</p>
+                                        <p className="text-[9px] text-amber-600/70 font-bold uppercase tracking-wider">{t('referral.refCode')}</p>
                                         <p className="text-xs font-mono font-black text-amber-800">{refCode}</p>
                                     </div>
                                     {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 text-amber-500" />}
                                 </button>
                                 <button onClick={() => setShowQR(true)} className="w-full flex items-center justify-center gap-2 bg-white/80 rounded-xl px-3 py-2.5 border border-amber-200/60 text-xs font-bold text-amber-700 active:scale-[0.98] transition-transform">
-                                    <QrCode className="w-4 h-4" /> Xem mã QR
+                                    <QrCode className="w-4 h-4" /> {t('referral.viewQR')}
                                 </button>
                             </div>
                         )}
@@ -291,10 +293,10 @@ export default function ReferralHistoryPage() {
                 {canViewStore && (
                     <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
                         <button onClick={() => { setTab('personal'); setFilterEmp(''); }} className={cn('flex-1 py-2 rounded-lg text-xs font-bold transition-all', tab === 'personal' ? 'bg-white shadow text-amber-700' : 'text-gray-500')}>
-                            Cá nhân
+                            {t('referral.tabPersonal')}
                         </button>
                         <button onClick={() => { setTab('store'); setFilterEmp(''); }} className={cn('flex-1 py-2 rounded-lg text-xs font-bold transition-all', tab === 'store' ? 'bg-white shadow text-amber-700' : 'text-gray-500')}>
-                            Toàn cửa hàng
+                            {t('referral.tabStore')}
                         </button>
                     </div>
                 )}
@@ -307,17 +309,17 @@ export default function ReferralHistoryPage() {
                             className="flex-1 flex items-center gap-2 px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 active:scale-[0.98] transition-transform"
                         >
                             <UserIcon className="w-3.5 h-3.5 text-gray-400" />
-                            {filterEmp ? employees.find(e => e.id === filterEmp)?.name || 'Lọc' : 'Tất cả NV'}
-                            {filterStatus && <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[9px] font-bold">{pendingStatusConfig(filterStatus as any).label}</span>}
+                            {filterEmp ? employees.find(e => e.id === filterEmp)?.name || t('common.filter') : t('referral.allEmployees')}
+                            {filterStatus && <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[9px] font-bold">{pendingStatusConfig(filterStatus as any, t).label}</span>}
                             <ChevronDown className="w-3 h-3 text-gray-400 ml-auto" />
                         </button>
                         {isAdmin && (
                             <div className="flex items-center gap-2">
                                 <button onClick={handleSync} disabled={syncing} className={cn('flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-[10px] font-bold transition-colors shrink-0 shadow-sm', syncing ? 'bg-blue-400 text-white' : 'bg-blue-500 text-white hover:bg-blue-600')}>
-                                    <RefreshCw className={cn('w-3 h-3', syncing && 'animate-spin')} /> {syncing ? 'Đồng bộ...' : 'Đồng bộ'}
+                                    <RefreshCw className={cn('w-3 h-3', syncing && 'animate-spin')} /> {syncing ? t('common.syncing') : t('common.sync')}
                                 </button>
                                 <button onClick={() => setShowAdjust(true)} className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-accent-500 text-white text-[10px] font-bold hover:bg-accent-600 transition-colors shrink-0 shadow-sm">
-                                    <PlusCircle className="w-3 h-3" /> Điều chỉnh
+                                    <PlusCircle className="w-3 h-3" /> {t('referral.adjust')}
                                 </button>
                             </div>
                         )}
@@ -328,14 +330,14 @@ export default function ReferralHistoryPage() {
                 {showAdjust && isAdmin && (
                     <div className="bg-white border border-accent-200 rounded-2xl p-4 shadow-lg space-y-3">
                         <div className="flex items-center justify-between">
-                            <h4 className="text-xs font-bold text-surface-800">Điều chỉnh điểm</h4>
+                            <h4 className="text-xs font-bold text-surface-800">{t('referral.adjustTitle')}</h4>
                             <button onClick={() => setShowAdjust(false)} className="p-1 rounded-lg hover:bg-surface-100"><X className="w-3.5 h-3.5 text-surface-400" /></button>
                         </div>
                         <div>
-                            <label className="text-[10px] font-bold text-surface-500 mb-1 block">Nhân viên</label>
+                            <label className="text-[10px] font-bold text-surface-500 mb-1 block">{t('common.employee')}</label>
                             <div className="relative">
                                 <select value={adjTarget} onChange={e => setAdjTarget(e.target.value)} className="w-full bg-surface-50 border border-surface-200 rounded-xl px-3 py-2.5 text-sm font-semibold appearance-none outline-none pr-8">
-                                    <option value="">Chọn nhân viên...</option>
+                                    <option value="">{t('referral.selectEmployee')}</option>
                                     {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                                 </select>
                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
@@ -343,16 +345,16 @@ export default function ReferralHistoryPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                             <div>
-                                <label className="text-[10px] font-bold text-surface-500 mb-1 block">Số điểm (+/-)</label>
-                                <input type="number" value={adjAmount} onChange={e => setAdjAmount(e.target.value)} placeholder="+10 hoặc -5" className="w-full bg-surface-50 border border-surface-200 rounded-xl px-3 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-accent-300" />
+                                <label className="text-[10px] font-bold text-surface-500 mb-1 block">{t('referral.pointsAmount')}</label>
+                                <input type="number" value={adjAmount} onChange={e => setAdjAmount(e.target.value)} placeholder={t('referral.pointsPlaceholder')} className="w-full bg-surface-50 border border-surface-200 rounded-xl px-3 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-accent-300" />
                             </div>
                             <div>
-                                <label className="text-[10px] font-bold text-surface-500 mb-1 block">Lý do *</label>
-                                <input type="text" value={adjReason} onChange={e => setAdjReason(e.target.value)} placeholder="VD: Thưởng KPI..." className="w-full bg-surface-50 border border-surface-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-accent-300" />
+                                <label className="text-[10px] font-bold text-surface-500 mb-1 block">{t('common.reason')} *</label>
+                                <input type="text" value={adjReason} onChange={e => setAdjReason(e.target.value)} placeholder={t('referral.reasonPlaceholder')} className="w-full bg-surface-50 border border-surface-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-accent-300" />
                             </div>
                         </div>
                         <button onClick={handleAdjust} disabled={!adjTarget || !adjAmount || parseInt(adjAmount) === 0 || !adjReason.trim() || adjSubmitting} className={cn('w-full py-2.5 rounded-xl font-bold text-xs transition-all', adjTarget && adjAmount && parseInt(adjAmount) !== 0 && adjReason.trim() && !adjSubmitting ? 'bg-accent-500 text-white hover:bg-accent-600' : 'bg-surface-200 text-surface-400 cursor-not-allowed')}>
-                            {adjSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto" /> : 'Xác nhận điều chỉnh'}
+                            {adjSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto" /> : t('referral.confirmAdjust')}
                         </button>
                     </div>
                 )}
@@ -363,14 +365,14 @@ export default function ReferralHistoryPage() {
                         <div className="flex items-start gap-2">
                             <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                             <div>
-                                <h4 className="text-xs font-bold text-red-800">Thu hồi điểm</h4>
-                                <p className="text-[11px] text-red-600 mt-1">Bạn có chắc chắn muốn thu hồi <span className="font-bold">{revokeTarget.points} điểm</span> của đơn hàng này do khách đổi/trả?</p>
+                                <h4 className="text-xs font-bold text-red-800">{t('referral.revokeTitle')}</h4>
+                                <p className="text-[11px] text-red-600 mt-1">{t('referral.revokeConfirm', { points: String(revokeTarget.points) })}</p>
                             </div>
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={() => setRevokeTarget(null)} className="flex-1 py-2 rounded-xl bg-white border border-red-200 text-red-600 text-xs font-bold">Hủy</button>
+                            <button onClick={() => setRevokeTarget(null)} className="flex-1 py-2 rounded-xl bg-white border border-red-200 text-red-600 text-xs font-bold">{t('common.cancel')}</button>
                             <button onClick={handleRevoke} disabled={revoking} className="flex-1 py-2 rounded-xl bg-red-500 text-white text-xs font-bold disabled:opacity-50">
-                                {revoking ? <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto" /> : 'Xác nhận thu hồi'}
+                                {revoking ? <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto" /> : t('referral.confirmRevoke')}
                             </button>
                         </div>
                     </div>
@@ -380,10 +382,10 @@ export default function ReferralHistoryPage() {
                 {!loading && filteredPendingRefs.length > 0 && (
                     <div className="space-y-2">
                         <p className="text-[10px] text-amber-600 font-semibold uppercase tracking-wider px-1 flex items-center gap-1.5">
-                            <Hourglass className="w-3 h-3" /> Phiên giới thiệu ({filteredPendingRefs.length})
+                            <Hourglass className="w-3 h-3" /> {t('referral.pendingSessions', { count: String(filteredPendingRefs.length) })}
                         </p>
                         {filteredPendingRefs.map(pr => {
-                            const cfg = pendingStatusConfig(pr.status);
+                            const cfg = pendingStatusConfig(pr.status, t);
                             const StatusIcon = cfg.icon;
                             return (
                                 <div key={pr.id} className={cn('rounded-2xl border px-4 py-3', pr.status === 'expired' ? 'bg-gray-50 border-gray-200 opacity-60' : 'bg-white border-gray-100 shadow-sm')}>
@@ -403,23 +405,23 @@ export default function ReferralHistoryPage() {
                                     <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                                         {tab === 'store' && (
                                             <div>
-                                                <p className="text-[9px] text-gray-400 font-semibold uppercase">Nhân viên</p>
+                                                <p className="text-[9px] text-gray-400 font-semibold uppercase">{t('common.employee')}</p>
                                                 <p className="text-xs font-bold text-gray-700">{pr.saleEmployeeName}</p>
                                             </div>
                                         )}
                                         <div>
-                                            <p className="text-[9px] text-gray-400 font-semibold uppercase">Khách hàng</p>
+                                            <p className="text-[9px] text-gray-400 font-semibold uppercase">{t('common.customer')}</p>
                                             <p className="text-xs font-bold text-gray-700">{pr.customerPhone}</p>
                                         </div>
                                         {pr.matchedOrderCode && (
                                             <div>
-                                                <p className="text-[9px] text-gray-400 font-semibold uppercase">Mã đơn POS</p>
+                                                <p className="text-[9px] text-gray-400 font-semibold uppercase">{t('referral.posOrderCode')}</p>
                                                 <p className="text-xs font-bold text-gray-700 truncate">{pr.matchedOrderCode}</p>
                                             </div>
                                         )}
                                         {pr.pointsAwarded != null && pr.pointsAwarded > 0 && (
                                             <div>
-                                                <p className="text-[9px] text-gray-400 font-semibold uppercase">Điểm</p>
+                                                <p className="text-[9px] text-gray-400 font-semibold uppercase">{t('referral.points')}</p>
                                                 <p className="text-xs font-bold text-emerald-600">+{pr.pointsAwarded}</p>
                                             </div>
                                         )}
@@ -436,7 +438,7 @@ export default function ReferralHistoryPage() {
                 ) : grouped.length === 0 && pendingRefs.length === 0 ? (
                     <div className="flex flex-col items-center py-12 gap-2">
                         <Receipt className="w-10 h-10 text-gray-200" />
-                        <p className="text-sm text-gray-400 font-medium">Chưa có lịch sử tích điểm</p>
+                        <p className="text-sm text-gray-400 font-medium">{t('referral.emptyHistory')}</p>
                     </div>
                 ) : (
                     <div className="space-y-4">
@@ -461,10 +463,10 @@ export default function ReferralHistoryPage() {
                                                         <span className="text-[11px] text-gray-500 font-medium">{formatTime(tx.createdAt)}</span>
                                                         {txType !== 'earned' && (
                                                             <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded', txType === 'manual_adjustment' ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600')}>
-                                                                {txTypeLabel(tx)}
+                                                                {txTypeLabel(tx, t)}
                                                             </span>
                                                         )}
-                                                        {tx.isRevoked && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gray-200 text-gray-500">Đã thu hồi</span>}
+                                                        {tx.isRevoked && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gray-200 text-gray-500">{t('referral.statusRevoked')}</span>}
                                                     </div>
                                                     <span className={cn('text-xs font-black px-2 py-0.5 rounded-lg border', txPointColor(tx))}>
                                                         {tx.points > 0 ? '+' : ''}{tx.points}
@@ -474,43 +476,43 @@ export default function ReferralHistoryPage() {
                                                 <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                                                     {tab === 'store' && tx.employeeName && (
                                                         <div>
-                                                            <p className="text-[9px] text-gray-400 font-semibold uppercase">Nhân viên</p>
+                                                            <p className="text-[9px] text-gray-400 font-semibold uppercase">{t('common.employee')}</p>
                                                             <p className="text-xs font-bold text-gray-700">{tx.employeeName}</p>
                                                         </div>
                                                     )}
                                                     {tx.customerPhone && (
                                                         <div>
-                                                            <p className="text-[9px] text-gray-400 font-semibold uppercase">Khách hàng</p>
+                                                            <p className="text-[9px] text-gray-400 font-semibold uppercase">{t('common.customer')}</p>
                                                             <p className="text-xs font-bold text-gray-700">{tx.customerPhone}</p>
                                                         </div>
                                                     )}
                                                     {tx.packageName && (
                                                         <div>
-                                                            <p className="text-[9px] text-gray-400 font-semibold uppercase">Gói</p>
+                                                            <p className="text-[9px] text-gray-400 font-semibold uppercase">{t('referral.package')}</p>
                                                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-purple-50 text-purple-600 border-purple-100">{tx.packageName}</span>
                                                         </div>
                                                     )}
                                                     {tx.adminId && (
                                                         <div>
-                                                            <p className="text-[9px] text-gray-400 font-semibold uppercase">Người thực hiện</p>
+                                                            <p className="text-[9px] text-gray-400 font-semibold uppercase">{t('referral.performedBy')}</p>
                                                             <p className="text-xs font-bold text-gray-700 truncate">{tx.adminId.slice(0, 8)}...</p>
                                                         </div>
                                                     )}
                                                     {tx.reason && (
                                                         <div className="col-span-2">
-                                                            <p className="text-[9px] text-gray-400 font-semibold uppercase">Lý do</p>
+                                                            <p className="text-[9px] text-gray-400 font-semibold uppercase">{t('common.reason')}</p>
                                                             <p className="text-xs font-bold text-gray-700 truncate">{tx.reason}</p>
                                                         </div>
                                                     )}
                                                     {tx.orderCode && (
                                                         <div>
-                                                            <p className="text-[9px] text-gray-400 font-semibold uppercase">Mã đơn POS</p>
+                                                            <p className="text-[9px] text-gray-400 font-semibold uppercase">{t('referral.posOrderCode')}</p>
                                                             <p className="text-xs font-bold text-gray-700 truncate">{tx.orderCode}</p>
                                                         </div>
                                                     )}
                                                     {tx.orderValue != null && tx.orderValue > 0 && (
                                                         <div>
-                                                            <p className="text-[9px] text-gray-400 font-semibold uppercase">Giá trị đơn</p>
+                                                            <p className="text-[9px] text-gray-400 font-semibold uppercase">{t('referral.orderValue')}</p>
                                                             <p className="text-xs font-bold text-gray-700">{formatVND(tx.orderValue)}</p>
                                                         </div>
                                                     )}
@@ -518,7 +520,7 @@ export default function ReferralHistoryPage() {
 
                                                 {canRevoke && (
                                                     <button onClick={() => setRevokeTarget(tx)} className="flex items-center gap-1 mt-2 px-2.5 py-1 rounded-lg bg-red-50 border border-red-100 text-red-600 text-[10px] font-bold hover:bg-red-100 transition-colors">
-                                                        <Undo2 className="w-3 h-3" /> Thu hồi
+                                                        <Undo2 className="w-3 h-3" /> {t('referral.revoke')}
                                                     </button>
                                                 )}
                                             </div>
@@ -535,18 +537,18 @@ export default function ReferralHistoryPage() {
             {showQR && (
                 <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setShowQR(false)}>
                     <div className="bg-white rounded-3xl p-6 w-full max-w-xs text-center shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <p className="text-lg font-bold text-gray-800 mb-1">{userDoc?.name || 'Nhân viên'}</p>
-                        <p className="text-xs text-gray-400 mb-4">Mã giới thiệu</p>
+                        <p className="text-lg font-bold text-gray-800 mb-1">{userDoc?.name || t('common.employee')}</p>
+                        <p className="text-xs text-gray-400 mb-4">{t('referral.refCode')}</p>
                         <div className="flex justify-center mb-3">
                             <QRCodeCanvas ref={qrRef} value={refCode} size={200} level="H" marginSize={2} />
                         </div>
                         <p className="text-sm font-mono font-bold text-gray-700 mb-4">{refCode}</p>
                         <div className="flex gap-2">
                             <button onClick={downloadQR} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500 text-white text-xs font-bold active:scale-[0.98] transition-transform shadow-md">
-                                <Download className="w-4 h-4" /> Tải về
+                                <Download className="w-4 h-4" /> {t('common.download')}
                             </button>
                             <button onClick={() => setShowQR(false)} className="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-xs font-bold active:scale-[0.98] transition-transform">
-                                Đóng
+                                {t('common.close')}
                             </button>
                         </div>
                     </div>
@@ -554,16 +556,16 @@ export default function ReferralHistoryPage() {
             )}
 
             {/* Filter Bottom Sheet */}
-            <BottomSheet isOpen={filterSheetOpen} onClose={() => setFilterSheetOpen(false)} title="Bộ lọc">
+            <BottomSheet isOpen={filterSheetOpen} onClose={() => setFilterSheetOpen(false)} title={t('common.filter')}>
                 <div className="px-4 pb-6 space-y-5">
                     {/* Employee filter */}
                     <div>
-                        <p className="text-xs font-bold text-gray-600 mb-2">Nhân viên</p>
+                        <p className="text-xs font-bold text-gray-600 mb-2">{t('common.employee')}</p>
                         <div className="flex flex-wrap gap-1.5">
                             <button
                                 onClick={() => setFilterEmp('')}
                                 className={cn('px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors', !filterEmp ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600')}
-                            >Tất cả</button>
+                            >{t('common.all')}</button>
                             {employees.map(e => (
                                 <button
                                     key={e.id}
@@ -575,10 +577,10 @@ export default function ReferralHistoryPage() {
                     </div>
                     {/* Status filter */}
                     <div>
-                        <p className="text-xs font-bold text-gray-600 mb-2">Trạng thái phiên</p>
+                        <p className="text-xs font-bold text-gray-600 mb-2">{t('referral.sessionStatus')}</p>
                         <div className="flex flex-wrap gap-1.5">
                             {(['', 'waiting', 'matched', 'expired', 'revoked'] as const).map(s => {
-                                const label = s ? pendingStatusConfig(s).label : 'Tất cả';
+                                const label = s ? pendingStatusConfig(s, t).label : t('common.all');
                                 return (
                                     <button
                                         key={s}
@@ -593,7 +595,7 @@ export default function ReferralHistoryPage() {
                     <button
                         onClick={() => setFilterSheetOpen(false)}
                         className="w-full py-3 rounded-xl bg-primary-600 text-white text-sm font-bold active:scale-[0.98] transition-transform"
-                    >Áp dụng
+                    >{t('common.apply')}
                     </button>
                 </div>
             </BottomSheet>

@@ -154,8 +154,10 @@ async function exportOrdersExcel(
     ordersColConfig: ColConfig,
     goodsColConfig: ColConfig,
 ) {
-    const ExcelJS = (await import('exceljs')).default;
-    const { saveAs } = await import('file-saver');
+    const excelMod = await import('exceljs');
+    const ExcelJS = excelMod.default || excelMod;
+    const fileSaverMod = await import('file-saver');
+    const saveAs = fileSaverMod.saveAs || (fileSaverMod as any).default?.saveAs || fileSaverMod;
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Orders Dashboard';
     wb.created = new Date();
@@ -418,8 +420,10 @@ async function exportQtySummary(
     categoryNameMap: NameMap,
     activeRange: string,
 ) {
-    const ExcelJS = (await import('exceljs')).default;
-    const { saveAs } = await import('file-saver');
+    const excelMod = await import('exceljs');
+    const ExcelJS = excelMod.default || excelMod;
+    const fileSaverMod = await import('file-saver');
+    const saveAs = fileSaverMod.saveAs || (fileSaverMod as any).default?.saveAs || fileSaverMod;
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Orders Dashboard';
     wb.created = new Date();

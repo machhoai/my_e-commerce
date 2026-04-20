@@ -21,16 +21,11 @@ import { convertBase64ToWebP } from '@/lib/utils/image';
 import { uploadImageBase64 } from '@/lib/utils/storage-upload';
 import TwoFactorSetupModal from '@/components/profile/TwoFactorSetupModal';
 import ReferralHistorySection from '@/components/referral/ReferralHistorySection';
-
-const ROLE_LABELS: Record<string, string> = {
-    admin: 'Quản trị viên',
-    store_manager: 'CH Trưởng',
-    manager: 'Quản lý',
-    employee: 'Nhân viên',
-};
+import { useMobileTranslation } from '@/lib/i18n';
 
 export default function MobileProfilePage() {
     const { user, logout } = useAuth();
+    const { t } = useMobileTranslation();
     const [profileData, setProfileData] = useState<UserDoc | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -55,6 +50,14 @@ export default function MobileProfilePage() {
     // CCCD Scanner
     const [isCCCDOpen, setIsCCCDOpen] = useState(false);
     const [cccdProcessing, setCccdProcessing] = useState(false);
+
+    // Role labels — translated
+    const ROLE_LABELS: Record<string, string> = {
+        admin: t('profile.roleAdmin'),
+        store_manager: t('profile.roleStoreManager'),
+        manager: t('profile.roleManager'),
+        employee: t('profile.roleEmployee'),
+    };
 
     useEffect(() => {
         if (!user) return;
@@ -94,12 +97,12 @@ export default function MobileProfilePage() {
                 body: JSON.stringify(editData),
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Không thể cập nhật');
-            setMessage({ type: 'success', text: 'Cập nhật thành công!' });
+            if (!res.ok) throw new Error(data.error || t('profile.updateFailed'));
+            setMessage({ type: 'success', text: t('profile.updateSuccess') });
             setProfileData(prev => prev ? { ...prev, ...editData } : null);
             setTimeout(() => setEditSheetOpen(false), 800);
         } catch (err: unknown) {
-            setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Lỗi' });
+            setMessage({ type: 'error', text: err instanceof Error ? err.message : t('common.error') });
         } finally { setSaving(false); }
     };
 
@@ -136,13 +139,13 @@ export default function MobileProfilePage() {
                     body: JSON.stringify(payload),
                 });
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Cập nhật thất bại');
+                if (!res.ok) throw new Error(data.error || t('profile.cccdUpdateFailed'));
                 setProfileData(prev => prev ? { ...prev, ...payload } : null);
-                setMessage({ type: 'success', text: 'Cập nhật CCCD thành công!' });
+                setMessage({ type: 'success', text: t('profile.cccdUpdateSuccess') });
             }
         } catch (err) {
             console.error('CCCD update failed:', err);
-            setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Cập nhật CCCD thất bại' });
+            setMessage({ type: 'error', text: err instanceof Error ? err.message : t('profile.cccdUpdateFailed') });
         } finally {
             setCccdProcessing(false);
         }
@@ -178,10 +181,10 @@ export default function MobileProfilePage() {
     // ── Loading / Error ──────────────────────────────────────────────────────
     if (loading) {
         return (
-            <MobilePageShell title="Hồ sơ">
+            <MobilePageShell title={t('profile.title')}>
                 <div className="flex flex-col items-center py-20">
                     <div className="w-6 h-6 border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin mb-2" />
-                    <p className="text-[11px] text-gray-500">Đang tải hồ sơ...</p>
+                    <p className="text-[11px] text-gray-500">{t('profile.loading')}</p>
                 </div>
             </MobilePageShell>
         );
@@ -189,10 +192,10 @@ export default function MobileProfilePage() {
 
     if (!profileData) {
         return (
-            <MobilePageShell title="Hồ sơ">
+            <MobilePageShell title={t('profile.title')}>
                 <div className="text-center py-20">
                     <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-2" />
-                    <p className="text-sm text-red-600 font-bold">Không tìm thấy hồ sơ</p>
+                    <p className="text-sm text-red-600 font-bold">{t('profile.notFound')}</p>
                 </div>
             </MobilePageShell>
         );
@@ -203,28 +206,28 @@ export default function MobileProfilePage() {
     // ── Info items ────────────────────────────────────────────────────────────
     const infoSections: { title: string; items: { icon: React.ReactNode; label: string; value: string; locked?: boolean }[] }[] = [
         {
-            title: 'Thông tin hệ thống',
+            title: t('profile.systemInfo'),
             items: [
-                { icon: <Phone className="w-4 h-4" />, label: 'Số điện thoại', value: profileData.phone || '—', locked: true },
-                { icon: <User className="w-4 h-4" />, label: 'Số CCCD', value: profileData.idCard || '—', locked: true },
-                { icon: <User className="w-4 h-4" />, label: 'Giới tính', value: profileData.gender || '—', locked: true },
+                { icon: <Phone className="w-4 h-4" />, label: t('profile.phone'), value: profileData.phone || '—', locked: true },
+                { icon: <User className="w-4 h-4" />, label: t('profile.idCard'), value: profileData.idCard || '—', locked: true },
+                { icon: <User className="w-4 h-4" />, label: t('profile.gender'), value: profileData.gender || '—', locked: true },
             ],
         },
         {
-            title: 'Thông tin cá nhân',
+            title: t('profile.personalInfo'),
             items: [
-                { icon: <Mail className="w-4 h-4" />, label: 'Email', value: profileData.email || 'Chưa cung cấp' },
-                { icon: <Calendar className="w-4 h-4" />, label: 'Ngày sinh', value: profileData.dob || 'Chưa cung cấp', locked: true },
-                { icon: <MapPin className="w-4 h-4" />, label: 'Địa chỉ thường trú', value: profileData.permanentAddress || 'Chưa cung cấp', locked: true },
-                { icon: <CreditCard className="w-4 h-4" />, label: 'Ngân hàng', value: profileData.bankAccount || 'Chưa cung cấp' },
-                { icon: <GraduationCap className="w-4 h-4" />, label: 'Học vấn', value: profileData.education || 'Chưa cung cấp' },
+                { icon: <Mail className="w-4 h-4" />, label: t('profile.email'), value: profileData.email || t('profile.notProvided') },
+                { icon: <Calendar className="w-4 h-4" />, label: t('profile.dob'), value: profileData.dob || t('profile.notProvided'), locked: true },
+                { icon: <MapPin className="w-4 h-4" />, label: t('profile.address'), value: profileData.permanentAddress || t('profile.notProvided'), locked: true },
+                { icon: <CreditCard className="w-4 h-4" />, label: t('profile.bank'), value: profileData.bankAccount || t('profile.notProvided') },
+                { icon: <GraduationCap className="w-4 h-4" />, label: t('profile.education'), value: profileData.education || t('profile.notProvided') },
             ],
         },
     ];
 
 
     return (
-        <MobilePageShell title="Hồ sơ" headerRight={
+        <MobilePageShell title={t('profile.title')} headerRight={
             <button onClick={startEditing} className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center active:scale-95 transition-transform">
                 <Edit3 className="w-4 h-4 text-gray-600" />
             </button>
@@ -262,12 +265,12 @@ export default function MobileProfilePage() {
                         <ShieldCheck className="w-2.5 h-2.5" />{ROLE_LABELS[profileData.role] || profileData.role}
                     </span>
                     <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-100">
-                        {profileData.type === 'FT' ? 'Toàn thời gian' : 'Bán thời gian'}
+                        {profileData.type === 'FT' ? t('profile.fullTime') : t('profile.partTime')}
                     </span>
                 </div>
 
                 {isProcessing && (
-                    <p className="text-[10px] text-primary-600 font-medium mt-2">Đang xử lý ảnh...</p>
+                    <p className="text-[10px] text-primary-600 font-medium mt-2">{t('profile.processingPhoto')}</p>
                 )}
 
                 {/* Visible status message for CCCD / profile updates */}
@@ -300,7 +303,7 @@ export default function MobileProfilePage() {
                                     <span className="text-gray-400 shrink-0">{item.icon}</span>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-[9px] text-gray-400 font-bold uppercase">{item.label}</p>
-                                        <p className={cn('text-[11px] font-medium truncate', item.value === 'Chưa cung cấp' || item.value === '—' ? 'text-gray-300 italic' : 'text-gray-700')}>
+                                        <p className={cn('text-[11px] font-medium truncate', item.value === t('profile.notProvided') || item.value === '—' ? 'text-gray-300 italic' : 'text-gray-700')}>
                                             {item.value}
                                         </p>
                                     </div>
@@ -315,12 +318,12 @@ export default function MobileProfilePage() {
             {/* ── CCCD Photos ──────────────────────────────────────────── */}
             {(profileData.idCardFrontPhoto || profileData.idCardBackPhoto) && (
                 <div className="mt-3">
-                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1.5">Ảnh CCCD</p>
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1.5">{t('profile.cccdPhotos')}</p>
                     <div className="flex gap-2">
                         {profileData.idCardFrontPhoto && (
                             <div className="flex-1 rounded-xl border border-gray-100 overflow-hidden bg-white shadow-sm">
                                 <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider px-2.5 py-1 bg-gray-50 flex items-center gap-1">
-                                    <ImageIcon className="w-2.5 h-2.5" /> Mặt trước
+                                    <ImageIcon className="w-2.5 h-2.5" /> {t('profile.cccdFront')}
                                 </div>
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={profileData.idCardFrontPhoto} alt="CCCD Front" className="w-full h-24 object-cover" />
@@ -329,7 +332,7 @@ export default function MobileProfilePage() {
                         {profileData.idCardBackPhoto && (
                             <div className="flex-1 rounded-xl border border-gray-100 overflow-hidden bg-white shadow-sm">
                                 <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider px-2.5 py-1 bg-gray-50 flex items-center gap-1">
-                                    <ImageIcon className="w-2.5 h-2.5" /> Mặt sau
+                                    <ImageIcon className="w-2.5 h-2.5" /> {t('profile.cccdBack')}
                                 </div>
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={profileData.idCardBackPhoto} alt="CCCD Back" className="w-full h-24 object-cover" />
@@ -342,7 +345,7 @@ export default function MobileProfilePage() {
             {/* ── Referral Points ────────────────────────────────────────── */}
             {user && profileData?.workplaceType === 'STORE' && (
                 <div className="mt-3">
-                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1.5">Điểm giới thiệu</p>
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1.5">{t('profile.referralPoints')}</p>
                     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
                         <ReferralHistorySection employeeId={user.uid} />
                     </div>
@@ -360,7 +363,7 @@ export default function MobileProfilePage() {
                         {cccdProcessing ? <Loader2 className="w-4 h-4 text-accent-600 animate-spin" /> : <ScanLine className="w-4 h-4 text-accent-600" />}
                     </div>
                     <span className="flex-1 text-left text-xs font-bold text-gray-700">
-                        {cccdProcessing ? 'Đang xử lý CCCD...' : profileData.idCard ? 'Quét lại CCCD' : 'Quét CCCD để cập nhật thông tin'}
+                        {cccdProcessing ? t('profile.processingCCCD') : profileData.idCard ? t('profile.rescanCCCD') : t('profile.scanCCCD')}
                     </span>
                     <ChevronRight className="w-4 h-4 text-gray-400" />
                 </button>
@@ -368,7 +371,7 @@ export default function MobileProfilePage() {
                 <button onClick={startEditing}
                     className="w-full flex items-center gap-3 px-4 py-3 bg-white rounded-xl border border-gray-100 shadow-sm active:scale-[0.99] transition-all">
                     <div className="w-8 h-8 rounded-lg bg-primary-50 flex items-center justify-center"><Edit3 className="w-4 h-4 text-primary-600" /></div>
-                    <span className="flex-1 text-left text-xs font-bold text-gray-700">Chỉnh sửa thông tin</span>
+                    <span className="flex-1 text-left text-xs font-bold text-gray-700">{t('profile.editInfo')}</span>
                     <ChevronRight className="w-4 h-4 text-gray-400" />
                 </button>
 
@@ -376,7 +379,7 @@ export default function MobileProfilePage() {
 
                 {/* ── Security & 2FA ──────────────────────────────────── */}
                 <div className="pt-2">
-                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1.5">Bảo mật & Đăng nhập</p>
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1.5">{t('profile.securityAndLogin')}</p>
                     <div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-50">
                         <button
                             onClick={() => !profileData?.isTwoFactorEnabled && setIs2FAModalOpen(true)}
@@ -390,16 +393,16 @@ export default function MobileProfilePage() {
                                     : <Shield className="w-4 h-4 text-violet-600" />}
                             </div>
                             <div className="flex-1 min-w-0 text-left">
-                                <p className="text-[11px] font-bold text-gray-700">Xác thực 2 bước</p>
+                                <p className="text-[11px] font-bold text-gray-700">{t('profile.twoFactor')}</p>
                                 <p className="text-[9px] text-gray-400">Google Authenticator</p>
                             </div>
                             {profileData?.isTwoFactorEnabled ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    <CheckCircle2 className="w-2.5 h-2.5" />Đang bật
+                                    <CheckCircle2 className="w-2.5 h-2.5" />{t('profile.twoFactorEnabled')}
                                 </span>
                             ) : (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-violet-600 text-white shadow-sm">
-                                    <Smartphone className="w-3 h-3" />Thiết lập
+                                    <Smartphone className="w-3 h-3" />{t('profile.twoFactorSetup')}
                                 </span>
                             )}
                         </button>
@@ -409,13 +412,13 @@ export default function MobileProfilePage() {
                 <button onClick={() => setLogoutConfirmOpen(true)}
                     className="w-full flex items-center gap-3 px-4 py-3 bg-white rounded-xl border border-red-100 shadow-sm active:scale-[0.99] transition-all">
                     <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center"><LogOut className="w-4 h-4 text-red-600" /></div>
-                    <span className="flex-1 text-left text-xs font-bold text-red-600">Đăng xuất</span>
+                    <span className="flex-1 text-left text-xs font-bold text-red-600">{t('profile.logoutTitle')}</span>
                     <ChevronRight className="w-4 h-4 text-red-300" />
                 </button>
 
                 {/* Build version */}
                 <p className="text-center text-[9px] text-gray-500 pt-2">
-                    Phiên bản: {process.env.NEXT_PUBLIC_BUILD_VERSION || 'dev'}
+                    {t('common.version')}: {process.env.NEXT_PUBLIC_BUILD_VERSION || 'dev'}
                 </p>
             </div>
 
@@ -436,7 +439,7 @@ export default function MobileProfilePage() {
             )}
 
             {/* ═══ EDIT BOTTOMSHEET ═══ */}
-            <BottomSheet isOpen={editSheetOpen} onClose={() => setEditSheetOpen(false)} title="Chỉnh sửa hồ sơ">
+            <BottomSheet isOpen={editSheetOpen} onClose={() => setEditSheetOpen(false)} title={t('profile.editProfile')}>
                 <div className="px-4 pb-6 space-y-4">
                     {message.text && (
                         <div className={cn('flex items-center gap-2 px-3 py-2 rounded-lg border text-[11px] font-medium',
@@ -447,7 +450,7 @@ export default function MobileProfilePage() {
                     )}
 
                     <div>
-                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Email</label>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">{t('profile.email')}</label>
                         <input type="email" value={editData.email || ''} onChange={e => handleEditChange('email', e.target.value)}
                             placeholder="your@email.com"
                             className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-700 bg-gray-50 outline-none focus:border-primary-400" />
@@ -455,55 +458,55 @@ export default function MobileProfilePage() {
 
                     <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[10px] text-amber-700 font-medium mb-1">
                         <ScanLine className="w-3.5 h-3.5 shrink-0" />
-                        Thông tin CCCD (tên, ngày sinh, giới tính, địa chỉ) chỉ cập nhật qua quét CCCD
+                        {t('profile.cccdInfoNote')}
                     </div>
 
                     {['admin', 'store_manager', 'manager'].includes(profileData.role) && (
                         <div>
-                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Tài khoản ngân hàng</label>
+                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">{t('profile.bankAccount')}</label>
                             <input type="text" value={editData.bankAccount || ''} onChange={e => handleEditChange('bankAccount', e.target.value)}
-                                placeholder="Tên NH - Số TK"
+                                placeholder={t('profile.bankPlaceholder')}
                                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-700 bg-gray-50 outline-none focus:border-primary-400" />
                         </div>
                     )}
 
                     <div>
-                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Trình độ học vấn</label>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">{t('profile.educationLevel')}</label>
                         <input type="text" value={editData.education || ''} onChange={e => handleEditChange('education', e.target.value)}
-                            placeholder="VD: Cử nhân CNTT"
+                            placeholder={t('profile.educationPlaceholder')}
                             className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-700 bg-gray-50 outline-none focus:border-primary-400" />
                     </div>
 
 
                     <div className="flex gap-2 pt-2">
                         <button onClick={() => setEditSheetOpen(false)}
-                            className="flex-1 py-2.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-600 active:scale-[0.98] transition-all">Hủy</button>
+                            className="flex-1 py-2.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-600 active:scale-[0.98] transition-all">{t('common.cancel')}</button>
                         <button onClick={handleSave} disabled={saving}
                             className="flex-1 py-2.5 rounded-lg bg-primary-600 text-white text-xs font-bold shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 active:scale-[0.98] transition-all">
                             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                            Lưu thay đổi
+                            {t('common.save')}
                         </button>
                     </div>
                 </div>
             </BottomSheet>
 
             {/* ═══ LOGOUT CONFIRM BOTTOMSHEET ═══ */}
-            <BottomSheet isOpen={logoutConfirmOpen} onClose={() => setLogoutConfirmOpen(false)} title="Xác nhận đăng xuất">
+            <BottomSheet isOpen={logoutConfirmOpen} onClose={() => setLogoutConfirmOpen(false)} title={t('profile.logoutTitle')}>
                 <div className="px-4 pb-6">
                     <div className="flex flex-col items-center py-4">
                         <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mb-3">
                             <LogOut className="w-6 h-6 text-red-500" />
                         </div>
-                        <p className="text-sm font-bold text-gray-800 mb-1">Đăng xuất khỏi tài khoản?</p>
-                        <p className="text-[11px] text-gray-500 text-center">Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng ứng dụng.</p>
+                        <p className="text-sm font-bold text-gray-800 mb-1">{t('profile.logoutConfirm')}</p>
+                        <p className="text-[11px] text-gray-500 text-center">{t('profile.logoutDesc')}</p>
                     </div>
                     <div className="flex gap-2 mt-2">
                         <button onClick={() => setLogoutConfirmOpen(false)}
-                            className="flex-1 py-2.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-600 active:scale-[0.98] transition-all">Hủy</button>
+                            className="flex-1 py-2.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-600 active:scale-[0.98] transition-all">{t('common.cancel')}</button>
                         <button onClick={handleLogout} disabled={loggingOut}
                             className="flex-1 py-2.5 rounded-lg bg-red-600 text-white text-xs font-bold shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 active:scale-[0.98] transition-all">
                             {loggingOut ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LogOut className="w-3.5 h-3.5" />}
-                            Đăng xuất
+                            {t('profile.logoutTitle')}
                         </button>
                     </div>
                 </div>

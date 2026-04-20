@@ -9,6 +9,7 @@ import UniversalScannerModal from '@/components/scanner/UniversalScannerModal';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import ReferralCelebrationModal from '@/components/referral/ReferralCelebrationModal';
 import PWAGatekeeper from '@/components/shared/PWAGatekeeper';
+import { I18nMobileProvider, useMobileTranslation } from '@/lib/i18n';
 
 export default function MobileLayout({
     children,
@@ -21,17 +22,23 @@ export default function MobileLayout({
     const isAuthPage = pathname === '/login' || pathname === '/change-password';
 
     if (isAuthPage) {
-        return <>{children}</>;
+        return (
+            <I18nMobileProvider>
+                {children}
+            </I18nMobileProvider>
+        );
     }
 
     return (
-        <AuthGuard>
-            <ProfileCompletionGuard>
-                {/* <PWAGatekeeper> */}
-                <MobileLayoutInner>{children}</MobileLayoutInner>
-                {/* </PWAGatekeeper> */}
-            </ProfileCompletionGuard>
-        </AuthGuard>
+        <I18nMobileProvider>
+            <AuthGuard>
+                <ProfileCompletionGuard>
+                    {/* <PWAGatekeeper> */}
+                    <MobileLayoutInner>{children}</MobileLayoutInner>
+                    {/* </PWAGatekeeper> */}
+                </ProfileCompletionGuard>
+            </AuthGuard>
+        </I18nMobileProvider>
     );
 }
 
@@ -41,6 +48,7 @@ function MobileLayoutInner({ children }: { children: React.ReactNode }) {
     // On desktop this lives inside DashboardLayout; mobile needs its own call.
     const { needsPrompt, promptForPermission } = usePushNotifications();
     const [dismissed, setDismissed] = useState(false);
+    const { t } = useMobileTranslation();
 
     const showBanner = needsPrompt && !dismissed;
 
@@ -57,9 +65,9 @@ function MobileLayoutInner({ children }: { children: React.ReactNode }) {
                                 <Bell className="w-5 h-5 text-white" />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-white">Bật thông báo</p>
+                                <p className="text-sm font-bold text-white">{t('dashboard.enableNotifications')}</p>
                                 <p className="text-xs text-white/80 mt-0.5 leading-relaxed">
-                                    Nhận thông báo lịch làm, đơn hàng và tin quan trọng ngay trên điện thoại.
+                                    {t('dashboard.notificationDescription')}
                                 </p>
                                 <div className="flex items-center gap-2 mt-3">
                                     <button
@@ -69,14 +77,14 @@ function MobileLayoutInner({ children }: { children: React.ReactNode }) {
                                         className="px-4 py-2 rounded-xl bg-white text-accent-600 text-xs font-bold
                                                    hover:bg-white/90 active:scale-95 transition-all shadow-sm"
                                     >
-                                        Cho phép thông báo
+                                        {t('dashboard.allowNotifications')}
                                     </button>
                                     <button
                                         onClick={() => setDismissed(true)}
                                         className="px-3 py-2 rounded-xl bg-white/10 text-white/90 text-xs font-medium
                                                    hover:bg-white/20 transition-colors"
                                     >
-                                        Để sau
+                                        {t('dashboard.later')}
                                     </button>
                                 </div>
                             </div>

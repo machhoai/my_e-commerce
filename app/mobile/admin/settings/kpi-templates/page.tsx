@@ -1,9 +1,13 @@
+'use client';
+
 import DesktopPage from '@/app/desktop/(dashboard)/admin/settings/kpi-templates/page';
 import MobilePageShell from '@/components/mobile/MobilePageShell';
+import { useMobileTranslation } from '@/lib/i18n';
 
-export default function MobileAdminSettingsKpi_templatesPage() {
+export default function MobileAdminSettingsKpiTemplatesPage() {
+    const { t } = useMobileTranslation();
     return (
-        <MobilePageShell title="Mẫu KPI hệ thống">
+        <MobilePageShell title={t('nav.systemKPITemplates')}>
             <DesktopPage />
         </MobilePageShell>
     );

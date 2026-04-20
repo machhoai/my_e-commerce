@@ -1042,8 +1042,10 @@ function CampaignTab({
             // Excel export handler for print campaigns (with actual QR images)
             const handleExportExcel = async (camp: VoucherCampaign) => {
                 try {
-                    const QRCode = (await import('qrcode')).default;
-                    const ExcelJS = (await import('exceljs')).default;
+                    const qrMod = await import('qrcode');
+                    const QRCode = qrMod.default || qrMod;
+                    const excelMod = await import('exceljs');
+                    const ExcelJS = excelMod.default || excelMod;
 
                     // Fetch all codes for this campaign via paginated API
                     const token = await getToken();

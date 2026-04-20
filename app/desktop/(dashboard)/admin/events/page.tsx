@@ -1981,7 +1981,8 @@ function CustomerDataTab({ events, participations }: {
         setSelectedCols(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
 
     const handleExport = async () => {
-        const XLSX = await import('xlsx');
+        const xlsxMod = await import('xlsx');
+        const XLSX = xlsxMod.default || xlsxMod;
         const visibleCols = CUSTOMER_EXPORT_COLUMNS.filter(c => selectedCols.includes(c.key));
         const mapped = exportData.map(row => {
             const r: Record<string, string | number> = {};

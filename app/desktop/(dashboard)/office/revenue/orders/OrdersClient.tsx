@@ -223,7 +223,8 @@ function ExportModal({
     const previewRows = data.slice(0, 5);
 
     const handleExport = async () => {
-        const XLSX = await import('xlsx');
+        const xlsxMod = await import('xlsx');
+        const XLSX = xlsxMod.default || xlsxMod;
         const mapped = data.map(o => {
             const row: Record<string, string | number> = {};
             for (const col of visibleCols) {

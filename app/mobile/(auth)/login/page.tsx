@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Phone, Lock, LogIn, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { useMobileTranslation } from '@/lib/i18n';
+import MobileLanguageSwitcher from '@/components/mobile/MobileLanguageSwitcher';
 
 export default function MobileLoginPage() {
     const [phone, setPhone] = useState('');
@@ -11,6 +13,7 @@ export default function MobileLoginPage() {
     const [error, setError] = useState('');
     const [localLoading, setLocalLoading] = useState(false);
     const { user, userDoc, loading: authLoading, login } = useAuth();
+    const { t } = useMobileTranslation();
 
     useEffect(() => {
         if (authLoading) return;
@@ -29,12 +32,12 @@ export default function MobileLoginPage() {
         } catch (err: unknown) {
             if (err instanceof Error) {
                 if (err.message.includes('auth/invalid-credential')) {
-                    setError('Sai số điện thoại hoặc mật khẩu');
+                    setError(t('auth.invalidCredentials'));
                 } else {
-                    setError(err.message || 'Đăng nhập thất bại');
+                    setError(err.message || t('auth.loginFailed'));
                 }
             } else {
-                setError('Đã xảy ra lỗi không xác định');
+                setError(t('auth.unknownError'));
             }
         } finally {
             setLocalLoading(false);
@@ -47,7 +50,7 @@ export default function MobileLoginPage() {
             <div className="min-h-screen flex items-center justify-center bg-white">
                 <div className="flex flex-col items-center gap-3">
                     <div className="w-8 h-8 border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
-                    <p className="text-gray-500 text-xs">Đang kiểm tra phiên đăng nhập...</p>
+                    <p className="text-gray-500 text-xs">{t('auth.checkingSession')}</p>
                 </div>
             </div>
         );
@@ -63,6 +66,11 @@ export default function MobileLoginPage() {
                 draggable={false}
             />
 
+            {/* ── Language switcher — top right ── */}
+            <div className="absolute top-4 right-4 z-20">
+                <MobileLanguageSwitcher />
+            </div>
+
             {/* ── Header branding ── */}
             <div className="flex-1 flex flex-col items-center justify-center px-6 pt-12 pb-6 relative z-10">
                 {/* Logo */}
@@ -76,8 +84,8 @@ export default function MobileLoginPage() {
                 </div>
 
                 {/* Title */}
-                <h1 className="text-xl font-black text-gray-800 mb-1">Chào mừng trở lại 👋</h1>
-                <p className="text-xs text-gray-500 mb-8">Đăng nhập để tiếp tục vào hệ thống</p>
+                <h1 className="text-xl font-black text-gray-800 mb-1">{t('auth.welcomeBack')}</h1>
+                <p className="text-xs text-gray-500 mb-8">{t('auth.loginSubtitle')}</p>
 
                 {/* ── Form ── */}
                 <div className="w-full max-w-sm">
@@ -93,7 +101,7 @@ export default function MobileLoginPage() {
                         {/* Phone field */}
                         <div>
                             <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1 block">
-                                Số điện thoại
+                                {t('auth.phoneLabel')}
                             </label>
                             <div className="relative">
                                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -103,7 +111,7 @@ export default function MobileLoginPage() {
                                     value={phone}
                                     onChange={e => setPhone(e.target.value)}
                                     className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-xl pl-10 pr-4 py-3 outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition-all"
-                                    placeholder="0912 345 678"
+                                    placeholder={t('auth.phonePlaceholder')}
                                     autoComplete="tel"
                                 />
                             </div>
@@ -112,7 +120,7 @@ export default function MobileLoginPage() {
                         {/* Password field */}
                         <div>
                             <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1 block">
-                                Mật khẩu
+                                {t('auth.passwordLabel')}
                             </label>
                             <div className="relative">
                                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -134,7 +142,7 @@ export default function MobileLoginPage() {
                                 </button>
                             </div>
                             <p className="text-[10px] text-gray-400 mt-1 ml-1">
-                                Mật khẩu mặc định: 6 số cuối số điện thoại
+                                {t('auth.passwordHint')}
                             </p>
                         </div>
 
@@ -147,12 +155,12 @@ export default function MobileLoginPage() {
                             {localLoading ? (
                                 <>
                                     <Loader2 className="w-4 h-4 animate-spin" />
-                                    Đang đăng nhập...
+                                    {t('auth.loggingIn')}
                                 </>
                             ) : (
                                 <>
                                     <LogIn className="w-4 h-4" />
-                                    Đăng nhập
+                                    {t('auth.loginButton')}
                                 </>
                             )}
                         </button>
@@ -163,10 +171,10 @@ export default function MobileLoginPage() {
             {/* ── Footer ── */}
             <div className="pb-8 pt-4 text-center">
                 <p className="text-[10px] text-gray-400">
-                    © 2026 B.Duck Cityfuns Vietnam
+                    {t('auth.copyright')}
                 </p>
                 <p className="text-[9px] text-gray-300 mt-0.5">
-                    Hệ thống quản lý nội bộ
+                    {t('auth.systemLabel')}
                 </p>
             </div>
         </div>

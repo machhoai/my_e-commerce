@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import MobilePageShell from '@/components/mobile/MobilePageShell';
 import SelfScoringModal from '@/components/kpi/SelfScoringModal';
+import { useMobileTranslation } from '@/lib/i18n';
 
 function shortenName(fullName: string): string {
     const parts = fullName.trim().split(/\s+/);
@@ -24,6 +25,7 @@ function shortenName(fullName: string): string {
 export default function MobileEmployeeDashboardPage() {
     const router = useRouter();
     const { user, userDoc, loading: authLoading, hasPermission, getToken, effectiveStoreId: contextStoreId } = useAuth();
+    const { t, locale } = useMobileTranslation();
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date()));
     const weekDays = getWeekDays(currentWeekStart);
 
@@ -42,6 +44,13 @@ export default function MobileEmployeeDashboardPage() {
     const [referralPoints, setReferralPoints] = useState(0);
 
     const storeId = contextStoreId || userDoc?.storeId || '';
+
+    // Translated day labels
+    const dayLabels = useMemo(() => [
+        t('employee.daySunday'), t('employee.dayMonday'), t('employee.dayTuesday'),
+        t('employee.dayWednesday'), t('employee.dayThursday'), t('employee.dayFriday'),
+        t('employee.daySaturday'),
+    ], [t]);
 
     useEffect(() => {
         if (!user) return;
@@ -141,23 +150,23 @@ export default function MobileEmployeeDashboardPage() {
     const nextWeek = () => setCurrentWeekStart(d => { const nd = new Date(d); nd.setDate(nd.getDate() + 7); return nd; });
     const toggleDay = (dateStr: string) => setExpandedDays(prev => { const next = new Set(prev); if (next.has(dateStr)) next.delete(dateStr); else next.add(dateStr); return next; });
     const isToday = (dateStr: string) => new Date().toDateString() === new Date(dateStr + 'T00:00:00').toDateString();
-    const dayLabels = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
 
+    const dateLocaleCode = locale === 'zh' ? 'zh-CN' : 'vi-VN';
     const weekLabel = weekDays.length > 0
-        ? `${new Date(weekDays[0] + 'T00:00:00').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} — ${new Date(weekDays[6] + 'T00:00:00').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}`
+        ? `${new Date(weekDays[0] + 'T00:00:00').toLocaleDateString(dateLocaleCode, { day: '2-digit', month: '2-digit' })} — ${new Date(weekDays[6] + 'T00:00:00').toLocaleDateString(dateLocaleCode, { day: '2-digit', month: '2-digit' })}`
         : '';
 
     return (
-        <MobilePageShell title="Lịch làm việc">
+        <MobilePageShell title={t('employee.scheduleTitle')}>
             {/* Monthly summary card */}
             {!loading && (
                 <div className="bg-gradient-to-br from-primary-50 to-blue-50 border border-primary-100 rounded-2xl p-3 mb-3">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                             <TrendingUp className="w-4 h-4 text-primary-500" />
-                            <span className="text-xs font-bold text-primary-900">Tiến độ tháng {now.getMonth() + 1}</span>
+                            <span className="text-xs font-bold text-primary-900">{t('employee.monthProgress', { month: now.getMonth() + 1 })}</span>
                         </div>
-                        <span className="text-xs font-black text-primary-600">{completedShifts}/{maxShifts} ca</span>
+                        <span className="text-xs font-black text-primary-600">{t('employee.shiftsCompleted', { completed: completedShifts, max: maxShifts })}</span>
                     </div>
                     <div className="h-2 bg-primary-100 rounded-full overflow-hidden">
                         <div
@@ -166,7 +175,9 @@ export default function MobileEmployeeDashboardPage() {
                             style={{ width: `${progress}%` }}
                         />
                     </div>
-                    <p className="text-[10px] text-primary-700/70 mt-1.5">Chỉ tính ca đã hoàn thành · {isFT ? 'Toàn thời gian' : 'Bán thời gian'}</p>
+                    <p className="text-[10px] text-primary-700/70 mt-1.5">
+                        {t('employee.shiftsCountedNote')} · {isFT ? t('employee.fullTime') : t('employee.partTime')}
+                    </p>
                 </div>
             )}
 
@@ -180,8 +191,8 @@ export default function MobileEmployeeDashboardPage() {
                         <Star className="w-5 h-5 text-white" />
                     </span>
                     <div className="flex-1">
-                        <p className="text-[10px] text-amber-600 font-semibold uppercase tracking-wider">Điểm giới thiệu</p>
-                        <p className="text-xl font-black text-amber-800 leading-tight">{referralPoints.toLocaleString('vi-VN')}</p>
+                        <p className="text-[10px] text-amber-600 font-semibold uppercase tracking-wider">{t('employee.referralPoints')}</p>
+                        <p className="text-xl font-black text-amber-800 leading-tight">{referralPoints.toLocaleString(dateLocaleCode)}</p>
                     </div>
                     <ChevronRight className="w-4 h-4 text-amber-400" />
                 </button>
@@ -215,16 +226,16 @@ export default function MobileEmployeeDashboardPage() {
                             <div key={dateStr} className={cn('bg-white rounded-xl border overflow-hidden transition-all', today ? 'border-primary-200 shadow-sm' : 'border-gray-100')}>
                                 <button onClick={() => toggleDay(dateStr)} className="w-full flex items-center gap-2.5 px-3 py-2.5 active:bg-gray-50 transition-colors">
                                     <div className={cn('w-9 h-9 rounded-lg flex flex-col items-center justify-center shrink-0', today ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600')}>
-                                        <span className="text-[8px] font-bold leading-none uppercase">{dateObj.toLocaleDateString('vi-VN', { weekday: 'short' })}</span>
+                                        <span className="text-[8px] font-bold leading-none uppercase">{dateObj.toLocaleDateString(dateLocaleCode, { weekday: 'short' })}</span>
                                         <span className="text-sm font-black leading-tight">{dateObj.getDate()}</span>
                                     </div>
                                     <div className="flex-1 text-left">
                                         <p className={cn('text-xs font-bold', today ? 'text-primary-700' : 'text-gray-700')}>
                                             {dayLabels[dateObj.getDay()]}
-                                            {today && <span className="ml-1.5 text-[9px] bg-primary-100 text-primary-600 px-1.5 py-0.5 rounded font-bold">Hôm nay</span>}
+                                            {today && <span className="ml-1.5 text-[9px] bg-primary-100 text-primary-600 px-1.5 py-0.5 rounded font-bold">{t('common.today')}</span>}
                                         </p>
                                         <p className="text-[10px] text-gray-500 font-medium">
-                                            {dayScheds.length > 0 ? `${dayScheds.length} ca phân công` : 'Không có ca'}
+                                            {dayScheds.length > 0 ? t('employee.shiftsAssigned', { count: dayScheds.length }) : t('employee.noShift')}
                                         </p>
                                     </div>
                                     {dayScheds.length > 0 && <span className="text-[9px] font-bold text-primary-500 bg-primary-50 px-1.5 py-0.5 rounded">{dayScheds.length}</span>}
@@ -246,7 +257,7 @@ export default function MobileEmployeeDashboardPage() {
                                                             <span className="text-sm font-bold text-gray-800">{sched.shiftId}</span>
                                                         </div>
                                                         {isForceAssigned && (
-                                                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">QL gán ca</span>
+                                                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">{t('employee.managerAssigned')}</span>
                                                         )}
                                                     </div>
                                                     <div className="flex items-center gap-1.5 text-xs text-gray-600 bg-gray-50 rounded-lg px-2 py-1.5 border border-gray-100">
@@ -263,7 +274,7 @@ export default function MobileEmployeeDashboardPage() {
                                                             className="mt-2 w-full py-2 rounded-lg bg-teal-50 border border-teal-200 text-teal-700 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
                                                         >
                                                             <ClipboardCheck className="w-3.5 h-3.5" />
-                                                            Tự đánh giá KPI
+                                                            {t('employee.selfScoreKPI')}
                                                         </button>
                                                     )}
                                                 </div>
@@ -271,7 +282,7 @@ export default function MobileEmployeeDashboardPage() {
                                         }) : (
                                             <div className="flex flex-col items-center justify-center py-4 text-gray-400">
                                                 <Clock className="w-5 h-5 text-gray-300 mb-1" />
-                                                <span className="text-xs">Không có ca làm việc</span>
+                                                <span className="text-xs">{t('employee.noShiftToday')}</span>
                                             </div>
                                         )}
                                     </div>
@@ -287,7 +298,7 @@ export default function MobileEmployeeDashboardPage() {
                 onClick={() => router.push('/employee/register')}
                 className="mt-3 w-full py-3 rounded-xl bg-primary-600 text-white text-xs font-bold active:scale-[0.98] transition-transform shadow-md shadow-primary-200"
             >
-                Đăng ký ca tuần tới
+                {t('employee.registerNextWeek')}
             </button>
 
             {/* Self Scoring Modal */}

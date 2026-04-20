@@ -40,6 +40,8 @@ import {
 import ReferralPointsWidget from '@/components/referral/ReferralPointsWidget';
 import TopReferralMarquee from '@/components/referral/TopReferralMarquee';
 import ReferralCelebrationModal from '@/components/referral/ReferralCelebrationModal';
+import { useMobileTranslation } from '@/lib/i18n';
+import MobileLanguageSwitcher from '@/components/mobile/MobileLanguageSwitcher';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
