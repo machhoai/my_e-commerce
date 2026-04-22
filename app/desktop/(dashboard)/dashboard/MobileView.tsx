@@ -1525,11 +1525,11 @@ function ManagementView() {
     const { effectiveStoreId, userDoc, hasPermission } = useAuth();
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
 
-    const ALL_MOBILE_TABS = ALL_MOBILE_TAB_KEYS.map(tab => ({ ...tab, label: t(tab.labelKey) }));
     const visibleTabs = useMemo(() =>
-        ALL_MOBILE_TABS.filter(tab => isAdmin || tab.permKeys.some(k => hasPermission(k))),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [isAdmin, hasPermission]
+        ALL_MOBILE_TAB_KEYS
+            .map(tab => ({ ...tab, label: t(tab.labelKey) }))
+            .filter(tab => isAdmin || tab.permKeys.some(k => hasPermission(k))),
+        [t, isAdmin, hasPermission]
     );
 
     const [activeTab, setActiveTab] = useState<ManagementTab | null>(null);
