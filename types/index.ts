@@ -290,6 +290,14 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         group: 'Sự kiện',
         type: 'page',
     },
+    // ── Vé & Đơn hàng (Ticketing) ────────────────────────────────
+    {
+        key: 'scan_tickets',
+        label: 'Quét Vé & Đơn Hàng',
+        description: 'Cho phép quét mã vé, đơn hàng từ hệ thống bán vé qua Scanner',
+        group: 'Vé & Đơn hàng',
+        type: 'action',
+    },
 ];
 
 export interface CustomRoleDoc {
@@ -728,6 +736,95 @@ export interface ScanResult {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: any;
 }
+
+// ============================================================
+// Ticketing API (External B.Duck Scan & Ticketing System)
+// ============================================================
+
+export type TicketPassStatus = 'active' | 'used' | 'voided';
+export type TicketOrderStatus = 'pending' | 'paid' | 'cancelled';
+
+export interface TicketPassData {
+    id: string;
+    shortCode: string;
+    qrCode: string;
+    orderId: string;
+    orderNumber: string;
+    customerId?: string;
+    customerName: string;
+    customerEmail?: string;
+    productId: string;
+    productName: string;
+    productType: string;
+    thumbnailUrl?: string;
+    validityType: string;        // 'open-dated' | 'fixed-date'
+    status: TicketPassStatus;
+    comboItems?: string[] | null;
+    visitDate?: string | null;
+    validFrom: string;
+    validUntil: string;
+    createdAt: string;
+    usedAt?: string | null;
+    usedBy?: string | null;
+}
+
+export interface TicketOrderItem {
+    productId: string;
+    productName: string;
+    productType: string;
+    quantity: number;
+    unitPrice: number;
+    subtotal: number;
+}
+
+export interface TicketOrderData {
+    id: string;
+    orderNumber: string;
+    orderCode: string;
+    status: TicketOrderStatus;
+    customerName: string;
+    customerEmail?: string;
+    customerPhone?: string;
+    isGuestOrder: boolean;
+    paymentProvider: string;
+    items: TicketOrderItem[];
+    subtotal: number;
+    discountAmount: number;
+    finalAmount: number;
+    promotionCode?: string | null;
+    passIds?: string[];
+    paidAt?: string | null;
+    createdAt: string;
+    expiresAt?: string | null;
+    cancelReason?: string | null;
+}
+
+/** Response from GET /api/v1/scan — can be pass or order */
+export type TicketScanResponse =
+    | { success: true; type: 'pass'; pass: TicketPassData }
+    | { success: true; type: 'order'; order: TicketOrderData }
+    | { success: false; error: string; message: string };
+
+/** Response from POST /api/v1/scan/use-pass */
+export type TicketUsePassResponse =
+    | { success: true; message: string; pass: TicketPassData }
+    | { success: false; error: string; message: string; pass?: TicketPassData | null };
+
+/** Response from POST /api/v1/scan/confirm-payment */
+export interface TicketConfirmPaymentPass {
+    id: string;
+    shortCode: string;
+    qrCode: string;
+    status: string;
+}
+export type TicketConfirmPaymentResponse =
+    | {
+        success: true;
+        message: string;
+        order: { id: string; orderNumber: string; orderCode: string; status: string; finalAmount: number; customerName: string; paidAt: string };
+        passes: TicketConfirmPaymentPass[];
+    }
+    | { success: false; error: string; message: string };
 
 // ============================================================
 // Referral / Affiliate Points

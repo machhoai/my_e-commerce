@@ -6,14 +6,17 @@ import { cn } from '@/lib/utils';
 import { preloadScannerData, voucherSearchAction } from '@/actions/scanner';
 import type { PreloadedEmployee, PreloadedProduct } from '@/actions/scanner';
 import { createPendingReferral } from '@/actions/referral';
+import { ticketLookupAction } from '@/actions/ticket-scan';
 import { useAuth } from '@/contexts/AuthContext';
 import type { ScanResult } from '@/types';
-import type { VoucherCode } from '@/types';
+import type { VoucherCode, TicketPassData, TicketOrderData } from '@/types';
 import type { ProductDoc } from '@/types/inventory';
 import VoucherListSelector from './VoucherListSelector';
 import VoucherDetailsCard from './VoucherDetailsCard';
 import VoucherResultCard from './VoucherResultCard';
 import ProductInfoCard from './ProductInfoCard';
+import TicketPassCard from './TicketPassCard';
+import TicketOrderCard from './TicketOrderCard';
 import BottomSheet from '@/components/shared/BottomSheet';
 
 // ── Normalize Vietnamese for diacritics-insensitive search ───
@@ -28,6 +31,8 @@ type ModalView =
     | { kind: 'voucher-result'; success: boolean; title: string; details: { label: string; value: string }[] }
     | { kind: 'product'; product: ProductDoc }
     | { kind: 'referral'; employee: { uid: string; name: string; phone: string; storeId: string; referralPoints: number } }
+    | { kind: 'ticket-pass'; pass: TicketPassData }
+    | { kind: 'ticket-order'; order: TicketOrderData }
     | { kind: 'not-found'; query: string };
 
 // ── Beep via Web Audio API ───────────────────────────────────────
@@ -351,10 +356,11 @@ export default function UniversalScannerModal() {
     // Permission gates — admin always bypasses via hasPermission()
     const canSearchVouchers = hasPermission('search_vouchers');
     const canManageReferrals = hasPermission('manage_referrals');
+    const canScanTickets = hasPermission('scan_tickets');
     const [view, setView] = useState<ModalView>({ kind: 'scanner' });
     const [manualInput, setManualInput] = useState('');
     const [showManual, setShowManual] = useState(false);
-    const [voucherMode, setVoucherMode] = useState(false);
+    const [ticketMode, setTicketMode] = useState(false);
     const [torchOn, setTorchOn] = useState(false);
     const [torchSupported, setTorchSupported] = useState(false);
     const scannerRef = useRef<HTMLDivElement>(null);
@@ -538,7 +544,7 @@ export default function UniversalScannerModal() {
     }, [isOpen, view.kind, startCamera, stopCamera]);
 
     useEffect(() => {
-        // Mỗi khi voucherMode thay đổi, hiện chữ lên
+        // Mỗi khi ticketMode thay đổi, hiện chữ lên
         setShowLabel(true);
 
         // Đặt hẹn giờ 1.5 giây để ẩn chữ đi
@@ -549,7 +555,7 @@ export default function UniversalScannerModal() {
         // Cleanup: Cực kỳ quan trọng! Nếu user bấm liên tục 2-3 lần,
         // nó sẽ xóa timer cũ đi để không bị giật/nháy chữ.
         return () => clearTimeout(timer);
-    }, [voucherMode]);
+    }, [ticketMode]);
 
     // ── Employee suggestions (local, instant — no API call) ──────
     const empSuggestions = useMemo(() => {
@@ -607,21 +613,42 @@ export default function UniversalScannerModal() {
             return;
         }
 
-        // 2. Product barcode / companyCode → local lookup (skip if voucherMode)
-        if (!voucherMode) {
-            const product = preloadedProducts.find(
-                p => p.barcode === trimmed || p.companyCode === trimmed
-            );
-            if (product) {
-                setView({
-                    kind: 'product',
-                    product: product as ProductDoc,
-                });
-                return;
+        // 2. Ticket mode ON → call external Ticketing API
+        if (ticketMode && canScanTickets) {
+            setView({ kind: 'searching' });
+            try {
+                const ticketResult = await ticketLookupAction(trimmed);
+                if (ticketResult && ticketResult.success) {
+                    if (ticketResult.type === 'pass') {
+                        setView({ kind: 'ticket-pass', pass: ticketResult.pass });
+                        return;
+                    }
+                    if (ticketResult.type === 'order') {
+                        setView({ kind: 'ticket-order', order: ticketResult.order });
+                        return;
+                    }
+                }
+                // API returned not_found or null (not configured)
+                setView({ kind: 'not-found', query: trimmed });
+            } catch {
+                setView({ kind: 'not-found', query: trimmed });
             }
+            return;
         }
 
-        // 3. Phone or Voucher code → must hit server (permission-gated)
+        // 3. Product barcode / companyCode → local lookup
+        const product = preloadedProducts.find(
+            p => p.barcode === trimmed || p.companyCode === trimmed
+        );
+        if (product) {
+            setView({
+                kind: 'product',
+                product: product as ProductDoc,
+            });
+            return;
+        }
+
+        // 4. Phone or Voucher code → must hit server (permission-gated)
         if (!canSearchVouchers) {
             setView({ kind: 'not-found', query: trimmed });
             return;
@@ -723,20 +750,20 @@ export default function UniversalScannerModal() {
                                     Nhập thủ công
                                 </button>
                             )}
-                            {/* Voucher mode toggle */}
+                            {/* Ticket mode toggle */}
                         </div>
                         {/* Camera viewport */}
                         <div className="relative bg-black overflow-hidden" style={{ height: 500 }}>
-                            {canSearchVouchers && (
+                            {canScanTickets && (
                                 <label className="flex absolute items-center gap-2 mt-2 cursor-pointer select-none z-50 left-3 top-3">
                                     <div
-                                        onClick={() => setVoucherMode(v => !v)}
+                                        onClick={() => setTicketMode(v => !v)}
                                         className={cn(
                                             'relative z-30 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200',
-                                            voucherMode ? 'bg-accent-500' : 'bg-surface-300',
+                                            ticketMode ? 'bg-violet-500' : 'bg-surface-300',
                                         )}
                                     >
-                                        <Ticket className={cn('w-5 h-5', voucherMode ? 'text-white' : 'text-surface-600')} />
+                                        <Ticket className={cn('w-5 h-5', ticketMode ? 'text-white' : 'text-surface-600')} />
                                     </div>
 
                                     {/* Container tạo hiệu ứng trượt */}
@@ -744,15 +771,15 @@ export default function UniversalScannerModal() {
                                         className={cn(
                                             'overflow-hidden transition-all duration-500 ease-in-out flex items-center',
                                             showLabel
-                                                ? 'max-w-[200px] opacity-100 translate-x-0' // Hiện: trượt ra, rõ nét, bung chiều rộng
-                                                : 'max-w-0 opacity-0 -translate-x-4'        // Ẩn: co lại, mờ đi, lùi về trái
+                                                ? 'max-w-[200px] opacity-100 translate-x-0'
+                                                : 'max-w-0 opacity-0 -translate-x-4'
                                         )}
                                     >
                                         <span className={cn(
-                                            'text-xs font-semibold whitespace-nowrap', // Bắt buộc có whitespace-nowrap để chữ không bị rớt dòng khi max-w co lại
-                                            voucherMode ? 'text-accent-600' : 'text-surface-500'
+                                            'text-xs font-semibold whitespace-nowrap',
+                                            ticketMode ? 'text-violet-300' : 'text-surface-500'
                                         )}>
-                                            Chế độ Voucher: {voucherMode ? 'Bật' : 'Tắt'}
+                                            Chế độ Vé: {ticketMode ? 'Bật' : 'Tắt'}
                                         </span>
                                     </div>
                                 </label>
@@ -866,6 +893,12 @@ export default function UniversalScannerModal() {
             case 'product':
                 return <ProductInfoCard product={view.product} onClose={close} />;
 
+            case 'ticket-pass':
+                return <TicketPassCard pass={view.pass} onClose={close} onRescan={resetToScanner} />;
+
+            case 'ticket-order':
+                return <TicketOrderCard order={view.order} onClose={close} onRescan={resetToScanner} />;
+
             case 'referral':
                 return <ReferralView employee={view.employee} cashierId={authUser?.uid || ''} onDone={close} onRescan={resetToScanner} />;
 
@@ -906,7 +939,7 @@ export default function UniversalScannerModal() {
                         </div>
                         <div>
                             <h2 className="text-sm font-bold text-surface-800">Quét mã</h2>
-                            <p className="text-[10px] text-surface-400">QR • Barcode • Voucher • SĐT</p>
+                            <p className="text-[10px] text-surface-400">QR • Barcode • Vé • Voucher • SĐT</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
