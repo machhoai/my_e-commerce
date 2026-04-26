@@ -366,6 +366,7 @@ export default function UniversalScannerModal() {
     const scannerRef = useRef<HTMLDivElement>(null);
     const html5QrRef = useRef<any>(null);
     const scanLock = useRef(false);
+    const handleSearchRef = useRef<(input: string) => void>(() => {});
     const [showLabel, setShowLabel] = useState(false);
 
     // ── Preloaded data (loaded once when modal opens) ────────────
@@ -453,7 +454,7 @@ export default function UniversalScannerModal() {
                     if (scanLock.current) return;
                     scanLock.current = true;
                     playBeep();
-                    handleSearch(text);
+                    handleSearchRef.current(text);
                 },
                 () => { },
             );
@@ -573,6 +574,7 @@ export default function UniversalScannerModal() {
 
     // ── Search handler ───────────────────────────────────────────
     const handleSearch = async (input: string) => {
+        console.log('[Scanner] handleSearch called with:', JSON.stringify(input), '| ticketMode:', ticketMode);
         let trimmed = input.trim();
         
         // Extract slug if input is a Joyworld URL from printed labels
@@ -671,6 +673,9 @@ export default function UniversalScannerModal() {
             setView({ kind: 'not-found', query: trimmed });
         }
     };
+
+    // Keep ref in sync so the camera callback (stale closure) always calls the latest handleSearch
+    handleSearchRef.current = handleSearch;
 
     const handleManualSubmit = (e: React.FormEvent) => {
         e.preventDefault();
