@@ -29,7 +29,7 @@ const dictionaries: Record<MobileLang, Record<string, string>> = {
 
         // Quick access items
         qa_mySchedule: 'Lịch của tôi',
-        qa_registerShift: 'Đăng ký ca',
+        qa_registerShift: 'Danh sách đăng ký',
         qa_myKpi: 'KPI của tôi',
         qa_handover: 'Bàn giao hàng',
         qa_scheduling: 'Lịch làm',
@@ -381,7 +381,7 @@ interface MobileLangContextValue {
 
 const MobileLangContext = createContext<MobileLangContextValue>({
     lang: 'vi',
-    setLang: () => {},
+    setLang: () => { },
     t: (key) => key,
 });
 
