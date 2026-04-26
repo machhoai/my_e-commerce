@@ -1768,12 +1768,6 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
             permKeys: ['page.scheduling.overview'],
         },
         {
-            icon: PlusSquare,
-            label: t('qa_registerShift'),
-            colorClass: 'bg-emerald-300 text-emerald-900',
-            route: '/employee/register',
-        },
-        {
             icon: User,
             label: t('qa_hr'),
             colorClass: 'bg-violet-300 text-violet-900',
