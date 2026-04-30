@@ -564,7 +564,7 @@ export default function OrdersClient({ startDate, endDate }: Props) {
 
     // ── Render ─────────────────────────────────────────────────────────────────
     return (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-3">
             {/* Standalone date picker */}
             {!isEmbedded && (
                 <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-4">

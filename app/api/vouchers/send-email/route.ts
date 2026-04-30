@@ -25,13 +25,20 @@ interface CodeWithQr {
     qrBuffer: Buffer;
 }
 
-// ── Email transporter ─────────────────────────────────────────────
+// ── Email transporter (Brevo SMTP) ────────────────────────────────
 function getTransporter(): nodemailer.Transporter {
     return nodemailer.createTransport({
-        service: 'gmail',
-        auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+        host: process.env.BREVO_SMTP_SERVER ?? 'smtp-relay.brevo.com',
+        port: Number(process.env.BREVO_SMTP_PORT ?? 587),
+        secure: false, // STARTTLS on port 587
+        auth: {
+            user: process.env.BREVO_SMTP_LOGIN,
+            pass: process.env.BREVO_API_KEY,
+        },
     });
 }
+
+const BREVO_FROM = `B.Duck Cityfuns <${process.env.BREVO_SENDER_EMAIL ?? process.env.BREVO_SMTP_LOGIN ?? 'noreply@bduck.vn'}>`;
 
 // ── Helpers ───────────────────────────────────────────────────────
 function formatRewardValue(type: VoucherRewardType, value: number): string {
@@ -460,7 +467,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                     if (logoAttachment) attachments.push(logoAttachment);
 
                     await transporter.sendMail({
-                        from: `"${fromName}" <${process.env.GMAIL_USER}>`,
+                        from: `"${fromName}" <${process.env.BREVO_SENDER_EMAIL ?? 'no-reply@bduckcityfuns.com.vn'}>`,
                         to: recipientEmail,
                         subject,
                         html,

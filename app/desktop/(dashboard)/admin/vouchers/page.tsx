@@ -134,7 +134,7 @@ export default function VouchersPage() {
     }
 
     return (
-        <div className="space-y-6 mx-auto">
+        <div className="flex flex-col gap-3 mx-auto">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -282,7 +282,7 @@ function DashboardTab({ campaigns, globalStats, campaignStats }: {
     ];
 
     return (
-        <div className="space-y-6">
+        <div className="flex flex-col gap-3">
             {/* KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {kpis.map(k => (
@@ -709,802 +709,802 @@ function CampaignTab({
 
     return (
         <>
-        <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-5 border-b border-surface-100">
-                <h2 className="text-lg font-bold text-surface-800 flex items-center gap-2">
-                    <Plus className="w-5 h-5 text-accent-500" />
-                    Tạo chiến dịch mới
-                </h2>
-                <p className="text-sm text-surface-500 mt-1">Điền thông tin và tạo mã voucher hàng loạt</p>
-            </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Left Column */}
-                    <div className="space-y-5">
-                        {/* General Info */}
-                        <div>
-                            <h3 className="text-sm font-bold text-surface-700 flex items-center gap-2 mb-3 pb-2 border-b border-surface-100">
-                                <Tag className="w-4 h-4 text-accent-500" />
-                                Thông tin chung
-                            </h3>
-                            <div className="space-y-4">
-                                <div className="space-y-1.5">
-                                    <label htmlFor="v-name" className="text-sm font-medium text-surface-700">Tên chiến dịch *</label>
-                                    <input
-                                        id="v-name" required value={name} onChange={e => setName(e.target.value)}
-                                        placeholder="VD: Khai trương Popup Store"
-                                        className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5"
-                                    />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label htmlFor="v-desc" className="text-sm font-medium text-surface-700">Mô tả</label>
-                                    <textarea
-                                        id="v-desc" value={description} onChange={e => setDescription(e.target.value)}
-                                        placeholder="Mô tả ngắn về chiến dịch..."
-                                        rows={3}
-                                        className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5 resize-none"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Purpose */}
-                        <div>
-                            <h3 className="text-sm font-bold text-surface-700 flex items-center gap-2 mb-3 pb-2 border-b border-surface-100">
-                                <Dices className="w-4 h-4 text-accent-500" />
-                                Mục đích sử dụng
-                            </h3>
-                            <div className="grid grid-cols-2 gap-3">
-                                {([['event', 'Sự kiện', Dices, 'Dùng cho sự kiện quay thưởng'], ['print', 'In ấn', Printer, 'In voucher trực tiếp, xuất Excel + QR']] as const).map(([val, label, Icon, desc]) => (
-                                    <button
-                                        key={val}
-                                        type="button"
-                                        onClick={() => setPurpose(val)}
-                                        className={cn(
-                                            'flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all',
-                                            purpose === val
-                                                ? 'border-accent-500 bg-accent-50/50 shadow-sm'
-                                                : 'border-surface-200 bg-surface-50 hover:border-surface-300'
-                                        )}
-                                    >
-                                        <Icon className={cn('w-5 h-5 mt-0.5 shrink-0', purpose === val ? 'text-accent-600' : 'text-surface-400')} />
-                                        <div>
-                                            <p className={cn('text-sm font-bold', purpose === val ? 'text-accent-700' : 'text-surface-700')}>{label}</p>
-                                            <p className="text-[10px] text-surface-400 mt-0.5">{desc}</p>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Image Upload */}
-                        <div>
-                            <h3 className="text-sm font-bold text-surface-700 flex items-center gap-2 mb-3 pb-2 border-b border-surface-100">
-                                <ImagePlus className="w-4 h-4 text-accent-500" />
-                                Hình ảnh chiến dịch
-                            </h3>
-                            {/* Drop / click zone */}
-                            <div
-                                onClick={() => !imageCompressing && fileInputRef.current?.click()}
-                                className={cn(
-                                    'relative w-full h-36 rounded-xl border-2 border-dashed overflow-hidden flex items-center justify-center cursor-pointer transition-colors',
-                                    imageCompressing
-                                        ? 'border-accent-300 bg-accent-50'
-                                        : 'border-surface-200 bg-surface-50 hover:border-accent-400 hover:bg-accent-50/40'
-                                )}
-                            >
-                                {imagePreview ? (
-                                    <img src={imagePreview} alt="preview" className="w-full h-full object-contain" />
-                                ) : (
-                                    <div className="flex flex-col items-center gap-2 text-surface-400">
-                                        <Upload className="w-7 h-7" />
-                                        <p className="text-xs font-medium">Nhấn để chọn ảnh</p>
-                                        <p className="text-[10px]">JPG, PNG, WebP — tối đa 20 MB</p>
-                                    </div>
-                                )}
-                                {/* Compression overlay */}
-                                {imageCompressing && (
-                                    <div className="absolute inset-0 bg-white/85 flex flex-col items-center justify-center gap-2">
-                                        <div className="w-5 h-5 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
-                                        <p className="text-xs font-bold text-accent-700">Đang nén ảnh...</p>
-                                    </div>
-                                )}
-                                {/* Upload overlay */}
-                                {!imageCompressing && uploadStatus === 'uploading' && (
-                                    <div className="absolute inset-0 bg-white/85 flex flex-col items-center justify-center gap-2">
-                                        <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-                                        <p className="text-xs font-bold text-primary-700">Đang tải lên... {uploadProgress}%</p>
-                                        <div className="w-3/4 bg-surface-200 rounded-full h-1.5">
-                                            <div className="bg-primary-500 h-1.5 rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            {/* Hidden input */}
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                className="hidden"
-                                onChange={handleImageSelect}
-                            />
-                            {/* Action row */}
-                            <div className="flex items-center justify-between mt-2">
-                                <button
-                                    type="button"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    disabled={imageCompressing || submitting}
-                                    className="text-xs font-medium text-accent-600 hover:text-accent-800 flex items-center gap-1 disabled:opacity-40"
-                                >
-                                    <ImagePlus className="w-3.5 h-3.5" />
-                                    {imagePreview ? 'Đổi ảnh' : 'Chọn ảnh'}
-                                </button>
-                                {imagePreview && (
-                                    <button
-                                        type="button"
-                                        onClick={resetImageState}
-                                        className="text-xs text-danger-400 hover:text-danger-600"
-                                    >
-                                        Xóa ảnh
-                                    </button>
-                                )}
-                            </div>
-                            {/* Feedback message */}
-                            {imageMsg && (
-                                <p className={cn('text-xs mt-1.5 flex items-center gap-1', imageMsg.type === 'err' ? 'text-danger-600' : 'text-success-600')}>
-                                    {imageMsg.type === 'err' ? <AlertCircle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
-                                    {imageMsg.text}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Reward Config */}
-                        <div>
-                            <h3 className="text-sm font-bold text-surface-700 flex items-center gap-2 mb-3 pb-2 border-b border-surface-100">
-                                <Gift className="w-4 h-4 text-accent-500" />
-                                Cấu hình thưởng
-                            </h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label htmlFor="v-rtype" className="text-sm font-medium text-surface-700">Loại thưởng *</label>
-                                    <select
-                                        id="v-rtype" value={rewardType} onChange={e => setRewardType(e.target.value as VoucherRewardType)}
-                                        className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5"
-                                    >
-                                        {Object.entries(REWARD_LABELS).map(([k, v]) => (
-                                            <option key={k} value={k}>{v}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label htmlFor="v-rval" className="text-sm font-medium text-surface-700">Giá trị *</label>
-                                    <input
-                                        id="v-rval" type="number" min={0} required
-                                        value={rewardValue} onChange={e => setRewardValue(Number(e.target.value))}
-                                        placeholder={rewardType === 'discount_percent' ? 'VD: 10' : 'VD: 50000'}
-                                        className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Validity */}
-                        <div>
-                            <h3 className="text-sm font-bold text-surface-700 flex items-center gap-2 mb-3 pb-2 border-b border-surface-100">
-                                <CalendarDays className="w-4 h-4 text-accent-500" />
-                                Thời hạn hiệu lực
-                            </h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label htmlFor="v-from" className="text-sm font-medium text-surface-700">Từ ngày *</label>
-                                    <input
-                                        id="v-from" type="date" required value={validFrom}
-                                        onChange={e => setValidFrom(e.target.value)}
-                                        className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5"
-                                    />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label htmlFor="v-to" className="text-sm font-medium text-surface-700">Đến ngày *</label>
-                                    <input
-                                        id="v-to" type="date" required value={validTo}
-                                        onChange={e => setValidTo(e.target.value)}
-                                        className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Right Column */}
-                    <div className="space-y-5">
-                        {/* Code Structure */}
-                        <div>
-                            <h3 className="text-sm font-bold text-surface-700 flex items-center gap-2 mb-3 pb-2 border-b border-surface-100">
-                                <Sparkles className="w-4 h-4 text-accent-500" />
-                                Cấu trúc mã
-                            </h3>
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-5 border-b border-surface-100">
+                    <h2 className="text-lg font-bold text-surface-800 flex items-center gap-2">
+                        <Plus className="w-5 h-5 text-accent-500" />
+                        Tạo chiến dịch mới
+                    </h2>
+                    <p className="text-sm text-surface-500 mt-1">Điền thông tin và tạo mã voucher hàng loạt</p>
+                </div>
+                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Left Column */}
+                        <div className="space-y-5">
+                            {/* General Info */}
+                            <div>
+                                <h3 className="text-sm font-bold text-surface-700 flex items-center gap-2 mb-3 pb-2 border-b border-surface-100">
+                                    <Tag className="w-4 h-4 text-accent-500" />
+                                    Thông tin chung
+                                </h3>
+                                <div className="space-y-4">
                                     <div className="space-y-1.5">
-                                        <label htmlFor="v-prefix" className="text-sm font-medium text-surface-700">Tiền tố</label>
+                                        <label htmlFor="v-name" className="text-sm font-medium text-surface-700">Tên chiến dịch *</label>
                                         <input
-                                            id="v-prefix" value={prefix} onChange={e => setPrefix(e.target.value)}
-                                            placeholder="SUMMER"
-                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5 uppercase"
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label htmlFor="v-len" className="text-sm font-medium text-surface-700">Độ dài ngẫu nhiên</label>
-                                        <input
-                                            id="v-len" type="number" min={4} max={12}
-                                            value={codeLength} onChange={e => setCodeLength(Number(e.target.value))}
+                                            id="v-name" required value={name} onChange={e => setName(e.target.value)}
+                                            placeholder="VD: Khai trương Popup Store"
                                             className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label htmlFor="v-suffix" className="text-sm font-medium text-surface-700">Hậu tố</label>
-                                        <input
-                                            id="v-suffix" value={suffix} onChange={e => setSuffix(e.target.value)}
-                                            placeholder="26"
-                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5 uppercase"
+                                        <label htmlFor="v-desc" className="text-sm font-medium text-surface-700">Mô tả</label>
+                                        <textarea
+                                            id="v-desc" value={description} onChange={e => setDescription(e.target.value)}
+                                            placeholder="Mô tả ngắn về chiến dịch..."
+                                            rows={3}
+                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5 resize-none"
                                         />
                                     </div>
                                 </div>
+                            </div>
 
-                                {/* Live Preview */}
-                                <div className="bg-surface-50 border border-dashed border-surface-300 rounded-xl p-4 text-center">
-                                    <p className="text-xs text-surface-500 mb-1.5">Xem trước mã</p>
-                                    <p className="text-xl font-mono font-black text-accent-600 tracking-wider">{previewCode}</p>
-                                    <p className="text-[10px] text-surface-400 mt-1">Phần ngẫu nhiên sẽ khác nhau cho mỗi mã</p>
+                            {/* Purpose */}
+                            <div>
+                                <h3 className="text-sm font-bold text-surface-700 flex items-center gap-2 mb-3 pb-2 border-b border-surface-100">
+                                    <Dices className="w-4 h-4 text-accent-500" />
+                                    Mục đích sử dụng
+                                </h3>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {([['event', 'Sự kiện', Dices, 'Dùng cho sự kiện quay thưởng'], ['print', 'In ấn', Printer, 'In voucher trực tiếp, xuất Excel + QR']] as const).map(([val, label, Icon, desc]) => (
+                                        <button
+                                            key={val}
+                                            type="button"
+                                            onClick={() => setPurpose(val)}
+                                            className={cn(
+                                                'flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all',
+                                                purpose === val
+                                                    ? 'border-accent-500 bg-accent-50/50 shadow-sm'
+                                                    : 'border-surface-200 bg-surface-50 hover:border-surface-300'
+                                            )}
+                                        >
+                                            <Icon className={cn('w-5 h-5 mt-0.5 shrink-0', purpose === val ? 'text-accent-600' : 'text-surface-400')} />
+                                            <div>
+                                                <p className={cn('text-sm font-bold', purpose === val ? 'text-accent-700' : 'text-surface-700')}>{label}</p>
+                                                <p className="text-[10px] text-surface-400 mt-0.5">{desc}</p>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Image Upload */}
+                            <div>
+                                <h3 className="text-sm font-bold text-surface-700 flex items-center gap-2 mb-3 pb-2 border-b border-surface-100">
+                                    <ImagePlus className="w-4 h-4 text-accent-500" />
+                                    Hình ảnh chiến dịch
+                                </h3>
+                                {/* Drop / click zone */}
+                                <div
+                                    onClick={() => !imageCompressing && fileInputRef.current?.click()}
+                                    className={cn(
+                                        'relative w-full h-36 rounded-xl border-2 border-dashed overflow-hidden flex items-center justify-center cursor-pointer transition-colors',
+                                        imageCompressing
+                                            ? 'border-accent-300 bg-accent-50'
+                                            : 'border-surface-200 bg-surface-50 hover:border-accent-400 hover:bg-accent-50/40'
+                                    )}
+                                >
+                                    {imagePreview ? (
+                                        <img src={imagePreview} alt="preview" className="w-full h-full object-contain" />
+                                    ) : (
+                                        <div className="flex flex-col items-center gap-2 text-surface-400">
+                                            <Upload className="w-7 h-7" />
+                                            <p className="text-xs font-medium">Nhấn để chọn ảnh</p>
+                                            <p className="text-[10px]">JPG, PNG, WebP — tối đa 20 MB</p>
+                                        </div>
+                                    )}
+                                    {/* Compression overlay */}
+                                    {imageCompressing && (
+                                        <div className="absolute inset-0 bg-white/85 flex flex-col items-center justify-center gap-2">
+                                            <div className="w-5 h-5 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
+                                            <p className="text-xs font-bold text-accent-700">Đang nén ảnh...</p>
+                                        </div>
+                                    )}
+                                    {/* Upload overlay */}
+                                    {!imageCompressing && uploadStatus === 'uploading' && (
+                                        <div className="absolute inset-0 bg-white/85 flex flex-col items-center justify-center gap-2">
+                                            <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                                            <p className="text-xs font-bold text-primary-700">Đang tải lên... {uploadProgress}%</p>
+                                            <div className="w-3/4 bg-surface-200 rounded-full h-1.5">
+                                                <div className="bg-primary-500 h-1.5 rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                {/* Hidden input */}
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    className="hidden"
+                                    onChange={handleImageSelect}
+                                />
+                                {/* Action row */}
+                                <div className="flex items-center justify-between mt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={imageCompressing || submitting}
+                                        className="text-xs font-medium text-accent-600 hover:text-accent-800 flex items-center gap-1 disabled:opacity-40"
+                                    >
+                                        <ImagePlus className="w-3.5 h-3.5" />
+                                        {imagePreview ? 'Đổi ảnh' : 'Chọn ảnh'}
+                                    </button>
+                                    {imagePreview && (
+                                        <button
+                                            type="button"
+                                            onClick={resetImageState}
+                                            className="text-xs text-danger-400 hover:text-danger-600"
+                                        >
+                                            Xóa ảnh
+                                        </button>
+                                    )}
+                                </div>
+                                {/* Feedback message */}
+                                {imageMsg && (
+                                    <p className={cn('text-xs mt-1.5 flex items-center gap-1', imageMsg.type === 'err' ? 'text-danger-600' : 'text-success-600')}>
+                                        {imageMsg.type === 'err' ? <AlertCircle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
+                                        {imageMsg.text}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Reward Config */}
+                            <div>
+                                <h3 className="text-sm font-bold text-surface-700 flex items-center gap-2 mb-3 pb-2 border-b border-surface-100">
+                                    <Gift className="w-4 h-4 text-accent-500" />
+                                    Cấu hình thưởng
+                                </h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label htmlFor="v-rtype" className="text-sm font-medium text-surface-700">Loại thưởng *</label>
+                                        <select
+                                            id="v-rtype" value={rewardType} onChange={e => setRewardType(e.target.value as VoucherRewardType)}
+                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5"
+                                        >
+                                            {Object.entries(REWARD_LABELS).map(([k, v]) => (
+                                                <option key={k} value={k}>{v}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label htmlFor="v-rval" className="text-sm font-medium text-surface-700">Giá trị *</label>
+                                        <input
+                                            id="v-rval" type="number" min={0} required
+                                            value={rewardValue} onChange={e => setRewardValue(Number(e.target.value))}
+                                            placeholder={rewardType === 'discount_percent' ? 'VD: 10' : 'VD: 50000'}
+                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Validity */}
+                            <div>
+                                <h3 className="text-sm font-bold text-surface-700 flex items-center gap-2 mb-3 pb-2 border-b border-surface-100">
+                                    <CalendarDays className="w-4 h-4 text-accent-500" />
+                                    Thời hạn hiệu lực
+                                </h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label htmlFor="v-from" className="text-sm font-medium text-surface-700">Từ ngày *</label>
+                                        <input
+                                            id="v-from" type="date" required value={validFrom}
+                                            onChange={e => setValidFrom(e.target.value)}
+                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label htmlFor="v-to" className="text-sm font-medium text-surface-700">Đến ngày *</label>
+                                        <input
+                                            id="v-to" type="date" required value={validTo}
+                                            onChange={e => setValidTo(e.target.value)}
+                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Quantity */}
-                        <div>
-                            <h3 className="text-sm font-bold text-surface-700 flex items-center gap-2 mb-3 pb-2 border-b border-surface-100">
-                                <Hash className="w-4 h-4 text-accent-500" />
-                                Số lượng phát hành
-                            </h3>
-                            <div className="space-y-1.5">
-                                <label htmlFor="v-qty" className="text-sm font-medium text-surface-700">Số lượng mã *</label>
-                                <input
-                                    id="v-qty" type="number" min={1} max={1000000} required
-                                    value={quantity} onChange={e => setQuantity(Number(e.target.value))}
-                                    className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5"
-                                />
-                                <p className="text-xs text-surface-400">Tối đa 1.000.000 mã mỗi lần. Mã được tạo tự động và đảm bảo không trùng lặp.</p>
-                            </div>
-                        </div>
-
-                        {/* Summary Box */}
-                        <div className="bg-accent-50/50 border border-accent-200 rounded-xl p-4 space-y-2">
-                            <p className="text-sm font-bold text-accent-700">Tóm tắt</p>
-                            <div className="text-xs text-accent-600 space-y-1">
-                                <p>• Thưởng: <strong>{REWARD_LABELS[rewardType]}</strong> — giá trị: <strong>{rewardValue}</strong></p>
-                                <p>• Số lượng: <strong>{quantity.toLocaleString()}</strong> mã</p>
-                                <p>• Hiệu lực: {validFrom || '—'} → {validTo || '—'}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Submit */}
-                <div className="flex justify-end pt-4 border-t border-surface-100">
-                    <button
-                        type="submit"
-                        disabled={submitting || imageCompressing}
-                        className="flex items-center gap-2 bg-surface-800 hover:bg-surface-900 disabled:bg-surface-300 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-semibold shadow-sm transition-colors"
-                    >
-                        {submitting ? (
-                            <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                {uploadStatus === 'uploading' ? `Đang tải ảnh... ${uploadProgress}%` : `Đang tạo ${quantity.toLocaleString()} mã...`}
-                            </>
-                        ) : (
-                            <>
-                                <Plus className="w-4 h-4" />
-                                Tạo chiến dịch & Phát hành mã
-                            </>
-                        )}
-                    </button>
-                </div>
-            </form>
-        </div>
-        {/* end create form */}
-
-        {(() => {
-            // ── Campaign code counts helper (uses server-side stats) ──────
-            const getCampaignCounts = (cid: string) => {
-                const stats = campaignStats[cid];
-                return stats || { total: 0, available: 0, distributed: 0, used: 0, revoked: 0 };
-            };
-
-            const CAMP_STATUS_BADGE: Record<string, string> = {
-                active: 'bg-success-50 text-success-700 border-success-200',
-                paused: 'bg-warning-50 text-warning-700 border-warning-200',
-                ended: 'bg-surface-100 text-surface-600 border-surface-200',
-            };
-            const CAMP_STATUS_LABELS: Record<string, string> = {
-                active: 'Hoạt động',
-                paused: 'Tạm dừng',
-                ended: 'Kết thúc',
-            };
-            const PURPOSE_BADGE: Record<string, string> = {
-                event: 'bg-primary-50 text-primary-700 border-primary-200',
-                print: 'bg-accent-50 text-accent-700 border-accent-200',
-            };
-            const PURPOSE_LABELS: Record<string, string> = {
-                event: 'Sự kiện',
-                print: 'In ấn',
-            };
-
-            // Excel export handler for print campaigns (with actual QR images)
-            const handleExportExcel = async (camp: VoucherCampaign) => {
-                try {
-                    const qrMod = await import('qrcode');
-                    const QRCode = qrMod.default || qrMod;
-                    const excelMod = await import('exceljs');
-                    const ExcelJS = excelMod.default || excelMod;
-
-                    // Fetch all codes for this campaign via paginated API
-                    const token = await getToken();
-                    const campCodes: VoucherCode[] = [];
-                    let afterCursor: string | null = null;
-                    let hasMore = true;
-                    while (hasMore) {
-                        const params = new URLSearchParams({ mode: 'codes', campaignId: camp.id, pageSize: '100' });
-                        if (afterCursor) params.set('after', afterCursor);
-                        const res = await fetch(`/api/vouchers?${params}`, {
-                            headers: { Authorization: `Bearer ${token}` },
-                        });
-                        const data = await res.json();
-                        campCodes.push(...(data.codes || []));
-                        afterCursor = data.lastDocId;
-                        hasMore = data.hasMore;
-                    }
-
-                    const workbook = new ExcelJS.Workbook();
-                    workbook.creator = 'Voucher Manager';
-                    const ws = workbook.addWorksheet('Vouchers');
-
-                    // Define columns
-                    const headers = ['Mã Voucher', 'Trạng thái', 'Loại thưởng', 'Giá trị', 'Hết hạn', 'SĐT nhận', 'Ngày phát', 'Ngày dùng', 'QR Code'];
-                    const headerRow = ws.addRow(headers);
-                    headerRow.font = { bold: true, size: 11 };
-                    headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
-                    headerRow.height = 24;
-
-                    // Column widths
-                    ws.columns = [
-                        { width: 25 }, { width: 12 }, { width: 16 }, { width: 10 },
-                        { width: 14 }, { width: 15 }, { width: 18 }, { width: 18 }, { width: 18 },
-                    ];
-
-                    const statusLabels: Record<string, string> = {
-                        available: 'Có sẵn', distributed: 'Đã phát', used: 'Đã dùng', revoked: 'Thu hồi', expired: 'Hết hạn',
-                    };
-
-                    const QR_SIZE = 100; // pixels
-                    const ROW_HEIGHT = 80; // Excel row height in points
-
-                    for (let i = 0; i < campCodes.length; i++) {
-                        const code = campCodes[i];
-                        const rowNum = i + 2; // 1-indexed, header is row 1
-
-                        const row = ws.addRow([
-                            code.id,
-                            statusLabels[code.status] || code.status,
-                            REWARD_LABELS[code.rewardType] || code.rewardType,
-                            code.rewardValue,
-                            code.validTo,
-                            code.distributedToPhone || '',
-                            code.distributedAt || '',
-                            code.usedAt || '',
-                            '', // QR placeholder
-                        ]);
-                        row.height = ROW_HEIGHT;
-                        row.alignment = { vertical: 'middle' };
-
-                        // Generate QR as base64
-                        const qrDataUrl = await QRCode.toDataURL(code.id, {
-                            width: QR_SIZE,
-                            margin: 1,
-                        });
-                        const base64Data = qrDataUrl.replace(/^data:image\/png;base64,/, '');
-
-                        // Add image to workbook
-                        const imageId = workbook.addImage({
-                            base64: base64Data,
-                            extension: 'png',
-                        });
-
-                        // Place image in column I (index 8)
-                        ws.addImage(imageId, {
-                            tl: { col: 8, row: rowNum - 1 },
-                            ext: { width: QR_SIZE, height: QR_SIZE },
-                        });
-                    }
-
-                    // Style header cells
-                    headerRow.eachCell(cell => {
-                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D3436' } };
-                        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
-                        cell.border = {
-                            bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
-                        };
-                    });
-
-                    // Write to file
-                    const buffer = await workbook.xlsx.writeBuffer();
-                    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    const safeName = camp.name.replace(/[^\w\sÀ-ỹ]/g, '').slice(0, 25);
-                    a.href = url;
-                    a.download = `Voucher_${safeName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                } catch (err) {
-                    onError(err instanceof Error ? err.message : 'Lỗi xuất Excel');
-                }
-            };
-
-            if (campaigns.length === 0) return null;
-            return (
-                <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
-                    <div className="px-6 py-5 border-b border-surface-100">
-                        <h2 className="text-lg font-bold text-surface-800 flex items-center gap-2">
-                            <Megaphone className="w-5 h-5 text-accent-500" />
-                            Danh sách chiến dịch ({campaigns.length})
-                        </h2>
-                        <p className="text-sm text-surface-500 mt-1">Quản lý, thêm mã, bật/tắt chiến dịch</p>
-                    </div>
-                    <div className="divide-y divide-surface-100">
-                        {campaigns.map(camp => {
-                            const counts = getCampaignCounts(camp.id);
-                            const isAdding = addingCodesFor === camp.id;
-                            const isLoading = actionLoading === camp.id;
-                            return (
-                                <div key={camp.id} className="px-6 py-4 hover:bg-surface-50/50 transition-colors">
-                                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                                        {/* Info */}
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <p className="font-bold text-surface-800 truncate">{camp.name}</p>
-                                                <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border', CAMP_STATUS_BADGE[camp.status] || CAMP_STATUS_BADGE.ended)}>
-                                                    {CAMP_STATUS_LABELS[camp.status] || camp.status}
-                                                </span>
-                                                <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border', PURPOSE_BADGE[camp.purpose || 'event'])}>
-                                                    {(camp.purpose || 'event') === 'print' ? <Printer className="w-3 h-3 inline mr-0.5" /> : <Dices className="w-3 h-3 inline mr-0.5" />}
-                                                    {PURPOSE_LABELS[camp.purpose || 'event']}
-                                                </span>
-                                            </div>
-                                            <div className="flex items-center gap-4 text-xs text-surface-500">
-                                                <span className="flex items-center gap-1">
-                                                    <Tag className="w-3 h-3" />
-                                                    {REWARD_LABELS[camp.rewardType]} • {camp.rewardValue}
-                                                </span>
-                                                <span className="flex items-center gap-1">
-                                                    <Hash className="w-3 h-3" />
-                                                    {counts.total} mã
-                                                    <span className="text-success-600">({counts.available} có sẵn)</span>
-                                                </span>
-                                                <span>
-                                                    {camp.validFrom} → {camp.validTo}
-                                                </span>
-                                            </div>
+                        {/* Right Column */}
+                        <div className="space-y-5">
+                            {/* Code Structure */}
+                            <div>
+                                <h3 className="text-sm font-bold text-surface-700 flex items-center gap-2 mb-3 pb-2 border-b border-surface-100">
+                                    <Sparkles className="w-4 h-4 text-accent-500" />
+                                    Cấu trúc mã
+                                </h3>
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div className="space-y-1.5">
+                                            <label htmlFor="v-prefix" className="text-sm font-medium text-surface-700">Tiền tố</label>
+                                            <input
+                                                id="v-prefix" value={prefix} onChange={e => setPrefix(e.target.value)}
+                                                placeholder="SUMMER"
+                                                className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5 uppercase"
+                                            />
                                         </div>
-
-                                        {/* Actions */}
-                                        <div className="flex items-center gap-2 shrink-0">
-                                            <button
-                                                onClick={() => {
-                                                    if (editingCampaignId === camp.id) { setEditingCampaignId(null); }
-                                                    else { startEditCampaign(camp); }
-                                                }}
-                                                className={cn(
-                                                    'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors',
-                                                    editingCampaignId === camp.id
-                                                        ? 'bg-violet-100 text-violet-700 border-violet-300'
-                                                        : 'bg-surface-50 text-surface-600 border-surface-200 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-200'
-                                                )}
-                                            >
-                                                <Pencil className="w-3.5 h-3.5" />
-                                                Sửa
-                                            </button>
-                                            {(camp.purpose === 'print') && (
-                                                <button
-                                                    onClick={() => handleExportExcel(camp)}
-                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border bg-primary-50 text-primary-700 border-primary-200 hover:bg-primary-100 transition-colors"
-                                                >
-                                                    <FileDown className="w-3.5 h-3.5" />
-                                                    Xuất Excel
-                                                </button>
-                                            )}
-                                            <button
-                                                onClick={() => {
-                                                    if (isAdding) { setAddingCodesFor(null); }
-                                                    else { setAddingCodesFor(camp.id); setAddQty(100); }
-                                                }}
-                                                className={cn(
-                                                    'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors',
-                                                    isAdding
-                                                        ? 'bg-accent-100 text-accent-700 border-accent-300'
-                                                        : 'bg-surface-50 text-surface-600 border-surface-200 hover:bg-accent-50 hover:text-accent-700 hover:border-accent-200'
-                                                )}
-                                            >
-                                                <PlusCircle className="w-3.5 h-3.5" />
-                                                Thêm mã
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    if (updatingExpiryFor === camp.id) { setUpdatingExpiryFor(null); }
-                                                    else { setUpdatingExpiryFor(camp.id); setNewValidTo(camp.validTo); }
-                                                }}
-                                                className={cn(
-                                                    'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors',
-                                                    updatingExpiryFor === camp.id
-                                                        ? 'bg-primary-100 text-primary-700 border-primary-300'
-                                                        : 'bg-surface-50 text-surface-600 border-surface-200 hover:bg-primary-50 hover:text-primary-700 hover:border-primary-200'
-                                                )}
-                                            >
-                                                <CalendarDays className="w-3.5 h-3.5" />
-                                                Gia hạn
-                                            </button>
-                                            {/* ── Thiết kế vé (chỉ in ấn) */}
-                                            {camp.purpose === 'print' && (
-                                                <button
-                                                    onClick={() => onDesign(camp)}
-                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100"
-                                                >
-                                                    <Palette className="w-3.5 h-3.5" />
-                                                    Thiết kế vé
-                                                </button>
-                                            )}
-                                            <button
-                                                onClick={() => handleToggleCampaign(camp.id, camp.status)}
-                                                disabled={isLoading}
-                                                className={cn(
-                                                    'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-50',
-                                                    camp.status === 'active'
-                                                        ? 'bg-warning-50 text-warning-700 border-warning-200 hover:bg-warning-100'
-                                                        : 'bg-success-50 text-success-700 border-success-200 hover:bg-success-100'
-                                                )}
-                                            >
-                                                {isLoading ? (
-                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                ) : camp.status === 'active' ? (
-                                                    <Pause className="w-3.5 h-3.5" />
-                                                ) : (
-                                                    <Play className="w-3.5 h-3.5" />
-                                                )}
-                                                {camp.status === 'active' ? 'Tạm dừng' : 'Kích hoạt'}
-                                            </button>
+                                        <div className="space-y-1.5">
+                                            <label htmlFor="v-len" className="text-sm font-medium text-surface-700">Độ dài ngẫu nhiên</label>
+                                            <input
+                                                id="v-len" type="number" min={4} max={12}
+                                                value={codeLength} onChange={e => setCodeLength(Number(e.target.value))}
+                                                className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label htmlFor="v-suffix" className="text-sm font-medium text-surface-700">Hậu tố</label>
+                                            <input
+                                                id="v-suffix" value={suffix} onChange={e => setSuffix(e.target.value)}
+                                                placeholder="26"
+                                                className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5 uppercase"
+                                            />
                                         </div>
                                     </div>
 
-                                    {/* Inline Add Codes Form */}
-                                    {isAdding && (
-                                        <div className="mt-3 flex items-center gap-3 bg-accent-50/50 border border-accent-200 rounded-xl p-3 animate-in slide-in-from-top-1 duration-200">
-                                            <label className="text-xs font-medium text-accent-700 whitespace-nowrap">Số lượng:</label>
-                                            <input
-                                                type="number" min={1} max={1000000}
-                                                value={addQty}
-                                                onChange={e => setAddQty(Number(e.target.value))}
-                                                className="w-28 bg-white border border-accent-200 text-sm rounded-lg p-2 focus:ring-accent-500 focus:border-accent-400"
-                                            />
-                                            <button
-                                                onClick={() => handleAddCodes(camp.id)}
-                                                disabled={isLoading}
-                                                className="flex items-center gap-1.5 px-4 py-2 bg-surface-800 hover:bg-surface-900 disabled:bg-surface-300 text-white text-xs font-semibold rounded-lg transition-colors"
-                                            >
-                                                {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                                                Tạo thêm
-                                            </button>
-                                            <button
-                                                onClick={() => setAddingCodesFor(null)}
-                                                className="text-xs text-surface-400 hover:text-surface-600"
-                                            >
-                                                Hủy
-                                            </button>
-                                        </div>
-                                    )}
+                                    {/* Live Preview */}
+                                    <div className="bg-surface-50 border border-dashed border-surface-300 rounded-xl p-4 text-center">
+                                        <p className="text-xs text-surface-500 mb-1.5">Xem trước mã</p>
+                                        <p className="text-xl font-mono font-black text-accent-600 tracking-wider">{previewCode}</p>
+                                        <p className="text-[10px] text-surface-400 mt-1">Phần ngẫu nhiên sẽ khác nhau cho mỗi mã</p>
+                                    </div>
+                                </div>
+                            </div>
 
-                                    {/* Inline Update Expiry Form */}
-                                    {updatingExpiryFor === camp.id && (
-                                        <div className="mt-3 flex items-center gap-3 bg-primary-50/50 border border-primary-200 rounded-xl p-3 animate-in slide-in-from-top-1 duration-200">
-                                            <label className="text-xs font-medium text-primary-700 whitespace-nowrap">Ngày hết hạn mới:</label>
-                                            <input
-                                                type="date"
-                                                value={newValidTo}
-                                                onChange={e => setNewValidTo(e.target.value)}
-                                                className="w-40 bg-white border border-primary-200 text-sm rounded-lg p-2 focus:ring-primary-500 focus:border-primary-400"
-                                            />
-                                            <button
-                                                onClick={() => handleUpdateExpiry(camp.id)}
-                                                disabled={isLoading}
-                                                className="flex items-center gap-1.5 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-surface-300 text-white text-xs font-semibold rounded-lg transition-colors"
-                                            >
-                                                {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CalendarDays className="w-3.5 h-3.5" />}
-                                                Cập nhật
-                                            </button>
-                                            <button
-                                                onClick={() => setUpdatingExpiryFor(null)}
-                                                className="text-xs text-surface-400 hover:text-surface-600"
-                                            >
-                                                Hủy
-                                            </button>
-                                        </div>
-                                    )}
+                            {/* Quantity */}
+                            <div>
+                                <h3 className="text-sm font-bold text-surface-700 flex items-center gap-2 mb-3 pb-2 border-b border-surface-100">
+                                    <Hash className="w-4 h-4 text-accent-500" />
+                                    Số lượng phát hành
+                                </h3>
+                                <div className="space-y-1.5">
+                                    <label htmlFor="v-qty" className="text-sm font-medium text-surface-700">Số lượng mã *</label>
+                                    <input
+                                        id="v-qty" type="number" min={1} max={1000000} required
+                                        value={quantity} onChange={e => setQuantity(Number(e.target.value))}
+                                        className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5"
+                                    />
+                                    <p className="text-xs text-surface-400">Tối đa 1.000.000 mã mỗi lần. Mã được tạo tự động và đảm bảo không trùng lặp.</p>
+                                </div>
+                            </div>
 
-                                    {/* Inline Edit Campaign Form */}
-                                    {editingCampaignId === camp.id && (
-                                        <div className="mt-3 bg-violet-50/50 border border-violet-200 rounded-xl p-4 animate-in slide-in-from-top-1 duration-200 space-y-4">
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <div className="space-y-1.5">
-                                                    <label className="text-xs font-semibold text-violet-700">Tên chiến dịch</label>
-                                                    <input
-                                                        value={editForm.name}
-                                                        onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))}
-                                                        className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400"
-                                                    />
+                            {/* Summary Box */}
+                            <div className="bg-accent-50/50 border border-accent-200 rounded-xl p-4 space-y-2">
+                                <p className="text-sm font-bold text-accent-700">Tóm tắt</p>
+                                <div className="text-xs text-accent-600 space-y-1">
+                                    <p>• Thưởng: <strong>{REWARD_LABELS[rewardType]}</strong> — giá trị: <strong>{rewardValue}</strong></p>
+                                    <p>• Số lượng: <strong>{quantity.toLocaleString()}</strong> mã</p>
+                                    <p>• Hiệu lực: {validFrom || '—'} → {validTo || '—'}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Submit */}
+                    <div className="flex justify-end pt-4 border-t border-surface-100">
+                        <button
+                            type="submit"
+                            disabled={submitting || imageCompressing}
+                            className="flex items-center gap-2 bg-surface-800 hover:bg-surface-900 disabled:bg-surface-300 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-semibold shadow-sm transition-colors"
+                        >
+                            {submitting ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    {uploadStatus === 'uploading' ? `Đang tải ảnh... ${uploadProgress}%` : `Đang tạo ${quantity.toLocaleString()} mã...`}
+                                </>
+                            ) : (
+                                <>
+                                    <Plus className="w-4 h-4" />
+                                    Tạo chiến dịch & Phát hành mã
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {/* end create form */}
+
+            {(() => {
+                // ── Campaign code counts helper (uses server-side stats) ──────
+                const getCampaignCounts = (cid: string) => {
+                    const stats = campaignStats[cid];
+                    return stats || { total: 0, available: 0, distributed: 0, used: 0, revoked: 0 };
+                };
+
+                const CAMP_STATUS_BADGE: Record<string, string> = {
+                    active: 'bg-success-50 text-success-700 border-success-200',
+                    paused: 'bg-warning-50 text-warning-700 border-warning-200',
+                    ended: 'bg-surface-100 text-surface-600 border-surface-200',
+                };
+                const CAMP_STATUS_LABELS: Record<string, string> = {
+                    active: 'Hoạt động',
+                    paused: 'Tạm dừng',
+                    ended: 'Kết thúc',
+                };
+                const PURPOSE_BADGE: Record<string, string> = {
+                    event: 'bg-primary-50 text-primary-700 border-primary-200',
+                    print: 'bg-accent-50 text-accent-700 border-accent-200',
+                };
+                const PURPOSE_LABELS: Record<string, string> = {
+                    event: 'Sự kiện',
+                    print: 'In ấn',
+                };
+
+                // Excel export handler for print campaigns (with actual QR images)
+                const handleExportExcel = async (camp: VoucherCampaign) => {
+                    try {
+                        const qrMod = await import('qrcode');
+                        const QRCode = qrMod.default || qrMod;
+                        const excelMod = await import('exceljs');
+                        const ExcelJS = excelMod.default || excelMod;
+
+                        // Fetch all codes for this campaign via paginated API
+                        const token = await getToken();
+                        const campCodes: VoucherCode[] = [];
+                        let afterCursor: string | null = null;
+                        let hasMore = true;
+                        while (hasMore) {
+                            const params = new URLSearchParams({ mode: 'codes', campaignId: camp.id, pageSize: '100' });
+                            if (afterCursor) params.set('after', afterCursor);
+                            const res = await fetch(`/api/vouchers?${params}`, {
+                                headers: { Authorization: `Bearer ${token}` },
+                            });
+                            const data = await res.json();
+                            campCodes.push(...(data.codes || []));
+                            afterCursor = data.lastDocId;
+                            hasMore = data.hasMore;
+                        }
+
+                        const workbook = new ExcelJS.Workbook();
+                        workbook.creator = 'Voucher Manager';
+                        const ws = workbook.addWorksheet('Vouchers');
+
+                        // Define columns
+                        const headers = ['Mã Voucher', 'Trạng thái', 'Loại thưởng', 'Giá trị', 'Hết hạn', 'SĐT nhận', 'Ngày phát', 'Ngày dùng', 'QR Code'];
+                        const headerRow = ws.addRow(headers);
+                        headerRow.font = { bold: true, size: 11 };
+                        headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+                        headerRow.height = 24;
+
+                        // Column widths
+                        ws.columns = [
+                            { width: 25 }, { width: 12 }, { width: 16 }, { width: 10 },
+                            { width: 14 }, { width: 15 }, { width: 18 }, { width: 18 }, { width: 18 },
+                        ];
+
+                        const statusLabels: Record<string, string> = {
+                            available: 'Có sẵn', distributed: 'Đã phát', used: 'Đã dùng', revoked: 'Thu hồi', expired: 'Hết hạn',
+                        };
+
+                        const QR_SIZE = 100; // pixels
+                        const ROW_HEIGHT = 80; // Excel row height in points
+
+                        for (let i = 0; i < campCodes.length; i++) {
+                            const code = campCodes[i];
+                            const rowNum = i + 2; // 1-indexed, header is row 1
+
+                            const row = ws.addRow([
+                                code.id,
+                                statusLabels[code.status] || code.status,
+                                REWARD_LABELS[code.rewardType] || code.rewardType,
+                                code.rewardValue,
+                                code.validTo,
+                                code.distributedToPhone || '',
+                                code.distributedAt || '',
+                                code.usedAt || '',
+                                '', // QR placeholder
+                            ]);
+                            row.height = ROW_HEIGHT;
+                            row.alignment = { vertical: 'middle' };
+
+                            // Generate QR as base64
+                            const qrDataUrl = await QRCode.toDataURL(code.id, {
+                                width: QR_SIZE,
+                                margin: 1,
+                            });
+                            const base64Data = qrDataUrl.replace(/^data:image\/png;base64,/, '');
+
+                            // Add image to workbook
+                            const imageId = workbook.addImage({
+                                base64: base64Data,
+                                extension: 'png',
+                            });
+
+                            // Place image in column I (index 8)
+                            ws.addImage(imageId, {
+                                tl: { col: 8, row: rowNum - 1 },
+                                ext: { width: QR_SIZE, height: QR_SIZE },
+                            });
+                        }
+
+                        // Style header cells
+                        headerRow.eachCell(cell => {
+                            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D3436' } };
+                            cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+                            cell.border = {
+                                bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+                            };
+                        });
+
+                        // Write to file
+                        const buffer = await workbook.xlsx.writeBuffer();
+                        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        const safeName = camp.name.replace(/[^\w\sÀ-ỹ]/g, '').slice(0, 25);
+                        a.href = url;
+                        a.download = `Voucher_${safeName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    } catch (err) {
+                        onError(err instanceof Error ? err.message : 'Lỗi xuất Excel');
+                    }
+                };
+
+                if (campaigns.length === 0) return null;
+                return (
+                    <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
+                        <div className="px-6 py-5 border-b border-surface-100">
+                            <h2 className="text-lg font-bold text-surface-800 flex items-center gap-2">
+                                <Megaphone className="w-5 h-5 text-accent-500" />
+                                Danh sách chiến dịch ({campaigns.length})
+                            </h2>
+                            <p className="text-sm text-surface-500 mt-1">Quản lý, thêm mã, bật/tắt chiến dịch</p>
+                        </div>
+                        <div className="divide-y divide-surface-100">
+                            {campaigns.map(camp => {
+                                const counts = getCampaignCounts(camp.id);
+                                const isAdding = addingCodesFor === camp.id;
+                                const isLoading = actionLoading === camp.id;
+                                return (
+                                    <div key={camp.id} className="px-6 py-4 hover:bg-surface-50/50 transition-colors">
+                                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                                            {/* Info */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <p className="font-bold text-surface-800 truncate">{camp.name}</p>
+                                                    <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border', CAMP_STATUS_BADGE[camp.status] || CAMP_STATUS_BADGE.ended)}>
+                                                        {CAMP_STATUS_LABELS[camp.status] || camp.status}
+                                                    </span>
+                                                    <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded border', PURPOSE_BADGE[camp.purpose || 'event'])}>
+                                                        {(camp.purpose || 'event') === 'print' ? <Printer className="w-3 h-3 inline mr-0.5" /> : <Dices className="w-3 h-3 inline mr-0.5" />}
+                                                        {PURPOSE_LABELS[camp.purpose || 'event']}
+                                                    </span>
                                                 </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="text-xs font-semibold text-violet-700">Mục đích</label>
-                                                    <select
-                                                        value={editForm.purpose}
-                                                        onChange={e => setEditForm(p => ({ ...p, purpose: e.target.value as VoucherCampaignPurpose }))}
-                                                        className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400"
-                                                    >
-                                                        <option value="event">Sự kiện</option>
-                                                        <option value="print">In ấn</option>
-                                                    </select>
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="text-xs font-semibold text-violet-700">Loại thưởng</label>
-                                                    <select
-                                                        value={editForm.rewardType}
-                                                        onChange={e => setEditForm(p => ({ ...p, rewardType: e.target.value as VoucherRewardType }))}
-                                                        className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400"
-                                                    >
-                                                        {Object.entries(REWARD_LABELS).map(([k, v]) => (
-                                                            <option key={k} value={k}>{v}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="text-xs font-semibold text-violet-700">Giá trị thưởng</label>
-                                                    <input
-                                                        type="number" min={0}
-                                                        value={editForm.rewardValue}
-                                                        onChange={e => setEditForm(p => ({ ...p, rewardValue: Number(e.target.value) }))}
-                                                        className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400"
-                                                    />
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="text-xs font-semibold text-violet-700">Từ ngày</label>
-                                                    <input
-                                                        type="date"
-                                                        value={editForm.validFrom}
-                                                        onChange={e => setEditForm(p => ({ ...p, validFrom: e.target.value }))}
-                                                        className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400"
-                                                    />
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="text-xs font-semibold text-violet-700">Đến ngày</label>
-                                                    <input
-                                                        type="date"
-                                                        value={editForm.validTo}
-                                                        onChange={e => setEditForm(p => ({ ...p, validTo: e.target.value }))}
-                                                        className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400"
-                                                    />
-                                                </div>
-                                                <div className="sm:col-span-2 space-y-1.5">
-                                                    <label className="text-xs font-semibold text-violet-700">Mô tả</label>
-                                                    <textarea
-                                                        value={editForm.description}
-                                                        onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))}
-                                                        rows={2}
-                                                        className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400 resize-none"
-                                                    />
+                                                <div className="flex items-center gap-4 text-xs text-surface-500">
+                                                    <span className="flex items-center gap-1">
+                                                        <Tag className="w-3 h-3" />
+                                                        {REWARD_LABELS[camp.rewardType]} • {camp.rewardValue}
+                                                    </span>
+                                                    <span className="flex items-center gap-1">
+                                                        <Hash className="w-3 h-3" />
+                                                        {counts.total} mã
+                                                        <span className="text-success-600">({counts.available} có sẵn)</span>
+                                                    </span>
+                                                    <span>
+                                                        {camp.validFrom} → {camp.validTo}
+                                                    </span>
                                                 </div>
                                             </div>
 
-                                            {/* Image upload zone */}
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-semibold text-violet-700">Hình ảnh chiến dịch</label>
-                                                <div className="flex items-center gap-4">
-                                                    <div
-                                                        onClick={() => !editImageCompressing && editFileInputRef.current?.click()}
-                                                        className={cn(
-                                                            'relative w-28 h-20 rounded-lg border-2 border-dashed overflow-hidden flex items-center justify-center cursor-pointer transition-colors shrink-0',
-                                                            editImageCompressing
-                                                                ? 'border-violet-300 bg-violet-50'
-                                                                : 'border-violet-200 bg-white hover:border-violet-400'
-                                                        )}
-                                                    >
-                                                        {editImagePreview ? (
-                                                            <img src={editImagePreview} alt="preview" className="w-full h-full object-contain" />
-                                                        ) : (
-                                                            <div className="flex flex-col items-center gap-1 text-surface-400">
-                                                                <ImagePlus className="w-5 h-5" />
-                                                                <p className="text-[9px] font-medium">Chọn ảnh</p>
-                                                            </div>
-                                                        )}
-                                                        {editImageCompressing && (
-                                                            <div className="absolute inset-0 bg-white/85 flex items-center justify-center">
-                                                                <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex flex-col gap-1.5">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => editFileInputRef.current?.click()}
-                                                            disabled={editImageCompressing}
-                                                            className="text-xs font-medium text-violet-600 hover:text-violet-800 flex items-center gap-1 disabled:opacity-40"
-                                                        >
-                                                            <Upload className="w-3 h-3" />
-                                                            {editImagePreview ? 'Đổi ảnh' : 'Tải ảnh lên'}
-                                                        </button>
-                                                        {editImagePreview && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    if (editImagePreview.startsWith('blob:')) URL.revokeObjectURL(editImagePreview);
-                                                                    setEditPendingImage(null);
-                                                                    setEditImagePreview('');
-                                                                    if (editFileInputRef.current) editFileInputRef.current.value = '';
-                                                                }}
-                                                                className="text-xs text-danger-400 hover:text-danger-600 flex items-center gap-1"
-                                                            >
-                                                                <XIcon className="w-3 h-3" />
-                                                                Xóa ảnh
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <input
-                                                    ref={editFileInputRef}
-                                                    type="file"
-                                                    accept="image/jpeg,image/png,image/webp"
-                                                    className="hidden"
-                                                    onChange={handleEditImageSelect}
-                                                />
-                                            </div>
-
-                                            <div className="flex items-center gap-3 pt-1">
+                                            {/* Actions */}
+                                            <div className="flex items-center gap-2 shrink-0">
                                                 <button
-                                                    onClick={handleUpdateCampaign}
-                                                    disabled={actionLoading === camp.id || !editForm.name.trim()}
-                                                    className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:bg-surface-300 text-white text-xs font-semibold rounded-lg transition-colors"
+                                                    onClick={() => {
+                                                        if (editingCampaignId === camp.id) { setEditingCampaignId(null); }
+                                                        else { startEditCampaign(camp); }
+                                                    }}
+                                                    className={cn(
+                                                        'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors',
+                                                        editingCampaignId === camp.id
+                                                            ? 'bg-violet-100 text-violet-700 border-violet-300'
+                                                            : 'bg-surface-50 text-surface-600 border-surface-200 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-200'
+                                                    )}
                                                 >
-                                                    {actionLoading === camp.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                                                    Lưu thay đổi
+                                                    <Pencil className="w-3.5 h-3.5" />
+                                                    Sửa
+                                                </button>
+                                                {(camp.purpose === 'print') && (
+                                                    <button
+                                                        onClick={() => handleExportExcel(camp)}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border bg-primary-50 text-primary-700 border-primary-200 hover:bg-primary-100 transition-colors"
+                                                    >
+                                                        <FileDown className="w-3.5 h-3.5" />
+                                                        Xuất Excel
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => {
+                                                        if (isAdding) { setAddingCodesFor(null); }
+                                                        else { setAddingCodesFor(camp.id); setAddQty(100); }
+                                                    }}
+                                                    className={cn(
+                                                        'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors',
+                                                        isAdding
+                                                            ? 'bg-accent-100 text-accent-700 border-accent-300'
+                                                            : 'bg-surface-50 text-surface-600 border-surface-200 hover:bg-accent-50 hover:text-accent-700 hover:border-accent-200'
+                                                    )}
+                                                >
+                                                    <PlusCircle className="w-3.5 h-3.5" />
+                                                    Thêm mã
                                                 </button>
                                                 <button
-                                                    onClick={() => setEditingCampaignId(null)}
+                                                    onClick={() => {
+                                                        if (updatingExpiryFor === camp.id) { setUpdatingExpiryFor(null); }
+                                                        else { setUpdatingExpiryFor(camp.id); setNewValidTo(camp.validTo); }
+                                                    }}
+                                                    className={cn(
+                                                        'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors',
+                                                        updatingExpiryFor === camp.id
+                                                            ? 'bg-primary-100 text-primary-700 border-primary-300'
+                                                            : 'bg-surface-50 text-surface-600 border-surface-200 hover:bg-primary-50 hover:text-primary-700 hover:border-primary-200'
+                                                    )}
+                                                >
+                                                    <CalendarDays className="w-3.5 h-3.5" />
+                                                    Gia hạn
+                                                </button>
+                                                {/* ── Thiết kế vé (chỉ in ấn) */}
+                                                {camp.purpose === 'print' && (
+                                                    <button
+                                                        onClick={() => onDesign(camp)}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100"
+                                                    >
+                                                        <Palette className="w-3.5 h-3.5" />
+                                                        Thiết kế vé
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => handleToggleCampaign(camp.id, camp.status)}
+                                                    disabled={isLoading}
+                                                    className={cn(
+                                                        'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-50',
+                                                        camp.status === 'active'
+                                                            ? 'bg-warning-50 text-warning-700 border-warning-200 hover:bg-warning-100'
+                                                            : 'bg-success-50 text-success-700 border-success-200 hover:bg-success-100'
+                                                    )}
+                                                >
+                                                    {isLoading ? (
+                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                    ) : camp.status === 'active' ? (
+                                                        <Pause className="w-3.5 h-3.5" />
+                                                    ) : (
+                                                        <Play className="w-3.5 h-3.5" />
+                                                    )}
+                                                    {camp.status === 'active' ? 'Tạm dừng' : 'Kích hoạt'}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Inline Add Codes Form */}
+                                        {isAdding && (
+                                            <div className="mt-3 flex items-center gap-3 bg-accent-50/50 border border-accent-200 rounded-xl p-3 animate-in slide-in-from-top-1 duration-200">
+                                                <label className="text-xs font-medium text-accent-700 whitespace-nowrap">Số lượng:</label>
+                                                <input
+                                                    type="number" min={1} max={1000000}
+                                                    value={addQty}
+                                                    onChange={e => setAddQty(Number(e.target.value))}
+                                                    className="w-28 bg-white border border-accent-200 text-sm rounded-lg p-2 focus:ring-accent-500 focus:border-accent-400"
+                                                />
+                                                <button
+                                                    onClick={() => handleAddCodes(camp.id)}
+                                                    disabled={isLoading}
+                                                    className="flex items-center gap-1.5 px-4 py-2 bg-surface-800 hover:bg-surface-900 disabled:bg-surface-300 text-white text-xs font-semibold rounded-lg transition-colors"
+                                                >
+                                                    {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                                                    Tạo thêm
+                                                </button>
+                                                <button
+                                                    onClick={() => setAddingCodesFor(null)}
                                                     className="text-xs text-surface-400 hover:text-surface-600"
                                                 >
                                                     Hủy
                                                 </button>
                                             </div>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
+                                        )}
+
+                                        {/* Inline Update Expiry Form */}
+                                        {updatingExpiryFor === camp.id && (
+                                            <div className="mt-3 flex items-center gap-3 bg-primary-50/50 border border-primary-200 rounded-xl p-3 animate-in slide-in-from-top-1 duration-200">
+                                                <label className="text-xs font-medium text-primary-700 whitespace-nowrap">Ngày hết hạn mới:</label>
+                                                <input
+                                                    type="date"
+                                                    value={newValidTo}
+                                                    onChange={e => setNewValidTo(e.target.value)}
+                                                    className="w-40 bg-white border border-primary-200 text-sm rounded-lg p-2 focus:ring-primary-500 focus:border-primary-400"
+                                                />
+                                                <button
+                                                    onClick={() => handleUpdateExpiry(camp.id)}
+                                                    disabled={isLoading}
+                                                    className="flex items-center gap-1.5 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-surface-300 text-white text-xs font-semibold rounded-lg transition-colors"
+                                                >
+                                                    {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CalendarDays className="w-3.5 h-3.5" />}
+                                                    Cập nhật
+                                                </button>
+                                                <button
+                                                    onClick={() => setUpdatingExpiryFor(null)}
+                                                    className="text-xs text-surface-400 hover:text-surface-600"
+                                                >
+                                                    Hủy
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* Inline Edit Campaign Form */}
+                                        {editingCampaignId === camp.id && (
+                                            <div className="mt-3 bg-violet-50/50 border border-violet-200 rounded-xl p-4 animate-in slide-in-from-top-1 duration-200 space-y-4">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-xs font-semibold text-violet-700">Tên chiến dịch</label>
+                                                        <input
+                                                            value={editForm.name}
+                                                            onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))}
+                                                            className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-xs font-semibold text-violet-700">Mục đích</label>
+                                                        <select
+                                                            value={editForm.purpose}
+                                                            onChange={e => setEditForm(p => ({ ...p, purpose: e.target.value as VoucherCampaignPurpose }))}
+                                                            className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400"
+                                                        >
+                                                            <option value="event">Sự kiện</option>
+                                                            <option value="print">In ấn</option>
+                                                        </select>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-xs font-semibold text-violet-700">Loại thưởng</label>
+                                                        <select
+                                                            value={editForm.rewardType}
+                                                            onChange={e => setEditForm(p => ({ ...p, rewardType: e.target.value as VoucherRewardType }))}
+                                                            className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400"
+                                                        >
+                                                            {Object.entries(REWARD_LABELS).map(([k, v]) => (
+                                                                <option key={k} value={k}>{v}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-xs font-semibold text-violet-700">Giá trị thưởng</label>
+                                                        <input
+                                                            type="number" min={0}
+                                                            value={editForm.rewardValue}
+                                                            onChange={e => setEditForm(p => ({ ...p, rewardValue: Number(e.target.value) }))}
+                                                            className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-xs font-semibold text-violet-700">Từ ngày</label>
+                                                        <input
+                                                            type="date"
+                                                            value={editForm.validFrom}
+                                                            onChange={e => setEditForm(p => ({ ...p, validFrom: e.target.value }))}
+                                                            className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-xs font-semibold text-violet-700">Đến ngày</label>
+                                                        <input
+                                                            type="date"
+                                                            value={editForm.validTo}
+                                                            onChange={e => setEditForm(p => ({ ...p, validTo: e.target.value }))}
+                                                            className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400"
+                                                        />
+                                                    </div>
+                                                    <div className="sm:col-span-2 space-y-1.5">
+                                                        <label className="text-xs font-semibold text-violet-700">Mô tả</label>
+                                                        <textarea
+                                                            value={editForm.description}
+                                                            onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))}
+                                                            rows={2}
+                                                            className="w-full bg-white border border-violet-200 text-sm rounded-lg p-2.5 focus:ring-violet-500 focus:border-violet-400 resize-none"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Image upload zone */}
+                                                <div className="space-y-1.5">
+                                                    <label className="text-xs font-semibold text-violet-700">Hình ảnh chiến dịch</label>
+                                                    <div className="flex items-center gap-4">
+                                                        <div
+                                                            onClick={() => !editImageCompressing && editFileInputRef.current?.click()}
+                                                            className={cn(
+                                                                'relative w-28 h-20 rounded-lg border-2 border-dashed overflow-hidden flex items-center justify-center cursor-pointer transition-colors shrink-0',
+                                                                editImageCompressing
+                                                                    ? 'border-violet-300 bg-violet-50'
+                                                                    : 'border-violet-200 bg-white hover:border-violet-400'
+                                                            )}
+                                                        >
+                                                            {editImagePreview ? (
+                                                                <img src={editImagePreview} alt="preview" className="w-full h-full object-contain" />
+                                                            ) : (
+                                                                <div className="flex flex-col items-center gap-1 text-surface-400">
+                                                                    <ImagePlus className="w-5 h-5" />
+                                                                    <p className="text-[9px] font-medium">Chọn ảnh</p>
+                                                                </div>
+                                                            )}
+                                                            {editImageCompressing && (
+                                                                <div className="absolute inset-0 bg-white/85 flex items-center justify-center">
+                                                                    <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex flex-col gap-1.5">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => editFileInputRef.current?.click()}
+                                                                disabled={editImageCompressing}
+                                                                className="text-xs font-medium text-violet-600 hover:text-violet-800 flex items-center gap-1 disabled:opacity-40"
+                                                            >
+                                                                <Upload className="w-3 h-3" />
+                                                                {editImagePreview ? 'Đổi ảnh' : 'Tải ảnh lên'}
+                                                            </button>
+                                                            {editImagePreview && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        if (editImagePreview.startsWith('blob:')) URL.revokeObjectURL(editImagePreview);
+                                                                        setEditPendingImage(null);
+                                                                        setEditImagePreview('');
+                                                                        if (editFileInputRef.current) editFileInputRef.current.value = '';
+                                                                    }}
+                                                                    className="text-xs text-danger-400 hover:text-danger-600 flex items-center gap-1"
+                                                                >
+                                                                    <XIcon className="w-3 h-3" />
+                                                                    Xóa ảnh
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <input
+                                                        ref={editFileInputRef}
+                                                        type="file"
+                                                        accept="image/jpeg,image/png,image/webp"
+                                                        className="hidden"
+                                                        onChange={handleEditImageSelect}
+                                                    />
+                                                </div>
+
+                                                <div className="flex items-center gap-3 pt-1">
+                                                    <button
+                                                        onClick={handleUpdateCampaign}
+                                                        disabled={actionLoading === camp.id || !editForm.name.trim()}
+                                                        className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:bg-surface-300 text-white text-xs font-semibold rounded-lg transition-colors"
+                                                    >
+                                                        {actionLoading === camp.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                                                        Lưu thay đổi
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setEditingCampaignId(null)}
+                                                        className="text-xs text-surface-400 hover:text-surface-600"
+                                                    >
+                                                        Hủy
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
-            );
-        })()}
-        {/* Batch Progress Modal */}
-        <BatchProgressModal
-            state={batch}
-            onClose={() => { batch.reset(); fetchData(); }}
-            title={batchTitle}
-        />
+                );
+            })()}
+            {/* Batch Progress Modal */}
+            <BatchProgressModal
+                state={batch}
+                onClose={() => { batch.reset(); fetchData(); }}
+                title={batchTitle}
+            />
         </>
     );
 }
@@ -1721,7 +1721,7 @@ function CodeInventoryTab({
     };
 
     return (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-3">
             {/* Filters */}
             <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-4">
                 <div className="flex flex-col sm:flex-row gap-3">
