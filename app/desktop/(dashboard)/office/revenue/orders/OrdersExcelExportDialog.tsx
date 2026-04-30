@@ -304,10 +304,12 @@ async function exportOrdersExcel(
         hr.height = 28;
 
         goods.forEach((g, idx) => {
-            // Surcharge tax splitting: recalculate tax & totalBeforeTax for "Phụ phí" items
+            // Surcharge tax splitting: recalculate price, tax & totalBeforeTax for "Phụ phí" items
+            // Formula: đơn giá = thực thu / 1.1, thuế = đơn giá * 10%, thành tiền trước thuế = đơn giá * SL
             const isSurcharge = splitSurchargeTax && isSurchargeItem(g);
-            const effectiveTax = isSurcharge ? Math.round(g.price * 0.1) : g.taxMoney;
-            const effectiveTotalBeforeTax = isSurcharge ? (g.price - effectiveTax) : g.totalBeforeTax;
+            const effectivePrice = isSurcharge ? Math.round(g.realMoney / 1.1) : g.price;
+            const effectiveTax = isSurcharge ? Math.round(effectivePrice * 0.1) : g.taxMoney;
+            const effectiveTotalBeforeTax = isSurcharge ? effectivePrice * g.qty : g.totalBeforeTax;
 
             const rowData: Record<string, unknown> = {};
             for (const col of activeCols) {
@@ -316,7 +318,7 @@ async function exportOrdersExcel(
                     case 'createTime':       rowData[col.key] = g.createTime.slice(0, 16); break;
                     case 'goodsName':        rowData[col.key] = goodsNameMap[g.goodsName] || g.goodsName; break;
                     case 'showCategoryName': rowData[col.key] = categoryNameMap[g.showCategoryName] || g.showCategoryName; break;
-                    case 'price':            rowData[col.key] = g.price; break;
+                    case 'price':            rowData[col.key] = effectivePrice; break;
                     case 'qty':              rowData[col.key] = g.qty; break;
                     case 'totalBeforeTax':   rowData[col.key] = effectiveTotalBeforeTax; break;
                     case 'taxMoney':         rowData[col.key] = effectiveTax; break;
@@ -348,13 +350,16 @@ async function exportOrdersExcel(
                 case 'qty':            totalData[col.key] = goods.reduce((s, g) => s + g.qty, 0); break;
                 case 'totalBeforeTax': totalData[col.key] = goods.reduce((s, g) => {
                     if (splitSurchargeTax && isSurchargeItem(g)) {
-                        const t = Math.round(g.price * 0.1);
-                        return s + (g.price - t);
+                        const unitPrice = Math.round(g.realMoney / 1.1);
+                        return s + unitPrice * g.qty;
                     }
                     return s + g.totalBeforeTax;
                 }, 0); break;
                 case 'taxMoney':       totalData[col.key] = goods.reduce((s, g) => {
-                    if (splitSurchargeTax && isSurchargeItem(g)) return s + Math.round(g.price * 0.1);
+                    if (splitSurchargeTax && isSurchargeItem(g)) {
+                        const unitPrice = Math.round(g.realMoney / 1.1);
+                        return s + Math.round(unitPrice * 0.1);
+                    }
                     return s + g.taxMoney;
                 }, 0); break;
                 case 'realMoney':      totalData[col.key] = goods.reduce((s, g) => s + g.realMoney, 0); break;
