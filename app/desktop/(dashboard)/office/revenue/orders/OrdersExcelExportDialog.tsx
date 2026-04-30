@@ -34,6 +34,14 @@ const LS_CATEGORY_KEY   = 'orders_export_category_name_map';
 const LS_ORDERS_COLS_KEY = 'orders_export_orders_cols';
 const LS_GOODS_COLS_KEY  = 'orders_export_goods_cols';
 const LS_ROW_CONFIG_KEY  = 'orders_export_row_config';
+const LS_SURCHARGE_TAX_KEY = 'orders_export_surcharge_tax_split';
+
+/** Detect if a goods record belongs to the "Phụ phí" surcharge group */
+const isSurchargeItem = (g: GoodsRecord): boolean => {
+    const cat = (g.showCategoryName ?? '').toLowerCase();
+    const typ = (g.goodsTypeName ?? '').toLowerCase();
+    return cat.includes('phụ phí') || typ.includes('phụ phí');
+};
 
 function loadFromLS(key: string): NameMap {
     if (typeof window === 'undefined') return {};
@@ -194,6 +202,7 @@ async function exportOrdersExcel(
     activeRange: string,
     ordersColConfig: ColConfig,
     goodsColConfig: ColConfig,
+    splitSurchargeTax = false,
 ) {
     const excelMod = await import('exceljs');
     const ExcelJS = excelMod.default || excelMod;
@@ -295,6 +304,11 @@ async function exportOrdersExcel(
         hr.height = 28;
 
         goods.forEach((g, idx) => {
+            // Surcharge tax splitting: recalculate tax & totalBeforeTax for "Phụ phí" items
+            const isSurcharge = splitSurchargeTax && isSurchargeItem(g);
+            const effectiveTax = isSurcharge ? Math.round(g.price * 0.1) : g.taxMoney;
+            const effectiveTotalBeforeTax = isSurcharge ? (g.price - effectiveTax) : g.totalBeforeTax;
+
             const rowData: Record<string, unknown> = {};
             for (const col of activeCols) {
                 switch (col.key) {
@@ -304,8 +318,8 @@ async function exportOrdersExcel(
                     case 'showCategoryName': rowData[col.key] = categoryNameMap[g.showCategoryName] || g.showCategoryName; break;
                     case 'price':            rowData[col.key] = g.price; break;
                     case 'qty':              rowData[col.key] = g.qty; break;
-                    case 'totalBeforeTax':   rowData[col.key] = g.totalBeforeTax; break;
-                    case 'taxMoney':         rowData[col.key] = g.taxMoney; break;
+                    case 'totalBeforeTax':   rowData[col.key] = effectiveTotalBeforeTax; break;
+                    case 'taxMoney':         rowData[col.key] = effectiveTax; break;
                     case 'realMoney':        rowData[col.key] = g.realMoney; break;
                     case 'payModeNames':     rowData[col.key] = g.payModeNames; break;
                     case 'employeeName':     rowData[col.key] = g.employeeName; break;
@@ -326,14 +340,23 @@ async function exportOrdersExcel(
                 r.getCell('realMoney').font = { bold: true, color: { argb: 'FF059669' } };
         });
 
-        // Total row
+        // Total row — recalculate surcharge items if splitSurchargeTax is on
         const totalData: Record<string, unknown> = {};
         for (const col of activeCols) {
             switch (col.key) {
                 case 'orderNumber':    totalData[col.key] = 'TỔNG CỘNG'; break;
                 case 'qty':            totalData[col.key] = goods.reduce((s, g) => s + g.qty, 0); break;
-                case 'totalBeforeTax': totalData[col.key] = goods.reduce((s, g) => s + g.totalBeforeTax, 0); break;
-                case 'taxMoney':       totalData[col.key] = goods.reduce((s, g) => s + g.taxMoney, 0); break;
+                case 'totalBeforeTax': totalData[col.key] = goods.reduce((s, g) => {
+                    if (splitSurchargeTax && isSurchargeItem(g)) {
+                        const t = Math.round(g.price * 0.1);
+                        return s + (g.price - t);
+                    }
+                    return s + g.totalBeforeTax;
+                }, 0); break;
+                case 'taxMoney':       totalData[col.key] = goods.reduce((s, g) => {
+                    if (splitSurchargeTax && isSurchargeItem(g)) return s + Math.round(g.price * 0.1);
+                    return s + g.taxMoney;
+                }, 0); break;
                 case 'realMoney':      totalData[col.key] = goods.reduce((s, g) => s + g.realMoney, 0); break;
             }
         }
@@ -891,6 +914,10 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
     const [savedFlash, setSavedFlash] = useState(false);
     const [bypassCustom, setBypassCustom] = useState(false);
     const overlayRef = useRef<HTMLDivElement>(null);
+    const [splitSurchargeTax, setSplitSurchargeTax] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        try { return localStorage.getItem(LS_SURCHARGE_TAX_KEY) === 'true'; } catch { return false; }
+    });
     const [ordersColConfig, setOrdersColConfig] = useState<ColConfig>(() => loadColConfig(LS_ORDERS_COLS_KEY, COL_DEFS_ORDERS));
     const [goodsColConfig, setGoodsColConfig] = useState<ColConfig>(() => loadColConfig(LS_GOODS_COLS_KEY, COL_DEFS_GOODS));
     const [dragColIdx, setDragColIdx] = useState<number | null>(null);
@@ -908,6 +935,7 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
     useEffect(() => { saveColConfig(LS_ORDERS_COLS_KEY, ordersColConfig); }, [ordersColConfig]);
     useEffect(() => { saveColConfig(LS_GOODS_COLS_KEY, goodsColConfig); }, [goodsColConfig]);
     useEffect(() => { if (rowConfig.length > 0) saveRowConfig(rowConfig); }, [rowConfig]);
+    useEffect(() => { try { localStorage.setItem(LS_SURCHARGE_TAX_KEY, String(splitSurchargeTax)); } catch { /* quota */ } }, [splitSurchargeTax]);
 
     // Initialise / merge rowConfig whenever catalog is available
     useEffect(() => {
@@ -992,11 +1020,12 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                 activeRange,
                 ordersColConfig,
                 goodsColConfig,
+                splitSurchargeTax,
             );
         } finally {
             setIsExporting(false);
         }
-    }, [orders, goods, viewMode, goodsNameMap, categoryNameMap, activeRange, bypassCustom, ordersColConfig, goodsColConfig]);
+    }, [orders, goods, viewMode, goodsNameMap, categoryNameMap, activeRange, bypassCustom, ordersColConfig, goodsColConfig, splitSurchargeTax]);
 
     const handleExportQty = useCallback(async () => {
         setIsExportingQty(true);
@@ -1448,6 +1477,63 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                 ) : (
                     /* ── Name editor list ─────────────────────────────── */
                     <div className="flex-1 overflow-y-auto px-6 pb-2 space-y-0.5 scrollbar-thin" style={{ minHeight: 0 }}>
+                        {/* ── Surcharge tax-split toggle (only for goods tab with Phụ phí items) ── */}
+                        {columnTarget === 'goods' && (() => {
+                            const surchargeItems = filteredItems.filter(item => {
+                                const matchingGoods = goods.filter(g => g.goodsName === item.name);
+                                return matchingGoods.some(g => isSurchargeItem(g));
+                            });
+                            if (surchargeItems.length === 0) return null;
+                            return (
+                                <div className="mb-3 rounded-2xl border border-amber-200/60 bg-gradient-to-r from-amber-50/80 via-orange-50/60 to-amber-50/80 p-3.5 shadow-sm">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md shadow-amber-200/50 shrink-0">
+                                                <FileBarChart className="size-4 text-white" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-bold text-amber-800 leading-tight">Tách thuế Phụ phí</p>
+                                                <p className="text-[10px] text-amber-500 mt-0.5 leading-snug">
+                                                    Thuế = Đơn giá × 10% · Trước thuế = Đơn giá − Thuế
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => setSplitSurchargeTax(prev => !prev)}
+                                            className={`relative w-11 h-6 rounded-full transition-all duration-300 shrink-0 focus:outline-none focus:ring-2 focus:ring-offset-1 ${
+                                                splitSurchargeTax
+                                                    ? 'bg-gradient-to-r from-amber-400 to-orange-500 shadow-inner focus:ring-amber-300'
+                                                    : 'bg-surface-200 hover:bg-surface-300 focus:ring-surface-300'
+                                            }`}
+                                            title={splitSurchargeTax ? 'Tắt tách thuế phụ phí' : 'Bật tách thuế phụ phí'}
+                                            aria-label="Toggle surcharge tax splitting"
+                                        >
+                                            <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-all duration-300 ${
+                                                splitSurchargeTax ? 'translate-x-5 shadow-amber-200/50' : 'translate-x-0'
+                                            }`}>
+                                                {splitSurchargeTax && (
+                                                    <span className="absolute inset-0 flex items-center justify-center">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                                    </span>
+                                                )}
+                                            </span>
+                                        </button>
+                                    </div>
+                                    {splitSurchargeTax && (
+                                        <div className="mt-2.5 pt-2.5 border-t border-amber-200/40">
+                                            <p className="text-[10px] text-amber-600/80 leading-relaxed">
+                                                ✨ Áp dụng cho <strong>{surchargeItems.length}</strong> sản phẩm thuộc nhóm Phụ phí:
+                                                {' '}
+                                                <span className="text-amber-700 font-medium">
+                                                    {surchargeItems.slice(0, 3).map(i => i.name).join(', ')}
+                                                    {surchargeItems.length > 3 && ` +${surchargeItems.length - 3} khác`}
+                                                </span>
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
                         {filteredItems.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-12 gap-3">
                                 <div className="w-12 h-12 rounded-2xl bg-surface-100 flex items-center justify-center">
