@@ -217,7 +217,7 @@ export default function TrackingPage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="flex flex-col gap-3">
             {/* ═══ HEADER ═══ */}
             <DashboardHeader
                 showSelect={false}

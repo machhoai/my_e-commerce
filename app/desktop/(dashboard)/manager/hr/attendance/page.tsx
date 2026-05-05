@@ -25,7 +25,7 @@
  *   UNKNOWN → #6B7280 (gray)
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, doc, setDoc } from 'firebase/firestore';
@@ -34,6 +34,7 @@ import {
     Clock, RefreshCw, Download, CalendarDays, CalendarRange,
     ChevronLeft, ChevronRight, Search, ListOrdered, BarChart3,
     Settings2, Plus, Trash2, X, Save, ChevronDown, ChevronUp,
+    FileSpreadsheet, Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -80,17 +81,17 @@ function nextMonth(m: string): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<PunchStatus, { bg: string; text: string; hex: string; label: string }> = {
-    EARLY:   { bg: 'bg-blue-50',   text: 'text-blue-700',   hex: '#3B82F6', label: 'Vào sớm' },
-    ON_TIME: { bg: 'bg-green-50',  text: 'text-green-700',  hex: '#22C55E', label: 'Đúng giờ' },
-    LATE:    { bg: 'bg-red-50',    text: 'text-red-700',    hex: '#EF4444', label: 'Vào trễ' },
-    UNKNOWN: { bg: 'bg-surface-50',text: 'text-surface-500',hex: '#6B7280', label: '—' },
+    EARLY: { bg: 'bg-blue-50', text: 'text-blue-700', hex: '#3B82F6', label: 'Vào sớm' },
+    ON_TIME: { bg: 'bg-green-50', text: 'text-green-700', hex: '#22C55E', label: 'Đúng giờ' },
+    LATE: { bg: 'bg-red-50', text: 'text-red-700', hex: '#EF4444', label: 'Vào trễ' },
+    UNKNOWN: { bg: 'bg-surface-50', text: 'text-surface-500', hex: '#6B7280', label: '—' },
 };
 
 const CHECKOUT_STATUS_COLORS: Record<PunchOutStatus, { bg: string; text: string; hex: string; label: string }> = {
-    EARLY_OUT:   { bg: 'bg-amber-50',   text: 'text-amber-700',   hex: '#F59E0B', label: 'Về sớm' },
-    ON_TIME_OUT: { bg: 'bg-green-50',   text: 'text-green-700',   hex: '#22C55E', label: 'Đúng giờ' },
-    OVERTIME:    { bg: 'bg-purple-50',  text: 'text-purple-700',  hex: '#8B5CF6', label: 'Tăng ca' },
-    UNKNOWN:     { bg: 'bg-surface-50', text: 'text-surface-500', hex: '#6B7280', label: '—' },
+    EARLY_OUT: { bg: 'bg-amber-50', text: 'text-amber-700', hex: '#F59E0B', label: 'Về sớm' },
+    ON_TIME_OUT: { bg: 'bg-green-50', text: 'text-green-700', hex: '#22C55E', label: 'Đúng giờ' },
+    OVERTIME: { bg: 'bg-purple-50', text: 'text-purple-700', hex: '#8B5CF6', label: 'Tăng ca' },
+    UNKNOWN: { bg: 'bg-surface-50', text: 'text-surface-500', hex: '#6B7280', label: '—' },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -126,6 +127,9 @@ export default function AttendancePage() {
     const [fetchingRaw, setFetchingRaw] = useState(false);
     const [syncing, setSyncing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showExportMenu, setShowExportMenu] = useState(false);
+    const [exportingDetailed, setExportingDetailed] = useState(false);
+    const exportMenuRef = useRef<HTMLDivElement>(null);
 
     // ── Popup state ────────────────────────────────────────────────────────────────
     const [popupEmployee, setPopupEmployee] = useState<UserDoc | null>(null);
@@ -164,15 +168,15 @@ export default function AttendancePage() {
         for (const name of shiftNames) {
             const saved = byShift[name];
             next[name] = {
-                weekday:      saved?.defaultWeekday  ?? { ...BLANK_RULE_SET.defaultWeekday },
-                weekend:      saved?.defaultWeekend  ?? { ...BLANK_RULE_SET.defaultWeekend },
+                weekday: saved?.defaultWeekday ?? { ...BLANK_RULE_SET.defaultWeekday },
+                weekend: saved?.defaultWeekend ?? { ...BLANK_RULE_SET.defaultWeekend },
                 specialDates: Object.entries(saved?.specialDates ?? {}).map(([date, rule]) => ({ date, rule: rule as AttendanceRule })),
             };
         }
         setShiftRules(next);
         // Expand the first shift by default
         setExpandedShift(shiftNames[0] ?? null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showRulesPanel, settings, shiftNames]);
 
     const handleSaveRules = useCallback(async () => {
@@ -527,7 +531,7 @@ export default function AttendancePage() {
             // Row 1: identity headers + merged date labels
             const row1Values: (string | number)[] = ['Mã ZK', 'Họ Tên'];
             for (const d of monthDays) {
-                row1Values.push(`${String(d).padStart(2,'0')}/${mm}`, '', '');
+                row1Values.push(`${String(d).padStart(2, '0')}/${mm}`, '', '');
             }
             const headerRow1 = ws.addRow(row1Values);
             headerRow1.eachCell((cell) => {
@@ -625,6 +629,340 @@ export default function AttendancePage() {
         mappedZkByUid, selectedDate, selectedMonth, monthDays, settings,
     ]);
 
+    // ── Detailed per-employee Excel Export ────────────────────────────────────
+
+    const handleExportDetailed = useCallback(async () => {
+        setExportingDetailed(true);
+        try {
+            // Only works in month mode — ensure month attendance is loaded
+            const wb = new ExcelJS.Workbook();
+            wb.creator = 'B.Duck Cityfuns ERP';
+            wb.created = new Date();
+
+            const [yyyy, mm] = selectedMonth.split('-');
+            const numDays = daysInMonth(selectedMonth);
+            const allDays = Array.from({ length: numDays }, (_, i) => i + 1);
+
+            const thinBorder: ExcelJS.Border = { style: 'thin', color: { argb: 'FFD1D5DB' } };
+            const allBorders: Partial<ExcelJS.Borders> = {
+                top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder,
+            };
+
+            // Color palette
+            const HEADER_BG: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+            const SUBHEADER_BG: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+            const WEEKEND_BG: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7ED' } };
+            const SUMMARY_HEADER_BG: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF065F46' } };
+
+            // Status color helpers
+            const statusArgb = (hex: string) => 'FF' + hex.slice(1);
+
+            // ── Summary data collectors ──────────────────────────────────
+            interface EmpSummary {
+                name: string;
+                totalHours: number;
+                workDays: number;
+                lateDays: number;
+                earlyOutDays: number;
+            }
+            const summaries: EmpSummary[] = [];
+
+            // ── Build employee list from attendance data (includes inactive) ──
+            // Collect all unique mapped_system_uid that have ANY attendance in the selected month
+            const uidSet = new Map<string, string>(); // uid → display name
+            for (const a of attendance) {
+                if (!a.mapped_system_uid || !a.date.startsWith(selectedMonth)) continue;
+                if (uidSet.has(a.mapped_system_uid)) continue;
+                // Try to find name from allEmployees first, then fallback to attendance record
+                const empDoc = allEmployees.find(e => e.uid === a.mapped_system_uid);
+                const displayName = empDoc?.name ?? a.mapped_system_name ?? a.zk_name ?? a.mapped_system_uid;
+                uidSet.set(a.mapped_system_uid, displayName);
+            }
+
+            // Sort by name for consistent sheet order
+            const exportEmployees = Array.from(uidSet.entries())
+                .map(([uid, name]) => ({ uid, name }))
+                .sort((a, b) => a.name.localeCompare(b.name));
+
+            // ── Create one sheet per employee ──────────────────────────────
+            for (const emp of exportEmployees) {
+                // Sheet name: truncate to 31 chars (Excel limit), remove invalid chars
+                const sheetName = emp.name.replace(/[\[\]\*\?\/\\:]/g, '').slice(0, 31) || emp.uid.slice(0, 8);
+                const ws = wb.addWorksheet(sheetName);
+
+                // Title row
+                ws.columns = [
+                    { key: 'stt', width: 6 },
+                    { key: 'date', width: 16 },
+                    { key: 'dow', width: 10 },
+                    { key: 'checkIn', width: 12 },
+                    { key: 'checkOut', width: 12 },
+                    { key: 'hours', width: 12 },
+                    { key: 'statusIn', width: 14 },
+                    { key: 'statusOut', width: 14 },
+                ];
+
+                // Row 1: Employee info header
+                const titleRow = ws.addRow([`BẢNG CHẤM CÔNG — ${emp.name}`, '', '', '', '', '', '', '']);
+                ws.mergeCells('A1:H1');
+                titleRow.getCell(1).font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+                titleRow.getCell(1).fill = HEADER_BG;
+                titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+                titleRow.height = 32;
+
+                // Row 2: Month label
+                const monthLabel = ws.addRow([`Tháng ${mm}/${yyyy}`, '', '', '', '', '', '', '']);
+                ws.mergeCells('A2:H2');
+                monthLabel.getCell(1).font = { bold: true, size: 11, color: { argb: 'FF4B5563' } };
+                monthLabel.getCell(1).fill = SUBHEADER_BG;
+                monthLabel.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+                monthLabel.height = 22;
+
+                // Row 3: Column headers
+                const headerRow = ws.addRow(['STT', 'Ngày', 'Thứ', 'Giờ vào', 'Giờ ra', 'Giờ làm', 'Trạng thái vào', 'Trạng thái ra']);
+                headerRow.eachCell((cell) => {
+                    cell.font = { bold: true, size: 10, color: { argb: 'FF1E3A5F' } };
+                    cell.fill = SUBHEADER_BG;
+                    cell.border = allBorders;
+                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                });
+                headerRow.height = 22;
+
+                // Tracking for summary
+                let totalHours = 0;
+                let workDays = 0;
+                let lateDays = 0;
+                let earlyOutDays = 0;
+
+                const dowNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+                // Data rows: one per day
+                for (let di = 0; di < allDays.length; di++) {
+                    const d = allDays[di];
+                    const dateStr = `${selectedMonth}-${String(d).padStart(2, '0')}`;
+                    const dateLabel = `${String(d).padStart(2, '0')}/${mm}/${yyyy}`;
+                    const dow = new Date(dateStr + 'T00:00').getDay();
+                    const isWeekend = dow === 0 || dow === 6;
+                    const rec = attendanceByUidAndDate.get(`${emp.uid}|${dateStr}`);
+
+                    let inTime = '';
+                    let outTime = '';
+                    let hours: string | number = '';
+                    let statusInLabel = '';
+                    let statusOutLabel = '';
+                    let statusInColor = '';
+                    let statusOutColor = '';
+
+                    if (rec?.checkIn) {
+                        const statusResult = calculateAttendanceStatus(
+                            rec.checkIn, rec.checkOut, dateStr, settings
+                        );
+                        inTime = formatTime(rec.checkIn);
+                        outTime = rec.checkOut ? formatTime(rec.checkOut) : '';
+                        hours = statusResult.workHours ?? '';
+                        statusInLabel = STATUS_COLORS[statusResult.status].label;
+                        statusInColor = STATUS_COLORS[statusResult.status].hex;
+                        statusOutLabel = rec.checkOut ? CHECKOUT_STATUS_COLORS[statusResult.checkOutStatus].label : '';
+                        statusOutColor = rec.checkOut ? CHECKOUT_STATUS_COLORS[statusResult.checkOutStatus].hex : '';
+
+                        // Accumulate summary
+                        if (statusResult.workHours != null) totalHours += statusResult.workHours;
+                        workDays++;
+                        if (statusResult.status === 'LATE') lateDays++;
+                        if (statusResult.checkOutStatus === 'EARLY_OUT') earlyOutDays++;
+                    }
+
+                    const row = ws.addRow([
+                        di + 1,
+                        dateLabel,
+                        dowNames[dow],
+                        inTime !== '—' ? inTime : '',
+                        outTime !== '—' ? outTime : '',
+                        hours,
+                        statusInLabel,
+                        statusOutLabel,
+                    ]);
+                    row.eachCell((cell) => {
+                        cell.border = allBorders;
+                        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    });
+
+                    // Weekend background
+                    if (isWeekend) {
+                        row.eachCell((cell) => {
+                            cell.fill = WEEKEND_BG;
+                        });
+                    }
+
+                    // Color the status cells
+                    if (statusInColor) {
+                        row.getCell('G').font = { bold: true, color: { argb: statusArgb(statusInColor) } };
+                    }
+                    if (statusOutColor) {
+                        row.getCell('H').font = { bold: true, color: { argb: statusArgb(statusOutColor) } };
+                    }
+
+                    // Color the check-in time cell
+                    if (statusInColor && inTime) {
+                        row.getCell('D').font = { bold: true, color: { argb: statusArgb(statusInColor) } };
+                    }
+                    // Color the check-out time cell
+                    if (statusOutColor && outTime) {
+                        row.getCell('E').font = { bold: true, color: { argb: statusArgb(statusOutColor) } };
+                    }
+
+                    // Hours formatting
+                    if (typeof hours === 'number') {
+                        row.getCell('F').numFmt = '0.00';
+                    }
+
+                    row.height = 20;
+                }
+
+                // Summary row at bottom of each employee sheet
+                const sepRow = ws.addRow([]);
+                sepRow.height = 8;
+
+                const sumRow = ws.addRow(['', 'TỔNG KẾT', '', '', '', Math.round(totalHours * 100) / 100, `${workDays} ngày`, `Trễ: ${lateDays} · Về sớm: ${earlyOutDays}`]);
+                sumRow.eachCell((cell, colNumber) => {
+                    cell.border = allBorders;
+                    cell.font = { bold: true, size: 11, color: { argb: 'FF065F46' } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
+                    cell.alignment = { horizontal: colNumber >= 6 ? 'center' : 'left', vertical: 'middle' };
+                });
+                sumRow.getCell('F').numFmt = '0.00';
+                sumRow.height = 26;
+
+                summaries.push({ name: emp.name, totalHours: Math.round(totalHours * 100) / 100, workDays, lateDays, earlyOutDays });
+            }
+
+            // ══ SUMMARY SHEET ══════════════════════════════════════════════════
+            const wsSummary = wb.addWorksheet('Tổng kết', { views: [{ state: 'frozen', ySplit: 2 }] });
+
+            wsSummary.columns = [
+                { key: 'stt', width: 6 },
+                { key: 'name', width: 28 },
+                { key: 'workDays', width: 16 },
+                { key: 'totalHours', width: 16 },
+                { key: 'lateDays', width: 16 },
+                { key: 'earlyOutDays', width: 16 },
+            ];
+
+            // Summary title
+            const sTitleRow = wsSummary.addRow([`TỔNG KẾT CHẤM CÔNG — Tháng ${mm}/${yyyy}`, '', '', '', '', '']);
+            wsSummary.mergeCells('A1:F1');
+            sTitleRow.getCell(1).font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+            sTitleRow.getCell(1).fill = SUMMARY_HEADER_BG;
+            sTitleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+            sTitleRow.height = 34;
+
+            // Summary column headers
+            const sHeaderRow = wsSummary.addRow(['STT', 'Họ Tên', 'Số ngày làm', 'Tổng giờ làm', 'Số ngày trễ', 'Số ngày về sớm']);
+            sHeaderRow.eachCell((cell) => {
+                cell.font = { bold: true, size: 10, color: { argb: 'FF065F46' } };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
+                cell.border = allBorders;
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            });
+            sHeaderRow.height = 24;
+
+            // Summary data rows
+            summaries.forEach((s, idx) => {
+                const row = wsSummary.addRow([
+                    idx + 1,
+                    s.name,
+                    s.workDays,
+                    s.totalHours,
+                    s.lateDays,
+                    s.earlyOutDays,
+                ]);
+                row.eachCell((cell, colNumber) => {
+                    cell.border = allBorders;
+                    cell.alignment = { horizontal: colNumber <= 2 ? 'left' : 'center', vertical: 'middle' };
+                });
+                row.getCell('D').numFmt = '0.00';
+
+                // Highlight late days > 0
+                if (s.lateDays > 0) {
+                    row.getCell('E').font = { bold: true, color: { argb: 'FFEF4444' } };
+                }
+                if (s.earlyOutDays > 0) {
+                    row.getCell('F').font = { bold: true, color: { argb: 'FFF59E0B' } };
+                }
+
+                const bg = idx % 2 === 0 ? 'FFFAFAFA' : 'FFFFFFFF';
+                row.eachCell((cell) => {
+                    if (!cell.fill || (cell.fill as ExcelJS.FillPattern).fgColor === undefined) {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
+                    }
+                });
+                row.height = 22;
+            });
+
+            // Grand total row
+            const grandTotal = wsSummary.addRow([
+                '',
+                'TỔNG CỘNG',
+                summaries.reduce((s, e) => s + e.workDays, 0),
+                Math.round(summaries.reduce((s, e) => s + e.totalHours, 0) * 100) / 100,
+                summaries.reduce((s, e) => s + e.lateDays, 0),
+                summaries.reduce((s, e) => s + e.earlyOutDays, 0),
+            ]);
+            grandTotal.eachCell((cell) => {
+                cell.border = allBorders;
+                cell.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+                cell.fill = SUMMARY_HEADER_BG;
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            });
+            grandTotal.getCell('B').alignment = { horizontal: 'left', vertical: 'middle' };
+            grandTotal.getCell('D').numFmt = '0.00';
+            grandTotal.height = 28;
+
+            // Move summary sheet to first position
+            const summaryIdx = wb.worksheets.findIndex(ws => ws.name === 'Tổng kết');
+            if (summaryIdx > 0) {
+                const sheets = wb.worksheets;
+                const [summary] = sheets.splice(summaryIdx, 1);
+                sheets.unshift(summary);
+                // Re-assign orderNo
+                sheets.forEach((s, i) => { (s as any).orderNo = i; });
+            }
+
+            // Trigger download
+            const buffer = await wb.xlsx.writeBuffer();
+            const blob = new Blob([buffer], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `chamcong_chitiet_${selectedMonth}.xlsx`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Export detailed error:', err);
+            setError('Lỗi xuất Excel chi tiết');
+        } finally {
+            setExportingDetailed(false);
+            setShowExportMenu(false);
+        }
+    }, [
+        attendance, allEmployees, attendanceByUidAndDate,
+        selectedMonth, settings,
+    ]);
+
+    // ── Close export menu on click outside ──────────────────────────────────
+    useEffect(() => {
+        if (!showExportMenu) return;
+        const handler = (e: MouseEvent) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+                setShowExportMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showExportMenu]);
+
     // ─────────────────────────────────────────────────────────────────────────
     // Render helpers
     // ─────────────────────────────────────────────────────────────────────────
@@ -651,7 +989,7 @@ export default function AttendancePage() {
     }
 
     return (
-        <div className="space-y-5">
+        <div className="flex flex-col gap-4">
             {/* ── Header Controls ─────────────────────────────────────────── */}
             <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -706,14 +1044,48 @@ export default function AttendancePage() {
                             </div>
                         )}
 
-                        <button
-                            onClick={handleExport}
-                            disabled={filteredEmployees.length === 0}
-                            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium border bg-surface-50 text-surface-700 border-surface-200 hover:bg-surface-100 disabled:opacity-40 transition-all"
-                        >
-                            <Download className="w-4 h-4" />
-                            Excel
-                        </button>
+                        {/* Export dropdown */}
+                        <div className="relative" ref={exportMenuRef}>
+                            <button
+                                onClick={() => setShowExportMenu(!showExportMenu)}
+                                disabled={filteredEmployees.length === 0}
+                                className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium border bg-surface-50 text-surface-700 border-surface-200 hover:bg-surface-100 disabled:opacity-40 transition-all"
+                            >
+                                {exportingDetailed
+                                    ? <div className="w-4 h-4 border-2 border-surface-500 border-t-transparent rounded-full animate-spin" />
+                                    : <Download className="w-4 h-4" />
+                                }
+                                Excel
+                                <ChevronDown className="w-3 h-3 text-surface-400" />
+                            </button>
+                            {showExportMenu && (
+                                <div className="absolute right-0 top-full mt-1 z-30 bg-white rounded-xl border border-surface-200 shadow-lg py-1 min-w-[240px] animate-in fade-in slide-in-from-top-2 duration-150">
+                                    <button
+                                        onClick={() => { handleExport(); setShowExportMenu(false); }}
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-700 hover:bg-surface-50 transition-colors text-left"
+                                    >
+                                        <FileSpreadsheet className="w-4 h-4 text-surface-400 shrink-0" />
+                                        <div>
+                                            <p className="font-medium">Xuất bảng tổng hợp</p>
+                                            <p className="text-xs text-surface-400">Tất cả nhân viên trong 1 sheet</p>
+                                        </div>
+                                    </button>
+                                    {dateMode === 'month' && (
+                                        <button
+                                            onClick={handleExportDetailed}
+                                            disabled={exportingDetailed}
+                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-700 hover:bg-surface-50 transition-colors text-left disabled:opacity-50"
+                                        >
+                                            <Users className="w-4 h-4 text-primary-500 shrink-0" />
+                                            <div>
+                                                <p className="font-medium">Xuất chi tiết từng người</p>
+                                                <p className="text-xs text-surface-400">Mỗi nhân viên 1 sheet + Tổng kết</p>
+                                            </div>
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
 
                         {canConfigure && (
                             <button
@@ -958,7 +1330,7 @@ export default function AttendancePage() {
                                     <span><strong className="text-success-600">{dayFilteredEmployees.length}</strong> nhân viên có chấm công</span>
                                     <span><strong className="text-surface-500">{mappedEmployees.length - dayFilteredEmployees.length}</strong> không có dữ liệu hôm nay</span>
                                     <span className="ml-auto">
-                                        {['EARLY','ON_TIME','LATE'].map((s) => {
+                                        {['EARLY', 'ON_TIME', 'LATE'].map((s) => {
                                             const count = dayFilteredEmployees.filter((e) => {
                                                 const rec = attendanceByUidAndDate.get(`${e.uid}|${selectedDate}`);
                                                 return rec && getStatus(rec.checkIn, rec.checkOut, selectedDate) === s;
@@ -1010,7 +1382,7 @@ export default function AttendancePage() {
                                                         )}>
                                                             <div>{d}</div>
                                                             <div className="font-normal text-[10px] opacity-70">
-                                                                {['CN','T2','T3','T4','T5','T6','T7'][dow]}
+                                                                {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][dow]}
                                                             </div>
                                                         </th>
                                                     );
