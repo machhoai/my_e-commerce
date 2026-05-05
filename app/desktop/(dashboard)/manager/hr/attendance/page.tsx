@@ -918,15 +918,165 @@ export default function AttendancePage() {
             grandTotal.getCell('D').numFmt = '0.00';
             grandTotal.height = 28;
 
-            // Move summary sheet to first position
-            const summaryIdx = wb.worksheets.findIndex(ws => ws.name === 'Tổng kết');
-            if (summaryIdx > 0) {
-                const sheets = wb.worksheets;
-                const [summary] = sheets.splice(summaryIdx, 1);
-                sheets.unshift(summary);
-                // Re-assign orderNo
-                sheets.forEach((s, i) => { (s as any).orderNo = i; });
+            // ══ COMBINED DETAIL SHEET ════════════════════════════════════════════
+            const wsCombined = wb.addWorksheet('Tổng hợp chi tiết', { views: [{ state: 'frozen', ySplit: 1 }] });
+
+            wsCombined.columns = [
+                { key: 'stt', width: 6 },
+                { key: 'date', width: 16 },
+                { key: 'dow', width: 10 },
+                { key: 'checkIn', width: 12 },
+                { key: 'checkOut', width: 12 },
+                { key: 'hours', width: 12 },
+                { key: 'statusIn', width: 14 },
+                { key: 'statusOut', width: 14 },
+            ];
+
+            // Sheet title
+            const combinedTitleRow = wsCombined.addRow([`TỔNG HỢP CHI TIẾT CHẤM CÔNG — Tháng ${mm}/${yyyy}`, '', '', '', '', '', '', '']);
+            wsCombined.mergeCells('A1:H1');
+            combinedTitleRow.getCell(1).font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+            combinedTitleRow.getCell(1).fill = SUMMARY_HEADER_BG;
+            combinedTitleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+            combinedTitleRow.height = 34;
+
+            const dowNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+            for (let empIdx = 0; empIdx < exportEmployees.length; empIdx++) {
+                const emp = exportEmployees[empIdx];
+
+                // Spacing between employee blocks (except the first one)
+                if (empIdx > 0) {
+                    const spacer = wsCombined.addRow([]);
+                    spacer.height = 10;
+                }
+
+                // Employee header row
+                const empHeaderRow = wsCombined.addRow([`BẢNG CHẤM CÔNG — ${emp.name}`, '', '', '', '', '', '', '']);
+                const empHeaderRowNum = empHeaderRow.number;
+                wsCombined.mergeCells(`A${empHeaderRowNum}:H${empHeaderRowNum}`);
+                empHeaderRow.getCell(1).font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+                empHeaderRow.getCell(1).fill = HEADER_BG;
+                empHeaderRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+                empHeaderRow.height = 28;
+
+                // Column headers for this employee
+                const colHeaderRow = wsCombined.addRow(['STT', 'Ngày', 'Thứ', 'Giờ vào', 'Giờ ra', 'Giờ làm', 'Trạng thái vào', 'Trạng thái ra']);
+                colHeaderRow.eachCell((cell) => {
+                    cell.font = { bold: true, size: 10, color: { argb: 'FF1E3A5F' } };
+                    cell.fill = SUBHEADER_BG;
+                    cell.border = allBorders;
+                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                });
+                colHeaderRow.height = 22;
+
+                // Tracking for this employee summary
+                let cTotalHours = 0;
+                let cWorkDays = 0;
+                let cLateDays = 0;
+                let cEarlyOutDays = 0;
+
+                // Data rows
+                for (let di = 0; di < allDays.length; di++) {
+                    const d = allDays[di];
+                    const dateStr = `${selectedMonth}-${String(d).padStart(2, '0')}`;
+                    const dateLabel = `${String(d).padStart(2, '0')}/${mm}/${yyyy}`;
+                    const dow = new Date(dateStr + 'T00:00').getDay();
+                    const isWeekend = dow === 0 || dow === 6;
+                    const rec = attendanceByUidAndDate.get(`${emp.uid}|${dateStr}`);
+
+                    let inTime = '';
+                    let outTime = '';
+                    let hours: string | number = '';
+                    let statusInLabel = '';
+                    let statusOutLabel = '';
+                    let statusInColor = '';
+                    let statusOutColor = '';
+
+                    if (rec?.checkIn) {
+                        const statusResult = calculateAttendanceStatus(
+                            rec.checkIn, rec.checkOut, dateStr, settings
+                        );
+                        inTime = formatTime(rec.checkIn);
+                        outTime = rec.checkOut ? formatTime(rec.checkOut) : '';
+                        hours = statusResult.workHours ?? '';
+                        statusInLabel = STATUS_COLORS[statusResult.status].label;
+                        statusInColor = STATUS_COLORS[statusResult.status].hex;
+                        statusOutLabel = rec.checkOut ? CHECKOUT_STATUS_COLORS[statusResult.checkOutStatus].label : '';
+                        statusOutColor = rec.checkOut ? CHECKOUT_STATUS_COLORS[statusResult.checkOutStatus].hex : '';
+
+                        if (statusResult.workHours != null) cTotalHours += statusResult.workHours;
+                        cWorkDays++;
+                        if (statusResult.status === 'LATE') cLateDays++;
+                        if (statusResult.checkOutStatus === 'EARLY_OUT') cEarlyOutDays++;
+                    }
+
+                    const row = wsCombined.addRow([
+                        di + 1,
+                        dateLabel,
+                        dowNames[dow],
+                        inTime !== '—' ? inTime : '',
+                        outTime !== '—' ? outTime : '',
+                        hours,
+                        statusInLabel,
+                        statusOutLabel,
+                    ]);
+                    row.eachCell((cell) => {
+                        cell.border = allBorders;
+                        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    });
+
+                    if (isWeekend) {
+                        row.eachCell((cell) => { cell.fill = WEEKEND_BG; });
+                    }
+                    if (statusInColor) {
+                        row.getCell('G').font = { bold: true, color: { argb: statusArgb(statusInColor) } };
+                    }
+                    if (statusOutColor) {
+                        row.getCell('H').font = { bold: true, color: { argb: statusArgb(statusOutColor) } };
+                    }
+                    if (statusInColor && inTime) {
+                        row.getCell('D').font = { bold: true, color: { argb: statusArgb(statusInColor) } };
+                    }
+                    if (statusOutColor && outTime) {
+                        row.getCell('E').font = { bold: true, color: { argb: statusArgb(statusOutColor) } };
+                    }
+                    if (typeof hours === 'number') {
+                        row.getCell('F').numFmt = '0.00';
+                    }
+                    row.height = 20;
+                }
+
+                // Summary row for this employee
+                const cSumRow = wsCombined.addRow([
+                    '', 'TỔNG KẾT', '', '', '',
+                    Math.round(cTotalHours * 100) / 100,
+                    `${cWorkDays} ngày`,
+                    `Trễ: ${cLateDays} · Về sớm: ${cEarlyOutDays}`,
+                ]);
+                cSumRow.eachCell((cell, colNumber) => {
+                    cell.border = allBorders;
+                    cell.font = { bold: true, size: 11, color: { argb: 'FF065F46' } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
+                    cell.alignment = { horizontal: colNumber >= 6 ? 'center' : 'left', vertical: 'middle' };
+                });
+                cSumRow.getCell('F').numFmt = '0.00';
+                cSumRow.height = 26;
             }
+
+            // Move summary sheet to first, combined detail sheet to second
+            const sheets = wb.worksheets;
+            const summarySheet = sheets.find(ws => ws.name === 'Tổng kết');
+            const combinedSheet = sheets.find(ws => ws.name === 'Tổng hợp chi tiết');
+            const otherSheets = sheets.filter(ws => ws.name !== 'Tổng kết' && ws.name !== 'Tổng hợp chi tiết');
+
+            const reordered = [summarySheet!, combinedSheet!, ...otherSheets];
+            // Clear and re-assign
+            sheets.length = 0;
+            reordered.forEach((s, i) => {
+                sheets.push(s);
+                (s as any).orderNo = i;
+            });
 
             // Trigger download
             const buffer = await wb.xlsx.writeBuffer();
