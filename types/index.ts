@@ -298,6 +298,14 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         group: 'Vé & Đơn hàng',
         type: 'action',
     },
+    // ── POS (Point of Sale) ──────────────────────────────────
+    {
+        key: 'page.pos.access',
+        label: 'Truy Cập Hệ Thống POS',
+        description: 'Cho phép đăng nhập và sử dụng ứng dụng POS bán hàng',
+        group: 'POS',
+        type: 'page',
+    },
 ];
 
 export interface CustomRoleDoc {
