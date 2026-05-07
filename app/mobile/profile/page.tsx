@@ -461,14 +461,20 @@ export default function MobileProfilePage() {
                         {t('profile.cccdInfoNote')}
                     </div>
 
-                    {['admin', 'store_manager', 'manager'].includes(profileData.role) && (
-                        <div>
-                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">{t('profile.bankAccount')}</label>
-                            <input type="text" value={editData.bankAccount || ''} onChange={e => handleEditChange('bankAccount', e.target.value)}
-                                placeholder={t('profile.bankPlaceholder')}
-                                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-700 bg-gray-50 outline-none focus:border-primary-400" />
-                        </div>
-                    )}
+                    <div>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">{t('profile.bankAccount')}</label>
+                        <input type="text" inputMode="numeric" pattern="[0-9]*" value={editData.bankAccount || ''}
+                            onChange={e => {
+                                const val = e.target.value.replace(/\D/g, '');
+                                handleEditChange('bankAccount', val);
+                            }}
+                            placeholder={t('profile.bankPlaceholder')}
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-700 bg-gray-50 outline-none focus:border-primary-400" />
+                        <p className="text-[9px] text-amber-600 font-medium mt-1 flex items-center gap-1">
+                            <CreditCard className="w-3 h-3 shrink-0" />
+                            {t('profile.bankTechcombankNote')}
+                        </p>
+                    </div>
 
                     <div>
                         <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">{t('profile.educationLevel')}</label>

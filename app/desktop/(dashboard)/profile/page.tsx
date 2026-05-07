@@ -274,22 +274,30 @@ export default function ProfilePage() {
                             </div>
 
                             <div className="space-y-1.5 group">
-                                <label className={`text-sm font-semibold flex items-center gap-2 ${isEditing && ['admin', 'store_manager', 'manager'].includes(profileData.role) ? 'text-primary-600' : 'text-surface-500'}`}>
-                                    <CreditCard className={`w-4 h-4 ${isEditing && ['admin', 'store_manager', 'manager'].includes(profileData.role) ? 'text-primary-500' : 'text-surface-400'}`} /> Tài khoản ngân hàng
+                                <label className={`text-sm font-semibold flex items-center gap-2 ${isEditing ? 'text-primary-600' : 'text-surface-500'}`}>
+                                    <CreditCard className={`w-4 h-4 ${isEditing ? 'text-primary-500' : 'text-surface-400'}`} /> Tài khoản ngân hàng
                                 </label>
-                                {isEditing && ['admin', 'store_manager', 'manager'].includes(profileData.role) ? (
-                                    <input
-                                        type="text"
-                                        value={editData.bankAccount || ''}
-                                        onChange={e => handleEditChange('bankAccount', e.target.value)}
-                                        className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 transition-all"
-                                        placeholder="Tên Ngân hàng - Số tài khoản"
-                                    />
-                                ) : (
+                                {isEditing ? (
                                     <>
-                                        <div className="text-surface-900 font-medium px-1">{profileData.bankAccount || <span className="text-surface-400 italic">Chưa cung cấp</span>}</div>
-                                        {isEditing && <p className="text-[10px] text-surface-400 ml-1">Liên hệ quản lý để thay đổi.</p>}
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
+                                            value={editData.bankAccount || ''}
+                                            onChange={e => {
+                                                const val = e.target.value.replace(/\D/g, '');
+                                                handleEditChange('bankAccount', val);
+                                            }}
+                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 transition-all"
+                                            placeholder="Nhập số tài khoản Techcombank"
+                                        />
+                                        <p className="text-xs text-amber-600 font-medium mt-1 flex items-center gap-1.5">
+                                            <CreditCard className="w-3.5 h-3.5 shrink-0" />
+                                            Chỉ chấp nhận số tài khoản ngân hàng Techcombank
+                                        </p>
                                     </>
+                                ) : (
+                                    <div className="text-surface-900 font-medium px-1">{profileData.bankAccount || <span className="text-surface-400 italic">Chưa cung cấp</span>}</div>
                                 )}
                             </div>
 

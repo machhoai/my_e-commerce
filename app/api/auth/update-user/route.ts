@@ -87,8 +87,7 @@ export async function POST(request: Request) {
 
 
 
-        const canEditBankAccount = (requestUid !== targetUid) || ['admin', 'store_manager', 'manager'].includes(requesterRole);
-        if (body.bankAccount !== undefined && canEditBankAccount) {
+        if (body.bankAccount !== undefined) {
             updateData.bankAccount = body.bankAccount;
         }
 
