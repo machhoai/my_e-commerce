@@ -373,5 +373,13 @@
     "referral.syncDone": "Đồng bộ xong ({totalOrders} đơn): {details}",
     "referral.syncNoChanges": "Đã kiểm tra {totalOrders} đơn hàng. Không có thay đổi.",
     "referral.syncError": "Lỗi đồng bộ.",
-    "referral.syncConnectionError": "Không thể kết nối đến Joy World."
+    "referral.syncConnectionError": "Không thể kết nối đến Joy World.",
+    "referral.filterMonth": "Tháng",
+    "referral.totalTransactions": "Giao dịch",
+    "referral.netPoints": "Điểm ròng",
+    "referral.exportExcel": "Xuất Excel",
+    "referral.exporting": "Đang xuất...",
+    "referral.exportAll": "Tổng hợp",
+    "referral.exportByEmployee": "Từng NV",
+    "common.reset": "Đặt lại"
 }

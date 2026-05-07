@@ -326,5 +326,13 @@
     "nav.kpiScoring": "刷新",
     "nav.kpiStats": "KPI统计",
     "nav.employees": "员工",
-    "nav.dailyReport": "日报"
+    "nav.dailyReport": "日报",
+    "referral.filterMonth": "月份",
+    "referral.totalTransactions": "交易",
+    "referral.netPoints": "净积分",
+    "referral.exportExcel": "导出Excel",
+    "referral.exporting": "导出中...",
+    "referral.exportAll": "综合",
+    "referral.exportByEmployee": "按员工",
+    "common.reset": "重置"
 }

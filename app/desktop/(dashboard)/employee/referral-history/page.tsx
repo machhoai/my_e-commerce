@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 import { QRCodeCanvas } from 'qrcode.react';
+import ExportReferralExcel from '@/components/referral/ExportReferralExcel';
 
 // ── Helpers ───────────────────────────────────────────────────
 type TxWithName = PointTransactionDoc & { employeeName?: string };
@@ -119,13 +120,39 @@ export default function DesktopReferralHistoryPage() {
     }, [txns]);
 
     const [filterEmp, setFilterEmp] = useState('');
+    const [filterMonth, setFilterMonth] = useState<string>('');
+
+    // Available months from data
+    const availableMonths = useMemo(() => {
+        const set = new Set<string>();
+        txns.forEach(tx => { try { set.add(tx.createdAt.slice(0, 7)); } catch {} });
+        pendingRefs.forEach(pr => { try { set.add(pr.createdAt.slice(0, 7)); } catch {} });
+        return Array.from(set).sort().reverse();
+    }, [txns, pendingRefs]);
+
     const grouped = useMemo(() => {
-        const filtered = filterEmp ? txns.filter(t => t.employeeId === filterEmp) : txns;
+        let filtered = txns;
+        if (filterEmp) filtered = filtered.filter(t => t.employeeId === filterEmp);
+        if (filterMonth) filtered = filtered.filter(t => t.createdAt.startsWith(filterMonth));
         const map = new Map<string, TxWithName[]>();
         filtered.forEach(tx => { const dk = dateKey(tx.createdAt); if (!map.has(dk)) map.set(dk, []); map.get(dk)!.push(tx); });
         return Array.from(map.entries());
-    }, [txns, filterEmp]);
+    }, [txns, filterEmp, filterMonth]);
 
+    // Filtered pending refs
+    const filteredPendingRefs = useMemo(() => {
+        let refs = pendingRefs;
+        if (filterEmp) refs = refs.filter(r => r.saleEmployeeId === filterEmp);
+        if (filterMonth) refs = refs.filter(r => r.createdAt.startsWith(filterMonth));
+        return refs;
+    }, [pendingRefs, filterEmp, filterMonth]);
+
+    // Summary stats
+    const filteredStats = useMemo(() => {
+        const allFiltered = grouped.flatMap(([, items]) => items);
+        const totalPts = allFiltered.reduce((s, tx) => s + (tx.isRevoked ? 0 : tx.points), 0);
+        return { count: allFiltered.length, totalPts };
+    }, [grouped]);
     const handleAdjust = async () => {
         const amount = parseInt(adjAmount, 10);
         const empId = adjTarget || user?.uid;
@@ -235,6 +262,7 @@ export default function DesktopReferralHistoryPage() {
                                     <button onClick={() => setShowAdjust(!showAdjust)} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-accent-500 text-white text-xs font-bold hover:bg-accent-600 transition-colors shadow-sm">
                                         <PlusCircle className="w-3.5 h-3.5" /> Điều chỉnh điểm
                                     </button>
+                                    <ExportReferralExcel txns={grouped.flatMap(([,items]) => items)} pendingRefs={filteredPendingRefs} filterMonth={filterMonth} filterEmp={filterEmp} tab={tab} />
                                 </>
                             )}
                         </div>
@@ -248,6 +276,17 @@ export default function DesktopReferralHistoryPage() {
                     {feedback.type === 'error' ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
                     {feedback.text}
                     <button onClick={() => setFeedback(null)} className="ml-auto"><X className="w-3.5 h-3.5 text-gray-400" /></button>
+                </div>
+            )}
+
+            {/* Month quick filter */}
+            {!loading && availableMonths.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-bold text-gray-400 mr-1">Tháng:</span>
+                    <button onClick={() => setFilterMonth('')} className={cn('px-3 py-1.5 rounded-lg text-xs font-bold transition-colors', !filterMonth ? 'bg-amber-500 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200')}>Tất cả</button>
+                    {availableMonths.map(m => (
+                        <button key={m} onClick={() => setFilterMonth(m)} className={cn('px-3 py-1.5 rounded-lg text-xs font-bold transition-colors', filterMonth === m ? 'bg-amber-500 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200')}>T{m.split('-')[1]}/{m.split('-')[0]}</button>
+                    ))}
                 </div>
             )}
 
@@ -286,6 +325,14 @@ export default function DesktopReferralHistoryPage() {
                         <select value={filterEmp} onChange={e => setFilterEmp(e.target.value)} className="w-full pl-10 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-semibold appearance-none outline-none focus:ring-2 focus:ring-accent-300">
                             <option value="">Tất cả nhân viên</option>
                             {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                    </div>
+                    {/* Month filter */}
+                    <div className="relative">
+                        <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className="pl-3 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-semibold appearance-none outline-none focus:ring-2 focus:ring-accent-300">
+                            <option value="">Tất cả tháng</option>
+                            {availableMonths.map(m => <option key={m} value={m}>T{m.split('-')[1]}/{m.split('-')[0]}</option>)}
                         </select>
                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
                     </div>
@@ -329,12 +376,38 @@ export default function DesktopReferralHistoryPage() {
                 </div>
             )}
 
+            {/* Summary stats */}
+            {!loading && grouped.length > 0 && (
+                <div className="flex items-center gap-6 bg-white border border-gray-100 rounded-2xl px-6 py-4 shadow-sm max-w-2xl">
+                    <div>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Giao dịch</p>
+                        <p className="text-xl font-black text-gray-700">{filteredStats.count}</p>
+                    </div>
+                    <div className="w-px h-8 bg-gray-100" />
+                    <div>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Điểm ròng</p>
+                        <p className={cn('text-xl font-black', filteredStats.totalPts >= 0 ? 'text-emerald-600' : 'text-red-600')}>
+                            {filteredStats.totalPts > 0 ? '+' : ''}{filteredStats.totalPts}
+                        </p>
+                    </div>
+                    {filterMonth && (
+                        <>
+                            <div className="w-px h-8 bg-gray-100" />
+                            <div>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Kỳ lọc</p>
+                                <p className="text-sm font-bold text-amber-600">T{filterMonth.split('-')[1]}/{filterMonth.split('-')[0]}</p>
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
+
             {/* Pending referrals section */}
-            {!loading && pendingRefs.length > 0 && (
+            {!loading && filteredPendingRefs.length > 0 && (
                 <div>
                     <div className="flex items-center gap-2 mb-3">
                         <Hourglass className="w-4 h-4 text-amber-500" />
-                        <p className="text-xs font-bold text-amber-700">Phiên giới thiệu ({pendingRefs.length})</p>
+                        <p className="text-xs font-bold text-amber-700">Phiên giới thiệu ({filteredPendingRefs.length})</p>
                         <div className="flex-1 border-t border-amber-100" />
                     </div>
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -350,7 +423,7 @@ export default function DesktopReferralHistoryPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {pendingRefs.map(pr => {
+                                {filteredPendingRefs.map(pr => {
                                     const cfg = pendingStatusConfig(pr.status);
                                     const StatusIcon = cfg.icon;
                                     return (
@@ -392,7 +465,7 @@ export default function DesktopReferralHistoryPage() {
             {/* Grouped table */}
             {loading ? (
                 <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 text-amber-500 animate-spin" /></div>
-            ) : grouped.length === 0 && pendingRefs.length === 0 ? (
+            ) : grouped.length === 0 && filteredPendingRefs.length === 0 ? (
                 <div className="flex flex-col items-center py-16 gap-3">
                     <Receipt className="w-12 h-12 text-gray-200" />
                     <p className="text-sm text-gray-400 font-medium">Chưa có lịch sử tích điểm</p>
