@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Truck, CheckCircle2, AlertCircle, X, Package, Printer, QrCode } from 'lucide-react';
+import { showToast } from '@/lib/utils/toast';
+import { Truck, CheckCircle2, X, Package, Printer, QrCode } from 'lucide-react';
 import Portal from '@/components/Portal';
 import type { PurchaseOrderDoc, PurchaseOrderItem } from '@/types/inventory';
 import type { StoreDoc } from '@/types';
@@ -24,7 +25,7 @@ export default function DispatchPage() {
     const [loading, setLoading] = useState(true);
     const [dispatchingId, setDispatchingId] = useState<string | null>(null);
     const [modalItems, setModalItems] = useState<(PurchaseOrderItem & { approvedQty: number })[]>([]);
-    const [message, setMessage] = useState({ type: '', text: '' });
+
     const [dispatchResult, setDispatchResult] = useState<DispatchResult | null>(null);
     const printRef = useRef<HTMLDivElement>(null);
 
@@ -76,7 +77,7 @@ export default function DispatchPage() {
 
     const handleDispatch = async () => {
         if (!dispatchingId) return;
-        setMessage({ type: '', text: '' });
+
         try {
             const token = await getToken();
             const currentOrder = orders.find(o => o.id === dispatchingId)!;
@@ -88,7 +89,7 @@ export default function DispatchPage() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
 
-            setMessage({ type: 'success', text: 'Đã duyệt xuất kho — đơn hàng đang vận chuyển!' });
+            showToast.success('Đã duyệt xuất kho', 'Đơn hàng đang vận chuyển!');
             setDispatchResult({
                 orderId: dispatchingId,
                 qrCodeToken: data.qrCodeToken,
@@ -97,8 +98,8 @@ export default function DispatchPage() {
             });
             setDispatchingId(null);
             fetchOrders();
-        } catch (err: any) {
-            setMessage({ type: 'error', text: err.message || 'Có lỗi xảy ra' });
+        } catch (err: unknown) {
+            showToast.error('Lỗi xuất kho', err instanceof Error ? err.message : 'Có lỗi xảy ra');
         }
     };
 
@@ -147,12 +148,7 @@ export default function DispatchPage() {
                 }
             />
 
-            {message.text && (
-                <div className={`p-3 rounded-xl flex items-center gap-2 border text-sm font-medium ${message.type === 'error' ? 'bg-danger-50 text-danger-700 border-danger-200' : 'bg-success-50 text-success-700 border-success-200'}`}>
-                    {message.type === 'error' ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
-                    {message.text}
-                </div>
-            )}
+
 
             {/* Dispatch Result with QR */}
             {dispatchResult && (

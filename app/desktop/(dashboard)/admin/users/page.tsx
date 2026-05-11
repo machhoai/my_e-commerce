@@ -5,7 +5,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { UserDoc, UserRole, EmployeeType, StoreDoc, OfficeDoc, WarehouseDoc, CustomRoleDoc } from '@/types';
-import { Users, Plus, ShieldAlert, KeyRound, MailPlus, Search, ShieldCheck, Building2, AlertCircle, CheckCircle2, Shield, ScanLine, ImageIcon } from 'lucide-react';
+import { Users, Plus, ShieldAlert, KeyRound, MailPlus, Search, ShieldCheck, Building2, Shield, ScanLine, ImageIcon } from 'lucide-react';
+import { showToast } from '@/lib/utils/toast';
 import { cn } from '@/lib/utils';
 import { useTableParams } from '@/hooks/useTableParams';
 import { processTableData } from '@/lib/processTableData';
@@ -103,7 +104,6 @@ function AdminUsersPageContent() {
     const LOCATION_ICON: Record<string, string> = { STORE: '🏪', OFFICE: '🏢', CENTRAL: '🏭' };
 
     const [actionLoading, setActionLoading] = useState(false);
-    const [actionMessage, setActionMessage] = useState({ type: '', text: '' });
     const [customRoles, setCustomRoles] = useState<CustomRoleDoc[]>([]);
 
     // Table toolbar configuration — role options built dynamically from customRoles
@@ -260,11 +260,6 @@ function AdminUsersPageContent() {
         setIsCreateModalOpen(true);
     };
 
-    const showMsg = (type: 'success' | 'error', text: string) => {
-        setActionMessage({ type, text });
-        setTimeout(() => setActionMessage({ type: '', text: '' }), 4000);
-    };
-
     const handleCreateOrUpdateUser = async (e: React.FormEvent) => {
         e.preventDefault();
         setActionLoading(true);
@@ -294,10 +289,10 @@ function AdminUsersPageContent() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Thao tác thất bại');
-            showMsg('success', `Người dùng ${newName} đã được ${editUid ? 'cập nhật' : 'tạo'} thành công!`);
+            showToast.success('Thành công', `Người dùng ${newName} đã được ${editUid ? 'cập nhật' : 'tạo'} thành công!`);
             resetForm();
         } catch (err: unknown) {
-            showMsg('error', err instanceof Error ? err.message : 'Đã xảy ra lỗi');
+            showToast.error('Lỗi', err instanceof Error ? err.message : 'Đã xảy ra lỗi');
         } finally {
             setActionLoading(false);
         }
@@ -313,9 +308,9 @@ function AdminUsersPageContent() {
                 body: JSON.stringify({ targetUid: u.uid, isActive: !u.isActive }),
             });
             if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
-            showMsg('success', `Tài khoản ${u.name} đã được ${!u.isActive ? 'kích hoạt' : 'vô hiệu hóa'}`);
+            showToast.success('Đã cập nhật', `Tài khoản ${u.name} đã được ${!u.isActive ? 'kích hoạt' : 'vô hiệu hóa'}`);
         } catch (err: unknown) {
-            showMsg('error', err instanceof Error ? err.message : 'Thao tác thất bại');
+            showToast.error('Lỗi', err instanceof Error ? err.message : 'Thao tác thất bại');
         } finally {
             setActionLoading(false);
         }
@@ -334,9 +329,9 @@ function AdminUsersPageContent() {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ targetUid: uid, newPassword: defaultPwd }),
             });
-            showMsg('success', `Đặt lại mật khẩu thành công cho ${name}`);
+            showToast.success('Đặt lại mật khẩu', `Đặt lại mật khẩu thành công cho ${name}`);
         } catch (err: unknown) {
-            showMsg('error', err instanceof Error ? err.message : 'Thao tác thất bại');
+            showToast.error('Lỗi', err instanceof Error ? err.message : 'Thao tác thất bại');
         } finally {
             setActionLoading(false);
         }
@@ -456,16 +451,7 @@ function AdminUsersPageContent() {
                 </span>
             </div>
 
-            {/* Messages */}
-            {actionMessage.text && (
-                <div className={cn(
-                    'p-4 rounded-xl flex items-center gap-3 text-sm font-medium animate-in fade-in',
-                    actionMessage.type === 'success' ? 'bg-success-50 text-success-700 border border-success-200' : 'bg-danger-50 text-danger-600 border border-danger-100'
-                )}>
-                    {actionMessage.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
-                    {actionMessage.text}
-                </div>
-            )}
+
 
             {/* User table - always shown */}
             {(() => {
@@ -885,11 +871,7 @@ function AdminUsersPageContent() {
                                     </div>
                                 </div>
 
-                                {actionMessage.text && isCreateModalOpen && (
-                                    <div className={cn('p-3 rounded-lg text-sm', actionMessage.type === 'error' ? 'bg-danger-50 text-danger-600' : 'bg-success-50 text-success-700')}>
-                                        {actionMessage.text}
-                                    </div>
-                                )}
+
 
                                 <div className="flex gap-3 pt-2">
                                     <button type="button" onClick={resetForm}

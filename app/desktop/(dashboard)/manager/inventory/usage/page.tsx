@@ -1,8 +1,9 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { ScanBarcode, CheckCircle2, AlertCircle, Package, Send, Minus, Plus, Camera, ChevronDown } from 'lucide-react';
+import { showToast } from '@/lib/utils/toast';
+import { ScanBarcode, CheckCircle2, Package, Send, Minus, Plus, Camera, ChevronDown } from 'lucide-react';
 import type { ProductDoc } from '@/types/inventory';
 import type { CounterDoc } from '@/types';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
@@ -25,7 +26,7 @@ export default function UsagePage() {
     const [note, setNote] = useState('');
     const [loading, setLoading] = useState(false);
     const [lookupLoading, setLookupLoading] = useState(false);
-    const [message, setMessage] = useState({ type: '', text: '' });
+
     const [showScanner, setShowScanner] = useState(false);
 
     const selectedCounter = counters.find(c => c.id === selectedCounterId);
@@ -45,7 +46,7 @@ export default function UsagePage() {
                 setCounters(active);
                 if (active.length > 0) setSelectedCounterId(active[0].id);
             } catch {
-                setMessage({ type: 'error', text: 'Không thể tải danh sách quầy.' });
+                showToast.error('Lỗi tải quầy', 'Không thể tải danh sách quầy.');
             } finally {
                 setCountersLoading(false);
             }
@@ -57,7 +58,7 @@ export default function UsagePage() {
         if (!code.trim() || !user) return;
         setLookupLoading(true);
         setProduct(null);
-        setMessage({ type: '', text: '' });
+
         try {
             const token = await getToken();
             const res = await fetch(`/api/inventory/products?barcode=${encodeURIComponent(code.trim())}`, {
@@ -70,10 +71,10 @@ export default function UsagePage() {
                 setProduct(found);
                 setQuantity(1);
             } else {
-                setMessage({ type: 'error', text: `Không tìm thấy sản phẩm với mã vạch: ${code}` });
+                showToast.warning('Không tìm thấy', `Không tìm thấy sản phẩm với mã vạch: ${code}`);
             }
         } catch {
-            setMessage({ type: 'error', text: 'Lỗi tra cứu sản phẩm' });
+            showToast.error('Lỗi tra cứu', 'Lỗi tra cứu sản phẩm. Vui lòng thử lại.');
         } finally {
             setLookupLoading(false);
         }
@@ -95,7 +96,6 @@ export default function UsagePage() {
     const handleSubmit = async () => {
         if (!product || !selectedCounterId) return;
         setLoading(true);
-        setMessage({ type: '', text: '' });
         try {
             const token = await getToken();
             const res = await fetch('/api/inventory/usage', {
@@ -110,13 +110,13 @@ export default function UsagePage() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
-            setMessage({ type: 'success', text: data.message || 'Đã ghi nhận sử dụng!' });
+            showToast.success('Ghi nhận thành công', data.message || 'Đã ghi nhận sử dụng!');
             setProduct(null);
             setBarcode('');
             setQuantity(1);
             setNote('');
-        } catch (err: any) {
-            setMessage({ type: 'error', text: err.message || 'Có lỗi xảy ra' });
+        } catch (err: unknown) {
+            showToast.error('Lỗi ghi nhận', err instanceof Error ? err.message : 'Có lỗi xảy ra');
         } finally {
             setLoading(false);
         }
@@ -248,16 +248,7 @@ export default function UsagePage() {
                 </div>
             )}
 
-            {/* Toast message */}
-            {message.text && (
-                <div className={`p-4 rounded-xl flex items-center gap-2 border text-sm font-medium ${message.type === 'error'
-                    ? 'bg-danger-50 text-danger-700 border-danger-200'
-                    : 'bg-success-50 text-success-700 border-success-200'
-                    }`}>
-                    {message.type === 'error' ? <AlertCircle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
-                    {message.text}
-                </div>
-            )}
+
 
             {/* Camera Scanner Modal */}
             {showScanner && (

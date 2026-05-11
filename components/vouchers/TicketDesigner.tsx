@@ -11,6 +11,7 @@ import {
     Type, ImagePlus, ZoomIn, UploadCloud, Link2, Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { showToast } from '@/lib/utils/toast';
 import type { VoucherCampaign, TicketTemplateConfig, VoucherRewardType } from '@/types';
 
 const QR_SIZES = { sm: 88, md: 120, lg: 160 } as const;
@@ -376,8 +377,10 @@ export default function TicketDesigner({
             if (!res.ok) throw new Error();
             setSaved(true);
             setTimeout(() => setSaved(false), 2500);
-        } catch {
-            alert('Lưu mẫu thất bại!');
+            showToast.success('Lưu mẫu thành công', 'Mẫu vé đã được cập nhật và lưu vào hệ thống.');
+        } catch (err) {
+            console.error('[TicketDesigner] Lỗi lưu mẫu:', err);
+            showToast.error('Lưu mẫu thất bại', 'Không thể lưu mẫu vé. Vui lòng kiểm tra kết nối và thử lại.');
         } finally {
             setSaving(false);
         }

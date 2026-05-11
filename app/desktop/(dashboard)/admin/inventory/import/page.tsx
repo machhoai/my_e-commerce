@@ -5,9 +5,10 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     Package, Search, Download, X, Plus, Minus,
-    Trash2, Send, CheckCircle2, AlertCircle, SlidersHorizontal,
+    Trash2, Send, SlidersHorizontal,
     ChevronDown, Truck, Building, Warehouse,
 } from 'lucide-react';
+import { showToast } from '@/lib/utils/toast';
 import type { ProductDoc, InventoryBalanceDoc } from '@/types/inventory';
 import type { WarehouseDoc } from '@/types';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
@@ -128,7 +129,6 @@ function ImportBatchDrawer({
     onRemove: (productId: string) => void;
     onSubmit: () => void;
     submitting: boolean;
-    message: { type: string; text: string };
 }) {
     const [mounted, setMounted] = useState(false);
     useEffect(() => { setMounted(true); }, []);
@@ -241,12 +241,7 @@ function ImportBatchDrawer({
                 {/* Footer */}
                 {batch.length > 0 && (
                     <div className="p-4 border-t border-surface-100 bg-surface-50 space-y-3">
-                        {message.text && (
-                            <div className={`p-3 rounded-xl flex items-start gap-2 text-sm border ${message.type === 'error' ? 'bg-danger-50 text-danger-700 border-danger-200' : 'bg-success-50 text-success-700 border-success-200'}`}>
-                                {message.type === 'error' ? <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" /> : <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />}
-                                <span>{message.text}</span>
-                            </div>
-                        )}
+
                         <div className="flex justify-between text-sm text-surface-600 px-1">
                             <span>{batch.length} sản phẩm — {totalQty} đơn vị</span>
                             <span className="font-bold text-surface-800">{totalValue.toLocaleString('vi-VN')}đ</span>
@@ -279,7 +274,7 @@ export default function CentralImportPage() {
     const [batch, setBatch] = useState<BatchItem[]>([]);
     const [supplier, setSupplier] = useState('');
     const [submitting, setSubmitting] = useState(false);
-    const [message, setMessage] = useState({ type: '', text: '' });
+
 
     // Filters
     const [search, setSearch] = useState('');
@@ -393,11 +388,10 @@ export default function CentralImportPage() {
 
     const handleSubmit = async () => {
         if (!batch.length) {
-            setMessage({ type: 'error', text: 'Vui lòng thêm sản phẩm vào lô nhập' });
+            showToast.warning('Thiếu thông tin', 'Vui lòng thêm sản phẩm vào lô nhập');
             return;
         }
         setSubmitting(true);
-        setMessage({ type: '', text: '' });
         try {
             const token = await getToken();
             const res = await fetch('/api/inventory/import', {
@@ -415,7 +409,7 @@ export default function CentralImportPage() {
             });
             if (!res.ok) throw new Error((await res.json()).error);
             const data = await res.json();
-            setMessage({ type: 'success', text: `Nhập kho thành công! Mã lô: ${data.batchId}` });
+            showToast.success('Nhập kho thành công', `Mã lô: ${data.batchId}`);
             setBatch([]);
             setSupplier('');
             // Refresh balances
@@ -425,8 +419,7 @@ export default function CentralImportPage() {
             const balData = await balRes.json();
             if (Array.isArray(balData)) setBalances(balData);
         } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'Có lỗi xảy ra';
-            setMessage({ type: 'error', text: msg });
+            showToast.error('Lỗi nhập kho', err instanceof Error ? err.message : 'Có lỗi xảy ra');
         } finally { setSubmitting(false); }
     };
 
@@ -590,7 +583,6 @@ export default function CentralImportPage() {
                 onRemove={handleRemove}
                 onSubmit={handleSubmit}
                 submitting={submitting}
-                message={message}
             />
         </div>
     );

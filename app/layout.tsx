@@ -8,6 +8,7 @@ import InstallPWA from "@/components/InstallPWA";
 import PwaRedirect from "@/components/PwaRedirect";
 import SilentPwaUpdater from "@/components/shared/SilentPwaUpdater";
 import RegisterSW from "@/components/shared/RegisterSW";
+import ToastProvider from "@/components/shared/ToastProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -81,6 +82,7 @@ export default function RootLayout({
             </head>
             <body className={`${inter.className} min-h-dvh custom-scrollbar w-full relative overflow-x-hidden flex flex-col`} suppressHydrationWarning>
                 <AuthProvider>
+                    <ToastProvider />
                     {children}
                     <InstallPWA />
                     <PwaRedirect />

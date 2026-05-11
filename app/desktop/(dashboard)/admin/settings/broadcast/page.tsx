@@ -5,7 +5,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs } from 'firebase/firestore';
 import { StoreDoc } from '@/types';
-import { Send, AlertCircle, CheckCircle2, Megaphone } from 'lucide-react';
+import { Send, Megaphone } from 'lucide-react';
+import { showToast } from '@/lib/utils/toast';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 type TargetType = 'ALL' | 'STORE' | 'ROLE';
@@ -22,7 +23,7 @@ export default function AdminBroadcastPage() {
     const [stores, setStores] = useState<{ id: string, name: string }[]>([]);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [feedback, setFeedback] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
 
     // Fetch stores on mount
     useEffect(() => {
@@ -49,20 +50,19 @@ export default function AdminBroadcastPage() {
     // Handle form submission
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setFeedback(null);
 
         if (!title.trim() || !message.trim()) {
-            setFeedback({ type: 'error', text: 'Vui lòng nhập cả Tiêu đề và Nội dung thông báo.' });
+            showToast.warning('Thiếu thông tin', 'Vui lòng nhập cả Tiêu đề và Nội dung thông báo.');
             return;
         }
 
         if (targetType === 'STORE' && !targetValue) {
-            setFeedback({ type: 'error', text: 'Vui lòng chọn một Cửa hàng.' });
+            showToast.warning('Thiếu thông tin', 'Vui lòng chọn một Cửa hàng.');
             return;
         }
 
         if (targetType === 'ROLE' && !targetValue) {
-            setFeedback({ type: 'error', text: 'Vui lòng chọn một Chức vụ.' });
+            showToast.warning('Thiếu thông tin', 'Vui lòng chọn một Chức vụ.');
             return;
         }
 
@@ -94,15 +94,15 @@ export default function AdminBroadcastPage() {
 
             if (!res.ok) throw new Error(data.error || 'Đã xảy ra lỗi khi gửi');
 
-            setFeedback({ type: 'success', text: data.message || 'Gửi thông báo thành công!' });
+            showToast.success('Gửi thành công', data.message || 'Gửi thông báo thành công!');
             // Reset form
             setTitle('');
             setMessage('');
             setTargetType('ALL');
             setTargetValue('');
 
-        } catch (err: any) {
-            setFeedback({ type: 'error', text: err.message || 'Lỗi hệ thống' });
+        } catch (err: unknown) {
+            showToast.error('Lỗi gửi', err instanceof Error ? err.message : 'Lỗi hệ thống');
         } finally {
             setIsSubmitting(false);
         }
@@ -131,12 +131,7 @@ export default function AdminBroadcastPage() {
                 }
             />
 
-            {feedback && (
-                <div className={`p-4 rounded-xl flex items-start gap-3 border ${feedback.type === 'error' ? 'bg-danger-50 text-danger-700 border-danger-200' : 'bg-success-50 text-success-700 border-success-200'}`}>
-                    {feedback.type === 'error' ? <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" /> : <CheckCircle2 className="w-5 h-5 mt-0.5 shrink-0" />}
-                    <div className="text-sm font-medium">{feedback.text}</div>
-                </div>
-            )}
+
 
             <div className="bg-white rounded-2xl shadow-sm border border-surface-200 overflow-hidden">
                 <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-6">

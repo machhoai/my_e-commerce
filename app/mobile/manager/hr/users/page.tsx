@@ -19,6 +19,7 @@ import {
     Phone, Mail, CreditCard, GraduationCap, Calendar,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { showToast } from '@/lib/utils/toast';
 import BottomSheet from '@/components/shared/BottomSheet';
 import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 
@@ -706,16 +707,8 @@ function MobileHrUsersContent() {
     const [formSubmitting, setFormSubmitting] = useState(false);
     const [formError, setFormError] = useState('');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-    const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
-
-    // Toast auto-dismiss
-    useEffect(() => {
-        if (!toast) return;
-        const t = setTimeout(() => setToast(null), 3000);
-        return () => clearTimeout(t);
-    }, [toast]);
 
     // Fetch stores/offices/warehouses for admin
     useEffect(() => {
@@ -907,7 +900,10 @@ function MobileHrUsersContent() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `Không thể ${editUid ? 'cập nhật' : 'tạo'} nhân viên`);
-            setToast({ type: 'success', text: `Nhân viên ${form.name} đã được ${editUid ? 'cập nhật' : 'thêm'} thành công!` });
+            showToast.success(
+                editUid ? 'Cập nhật thành công' : 'Thêm nhân viên thành công',
+                `Nhân viên ${form.name} đã được ${editUid ? 'cập nhật' : 'thêm'} vào hệ thống.`
+            );
             setShowForm(false);
         } catch (err: unknown) {
             setFormError(err instanceof Error ? err.message : 'Đã xảy ra lỗi');
@@ -929,9 +925,14 @@ function MobileHrUsersContent() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
-            setToast({ type: 'success', text: `Đã ${action.toLowerCase()} ${name}.` });
+            showToast.success(
+                currentStatus ? 'Đã cho nghỉ việc' : 'Đã kích hoạt lại',
+                `Nhân viên ${name} đã được ${action.toLowerCase()} thành công.`
+            );
         } catch (err: unknown) {
-            setToast({ type: 'error', text: err instanceof Error ? err.message : 'Đã xảy ra lỗi' });
+            const message = err instanceof Error ? err.message : 'Đã xảy ra lỗi';
+            console.error('[MobileHR] Lỗi toggle active:', err);
+            showToast.error('Thao tác thất bại', message);
         } finally {
             setActionLoading(null);
         }
@@ -1047,21 +1048,7 @@ function MobileHrUsersContent() {
                 )}
             </div>
 
-            {/* Toast */}
-            {toast && (
-                <div className={cn(
-                    'fixed bottom-6 left-4 right-4 z-[300] rounded-2xl shadow-lg px-4 py-3.5 flex items-center gap-3',
-                    toast.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600',
-                )}>
-                    {toast.type === 'success'
-                        ? <CheckCircle2 className="w-5 h-5 text-white shrink-0" />
-                        : <AlertTriangle className="w-5 h-5 text-white shrink-0" />}
-                    <p className="text-sm font-medium text-white flex-1">{toast.text}</p>
-                    <button onClick={() => setToast(null)}>
-                        <X className="w-4 h-4 text-white/70" />
-                    </button>
-                </div>
-            )}
+
 
             {/* Form Bottom Sheet */}
             <EmployeeFormSheet

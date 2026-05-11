@@ -7,9 +7,10 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage
 import { storage } from '@/lib/firebase';
 import {
     ShoppingCart, Search, AlertTriangle, Package, X, Plus, Minus,
-    Trash2, Send, CheckCircle2, AlertCircle, SlidersHorizontal,
+    Trash2, Send, CheckCircle2, SlidersHorizontal,
     ChevronDown, ChevronUp, Pencil, Check, LayoutGrid, List, ClipboardList, XCircle, Warehouse,
 } from 'lucide-react';
+import { showToast } from '@/lib/utils/toast';
 import type { ProductDoc, InventoryBalanceDoc, PurchaseOrderDoc } from '@/types/inventory';
 // New Shared Components
 import { InventoryCharts } from '@/components/inventory/overview/InventoryCharts';
@@ -57,7 +58,6 @@ function CartDrawer({
     onRemove: (productId: string) => void;
     onSubmit: (note: string, attachmentFile: File | null) => void;
     submitting: boolean;
-    message: { type: string; text: string };
     warehouses: { id: string; name: string }[];
     selectedWarehouseId: string;
     onWarehouseChange: (id: string) => void;
@@ -144,12 +144,7 @@ function CartDrawer({
                 {/* Footer */}
                 {cart.length > 0 && (
                     <div className="p-4 border-t border-surface-100 space-y-3 bg-surface-50">
-                        {message.text && (
-                            <div className={`p-3 rounded-xl flex items-center gap-2 border text-sm font-medium ${message.type === 'error' ? 'bg-danger-50 text-danger-700 border-danger-200' : 'bg-success-50 text-success-700 border-success-200'}`}>
-                                {message.type === 'error' ? <AlertCircle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
-                                {message.text}
-                            </div>
-                        )}
+
 
                         {/* Warehouse selector */}
                         <div className="space-y-1.5">
@@ -274,7 +269,7 @@ export default function StoreInventoryDashboard() {
     const [cartOpen, setCartOpen] = useState(false);
     const [cart, setCart] = useState<CartItem[]>([]);
     const [submitting, setSubmitting] = useState(false);
-    const [message, setMessage] = useState({ type: '', text: '' });
+
     const [selectedStoreId, setSelectedStoreId] = useState('ALL');
     const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
 
@@ -434,11 +429,10 @@ export default function StoreInventoryDashboard() {
 
     const handleSubmitOrder = async (note: string, attachmentFile: File | null) => {
         if (!cart.length || !effectiveStoreId) {
-            setMessage({ type: 'error', text: 'Vui lòng chọn cửa hàng và thêm sản phẩm' });
+            showToast.warning('Thiếu thông tin', 'Vui lòng chọn cửa hàng và thêm sản phẩm');
             return;
         }
         setSubmitting(true);
-        setMessage({ type: '', text: '' });
         try {
             const token = await getToken();
             const storeName = isAdmin
@@ -476,11 +470,11 @@ export default function StoreInventoryDashboard() {
                 }),
             });
             if (!res.ok) throw new Error((await res.json()).error);
-            setMessage({ type: 'success', text: 'Đã tạo đơn đặt hàng! Đang chờ văn phòng duyệt.' });
+            showToast.success('Đã tạo đơn', 'Đã tạo đơn đặt hàng! Đang chờ văn phòng duyệt.');
             setCart([]);
             fetchAll();
-        } catch (err: any) {
-            setMessage({ type: 'error', text: err.message || 'Có lỗi xảy ra' });
+        } catch (err: unknown) {
+            showToast.error('Lỗi đặt hàng', err instanceof Error ? err.message : 'Có lỗi xảy ra');
         } finally { setSubmitting(false); }
     };
 
@@ -511,8 +505,8 @@ export default function StoreInventoryDashboard() {
             if (!res.ok) throw new Error(data.error);
             setCancelingId(null);
             fetchAll();
-        } catch (err: any) {
-            console.error(err.message);
+        } catch (err: unknown) {
+            console.error(err instanceof Error ? err.message : err);
         } finally {
             setIsCanceling(false);
         }
@@ -759,7 +753,6 @@ export default function StoreInventoryDashboard() {
                 onRemove={removeFromCart}
                 onSubmit={handleSubmitOrder}
                 submitting={submitting}
-                message={message}
                 warehouses={warehouses}
                 selectedWarehouseId={selectedWarehouseId}
                 onWarehouseChange={setSelectedWarehouseId}

@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { UserDoc, KpiRecordDoc, StoreDoc, CounterDoc } from '@/types';
 import { cn } from '@/lib/utils';
+import { showToast } from '@/lib/utils/toast';
 import { exportKpiToPdf, exportKpiToExcel, exportKpiDetailedExcel, KpiDetailedRecord } from '@/lib/kpi-export';
 import {
     BarChart3, Calendar, Building2, FileSpreadsheet, FileText,
@@ -197,7 +198,7 @@ function ManagerKpiStatsPageContent() {
                 label = exportMonth;
             } else {
                 if (!exportDateFrom || !exportDateTo) {
-                    alert('Vui lòng chọn ngày bắt đầu và kết thúc');
+                    showToast.warning('Thiếu thông tin', 'Vui lòng chọn ngày bắt đầu và kết thúc trước khi xuất.');
                     return;
                 }
                 fetchUrl += `&dateFrom=${exportDateFrom}&dateTo=${exportDateTo}`;
@@ -206,7 +207,7 @@ function ManagerKpiStatsPageContent() {
 
             const res = await fetch(fetchUrl, { headers: { Authorization: `Bearer ${token}` } });
             const data: KpiRecordDoc[] = await res.json();
-            if (!res.ok) { alert('Lỗi tải dữ liệu'); return; }
+            if (!res.ok) { showToast.error('Lỗi tải dữ liệu', 'Không thể tải bản ghi KPI từ máy chủ. Vui lòng thử lại sau.'); return; }
 
             // Filter to OFFICIAL only + selected employees
             const officialRecs = data.filter(r =>
@@ -214,7 +215,7 @@ function ManagerKpiStatsPageContent() {
             );
 
             if (officialRecs.length === 0) {
-                alert('Không có bản ghi chính thức nào cho phạm vi đã chọn.');
+                showToast.info('Không có dữ liệu', 'Không có bản ghi chính thức nào cho phạm vi đã chọn.');
                 return;
             }
 
@@ -257,9 +258,10 @@ function ManagerKpiStatsPageContent() {
 
             exportKpiDetailedExcel(detailedRecords, label);
             setShowExportDialog(false);
+            showToast.success('Xuất Excel thành công', `Đã xuất ${detailedRecords.length} bản ghi KPI chi tiết.`);
         } catch (err) {
             console.error('[KPI Export]', err);
-            alert('Xuất file thất bại');
+            showToast.error('Xuất file thất bại', 'Đã xảy ra lỗi khi tạo file Excel. Vui lòng thử lại.');
         } finally { setExportLoading(false); }
     };
 

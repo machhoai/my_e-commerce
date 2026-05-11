@@ -9,9 +9,10 @@ import { cn } from '@/lib/utils';
 import {
     User, Mail, Phone, Calendar, Briefcase, CreditCard, GraduationCap,
     ShieldCheck, Home, ChevronRight, LogOut, Edit3, X, Loader2,
-    CheckCircle2, AlertTriangle, Lock, Camera, ScanLine, ImageIcon, MapPin,
+    Lock, Camera, ScanLine, ImageIcon, MapPin,
     Shield, Smartphone,
 } from 'lucide-react';
+import { showToast } from '@/lib/utils/toast';
 import MobilePageShell from '@/components/mobile/MobilePageShell';
 import HardResetButton from '@/components/shared/HardResetButton';
 import BottomSheet from '@/components/shared/BottomSheet';
@@ -33,7 +34,7 @@ export default function MobileProfilePage() {
     const [editSheetOpen, setEditSheetOpen] = useState(false);
     const [editData, setEditData] = useState<Partial<UserDoc>>({});
     const [saving, setSaving] = useState(false);
-    const [message, setMessage] = useState({ type: '', text: '' });
+
 
     // Logout confirm
     const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
@@ -82,13 +83,12 @@ export default function MobileProfilePage() {
             email: profileData.email || '', dob: profileData.dob || '',
             bankAccount: profileData.bankAccount || '', education: profileData.education || '',
         });
-        setMessage({ type: '', text: '' });
         setEditSheetOpen(true);
     };
 
     const handleSave = async () => {
         if (!user || !profileData) return;
-        setSaving(true); setMessage({ type: '', text: '' });
+        setSaving(true);
         try {
             const token = await user.getIdToken();
             const res = await fetch('/api/auth/update-user', {
@@ -98,11 +98,11 @@ export default function MobileProfilePage() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || t('profile.updateFailed'));
-            setMessage({ type: 'success', text: t('profile.updateSuccess') });
+            showToast.success(t('profile.updateSuccess'), t('profile.updateSuccess'));
             setProfileData(prev => prev ? { ...prev, ...editData } : null);
             setTimeout(() => setEditSheetOpen(false), 800);
         } catch (err: unknown) {
-            setMessage({ type: 'error', text: err instanceof Error ? err.message : t('common.error') });
+            showToast.error(t('common.error'), err instanceof Error ? err.message : t('common.error'));
         } finally { setSaving(false); }
     };
 
@@ -141,11 +141,11 @@ export default function MobileProfilePage() {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || t('profile.cccdUpdateFailed'));
                 setProfileData(prev => prev ? { ...prev, ...payload } : null);
-                setMessage({ type: 'success', text: t('profile.cccdUpdateSuccess') });
+                showToast.success(t('profile.cccdUpdateSuccess'), t('profile.cccdUpdateSuccess'));
             }
         } catch (err) {
             console.error('CCCD update failed:', err);
-            setMessage({ type: 'error', text: err instanceof Error ? err.message : t('profile.cccdUpdateFailed') });
+            showToast.error(t('profile.cccdUpdateFailed'), err instanceof Error ? err.message : t('profile.cccdUpdateFailed'));
         } finally {
             setCccdProcessing(false);
         }
@@ -273,23 +273,7 @@ export default function MobileProfilePage() {
                     <p className="text-[10px] text-primary-600 font-medium mt-2">{t('profile.processingPhoto')}</p>
                 )}
 
-                {/* Visible status message for CCCD / profile updates */}
-                {message.text && !editSheetOpen && (
-                    <div className={cn(
-                        'flex items-center gap-2 px-3 py-2 rounded-lg border text-[11px] font-medium mt-2 mx-2',
-                        message.type === 'error'
-                            ? 'bg-red-50 border-red-200 text-red-700'
-                            : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                    )}>
-                        {message.type === 'error'
-                            ? <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                            : <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
-                        {message.text}
-                        <button onClick={() => setMessage({ type: '', text: '' })} className="ml-auto shrink-0">
-                            <X className="w-3 h-3 text-gray-400" />
-                        </button>
-                    </div>
-                )}
+
             </div>
 
             {/* ── Info sections ────────────────────────────────────────── */}
@@ -441,13 +425,7 @@ export default function MobileProfilePage() {
             {/* ═══ EDIT BOTTOMSHEET ═══ */}
             <BottomSheet isOpen={editSheetOpen} onClose={() => setEditSheetOpen(false)} title={t('profile.editProfile')}>
                 <div className="px-4 pb-6 space-y-4">
-                    {message.text && (
-                        <div className={cn('flex items-center gap-2 px-3 py-2 rounded-lg border text-[11px] font-medium',
-                            message.type === 'error' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700')}>
-                            {message.type === 'error' ? <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> : <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
-                            {message.text}
-                        </div>
-                    )}
+
 
                     <div>
                         <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">{t('profile.email')}</label>

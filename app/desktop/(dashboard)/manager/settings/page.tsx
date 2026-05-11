@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Settings as SettingsIcon, Save, Plus, X, AlertCircle, CheckCircle2, Store, Clock, Users, Timer, ShieldAlert, Package } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Plus, X, Clock, Users, Timer, ShieldAlert, Package } from 'lucide-react';
+import { showToast } from '@/lib/utils/toast';
 import { SettingsDoc, CounterDoc, RegistrationSchedule } from '@/types';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
@@ -19,8 +20,7 @@ export default function ManagerSettingsPage() {
     // UI State
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+
 
     // New Item State
     const [newShift, setNewShift] = useState('');
@@ -104,7 +104,7 @@ export default function ManagerSettingsPage() {
                 setCounters(data.counters || []);
             } catch (err) {
                 console.error(err);
-                setError('Không thể tải cài đặt');
+                showToast.error('Lỗi tải cài đặt', 'Không thể tải cài đặt cửa hàng');
             } finally {
                 setLoading(false);
             }
@@ -118,8 +118,6 @@ export default function ManagerSettingsPage() {
         if (!settings || !user || !storeId) return;
 
         setSaving(true);
-        setError('');
-        setSuccess('');
 
         try {
             const payload = { ...settings, counters, registrationSchedule: schedule };
@@ -132,9 +130,9 @@ export default function ManagerSettingsPage() {
             });
 
             if (!res.ok) throw new Error('Lưu cài đặt thất bại');
-            setSuccess('Đã lưu cài đặt thành công!');
+            showToast.success('Lưu thành công', 'Đã lưu cài đặt thành công!');
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Đã xảy ra lỗi không xác định');
+            showToast.error('Lỗi lưu cài đặt', err instanceof Error ? err.message : 'Đã xảy ra lỗi không xác định');
         } finally {
             setSaving(false);
         }
@@ -143,7 +141,7 @@ export default function ManagerSettingsPage() {
     const handleAddShift = () => {
         if (!newShift.trim() || !settings) return;
         if (settings.shiftTimes.includes(newShift.trim())) {
-            setError('Khung giờ này đã tồn tại');
+            showToast.warning('Trùng lặp', 'Khung giờ này đã tồn tại');
             return;
         }
         setSettings({
@@ -151,7 +149,7 @@ export default function ManagerSettingsPage() {
             shiftTimes: [...settings.shiftTimes, newShift.trim()].sort()
         });
         setNewShift('');
-        setSuccess('Đã thêm ca làm. Nhớ bấm Lưu.');
+        showToast.info('Thêm ca làm', 'Đã thêm ca làm. Nhớ bấm Lưu.');
     };
 
     const handleRemoveShift = (shiftToRemove: string) => {
@@ -160,13 +158,13 @@ export default function ManagerSettingsPage() {
             ...settings,
             shiftTimes: settings.shiftTimes.filter(s => s !== shiftToRemove)
         });
-        setSuccess('Đã xóa ca làm. Nhớ bấm Lưu.');
+        showToast.info('Xóa ca làm', 'Đã xóa ca làm. Nhớ bấm Lưu.');
     };
 
     const handleAddCounter = () => {
         if (!newCounter.trim()) return;
         if (counters.find(c => c.name.toLowerCase() === newCounter.trim().toLowerCase())) {
-            setError('Quầy này đã tồn tại');
+            showToast.warning('Trùng lặp', 'Quầy này đã tồn tại');
             return;
         }
 
@@ -175,17 +173,17 @@ export default function ManagerSettingsPage() {
             { id: `counter_${generateId()}`, name: newCounter.trim(), storeId: '', isActive: true }
         ]);
         setNewCounter('');
-        setSuccess('Đã thêm quầy. Nhớ bấm Lưu.');
+        showToast.info('Thêm quầy', 'Đã thêm quầy. Nhớ bấm Lưu.');
     };
 
     const handleRemoveCounter = (idToRemove: string) => {
         setCounters(counters.filter(c => c.id !== idToRemove));
-        setSuccess('Đã xóa quầy. Nhớ bấm Lưu.');
+        showToast.info('Xóa quầy', 'Đã xóa quầy. Nhớ bấm Lưu.');
     };
 
     const handleToggleCounter = (id: string) => {
         setCounters(counters.map(c => c.id === id ? { ...c, isActive: !(c.isActive !== false) } : c));
-        setSuccess('Đã thay đổi trạng thái. Nhớ bấm Lưu.');
+        showToast.info('Thay đổi trạng thái', 'Đã thay đổi trạng thái. Nhớ bấm Lưu.');
     };
 
     const handleRenameCounter = (id: string, newName: string) => {
@@ -213,7 +211,7 @@ export default function ManagerSettingsPage() {
         });
         setNewSpecialDate('');
         setNewSpecialDateQuotas({});
-        setSuccess('Đã thêm định mức ngày đặc biệt. Nhớ bấm Lưu.');
+        showToast.info('Thêm ngày đặc biệt', 'Đã thêm định mức ngày đặc biệt. Nhớ bấm Lưu.');
     };
 
     const handleRemoveSpecialDate = (dateCode: string) => {
@@ -227,7 +225,7 @@ export default function ManagerSettingsPage() {
                 specialDates: newDates
             }
         });
-        setSuccess('Đã xóa ngày đặc biệt.');
+        showToast.info('Xóa ngày đặc biệt', 'Đã xóa ngày đặc biệt.');
     };
 
     if (!userDoc || (
@@ -302,24 +300,7 @@ export default function ManagerSettingsPage() {
                 }
             />
 
-            {error && (
-                <div className="bg-danger-50 text-danger-600 p-4 rounded-xl flex items-center gap-3 border border-danger-100 animate-in fade-in slide-in-from-top-2">
-                    <AlertCircle className="w-5 h-5 shrink-0" />
-                    <p className="text-sm font-medium">{error}</p>
-                </div>
-            )}
 
-            {success && (
-                <div className="bg-success-50 text-success-700 p-4 rounded-xl flex items-center gap-3 border border-success-200 animate-in fade-in slide-in-from-top-2 shadow-sm">
-                    <CheckCircle2 className="w-5 h-5 shrink-0 text-success-500" />
-                    <div className="flex-1 flex items-center justify-between">
-                        <p className="text-sm font-medium">{success}</p>
-                        <button onClick={() => setSuccess('')} className="text-success-600 hover:text-success-800 text-xs font-semibold px-2 py-1 bg-success-100/50 rounded-md">
-                            Đóng
-                        </button>
-                    </div>
-                </div>
-            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Left Column Controls */}
@@ -343,7 +324,7 @@ export default function ManagerSettingsPage() {
                                 checked={settings?.registrationOpen || false}
                                 onChange={(e) => {
                                     setSettings(s => s ? { ...s, registrationOpen: e.target.checked } : null);
-                                    setError(''); setSuccess('Cài đặt đã cập nhật cục bộ. Nhớ bấm Lưu.');
+                                    showToast.info('Cập nhật cục bộ', 'Cài đặt đã cập nhật cục bộ. Nhớ bấm Lưu.');
                                 }}
                             />
                             <div className="w-14 h-7 bg-surface-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-success-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-success-500"></div>
@@ -460,7 +441,7 @@ export default function ManagerSettingsPage() {
                                 checked={settings?.strictShiftLimit ?? true}
                                 onChange={(e) => {
                                     setSettings(s => s ? { ...s, strictShiftLimit: e.target.checked } : null);
-                                    setError(''); setSuccess('Cài đặt đã cập nhật cục bộ. Nhớ bấm Lưu.');
+                                    showToast.info('Cập nhật cục bộ', 'Cài đặt đã cập nhật cục bộ. Nhớ bấm Lưu.');
                                 }}
                             />
                             <div className="w-14 h-7 bg-surface-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-warning-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-warning-500"></div>
@@ -489,7 +470,7 @@ export default function ManagerSettingsPage() {
                                 onChange={e => {
                                     const val = Math.max(1, parseInt(e.target.value) || 1);
                                     setSettings(s => s ? { ...s, maxShiftsPerDay: val } : null);
-                                    setSuccess('Cài đặt đã cập nhật cục bộ. Nhớ bấm Lưu.');
+                                    showToast.info('Cập nhật cục bộ', 'Cài đặt đã cập nhật cục bộ. Nhớ bấm Lưu.');
                                 }}
                                 className="w-24 bg-surface-50 border border-surface-200 text-sm font-bold rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 outline-none"
                             />

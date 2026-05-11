@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { showToast } from '@/lib/utils/toast';
 import {
-    ArrowRight, CheckCircle2, AlertCircle, Package, Send,
+    ArrowRight, Package, Send,
     Warehouse, LayoutGrid, Search, Trash2, X, Plus, Minus,
 } from 'lucide-react';
 import type { ProductDoc, InventoryBalanceDoc } from '@/types/inventory';
@@ -137,7 +138,7 @@ export default function TransferPage() {
     const [note, setNote] = useState('');
 
     const [submitting, setSubmitting] = useState(false);
-    const [message, setMessage] = useState({ type: '', text: '' });
+
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
@@ -244,16 +245,15 @@ export default function TransferPage() {
 
     const handleTransfer = async () => {
         if (!selectedCounter) {
-            setMessage({ type: 'error', text: 'Vui lòng chọn quầy đích' });
+            showToast.warning('Thiếu thông tin', 'Vui lòng chọn quầy đích');
             return;
         }
         if (transferItems.length === 0) {
-            setMessage({ type: 'error', text: 'Vui lòng thêm ít nhất 1 sản phẩm' });
+            showToast.warning('Thiếu sản phẩm', 'Vui lòng thêm ít nhất 1 sản phẩm');
             return;
         }
 
         setSubmitting(true);
-        setMessage({ type: '', text: '' });
 
         const counter = counters.find(c => c.id === selectedCounter);
         let successCount = 0;
@@ -287,18 +287,18 @@ export default function TransferPage() {
             }
 
             if (successCount === transferItems.length) {
-                setMessage({ type: 'success', text: `Đã xuất ${successCount} sản phẩm ra quầy thành công!` });
+                showToast.success('Xuất quầy thành công', `Đã xuất ${successCount} sản phẩm ra quầy thành công!`);
                 setTransferItems([]);
                 setNote('');
             } else if (successCount > 0) {
-                setMessage({ type: 'error', text: `Đã xuất ${successCount}/${transferItems.length} sản phẩm. Lỗi: ${lastError}` });
+                showToast.warning('Xuất một phần', `Đã xuất ${successCount}/${transferItems.length} sản phẩm. Lỗi: ${lastError}`);
             } else {
-                setMessage({ type: 'error', text: lastError });
+                showToast.error('Xuất thất bại', lastError);
             }
 
             await fetchBalances();
-        } catch (err: any) {
-            setMessage({ type: 'error', text: err.message || 'Có lỗi xảy ra' });
+        } catch (err: unknown) {
+            showToast.error('Lỗi xuất quầy', err instanceof Error ? err.message : 'Có lỗi xảy ra');
         } finally {
             setSubmitting(false);
         }
@@ -330,13 +330,7 @@ export default function TransferPage() {
                 }
             />
 
-            {/* Message */}
-            {message.text && (
-                <div className={`p-3 rounded-xl flex items-center gap-2 border text-sm font-medium ${message.type === 'error' ? 'bg-danger-50 text-danger-700 border-danger-200' : 'bg-success-50 text-success-700 border-success-200'}`}>
-                    {message.type === 'error' ? <AlertCircle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
-                    {message.text}
-                </div>
-            )}
+
 
             {effectiveStoreId && (
                 <>
@@ -536,7 +530,7 @@ export default function TransferPage() {
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <button
-                                        onClick={() => { setTransferItems([]); setNote(''); setMessage({ type: '', text: '' }); }}
+                                        onClick={() => { setTransferItems([]); setNote(''); }}
                                         className="px-5 py-2.5 bg-surface-100 hover:bg-surface-200 text-surface-600 rounded-xl text-sm font-medium transition-colors"
                                     >
                                         Hủy

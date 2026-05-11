@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,9 +6,10 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { StoreDoc, UserDoc } from '@/types';
 import {
-    Store, Plus, Pencil, PowerOff, Power, X, CheckCircle2,
+    Store, Plus, Pencil, PowerOff, Power, X,
     AlertCircle, MapPin, Building2, Users, Crown, ShieldCheck, UserCheck
 } from 'lucide-react';
+import { showToast } from '@/lib/utils/toast';
 import { cn } from '@/lib/utils';
 import Portal from '@/components/Portal';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
@@ -40,12 +41,7 @@ export default function AdminStoresPage() {
     const [formType, setFormType] = useState<LocationType>('STORE');
 
     const [actionLoading, setActionLoading] = useState(false);
-    const [message, setMessage] = useState({ type: '', text: '' });
 
-    const showMsg = (type: 'success' | 'error', text: string) => {
-        setMessage({ type, text });
-        setTimeout(() => setMessage({ type: '', text: '' }), 4000);
-    };
 
     const getToken = useCallback(async () => user?.getIdToken(), [user]);
 
@@ -78,7 +74,7 @@ export default function AdminStoresPage() {
             const storesWithStats = await Promise.all(statsPromises);
             setStores(storesWithStats);
         } catch {
-            showMsg('error', 'Không thể tải danh sách cửa hàng');
+            showToast.error('Lỗi tải dữ liệu', 'Không thể tải danh sách cửa hàng');
         } finally {
             setLoading(false);
             setStatsLoading(false);
@@ -99,19 +95,19 @@ export default function AdminStoresPage() {
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ id: editStore.id, name: formName, address: formAddress, type: formType }),
                 });
-                showMsg('success', 'Đã cập nhật cửa hàng!');
+                showToast.success('Đã cập nhật', 'Cửa hàng đã được cập nhật thành công!');
             } else {
                 await fetch('/api/stores', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ name: formName, address: formAddress, type: formType }),
                 });
-                showMsg('success', 'Đã tạo cửa hàng mới!');
+                showToast.success('Đã tạo mới', 'Cửa hàng mới đã được tạo thành công!');
             }
             resetForm();
             await fetchStores();
         } catch {
-            showMsg('error', 'Thao tác thất bại');
+            showToast.error('Lỗi', 'Thao tác thất bại');
         } finally {
             setActionLoading(false);
         }
@@ -126,10 +122,10 @@ export default function AdminStoresPage() {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ id: store.id, isActive: !store.isActive }),
             });
-            showMsg('success', `Cửa hàng đã được ${!store.isActive ? 'mở' : 'tắt'}`);
+            showToast.success('Đã cập nhật', `Cửa hàng đã được ${!store.isActive ? 'mở' : 'tắt'}`);
             await fetchStores();
         } catch {
-            showMsg('error', 'Thao tác thất bại');
+            showToast.error('Lỗi', 'Thao tác thất bại');
         } finally {
             setActionLoading(false);
         }
@@ -228,16 +224,7 @@ export default function AdminStoresPage() {
                 </div>
             )}
 
-            {/* Messages */}
-            {message.text && (
-                <div className={cn(
-                    'p-4 rounded-xl flex items-center gap-3 text-sm font-medium animate-in fade-in',
-                    message.type === 'success' ? 'bg-success-50 text-success-700 border border-success-200' : 'bg-danger-50 text-danger-600 border border-danger-100'
-                )}>
-                    {message.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
-                    {message.text}
-                </div>
-            )}
+
 
             {/* Create/Edit Modal */}
             {isCreateOpen && (

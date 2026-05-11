@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCounterAssignment } from '@/hooks/useCounterAssignment';
+import { showToast } from '@/lib/utils/toast';
 import { Handshake, Lock, CheckCircle2, AlertCircle, Package, Send } from 'lucide-react';
 import type { ProductDoc, InventoryBalanceDoc, HandoverCountedItem } from '@/types/inventory';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
@@ -27,7 +28,7 @@ export default function EmployeeHandoverPage() {
     const [note, setNote] = useState('');
     const [loading, setLoading] = useState(false);
     const [dataLoading, setDataLoading] = useState(true);
-    const [message, setMessage] = useState({ type: '', text: '' });
+
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
@@ -85,7 +86,7 @@ export default function EmployeeHandoverPage() {
                     }
                 }
             } catch {
-                setMessage({ type: 'error', text: 'Không thể tải dữ liệu tồn kho.' });
+                showToast.error('Lỗi tải dữ liệu', 'Không thể tải dữ liệu tồn kho.');
             } finally {
                 setDataLoading(false);
             }
@@ -103,7 +104,6 @@ export default function EmployeeHandoverPage() {
     const handleSubmit = async () => {
         if (!assignment.counterId || !assignment.storeId) return;
         setLoading(true);
-        setMessage({ type: '', text: '' });
         try {
             const token = await getToken();
             const countedItems: HandoverCountedItem[] = rows.map(r => ({
@@ -128,12 +128,9 @@ export default function EmployeeHandoverPage() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
-            setMessage({
-                type: 'success',
-                text: data.message || 'Đã ghi nhận giao ca thành công!',
-            });
-        } catch (err: any) {
-            setMessage({ type: 'error', text: err.message || 'Có lỗi xảy ra' });
+            showToast.success('Giao ca thành công', data.message || 'Đã ghi nhận giao ca thành công!');
+        } catch (err: unknown) {
+            showToast.error('Lỗi giao ca', err instanceof Error ? err.message : 'Có lỗi xảy ra');
         } finally {
             setLoading(false);
         }
@@ -311,16 +308,7 @@ export default function EmployeeHandoverPage() {
                 )}
             </button>
 
-            {/* Toast message */}
-            {message.text && (
-                <div className={`p-4 rounded-xl flex items-center gap-2 border text-sm font-medium ${message.type === 'error'
-                    ? 'bg-danger-50 text-danger-700 border-danger-200'
-                    : 'bg-success-50 text-success-700 border-success-200'
-                    }`}>
-                    {message.type === 'error' ? <AlertCircle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
-                    {message.text}
-                </div>
-            )}
+
         </div>
     );
 }

@@ -23,6 +23,7 @@ import {
     XCircle, AlertCircle, Search, ChevronDown, UserCheck, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { showToast } from '@/lib/utils/toast';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Vietnamese accent normalization fuzzy matcher
@@ -76,12 +77,6 @@ function similarity(a: string, b: string): number {
 const CONFIDENCE_THRESHOLD = 0.6;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Toast helper
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface Toast { id: number; type: 'success' | 'error' | 'info'; text: string }
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -111,7 +106,6 @@ export default function MappingPage() {
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
     const [showIgnored, setShowIgnored] = useState(false);
-    const [toasts, setToasts] = useState<Toast[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
 
     // Auto-match preview modal state
@@ -127,12 +121,6 @@ export default function MappingPage() {
     const [savingRow, setSavingRow] = useState<string | null>(null);
 
     // ── Helpers ────────────────────────────────────────────────────────────────
-
-    const addToast = useCallback((type: Toast['type'], text: string) => {
-        const id = Date.now();
-        setToasts((t) => [...t, { id, type, text }]);
-        setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000);
-    }, []);
 
     const getToken = useCallback(async () => user?.getIdToken() ?? '', [user]);
 
@@ -171,13 +159,14 @@ export default function MappingPage() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
-            addToast('success', `Đồng bộ xong: +${data.inserted} mới, cập nhật ${data.updated}.`);
+            showToast.success('Đồng bộ thành công', `+${data.inserted} người mới, cập nhật ${data.updated} người.`);
         } catch (e: unknown) {
-            addToast('error', e instanceof Error ? e.message : 'Lỗi đồng bộ');
+            console.error('[Mapping] Lỗi đồng bộ:', e);
+            showToast.error('Lỗi đồng bộ', e instanceof Error ? e.message : 'Không thể đồng bộ dữ liệu từ máy chấm công.');
         } finally {
             setSyncing(false);
         }
-    }, [getToken, addToast]);
+    }, [getToken]);
 
     // ── PATCH mapping ──────────────────────────────────────────────────────────
 
@@ -222,38 +211,41 @@ export default function MappingPage() {
             try {
                 await patchMapping(zkUserId, 'mapped', sysUser.uid, sysUser.name);
                 setPendingMap((p) => { const n = { ...p }; delete n[zkUserId]; return n; });
-                addToast('success', `Đã map "${sysUser.name}" thành công.`);
+                showToast.success('Ghép thành công', `Đã map "${sysUser.name}" với người dùng ZKTeco.`);
             } catch (e: unknown) {
-                addToast('error', e instanceof Error ? e.message : 'Lỗi');
+                console.error('[Mapping] Lỗi map:', e);
+                showToast.error('Lỗi ghép người dùng', e instanceof Error ? e.message : 'Không thể thực hiện mapping.');
             } finally {
                 setSavingRow(null);
             }
         },
-        [pendingMap, systemUsers, patchMapping, addToast]
+        [pendingMap, systemUsers, patchMapping]
     );
 
     const handleIgnore = useCallback(
         async (zkUserId: string) => {
             try {
                 await patchMapping(zkUserId, 'ignored', null, null);
-                addToast('info', `Đã ẩn người dùng ZK.`);
+                showToast.info('Đã ẩn người dùng', 'Người dùng ZKTeco đã được chuyển vào mục ẩn.');
             } catch (e: unknown) {
-                addToast('error', e instanceof Error ? e.message : 'Lỗi');
+                console.error('[Mapping] Lỗi ẩn:', e);
+                showToast.error('Lỗi ẩn người dùng', e instanceof Error ? e.message : 'Không thể ẩn người dùng này.');
             }
         },
-        [patchMapping, addToast]
+        [patchMapping]
     );
 
     const handleUnmap = useCallback(
         async (zkUserId: string) => {
             try {
                 await patchMapping(zkUserId, 'unmapped', null, null);
-                addToast('info', 'Đã bỏ mapping.');
+                showToast.info('Bỏ mapping', 'Đã gỡ bỏ liên kết giữa người dùng ZK và hệ thống.');
             } catch (e: unknown) {
-                addToast('error', e instanceof Error ? e.message : 'Lỗi');
+                console.error('[Mapping] Lỗi bỏ map:', e);
+                showToast.error('Lỗi bỏ mapping', e instanceof Error ? e.message : 'Không thể bỏ mapping.');
             }
         },
-        [patchMapping, addToast]
+        [patchMapping]
     );
 
     // ── Auto-Match ─────────────────────────────────────────────────────────────
@@ -278,12 +270,12 @@ export default function MappingPage() {
         }
 
         if (proposals.length === 0) {
-            addToast('info', 'Không tìm thấy kết quả ghép tự động nào đủ tin cậy.');
+            showToast.info('Không tìm thấy kết quả', 'Không có kết quả ghép tự động nào đủ tin cậy.');
             return;
         }
         setAutoMatchProposals(proposals);
         setShowAutoMatchModal(true);
-    }, [zkUsers, systemUsers, addToast]);
+    }, [zkUsers, systemUsers]);
 
     const applyAutoMatch = useCallback(async () => {
         setApplyingAutoMatch(true);
@@ -294,10 +286,10 @@ export default function MappingPage() {
                 ok++;
             } catch { /* individual failures are silent */ }
         }
-        addToast('success', `Tự động map xong ${ok}/${autoMatchProposals.length} người.`);
+        showToast.success('Tự động ghép xong', `Đã map thành công ${ok}/${autoMatchProposals.length} người.`);
         setShowAutoMatchModal(false);
         setApplyingAutoMatch(false);
-    }, [autoMatchProposals, patchMapping, addToast]);
+    }, [autoMatchProposals, patchMapping]);
 
     // ── Filtered list ──────────────────────────────────────────────────────────
 
@@ -326,25 +318,6 @@ export default function MappingPage() {
 
     return (
         <div className="space-y-5">
-            {/* Toast stack */}
-            <div className="fixed top-4 right-4 z-[200] space-y-2 pointer-events-none">
-                {toasts.map((t) => (
-                    <div
-                        key={t.id}
-                        className={cn(
-                            'flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium animate-in slide-in-from-right-5 fade-in pointer-events-auto',
-                            t.type === 'success' && 'bg-success-600 text-white',
-                            t.type === 'error' && 'bg-danger-600 text-white',
-                            t.type === 'info' && 'bg-surface-700 text-white'
-                        )}
-                    >
-                        {t.type === 'success' && <CheckCircle2 className="w-4 h-4 shrink-0" />}
-                        {t.type === 'error' && <XCircle className="w-4 h-4 shrink-0" />}
-                        {t.type === 'info' && <AlertCircle className="w-4 h-4 shrink-0" />}
-                        {t.text}
-                    </div>
-                ))}
-            </div>
 
             {/* Header */}
             <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-5">

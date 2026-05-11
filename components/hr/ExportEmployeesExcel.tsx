@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { UserDoc } from '@/types';
 import { Download, Loader2 } from 'lucide-react';
+import { showToast } from '@/lib/utils/toast';
 
 interface ExportEmployeesExcelProps {
     employees: UserDoc[];
@@ -167,9 +168,10 @@ export default function ExportEmployeesExcel({ employees }: ExportEmployeesExcel
             const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
             const dateStr = new Date().toISOString().slice(0, 10);
             saveAs(blob, `Nhan_vien_${dateStr}.xlsx`);
+            showToast.success('Xuất Excel thành công', `Đã xuất danh sách ${employees.length} nhân viên ra file Excel.`);
         } catch (err) {
-            console.error('Excel export failed:', err);
-            alert('Xuất Excel thất bại. Vui lòng thử lại.');
+            console.error('[ExportExcel] Xuất Excel thất bại:', err);
+            showToast.error('Xuất Excel thất bại', 'Đã xảy ra lỗi khi tạo file. Vui lòng thử lại.');
         } finally {
             setExporting(false);
         }

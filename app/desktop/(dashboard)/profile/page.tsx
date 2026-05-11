@@ -13,6 +13,7 @@ import SmartPortraitCamera from '@/components/shared/SmartPortraitCamera';
 import { convertBase64ToWebP } from '@/lib/utils/image';
 import { uploadImageBase64 } from '@/lib/utils/storage-upload';
 import TwoFactorSetupModal from '@/components/profile/TwoFactorSetupModal';
+import { showToast } from '@/lib/utils/toast';
 
 export default function ProfilePage() {
     const { user } = useAuth();
@@ -23,7 +24,7 @@ export default function ProfilePage() {
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState<Partial<UserDoc>>({});
     const [saving, setSaving] = useState(false);
-    const [message, setMessage] = useState({ type: '', text: '' });
+
 
     // Camera / Avatar
     const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -62,7 +63,7 @@ export default function ProfilePage() {
         if (!user || !profileData) return;
 
         setSaving(true);
-        setMessage({ type: '', text: '' });
+
 
         try {
             const token = await user.getIdToken();
@@ -78,12 +79,12 @@ export default function ProfilePage() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Không thể cập nhật hồ sơ');
 
-            setMessage({ type: 'success', text: 'Cập nhật hồ sơ thành công!' });
+            showToast.success('Cập nhật hồ sơ', 'Cập nhật hồ sơ thành công!');
             setProfileData(prev => prev ? { ...prev, ...editData } : null);
             setIsEditing(false);
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : 'Đã xảy ra lỗi';
-            setMessage({ type: 'error', text: msg });
+            showToast.error('Lỗi cập nhật', msg);
         } finally {
             setSaving(false);
         }
@@ -153,13 +154,7 @@ export default function ProfilePage() {
                 <p className="text-surface-500 mt-2 text-sm">Xem và quản lý thông tin cá nhân của bạn.</p>
             </div>
 
-            {/* Messages */}
-            {message.text && (
-                <div className={`p-4 rounded-xl text-sm border ${message.type === 'error' ? 'bg-danger-50 text-danger-600 border-danger-200' : 'bg-success-50 text-success-600 border-success-200'} flex items-start gap-3`}>
-                    <ShieldCheck className="w-5 h-5 shrink-0 mt-0.5" />
-                    <p>{message.text}</p>
-                </div>
-            )}
+
 
             <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
                 <div className="p-6 sm:p-8">

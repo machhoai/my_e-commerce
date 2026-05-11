@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { UserDoc, EmployeeType, UserRole, StoreDoc, OfficeDoc, WarehouseDoc, CustomRoleDoc } from '@/types';
 import { Users, Search, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Plus, MailPlus, KeyRound, Building2, Shield, Award, UserX, RotateCcw, Briefcase, TrendingUp, FileWarning, CheckCircle2, AlertTriangle, QrCode } from 'lucide-react';
+import { showToast } from '@/lib/utils/toast';
 import ExportEmployeesExcel from '@/components/hr/ExportEmployeesExcel';
 import { cn } from '@/lib/utils';
 import { useTableParams } from '@/hooks/useTableParams';
@@ -49,7 +50,7 @@ function ManagerUsersPageContent() {
     const [newWarehouseId, setNewWarehouseId] = useState('');
 
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-    const [actionMessage, setActionMessage] = useState({ type: '', text: '' });
+
     const [customRoles, setCustomRoles] = useState<CustomRoleDoc[]>([]);
     const [kpiAverages, setKpiAverages] = useState<Record<string, { avgOfficial: number; count: number }>>({});
 
@@ -213,7 +214,6 @@ function ManagerUsersPageContent() {
     const handleCreateOrUpdateUser = async (e: React.FormEvent) => {
         e.preventDefault();
         setActionLoading(editUid ? 'update' : 'create');
-        setActionMessage({ type: '', text: '' });
 
         try {
             const token = await user?.getIdToken();
@@ -267,7 +267,7 @@ function ManagerUsersPageContent() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `Không thể ${editUid ? 'cập nhật' : 'tạo'} nhân viên`);
 
-            setActionMessage({ type: 'success', text: `Nhân viên ${newName} đã được ${editUid ? 'cập nhật' : 'tạo'} thành công!` });
+            showToast.success('Thành công', `Nhân viên ${newName} đã được ${editUid ? 'cập nhật' : 'tạo'} thành công!`);
             setIsCreateModalOpen(false);
             setEditUid(null);
 
@@ -276,9 +276,9 @@ function ManagerUsersPageContent() {
 
         } catch (err: unknown) {
             if (err instanceof Error) {
-                setActionMessage({ type: 'error', text: err.message });
+                showToast.error('Lỗi', err.message);
             } else {
-                setActionMessage({ type: 'error', text: 'Đã xảy ra lỗi không xác định' });
+                showToast.error('Lỗi', 'Đã xảy ra lỗi không xác định');
             }
         } finally {
             setActionLoading(null);
@@ -320,7 +320,6 @@ function ManagerUsersPageContent() {
         if (!confirm(`Bạn có chắc chắn muốn ${actionName.toLowerCase()} ${employeeName}?`)) return;
 
         setActionLoading(targetUid);
-        setActionMessage({ type: '', text: '' });
 
         try {
             const token = await user?.getIdToken();
@@ -336,12 +335,12 @@ function ManagerUsersPageContent() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `Không thể ${actionName.toLowerCase()} người dùng`);
 
-            setActionMessage({ type: 'success', text: `Đã ${actionName.toLowerCase()} ${employeeName} thành công.` });
+            showToast.success('Đã cập nhật', `Đã ${actionName.toLowerCase()} ${employeeName} thành công.`);
         } catch (err: unknown) {
             if (err instanceof Error) {
-                setActionMessage({ type: 'error', text: err.message });
+                showToast.error('Lỗi', err.message);
             } else {
-                setActionMessage({ type: 'error', text: 'Đã xảy ra lỗi không xác định' });
+                showToast.error('Lỗi', 'Đã xảy ra lỗi không xác định');
             }
         } finally {
             setActionLoading(null);
@@ -465,16 +464,7 @@ function ManagerUsersPageContent() {
                             </div>
                         )}
 
-                        {actionMessage.text && (
-                            <div className={`p-4 rounded-xl flex items-center justify-between gap-3 border shadow-sm animate-in fade-in slide-in-from-top-2 ${actionMessage.type === 'error' ? 'bg-danger-50 text-danger-700 border-danger-200' : 'bg-success-50 text-success-700 border-success-200'
-                                }`}>
-                                <div className="flex items-center gap-2">
-                                    {actionMessage.type === 'error' ? <ShieldAlert className="w-5 h-5 flex-shrink-0" /> : <ShieldCheck className="w-5 h-5 flex-shrink-0" />}
-                                    <p className="text-sm font-medium">{actionMessage.text}</p>
-                                </div>
-                                <button onClick={() => setActionMessage({ type: '', text: '' })} className="opacity-50 hover:opacity-100 font-bold px-2">×</button>
-                            </div>
-                        )}
+
 
                         {/* Toolbar */}
 
