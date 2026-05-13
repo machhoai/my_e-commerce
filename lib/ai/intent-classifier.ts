@@ -9,6 +9,7 @@ export type DataDomain =
     | 'hr'         // Nhân sự, chấm công
     | 'inventory'  // Kho, tồn kho
     | 'voucher'    // Voucher, khuyến mãi
+    | 'event'      // Sự kiện, mini-game
     | 'general';   // Tổng quan
 
 const KEYWORD_MAP: Record<DataDomain, string[]> = {
@@ -34,7 +35,10 @@ const KEYWORD_MAP: Record<DataDomain, string[]> = {
     hr: [
         'nhân viên', 'nhân sự', 'chấm công', 'ca làm', 'nghỉ phép',
         'lương', 'kpi', 'hiệu suất', 'attendance', 'staff',
-        'đi muộn', 'vắng mặt', 'lịch làm', 'schedule',
+        'đi muộn', 'đi trễ', 'di tre', 'vắng mặt', 'vang mat',
+        'lịch làm', 'schedule', 'danh sách nhân viên',
+        'cửa hàng', 'store', 'giới thiệu', 'referral',
+        'điểm giới thiệu', 'chức vụ', 'phân công',
     ],
     inventory: [
         'kho', 'tồn kho', 'xuất kho', 'nhập kho', 'stock',
@@ -43,7 +47,11 @@ const KEYWORD_MAP: Record<DataDomain, string[]> = {
     ],
     voucher: [
         'voucher', 'mã giảm giá', 'khuyến mãi', 'coupon',
-        'chiến dịch', 'campaign', 'sự kiện', 'event',
+        'chiến dịch', 'campaign',
+    ],
+    event: [
+        'sự kiện', 'event', 'mini game', 'minigame', 'quay số',
+        'gacha', 'giải thưởng', 'tham gia', 'trò chơi',
     ],
     general: [
         'tổng quan', 'overview', 'báo cáo', 'report', 'hôm nay',

@@ -110,29 +110,199 @@ async function fetchSlimOrders(date: string): Promise<string> {
     } catch (e) { return `⚠️ Lỗi lấy đơn hàng: ${e}`; }
 }
 
-async function fetchSlimHR(): Promise<string> {
+async function fetchSlimHR(startDate: string, endDate: string): Promise<string> {
     try {
         const db = getAdminDb();
-        const today = new Date(Date.now() + 7 * 3600000).toISOString().split('T')[0];
 
-        // Users: chỉ lấy count theo type/role, drop toàn bộ PII
+        // ── 1. Employee Roster ─────────────────────────────────────
         const usersSnap = await db.collection('users').where('isActive', '==', true).get();
-        const users = usersSnap.docs.map(d => d.data());
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const users = usersSnap.docs.map(d => ({ uid: d.id, ...d.data() })) as any[];
+
+        // Stores lookup for display names
+        const storesSnap = await db.collection('stores').get();
+        const storeMap = new Map<string, string>();
+        storesSnap.forEach(d => { const s = d.data(); storeMap.set(d.id, s.name || d.id); });
+
+        // Offices lookup
+        const officesSnap = await db.collection('offices').get();
+        const officeMap = new Map<string, string>();
+        officesSnap.forEach(d => { const o = d.data(); officeMap.set(d.id, o.name || d.id); });
+
+        // Group by type/role/workplace
         const ftCount = users.filter(u => u.type === 'FT').length;
         const ptCount = users.filter(u => u.type === 'PT').length;
+        const byRole = new Map<string, number>();
+        for (const u of users) {
+            const r = u.role || 'unknown';
+            byRole.set(r, (byRole.get(r) || 0) + 1);
+        }
 
-        // Attendance today: chỉ đếm, không lấy chi tiết
+        // Employee list grouped by store/office
+        const byWorkplace = new Map<string, string[]>();
+        for (const u of users) {
+            let wp = 'Chưa phân công';
+            if (u.storeId && storeMap.has(u.storeId)) wp = storeMap.get(u.storeId)!;
+            else if (u.officeId && officeMap.has(u.officeId)) wp = officeMap.get(u.officeId)!;
+            else if (u.workplaceType === 'CENTRAL') wp = 'Kho Trung tâm';
+            if (!byWorkplace.has(wp)) byWorkplace.set(wp, []);
+            byWorkplace.get(wp)!.push(`${u.name} (${u.type || '?'}${u.jobTitle ? ' · ' + u.jobTitle : ''})`);
+        }
+
+        // Format workplace roster (compact)
+        const rosterLines: string[] = [];
+        for (const [wp, names] of byWorkplace) {
+            rosterLines.push(`  ▸ ${wp} (${names.length} NV): ${names.join(', ')}`);
+        }
+
+        // ── 2. Attendance (date range) ────────────────────────────
+        const startISO = `${startDate}T00:00:00`;
+        const endISO = `${endDate}T23:59:59`;
+
         const attSnap = await db.collection('attendance_logs')
-            .where('timestamp', '>=', `${today}T00:00:00`)
-            .where('timestamp', '<=', `${today}T23:59:59`)
+            .where('timestamp', '>=', startISO)
+            .where('timestamp', '<=', endISO)
             .get();
-        const checkedInIds = new Set(attSnap.docs.map(d => d.data().mapped_system_uid).filter(Boolean));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const attLogs = attSnap.docs.map(d => d.data()) as any[];
 
-        // Schedules today: đếm số ca
-        const schedSnap = await db.collection('schedules').where('date', '==', today).get();
-        const scheduledIds = new Set(schedSnap.docs.flatMap(d => d.data().employeeIds || []));
+        // ZKTeco users mapping
+        const zkUsersSnap = await db.collection('zkteco_users').get();
+        const zkMap = new Map<string, { name: string; sysUid: string | null; sysName: string | null }>();
+        zkUsersSnap.forEach(d => {
+            const z = d.data();
+            zkMap.set(z.zk_user_id, {
+                name: z.zk_name,
+                sysUid: z.mapped_system_uid || null,
+                sysName: z.mapped_system_name || null,
+            });
+        });
 
-        return `👔 NHÂN SỰ (${today})\n• Tổng NV active: ${users.length} (FT: ${ftCount}, PT: ${ptCount})\n• Đã chấm công hôm nay: ${checkedInIds.size}\n• Được xếp ca hôm nay: ${scheduledIds.size}\n• Chưa chấm công: ${Math.max(0, scheduledIds.size - checkedInIds.size)}`;
+        // Group attendance by date → employee (FILO: first punch = in, last = out)
+        const attByDate = new Map<string, Map<string, { checkIn: string; checkOut: string | null; count: number; name: string }>>();
+        for (const log of attLogs) {
+            const date = (log.timestamp as string).slice(0, 10);
+            const userId = log.zk_user_id;
+            if (!attByDate.has(date)) attByDate.set(date, new Map());
+            const dayMap = attByDate.get(date)!;
+
+            const zk = zkMap.get(userId);
+            const displayName = zk?.sysName || zk?.name || userId;
+
+            if (!dayMap.has(userId)) {
+                dayMap.set(userId, { checkIn: log.timestamp, checkOut: null, count: 1, name: displayName });
+            } else {
+                const rec = dayMap.get(userId)!;
+                rec.count++;
+                // FILO: update check-out to latest
+                if (log.timestamp > (rec.checkOut || rec.checkIn)) rec.checkOut = log.timestamp;
+                if (log.timestamp < rec.checkIn) rec.checkIn = log.timestamp;
+            }
+        }
+
+        // Build attendance summary
+        const attLines: string[] = [];
+        const lateList: string[] = [];
+        const isMultiDay = startDate !== endDate;
+        const totalAttDays = attByDate.size;
+        let totalCheckins = 0;
+        let totalLateCount = 0;
+
+        // Sort dates
+        const sortedDates = [...attByDate.keys()].sort();
+        for (const date of sortedDates) {
+            const dayMap = attByDate.get(date)!;
+            const dayTotal = dayMap.size;
+            totalCheckins += dayTotal;
+
+            // Check late (after 09:00)
+            let dayLateCount = 0;
+            const dayLateNames: string[] = [];
+            for (const [, rec] of dayMap) {
+                const checkInTime = rec.checkIn.slice(11, 16); // HH:MM
+                if (checkInTime > '09:00') {
+                    dayLateCount++;
+                    dayLateNames.push(`${rec.name} (${checkInTime})`);
+                }
+            }
+            totalLateCount += dayLateCount;
+            if (dayLateCount > 0) {
+                lateList.push(`  · ${date}: ${dayLateNames.join(', ')}`);
+            }
+
+            // Compact daily line (only show per-day detail if <= 7 days)
+            if (!isMultiDay || sortedDates.length <= 7) {
+                const empLines = [...dayMap.values()].map(r => {
+                    const inTime = r.checkIn.slice(11, 16);
+                    const outTime = r.checkOut ? r.checkOut.slice(11, 16) : '--:--';
+                    const late = inTime > '09:00' ? ' ⚠️TRỄ' : '';
+                    return `    - ${r.name}: ${inTime} → ${outTime}${late}`;
+                }).join('\n');
+                attLines.push(`  📅 ${date} (${dayTotal} NV):\n${empLines}`);
+            }
+        }
+
+        // ── 3. Schedules in range ────────────────────────────────
+        const schedSnap = await db.collection('schedules')
+            .where('date', '>=', startDate)
+            .where('date', '<=', endDate)
+            .get();
+        const scheduledDays = new Set<string>();
+        let totalScheduledSlots = 0;
+        for (const d of schedSnap.docs) {
+            const s = d.data();
+            scheduledDays.add(s.date);
+            totalScheduledSlots += (s.employeeIds || []).length;
+        }
+
+        // ── 4. Referral Points ───────────────────────────────────
+        const monthKey = startDate.slice(0, 7); // YYYY-MM
+        const usersWithPoints = users
+            .filter(u => u.referralPoints && u.referralPoints > 0)
+            .sort((a, b) => (b.referralPoints || 0) - (a.referralPoints || 0))
+            .slice(0, 10);
+
+        const pointLines = usersWithPoints.map(u => {
+            const monthPts = u.monthlyReferralPoints?.[monthKey] || 0;
+            return `  · ${u.name}: ${u.referralPoints} điểm tổng${monthPts > 0 ? ` (tháng này: +${monthPts})` : ''}`;
+        }).join('\n');
+
+        // ── Build output ─────────────────────────────────────────
+        const parts = [
+            `👔 NHÂN SỰ (${startDate}${isMultiDay ? ' → ' + endDate : ''})`,
+            `• Tổng NV active: ${users.length} (FT: ${ftCount}, PT: ${ptCount})`,
+            `• Phân theo role: ${[...byRole.entries()].map(([r, c]) => `${r}: ${c}`).join(', ')}`,
+            `\nDanh sách theo nơi làm việc:`,
+            rosterLines.join('\n'),
+            `\n📋 CHẤM CÔNG (${totalAttDays} ngày có dữ liệu):`,
+            `• Tổng lượt chấm công: ${totalCheckins}`,
+            `• Đi trễ (sau 09:00): ${totalLateCount} lượt`,
+            `• Ca được xếp: ${totalScheduledSlots} slot trong ${scheduledDays.size} ngày`,
+        ];
+
+        // Detail per day (compact mode for ranges > 7 days)
+        if (isMultiDay && sortedDates.length > 7) {
+            parts.push(`\nTổng hợp theo ngày (${sortedDates.length} ngày):`);
+            for (const date of sortedDates) {
+                const dayMap = attByDate.get(date)!;
+                parts.push(`  · ${date}: ${dayMap.size} NV chấm công`);
+            }
+        } else if (attLines.length > 0) {
+            parts.push(`\nChi tiết chấm công:`);
+            parts.push(attLines.join('\n'));
+        }
+
+        if (lateList.length > 0) {
+            parts.push(`\n⚠️ DANH SÁCH ĐI TRỄ:`);
+            parts.push(lateList.join('\n'));
+        }
+
+        if (usersWithPoints.length > 0) {
+            parts.push(`\n🏆 TOP ĐIỂM GIỚI THIỆU:`);
+            parts.push(pointLines);
+        }
+
+        return parts.join('\n');
     } catch (e) { return `⚠️ Lỗi lấy nhân sự: ${e}`; }
 }
 
@@ -140,31 +310,61 @@ async function fetchSlimInventory(): Promise<string> {
     try {
         const db = getAdminDb();
 
-        // Products: chỉ count + low stock alerts
+        // Products: count + low stock alerts
         const productsSnap = await db.collection('products').where('isActive', '==', true).get();
         const products = productsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-        // Balances: chỉ lấy sản phẩm sắp hết
+        // Balances: lấy sản phẩm sắp hết
         const balancesSnap = await db.collection('inventory_balances').get();
         const lowStock: string[] = [];
+        const stockSummary: { total: number; low: number; zero: number } = { total: 0, low: 0, zero: 0 };
+
         for (const doc of balancesSnap.docs) {
             const b = doc.data();
+            stockSummary.total++;
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const product = products.find((p: any) => p.id === b.productId) as any;
+            if (b.currentStock === 0) stockSummary.zero++;
             if (product && product.minStock != null && b.currentStock <= product.minStock) {
+                stockSummary.low++;
                 lowStock.push(`  · ${product.name}: còn ${b.currentStock} (min: ${product.minStock})`);
             }
         }
+
+        // Stores for warehouse context
+        const storesSnap = await db.collection('stores').get();
+        const storeNames = storesSnap.docs
+            .filter(d => d.data().isActive)
+            .map(d => d.data().name).join(', ');
 
         // Recent purchase orders
         const poSnap = await db.collection('purchase_orders')
             .orderBy('timestamp', 'desc').limit(5).get();
         const recentPO = poSnap.docs.map(d => {
             const po = d.data();
-            return `  · ${po.storeName} → ${po.status} (${(po.items || []).length} SP)`;
+            return `  · ${po.storeName || '?'} → ${po.status} (${(po.items || []).length} SP, ${fmtVND(po.totalAmount || 0)})`;
         }).join('\n');
 
-        return `📦 KHO HÀNG\n• Tổng sản phẩm: ${products.length}\n• Cảnh báo tồn kho thấp (${lowStock.length}):\n${lowStock.slice(0, 10).join('\n') || '  Không có'}\n• Đơn đặt hàng gần đây:\n${recentPO || '  Không có'}`;
+        // Recent transactions
+        const txSnap = await db.collection('inventory_transactions')
+            .orderBy('timestamp', 'desc').limit(10).get();
+        const txLines = txSnap.docs.map(d => {
+            const tx = d.data();
+            return `  · ${(tx.timestamp as string)?.slice(0, 10) || '?'}: ${tx.type} ${tx.productName || '?'} x${tx.quantity} (${tx.fromStore || '?'} → ${tx.toStore || '?'})`;
+        }).join('\n');
+
+        return [
+            `📦 KHO HÀNG`,
+            `• Tổng sản phẩm active: ${products.length}`,
+            `• Tổng mã tồn kho: ${stockSummary.total} (hết hàng: ${stockSummary.zero})`,
+            `• Cửa hàng: ${storeNames || 'Chưa có'}`,
+            `• Cảnh báo tồn kho thấp (${stockSummary.low}):`,
+            lowStock.slice(0, 15).join('\n') || '  Không có',
+            `• Đơn đặt hàng gần đây:`,
+            recentPO || '  Không có',
+            `• Giao dịch kho gần đây:`,
+            txLines || '  Không có',
+        ].join('\n');
     } catch (e) { return `⚠️ Lỗi lấy kho: ${e}`; }
 }
 
@@ -172,11 +372,13 @@ async function fetchSlimVoucher(): Promise<string> {
     try {
         const db = getAdminDb();
         const campaignsSnap = await db.collection('voucher_campaigns').get();
-        const campaigns = campaignsSnap.docs.map(d => d.data());
-        const active = campaigns.filter(c => c.status === 'active');
+        const campaigns = campaignsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const active = campaigns.filter((c: any) => c.status === 'active');
 
-        const lines = active.slice(0, 5).map(c =>
-            `  · ${c.name}: ${c.rewardType} ${c.rewardValue} | ${c.totalIssued} mã | ${c.validFrom}→${c.validTo}`
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const lines = campaigns.slice(0, 10).map((c: any) =>
+            `  · ${c.name}: ${c.status} | ${c.rewardType} ${c.rewardValue || ''} | ${c.totalIssued || 0} mã | ${c.validFrom || '?'}→${c.validTo || '?'}`
         ).join('\n');
 
         // Count used/available codes
@@ -184,9 +386,45 @@ async function fetchSlimVoucher(): Promise<string> {
         const codes = codesSnap.docs.map(d => d.data());
         const used = codes.filter(c => c.status === 'used').length;
         const available = codes.filter(c => c.status === 'available').length;
+        const expired = codes.filter(c => c.status === 'expired').length;
 
-        return `🎫 VOUCHER\n• Chiến dịch active: ${active.length}/${campaigns.length}\n• Mã đã dùng: ${used} | Còn lại: ${available}\nTop chiến dịch:\n${lines || '  Không có'}`;
+        return [
+            `🎫 VOUCHER & KHUYẾN MÃI`,
+            `• Chiến dịch: ${campaigns.length} (active: ${active.length})`,
+            `• Mã: đã dùng ${used} | còn ${available} | hết hạn ${expired}`,
+            `Danh sách chiến dịch:`,
+            lines || '  Không có',
+        ].join('\n');
     } catch (e) { return `⚠️ Lỗi lấy voucher: ${e}`; }
+}
+
+// ── Events / Sự kiện ────────────────────────────────────────
+async function fetchSlimEvents(): Promise<string> {
+    try {
+        const db = getAdminDb();
+        const eventsSnap = await db.collection('events').orderBy('createdAt', 'desc').limit(5).get();
+        const events = eventsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        if (events.length === 0) return '🎪 SỰ KIỆN: Không có sự kiện nào.';
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const lines = events.map((e: any) => {
+            const prizes = (e.prizePool || []).length;
+            return `  · ${e.name}: ${e.status} | ${e.startDate}→${e.endDate} | ${prizes} giải thưởng`;
+        }).join('\n');
+
+        // Event participations count
+        const partSnap = await db.collection('event_participations').count().get();
+        const totalParticipants = partSnap.data().count;
+
+        return [
+            `🎪 SỰ KIỆN & MINI-GAME`,
+            `• Tổng sự kiện gần đây: ${events.length}`,
+            `• Tổng lượt tham gia: ${totalParticipants}`,
+            `Danh sách:`,
+            lines,
+        ].join('\n');
+    } catch (e) { return `⚠️ Lỗi lấy sự kiện: ${e}`; }
 }
 
 async function fetchSlimMultiDay(start: string, end: string): Promise<string> {
@@ -281,13 +519,16 @@ export async function buildDataContext(
                 tasks.push(fetchSlimOrders(isMultiDay ? endDate : startDate).then(r => { parts.push(r); sources.push('JoyWorld Orders API'); }));
                 break;
             case 'hr':
-                tasks.push(fetchSlimHR().then(r => { parts.push(r); sources.push('Firestore HR'); }));
+                tasks.push(fetchSlimHR(startDate, endDate).then(r => { parts.push(r); sources.push('Firestore HR', 'Firestore Attendance', 'ZKTeco'); }));
                 break;
             case 'inventory':
                 tasks.push(fetchSlimInventory().then(r => { parts.push(r); sources.push('Firestore Inventory'); }));
                 break;
             case 'voucher':
                 tasks.push(fetchSlimVoucher().then(r => { parts.push(r); sources.push('Firestore Vouchers'); }));
+                break;
+            case 'event':
+                tasks.push(fetchSlimEvents().then(r => { parts.push(r); sources.push('Firestore Events'); }));
                 break;
             case 'general':
                 // General: lấy summary tất cả domain chính
