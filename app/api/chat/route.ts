@@ -1,114 +1,177 @@
 // app/api/chat/route.ts
 // AI Chat API — Trợ lý Tài chính Joy World
-// Vercel AI SDK v4 + @ai-sdk/google + Gemini 1.5 Flash + Function Calling
+// Vercel AI SDK + @ai-sdk/anthropic + Gateway gwai.cloud
+// Claude Sonnet 4.6 + Smart Context Routing + Prompt Caching
 
-import { google } from '@ai-sdk/google';
-import { streamText } from 'ai';
-import { z } from 'zod';
-import {
-    getJoyworldToken,
-    getRevenueData,
-    getSellData,
-    getShopSummary,
-    getPaymentStatistics,
-    getGoodsTypeStatistics,
-    getStoreBalance,
-} from '@/lib/joyworld';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { generateText, streamText } from 'ai';
+import { classifyIntent, extractDateRange } from '@/lib/ai/intent-classifier';
+import { buildDataContext } from '@/lib/ai/context-builder';
+import { buildStaticSystemPrompt, buildDataPrompt } from '@/lib/ai/system-prompt';
+import { getAdminDb } from '@/lib/firebase-admin';
+
+// ── Anthropic provider trỏ đến gateway gwai.cloud ──────────
+const anthropic = createAnthropic({
+    baseURL: 'https://1gw.gwai.cloud/v1',
+});
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `Bạn là Giám đốc Tài chính AI của Joy World Entertainment — hệ thống khu vui chơi tại Việt Nam.
+/** Lấy ngày hôm nay (VN timezone) */
+function getTodayVN(): string {
+    return new Date(Date.now() + 7 * 3600000).toISOString().split('T')[0];
+}
 
-Nhiệm vụ:
-- Phân tích dữ liệu doanh thu, thành viên, hàng hóa từ hệ thống thực tế.
-- Trả lời ngắn gọn, chính xác bằng tiếng Việt.
-- BẮT BUỘC gọi tools để lấy số liệu thực tế trước khi trả lời.
-- Format số tiền: VNĐ (ví dụ: 12,500,000 VNĐ hoặc 12.5 triệu VNĐ).
+/** Kiểm tra API key (chạy 1 lần) */
+let apiKeyValid: boolean | null = null;
 
-Ngày hôm nay: ${new Date(Date.now() + 7 * 3600000).toISOString().split('T')[0]} (GMT+7).
-Định dạng ngày cho tools: YYYY-MM-DD.`;
+async function validateApiKey(): Promise<boolean> {
+    if (apiKeyValid !== null) return apiKeyValid;
+    try {
+        await generateText({
+            model: anthropic('claude-sonnet-4-6'),
+            prompt: 'Hi',
+            maxTokens: 1,
+        });
+        apiKeyValid = true;
+        console.log('[AI Chat] ✅ Gateway + API key validated');
+        return true;
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error('[AI Chat] ❌ Validation failed:', msg);
+        if (msg.includes('invalid') || msg.includes('401') || msg.includes('Unauthorized')) {
+            apiKeyValid = false;
+        } else {
+            apiKeyValid = null;
+        }
+        return apiKeyValid ?? false;
+    }
+}
 
 export async function POST(req: Request) {
     try {
+        // ── Pre-flight: Validate API key ───────────────────────
+        const keyOk = await validateApiKey();
+        if (!keyOk) {
+            return Response.json(
+                { error: 'API Key không hợp lệ hoặc Gateway không phản hồi.' },
+                { status: 401 }
+            );
+        }
+
         const body = await req.json();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const messages: any[] = Array.isArray(body?.messages) ? body.messages : [];
+        const rawMessages: any[] = Array.isArray(body?.messages) ? body.messages : [];
 
-        const result = streamText({
-            model: google('gemini-flash-latest'),
-            system: SYSTEM_PROMPT,
-            messages,
-            maxSteps: 5,
-            onError: (event) => {
-                console.error('[AI Chat] Stream error:', JSON.stringify(event, null, 2));
+        // ── Phase 1: Intent Classification (0 token cost) ──────
+        const lastUserMsg = [...rawMessages].reverse().find(m => m.role === 'user');
+        const userText = typeof lastUserMsg?.content === 'string' ? lastUserMsg.content : '';
+        const intents = classifyIntent(userText);
+        console.log('[AI Chat] Intents:', intents, '| Question:', userText.slice(0, 80));
+
+        // ── Phase 1.5: Date Extraction ─────────────────────────
+        const today = getTodayVN();
+        const dateRange = extractDateRange(userText);
+        const startDate = dateRange?.start ?? today;
+        const endDate = dateRange?.end ?? today;
+        console.log('[AI Chat] Date range:', startDate, '→', endDate);
+
+        // ── Phase 2: Fetch + Slim relevant data ────────────────
+        let context = '';
+        let sources: string[] = [];
+        let fetchTimeMs = 0;
+        let fetchedRange = { start: startDate, end: endDate };
+        try {
+            const data = await buildDataContext(intents, startDate, endDate);
+            context = data.context;
+            sources = data.sources;
+            fetchTimeMs = data.fetchTimeMs;
+            fetchedRange = data.dateRange;
+            console.log('[AI Chat] Data fetched in', fetchTimeMs, 'ms | Sources:', sources);
+        } catch (fetchErr) {
+            console.error('[AI Chat] Data fetch error:', fetchErr);
+            context = '⚠️ Không thể tải dữ liệu. Hãy trả lời dựa trên kiến thức chung.';
+        }
+
+        // ── Phase 3: Build messages with Prompt Caching ────────
+        // System prompt tĩnh → cache_control: ephemeral (TTL ~5 min)
+        // Data context → thay đổi theo câu hỏi, không cache
+        const staticPrompt = buildStaticSystemPrompt();
+        const dataPrompt = buildDataPrompt(context, today, sources, fetchedRange);
+
+        // Xây dựng messages array với cache markers
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const messages: any[] = [
+            // Inject system prompt as a cacheable user message
+            {
+                role: 'user',
+                content: [
+                    {
+                        type: 'text',
+                        text: staticPrompt,
+                        // Đánh dấu phần tĩnh là cacheable
+                        experimental_providerMetadata: {
+                            anthropic: { cacheControl: { type: 'ephemeral' } },
+                        },
+                    },
+                    {
+                        type: 'text',
+                        text: dataPrompt,
+                    },
+                ],
             },
-            tools: {
-                getRevenue: {
-                    description: 'Lấy dữ liệu doanh thu tổng quan theo khoảng ngày.',
-                    parameters: z.object({
-                        startDate: z.string().describe('Ngày bắt đầu YYYY-MM-DD'),
-                        endDate: z.string().describe('Ngày kết thúc YYYY-MM-DD'),
-                    }),
-                    execute: async ({ startDate, endDate }) => {
-                        try {
-                            const token = await getJoyworldToken();
-                            return { success: true, data: await getRevenueData(token, startDate, endDate) };
-                        } catch (err) { return { success: false, error: String(err) }; }
-                    },
-                },
-                getSellOverview: {
-                    description: 'Lấy dữ liệu hàng hóa/vé/combo bán theo khoảng ngày.',
-                    parameters: z.object({
-                        startDate: z.string().describe('Ngày bắt đầu YYYY-MM-DD'),
-                        endDate: z.string().describe('Ngày kết thúc YYYY-MM-DD'),
-                    }),
-                    execute: async ({ startDate, endDate }) => {
-                        try {
-                            const token = await getJoyworldToken();
-                            return { success: true, data: await getSellData(token, startDate, endDate) };
-                        } catch (err) { return { success: false, error: String(err) }; }
-                    },
-                },
-                getDailyPanel: {
-                    description: 'Lấy dữ liệu đầy đủ 1 ngày: doanh thu, thanh toán, hàng hóa.',
-                    parameters: z.object({
-                        date: z.string().describe('Ngày YYYY-MM-DD'),
-                    }),
-                    execute: async ({ date }) => {
-                        try {
-                            const token = await getJoyworldToken();
-                            const [summary, payment, goods] = await Promise.all([
-                                getShopSummary(token, date),
-                                getPaymentStatistics(token, date),
-                                getGoodsTypeStatistics(token, date),
-                            ]);
-                            return { success: true, date, summary, payment, goods };
-                        } catch (err) { return { success: false, error: String(err) }; }
-                    },
-                },
-                getMemberStats: {
-                    description: 'Lấy thống kê thành viên: tổng số, thành viên mới, lượt khách, số dư.',
-                    parameters: z.object({
-                        startDate: z.string().describe('Ngày bắt đầu YYYY-MM-DD'),
-                        endDate: z.string().describe('Ngày kết thúc YYYY-MM-DD'),
-                    }),
-                    execute: async ({ startDate, endDate }) => {
-                        try {
-                            const token = await getJoyworldToken();
-                            return { success: true, data: await getStoreBalance(token, startDate, endDate) };
-                        } catch (err) { return { success: false, error: String(err) }; }
-                    },
-                },
+            {
+                role: 'assistant',
+                content: 'Đã nhận dữ liệu. Tôi sẵn sàng phân tích. Hãy đặt câu hỏi.',
+            },
+            // Append actual conversation messages (skip any previous system injection)
+            ...rawMessages,
+        ];
+
+        // ── Phase 4: Stream to Claude via Gateway ──────────────
+        const result = streamText({
+            model: anthropic('claude-sonnet-4-6'),
+            messages,
+            maxTokens: 2048,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onFinish: async ({ usage }: any) => {
+                try {
+                    const db = getAdminDb();
+                    await db.collection('ai_usage_logs').add({
+                        timestamp: new Date().toISOString(),
+                        model: 'claude-sonnet-4-6',
+                        gateway: '1gw.gwai.cloud',
+                        intents,
+                        sources,
+                        dateRange: fetchedRange,
+                        inputTokens: usage?.promptTokens ?? 0,
+                        outputTokens: usage?.completionTokens ?? 0,
+                        totalTokens: (usage?.promptTokens ?? 0) + (usage?.completionTokens ?? 0),
+                        cacheCreationInputTokens: usage?.cacheCreationInputTokens ?? 0,
+                        cacheReadInputTokens: usage?.cacheReadInputTokens ?? 0,
+                        fetchTimeMs,
+                        question: userText.slice(0, 200),
+                    });
+                } catch (logErr) {
+                    console.error('[AI Usage Log]', logErr);
+                }
             },
         });
 
-        return result.toDataStreamResponse();
+        return result.toDataStreamResponse({
+            headers: {
+                'X-AI-Intents': intents.join(','),
+                'X-AI-Sources': sources.join(','),
+                'X-AI-Fetch-Ms': String(fetchTimeMs),
+                'X-AI-Date-Range': `${startDate}--${endDate}`,
+            },
+        });
 
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.error('[AI Chat FATAL]', msg, err instanceof Error ? err.stack : '');
+        console.error('[AI Chat FATAL]', msg);
         return Response.json({ error: msg }, { status: 500 });
     }
 }

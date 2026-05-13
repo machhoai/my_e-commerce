@@ -7,10 +7,10 @@
  * Dùng useChat từ ai/react (SDK v4).
  */
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useChat } from 'ai/react';
 import type { Message } from 'ai';
-import { Send, X, Bot, ChevronDown, Sparkles, Loader2 } from 'lucide-react';
+import { Send, X, Bot, ChevronDown, Sparkles, Loader2, BarChart3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ─────────────────────────────────────────────────────────────
@@ -80,10 +80,26 @@ function TypingIndicator() {
 // ─────────────────────────────────────────────────────────────
 const QUICK_PROMPTS = [
     'Doanh thu hôm nay là bao nhiêu?',
-    'So sánh doanh thu tuần này với tuần trước',
     'Loại vé nào bán chạy nhất hôm nay?',
-    'Số thành viên mới tháng này?',
+    'Tình hình nhân sự hôm nay?',
+    'Tổng quan kho hàng?',
+    'Số thành viên mới hôm nay?',
 ];
+
+// ─────────────────────────────────────────────────────────────
+// Token Usage Badge (hiển thị dưới mỗi câu trả lời AI)
+// ─────────────────────────────────────────────────────────────
+function TokenBadge({ usage }: { usage: { input: number; output: number } }) {
+    return (
+        <div className="flex items-center gap-1.5 mt-1 text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+            <span title="Input tokens">↑{usage.input}</span>
+            <span className="opacity-40">·</span>
+            <span title="Output tokens">↓{usage.output}</span>
+            <span className="opacity-40">·</span>
+            <span title="Total tokens">Σ{usage.input + usage.output}</span>
+        </div>
+    );
+}
 
 // ─────────────────────────────────────────────────────────────
 // Props
@@ -98,8 +114,26 @@ interface AIAssistantChatProps {
 export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
+    const [showUsage, setShowUsage] = useState(false);
+    const [tokenMap, setTokenMap] = useState<Record<string, { input: number; output: number }>>({}); // msgId → usage
+    const [totalUsage, setTotalUsage] = useState({ input: 0, output: 0, requests: 0 });
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleFinish = useCallback((message: Message, options: any) => {
+        const u = options?.usage;
+        if (u) {
+            const inp = u.promptTokens ?? u.inputTokens ?? 0;
+            const out = u.completionTokens ?? u.outputTokens ?? 0;
+            setTokenMap(prev => ({ ...prev, [message.id]: { input: inp, output: out } }));
+            setTotalUsage(prev => ({
+                input: prev.input + inp,
+                output: prev.output + out,
+                requests: prev.requests + 1,
+            }));
+        }
+    }, []);
 
     const {
         messages,
@@ -111,6 +145,7 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
         setInput,
     } = useChat({
         api: '/api/chat',
+        onFinish: handleFinish,
         onError: (err) => {
             console.error('[AI Chat] useChat error:', err);
         },
@@ -118,7 +153,7 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
             {
                 id: 'welcome',
                 role: 'assistant',
-                content: `Xin chào! Tôi là Trợ lý AI Joy World 👋\n\nBạn đang xem báo cáo ngày **${currentDate ?? 'hôm nay'}**. Tôi có thể tra cứu doanh thu, hàng hóa, và dữ liệu thành viên từ hệ thống Joyworld.\n\nHãy đặt câu hỏi nhé!`,
+                content: `Xin chào! Tôi là Trợ lý AI Joy World 👋\n\nBạn đang xem báo cáo ngày **${currentDate ?? 'hôm nay'}**. Tôi có thể phân tích:\n• 💰 Doanh thu & thanh toán\n• 🛍️ Hàng hóa & vé\n• 👥 Thành viên\n• 👔 Nhân sự & chấm công\n• 📦 Kho hàng & tồn kho\n• 🎫 Voucher\n\nHãy đặt câu hỏi nhé!`,
             } as Message,
         ],
     });
@@ -182,13 +217,20 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
                                 <p className="font-semibold text-sm leading-tight">Trợ lý AI Joy World</p>
                                 <p className="text-[11px] text-white/70 leading-tight flex items-center gap-1">
                                     {isLoading ? (
-                                        <><Loader2 className="w-3 h-3 animate-spin" /> Đang xử lý...</>
+                                        <><Loader2 className="w-3 h-3 animate-spin" /> Đang phân tích...</>
                                     ) : (
-                                        'Gemini 1.5 Flash · Dữ liệu thực tế'
+                                        'Claude Sonnet 4 · Smart Routing'
                                     )}
                                 </p>
                             </div>
                             <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setShowUsage(v => !v)}
+                                    className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${showUsage ? 'bg-white/30' : 'bg-white/15 hover:bg-white/25'}`}
+                                    title="Token Usage"
+                                >
+                                    <BarChart3 className="w-3.5 h-3.5" />
+                                </button>
                                 <button
                                     onClick={() => setIsMinimized(v => !v)}
                                     className="w-7 h-7 rounded-lg bg-white/15 hover:bg-white/25 flex items-center justify-center transition-colors"
@@ -220,6 +262,38 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
                                     className="flex flex-col overflow-hidden"
                                     style={{ flex: 1 }}
                                 >
+                                    {/* Token Usage Panel */}
+                                    <AnimatePresence>
+                                        {showUsage && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: 'auto', opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 px-3 py-2 text-[11px] font-mono space-y-1 overflow-hidden"
+                                            >
+                                                <div className="flex justify-between text-slate-600 dark:text-slate-300">
+                                                    <span>Phiên này:</span>
+                                                    <span className="font-semibold">{totalUsage.requests} câu hỏi</span>
+                                                </div>
+                                                <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                                                    <span>↑ Input tokens:</span>
+                                                    <span>{totalUsage.input.toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                                                    <span>↓ Output tokens:</span>
+                                                    <span>{totalUsage.output.toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex justify-between text-violet-600 dark:text-violet-400 font-semibold">
+                                                    <span>Σ Tổng tokens:</span>
+                                                    <span>{(totalUsage.input + totalUsage.output).toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                                                    <span>≈ Chi phí:</span>
+                                                    <span>${((totalUsage.input / 1_000_000) * 3 + (totalUsage.output / 1_000_000) * 15).toFixed(5)}</span>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                     {/* Messages list */}
                                     <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
                                         {messages.map((msg: Message) => (
@@ -240,6 +314,9 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
                                                         ? <SimpleMarkdown text={msg.content} />
                                                         : <p>{msg.content}</p>
                                                     }
+                                                    {msg.role === 'assistant' && tokenMap[msg.id] && (
+                                                        <TokenBadge usage={tokenMap[msg.id]} />
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
