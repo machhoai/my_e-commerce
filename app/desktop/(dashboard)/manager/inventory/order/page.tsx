@@ -46,7 +46,6 @@ function CartDrawer({
     onRemove,
     onSubmit,
     submitting,
-    message,
     warehouses,
     selectedWarehouseId,
     onWarehouseChange,

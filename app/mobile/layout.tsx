@@ -8,6 +8,7 @@ import ProfileCompletionGuard from '@/components/auth/ProfileCompletionGuard';
 import UniversalScannerModal from '@/components/scanner/UniversalScannerModal';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import ReferralCelebrationModal from '@/components/referral/ReferralCelebrationModal';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 import PWAGatekeeper from '@/components/shared/PWAGatekeeper';
 import { I18nMobileProvider, useMobileTranslation } from '@/lib/i18n';
 
@@ -47,6 +48,7 @@ function MobileLayoutInner({ children }: { children: React.ReactNode }) {
     // Initialize Push Notifications — request permission & register FCM token.
     // On desktop this lives inside DashboardLayout; mobile needs its own call.
     const { needsPrompt, promptForPermission } = usePushNotifications();
+    const { referralEnabled } = useStoreSettings();
     const [dismissed, setDismissed] = useState(false);
     const { t } = useMobileTranslation();
 
@@ -102,8 +104,8 @@ function MobileLayoutInner({ children }: { children: React.ReactNode }) {
             {children}
             {/* Floating QR/Barcode scanner — always accessible on mobile */}
             <UniversalScannerModal />
-            {/* Referral celebration — shown once per session, top-5 with points > 0 */}
-            <ReferralCelebrationModal />
+            {/* Referral celebration — shown once per session when referral is enabled */}
+            {referralEnabled && <ReferralCelebrationModal />}
         </div>
     );
 }

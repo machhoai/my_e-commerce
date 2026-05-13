@@ -11,6 +11,8 @@ import {
     ShieldCheck, Home, ChevronRight, LogOut, Edit3, X, Loader2,
     Lock, Camera, ScanLine, ImageIcon, MapPin,
     Shield, Smartphone,
+    AlertTriangle,
+    CheckCircle2,
 } from 'lucide-react';
 import { showToast } from '@/lib/utils/toast';
 import MobilePageShell from '@/components/mobile/MobilePageShell';
@@ -22,11 +24,13 @@ import { convertBase64ToWebP } from '@/lib/utils/image';
 import { uploadImageBase64 } from '@/lib/utils/storage-upload';
 import TwoFactorSetupModal from '@/components/profile/TwoFactorSetupModal';
 import ReferralHistorySection from '@/components/referral/ReferralHistorySection';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 import { useMobileTranslation } from '@/lib/i18n';
 
 export default function MobileProfilePage() {
     const { user, logout } = useAuth();
     const { t } = useMobileTranslation();
+    const { referralEnabled } = useStoreSettings();
     const [profileData, setProfileData] = useState<UserDoc | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -327,7 +331,7 @@ export default function MobileProfilePage() {
             )}
 
             {/* ── Referral Points ────────────────────────────────────────── */}
-            {user && profileData?.workplaceType === 'STORE' && (
+            {user && profileData?.workplaceType === 'STORE' && referralEnabled && (
                 <div className="mt-3">
                     <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1.5">{t('profile.referralPoints')}</p>
                     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">

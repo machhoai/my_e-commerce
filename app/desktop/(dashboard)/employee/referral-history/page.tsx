@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 import {
     getPointTransactions, getReferralPoints, getStorePointTransactions,
     adjustPoints, revokeTransaction, getPendingReferrals, getStorePendingReferrals,
@@ -56,6 +57,7 @@ function pendingStatusConfig(status: PendingReferralDoc['status']) {
 
 export default function DesktopReferralHistoryPage() {
     const { user, userDoc, hasPermission, loading: authLoading } = useAuth();
+    const { referralEnabled, loading: settingsLoading } = useStoreSettings();
 
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
     const canViewStore = isAdmin || hasPermission('page.referral.history');
@@ -228,7 +230,17 @@ export default function DesktopReferralHistoryPage() {
         }
     };
 
-    if (authLoading) return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-amber-500" /></div>;
+    if (authLoading || settingsLoading) return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-amber-500" /></div>;
+
+    if (!referralEnabled) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <Award className="w-16 h-16 text-gray-200" />
+                <p className="text-lg font-bold text-gray-400">Chương trình Referral đang tắt</p>
+                <p className="text-sm text-gray-400">Quản trị viên đã tạm ngưng chương trình giới thiệu tích điểm.</p>
+            </div>
+        );
+    }
 
     return (<>
         <div className="space-y-6 w-full mx-auto">

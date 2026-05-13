@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { showToast } from '@/lib/utils/toast';
-import { Truck, CheckCircle2, X, Package, Printer, QrCode } from 'lucide-react';
+import { Truck, CheckCircle2, X, Package, Printer, QrCode, AlertCircle } from 'lucide-react';
 import Portal from '@/components/Portal';
 import type { PurchaseOrderDoc, PurchaseOrderItem } from '@/types/inventory';
 import type { StoreDoc } from '@/types';

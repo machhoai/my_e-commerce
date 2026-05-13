@@ -8,6 +8,7 @@ import { collection, query, where, getDocs, doc, getDoc, onSnapshot } from 'fire
 import { ScheduleDoc, StoreDoc, SettingsDoc, KpiTemplateDoc } from '@/types';
 import { getWeekStart, getWeekDays, toLocalDateString, cn } from '@/lib/utils';
 import { getReferralPoints } from '@/actions/referral';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 import {
     ChevronLeft, ChevronRight, Clock, MapPin, TrendingUp,
     ChevronDown, ClipboardCheck, Loader2, Star,
@@ -26,6 +27,7 @@ export default function MobileEmployeeDashboardPage() {
     const router = useRouter();
     const { user, userDoc, loading: authLoading, hasPermission, getToken, effectiveStoreId: contextStoreId } = useAuth();
     const { t, locale } = useMobileTranslation();
+    const { referralEnabled } = useStoreSettings();
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date()));
     const weekDays = getWeekDays(currentWeekStart);
 
@@ -111,11 +113,11 @@ export default function MobileEmployeeDashboardPage() {
         return () => unsub();
     }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Fetch referral points
+    // Fetch referral points (only when program is enabled)
     useEffect(() => {
-        if (!user) return;
+        if (!user || !referralEnabled) return;
         getReferralPoints(user.uid).then(p => setReferralPoints(p)).catch(() => {});
-    }, [user]);
+    }, [user, referralEnabled]);
 
     // Auto-expand today
     useEffect(() => {
@@ -181,8 +183,8 @@ export default function MobileEmployeeDashboardPage() {
                 </div>
             )}
 
-            {/* Referral Points Card */}
-            {!loading && (
+            {/* Referral Points Card — hidden when referral program is disabled */}
+            {!loading && referralEnabled && (
                 <button
                     onClick={() => router.push('/employee/referral-history')}
                     className="bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100 border border-amber-200 rounded-2xl p-3 mb-3 flex items-center gap-3 w-full text-left active:scale-[0.98] transition-transform"

@@ -6,9 +6,16 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import type { StoreSettings } from '@/types';
 
+const GLOBAL_STORE_KEY = 'globalSelectedStoreId';
+
 /**
  * Real-time hook that listens to the current store's settings from Firestore.
  * Returns the `settings` sub-field of the `stores/{storeId}` document.
+ *
+ * StoreId resolution order:
+ * 1. effectiveStoreId (from AuthContext — dashboard store selector / office user)
+ * 2. userDoc.storeId (for store-context employees)
+ * 3. localStorage 'globalSelectedStoreId' (last store selected in admin settings)
  *
  * Usage:
  * ```ts
@@ -20,8 +27,30 @@ export function useStoreSettings() {
     const [settings, setSettings] = useState<StoreSettings | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // Resolve: store-context users use effectiveStoreId, admin uses globalSelectedStoreId (not handled here)
-    const storeId = effectiveStoreId || userDoc?.storeId || '';
+    // For admin users who might not have effectiveStoreId set,
+    // fall back to the globalSelectedStoreId from localStorage
+    const [fallbackStoreId, setFallbackStoreId] = useState('');
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem(GLOBAL_STORE_KEY) ?? '';
+            setFallbackStoreId(saved);
+
+            // Listen for storage changes from other tabs/components
+            const handler = (e: StorageEvent) => {
+                if (e.key === GLOBAL_STORE_KEY) {
+                    setFallbackStoreId(e.newValue ?? '');
+                }
+            };
+            window.addEventListener('storage', handler);
+            return () => window.removeEventListener('storage', handler);
+        }
+    }, []);
+
+    // Resolve storeId with fallback chain
+    const storeId =
+        effectiveStoreId ||
+        userDoc?.storeId ||
+        fallbackStoreId;
 
     useEffect(() => {
         if (!storeId) {

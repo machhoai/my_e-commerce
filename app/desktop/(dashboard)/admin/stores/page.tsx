@@ -7,7 +7,8 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { StoreDoc, UserDoc } from '@/types';
 import {
     Store, Plus, Pencil, PowerOff, Power, X,
-    AlertCircle, MapPin, Building2, Users, Crown, ShieldCheck, UserCheck
+    AlertCircle, MapPin, Building2, Users, Crown, ShieldCheck, UserCheck,
+    CheckCircle2
 } from 'lucide-react';
 import { showToast } from '@/lib/utils/toast';
 import { cn } from '@/lib/utils';

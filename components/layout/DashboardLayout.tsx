@@ -11,12 +11,14 @@ import { db } from '@/lib/firebase';
 import { StoreDoc, CustomRoleDoc } from '@/types';
 
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { user, userDoc, logout, loading, hasPermission } = useAuth();
+    const { referralEnabled } = useStoreSettings();
     const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [storeName, setStoreName] = useState<string>('');
@@ -174,7 +176,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             label: 'Điểm Giới Thiệu',
             href: '/employee/referral-history',
             icon: Star,
-            show: true,
+            show: referralEnabled,
             group: 'Cá Nhân',
         },
 
