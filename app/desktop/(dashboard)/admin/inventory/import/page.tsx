@@ -117,7 +117,7 @@ function ImportProductCard({
 // ── Import Batch Drawer ────────────────────────────────────────────
 function ImportBatchDrawer({
     open, onClose, batch, supplier, onSupplierChange,
-    onUpdateQty, onUpdatePrice, onRemove, onSubmit, submitting, message,
+    onUpdateQty, onUpdatePrice, onRemove, onSubmit, submitting,
 }: {
     open: boolean;
     onClose: () => void;

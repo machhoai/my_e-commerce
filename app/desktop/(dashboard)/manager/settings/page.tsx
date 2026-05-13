@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Settings as SettingsIcon, Save, Plus, X, Clock, Users, Timer, ShieldAlert, Package } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Plus, X, Clock, Users, Timer, ShieldAlert, Package, AlertCircle, Store } from 'lucide-react';
 import { showToast } from '@/lib/utils/toast';
 import { SettingsDoc, CounterDoc, RegistrationSchedule } from '@/types';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';

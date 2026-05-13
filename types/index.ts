@@ -348,6 +348,7 @@ export interface StoreSettings {
     registrationOpen: boolean;
     strictShiftLimit?: boolean; // true (default) = block when full; false = allow over-registration
     maxShiftsPerDay?: number;   // Max shifts an employee can select per day (default = 1)
+    referralEnabled?: boolean;  // true (default) = referral program active; false = disabled for this store
     shiftTimes: string[]; // e.g. ["Ca 1", "Ca 2"]
     quotas?: {
         defaultWeekday: Record<string, number>;
@@ -477,6 +478,7 @@ export interface SettingsDoc {
     registrationOpen: boolean;
     strictShiftLimit?: boolean; // true (default) = block when full; false = allow over-registration
     maxShiftsPerDay?: number;   // Max shifts an employee can select per day (default = 1)
+    referralEnabled?: boolean;  // true (default) = referral program active; false = disabled for this store
     shiftTimes: string[]; // e.g. ["Ca 1", "Ca 2"]
     quotas?: {
         defaultWeekday: Record<string, number>; // shiftId -> max quota

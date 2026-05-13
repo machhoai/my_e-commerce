@@ -26,6 +26,7 @@ import {
     type RevenueRecord, type SellCategory, type DailyPanel,
 } from '@/app/desktop/(dashboard)/office/revenue/actions';
 import TopReferralMarquee from '@/components/referral/TopReferralMarquee';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 type ManagementTab = 'operation' | 'revenue' | 'inventory';
 
@@ -933,6 +934,7 @@ const ALL_TABS: { key: ManagementTab; label: string; icon: React.ElementType; pe
 /* ── Main DesktopView ─────────────────────────────────────────────────── */
 export default function DesktopView({ topReferralData }: { topReferralData?: { uid: string; name: string; points: number }[] }) {
     const { userDoc, effectiveStoreId, hasPermission } = useAuth();
+    const { referralEnabled } = useStoreSettings();
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
     const isStoreEmployee = !!userDoc?.storeId;
 
@@ -973,8 +975,8 @@ export default function DesktopView({ topReferralData }: { topReferralData?: { u
                 <DesktopStoreSelector />
             </div>
 
-            {/* Top Referral Marquee */}
-            <TopReferralMarquee className="mb-6" initialData={topReferralData} />
+            {/* Top Referral Marquee — hidden when referral program is disabled */}
+            {referralEnabled && <TopReferralMarquee className="mb-6" initialData={topReferralData} />}
 
             {/* Personal Schedule */}
             {isStoreEmployee && <PersonalScheduleSection />}

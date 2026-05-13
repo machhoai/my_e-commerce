@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Settings as SettingsIcon, Save, Plus, X, AlertCircle, CheckCircle2, Store, Clock, Users, Timer, Building2, ShieldAlert, Package, Pencil } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Plus, X, AlertCircle, CheckCircle2, Store, Clock, Users, Timer, Building2, ShieldAlert, Package, Pencil, Star } from 'lucide-react';
 import { SettingsDoc, CounterDoc, RegistrationSchedule, StoreDoc } from '@/types';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
@@ -89,6 +89,7 @@ export default function AdminSettingsPage() {
                     id: selectedStoreId,
                     registrationOpen: data.registrationOpen ?? false,
                     strictShiftLimit: data.strictShiftLimit ?? true,
+                    referralEnabled: data.referralEnabled ?? true,
                     shiftTimes: data.shiftTimes || [],
                     quotas: {
                         defaultWeekday: data.quotas?.defaultWeekday || {},
@@ -496,6 +497,35 @@ export default function AdminSettingsPage() {
                                     <div className="w-14 h-7 bg-surface-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-warning-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-warning-500"></div>
                                     <span className={`ml-3 text-sm font-bold ${(settings?.strictShiftLimit ?? true) ? 'text-warning-600' : 'text-surface-500'}`}>
                                         {(settings?.strictShiftLimit ?? true) ? 'BẬT — Chặn đăng ký khi đầy' : 'TẮT — Cho phép đăng ký vượt định mức'}
+                                    </span>
+                                </label>
+                            </div>
+
+                            {/* Referral Program Card */}
+                            <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden p-6 transition-all hover:shadow-md">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-lg font-bold text-surface-800 flex items-center gap-2">
+                                        <Star className="w-5 h-5 text-amber-500" />
+                                        Chương trình Giới thiệu
+                                    </h2>
+                                </div>
+                                <p className="text-sm text-surface-500 mb-6">
+                                    Bật/tắt chương trình tích điểm giới thiệu (Referral). Khi tắt, nhân viên sẽ không thể quét mã tích điểm và các thành phần liên quan đến giới thiệu sẽ ẩn trên giao diện.
+                                </p>
+
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        checked={settings?.referralEnabled ?? true}
+                                        onChange={(e) => {
+                                            setSettings(s => s ? { ...s, referralEnabled: e.target.checked } : null);
+                                            setError(''); setSuccess('Cài đặt đã cập nhật cục bộ. Nhớ bấm Lưu.');
+                                        }}
+                                    />
+                                    <div className="w-14 h-7 bg-surface-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-amber-500"></div>
+                                    <span className={`ml-3 text-sm font-bold ${(settings?.referralEnabled ?? true) ? 'text-amber-600' : 'text-surface-500'}`}>
+                                        {(settings?.referralEnabled ?? true) ? 'ĐANG BẬT — Nhân viên có thể tích điểm' : 'ĐÃ TẮT — Ẩn tất cả tính năng Referral'}
                                     </span>
                                 </label>
                             </div>

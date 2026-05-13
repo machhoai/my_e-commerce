@@ -8,6 +8,7 @@ import type { PreloadedEmployee, PreloadedProduct } from '@/actions/scanner';
 import { createPendingReferral } from '@/actions/referral';
 import { ticketLookupAction } from '@/actions/ticket-scan';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 import type { ScanResult } from '@/types';
 import type { VoucherCode, TicketPassData, TicketOrderData } from '@/types';
 import type { ProductDoc } from '@/types/inventory';
@@ -357,6 +358,9 @@ export default function UniversalScannerModal() {
     const canSearchVouchers = hasPermission('search_vouchers');
     const canManageReferrals = hasPermission('manage_referrals');
     const canScanTickets = hasPermission('scan_tickets');
+    const { referralEnabled } = useStoreSettings();
+    // Effective referral gate: both permission AND store setting must be true
+    const referralActive = canManageReferrals && referralEnabled;
     const [view, setView] = useState<ModalView>({ kind: 'scanner' });
     const [manualInput, setManualInput] = useState('');
     const [showManual, setShowManual] = useState(false);
@@ -560,7 +564,7 @@ export default function UniversalScannerModal() {
 
     // ── Employee suggestions (local, instant — no API call) ──────
     const empSuggestions = useMemo(() => {
-        if (!canManageReferrals || !showManual) return [];
+        if (!referralActive || !showManual) return [];
         const q = manualInput.trim();
         if (q.length < 2 || /^(03|05|07|08|09)\d/.test(q) || /^REF-/.test(q)) return [];
         const qNorm = normalize(q);
@@ -570,7 +574,7 @@ export default function UniversalScannerModal() {
                 return nameNorm.includes(qNorm) || nameNorm.split(/\s+/).some(w => w.startsWith(qNorm));
             })
             .slice(0, 5);
-    }, [manualInput, showManual, preloadedEmployees, canManageReferrals]);
+    }, [manualInput, showManual, preloadedEmployees, referralActive]);
 
     // ── Search handler ───────────────────────────────────────────
     const handleSearch = async (input: string) => {
@@ -592,8 +596,8 @@ export default function UniversalScannerModal() {
 
         // 1. REF- code → find employee (permission-gated)
         if (trimmed.startsWith('REF-')) {
-            if (!canManageReferrals) {
-                setView({ kind: 'not-found', query: 'Bạn không có quyền quét mã nhân viên' });
+            if (!referralActive) {
+                setView({ kind: 'not-found', query: !referralEnabled ? 'Chương trình giới thiệu hiện đang tắt' : 'Bạn không có quyền quét mã nhân viên' });
                 return;
             }
             const uid = trimmed.slice(4);

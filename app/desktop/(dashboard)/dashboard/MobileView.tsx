@@ -42,6 +42,7 @@ import TopReferralMarquee from '@/components/referral/TopReferralMarquee';
 import ReferralCelebrationModal from '@/components/referral/ReferralCelebrationModal';
 import { useMobileTranslation } from '@/lib/i18n';
 import MobileLanguageSwitcher from '@/components/mobile/MobileLanguageSwitcher';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -1652,6 +1653,7 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
     const { lang, setLang, t } = useMobileLang();
     const router = useRouter();
     const { userDoc, user, hasPermission } = useAuth();
+    const { referralEnabled } = useStoreSettings();
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
 
     // ── Sticky header detection ───────────────────────────────────────────────
@@ -1895,12 +1897,17 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
     ];
 
     // Filter items by permission — admin sees all, items without permKey are always visible
+    // Also hide referral-related routes when referral program is disabled
+    const REFERRAL_ROUTES = ['/employee/referral-history'];
     const allNavGroups = rawNavGroups
         .map(group => ({
             ...group,
-            items: group.items.filter(item =>
-                isAdmin || !('permKey' in item) || !(item as { permKey?: string }).permKey || hasPermission((item as { permKey: string }).permKey)
-            ),
+            items: group.items.filter(item => {
+                // Gate referral routes by store setting
+                if (!referralEnabled && REFERRAL_ROUTES.includes(item.route)) return false;
+                // Gate by permission
+                return isAdmin || !('permKey' in item) || !(item as { permKey?: string }).permKey || hasPermission((item as { permKey: string }).permKey);
+            }),
         }))
         .filter(group => group.items.length > 0);
 
@@ -2012,12 +2019,14 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
                 </header>
 
                 {/* ── Top Referral Employees Marquee ──────────────────────────── */}
+                {referralEnabled && (
                 <TopReferralMarquee
                     className="mx-3 mt-12"
                     initialData={topReferralData}
                     onClick={() => setShowScrollModal(true)}
                     lang={lang}
                 />
+                )}
 
                 {/* ── Quick Access ─────────────────────────────────────────────── */}
                 <section className="px-3 mt-3">
@@ -2036,7 +2045,7 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
                 </section>
 
                 <div className='mt-3 px-3'>
-                    <ReferralPointsWidget />
+                    {referralEnabled && <ReferralPointsWidget />}
                 </div>
 
                 {/* ── Role-based content ───────────────────────────────────────── */}
@@ -2079,7 +2088,7 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
             </div>
 
             {/* Imperial Scroll Modal — always fetches fresh Firestore data */}
-            {showScrollModal && (
+            {referralEnabled && showScrollModal && (
                 <ReferralCelebrationModal
                     forceOpen
                     onClose={() => setShowScrollModal(false)}
