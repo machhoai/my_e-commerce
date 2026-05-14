@@ -166,6 +166,8 @@
     "profile.bankTechcombankNote": "Chỉ chấp nhận số tài khoản ngân hàng Techcombank",
     "profile.educationLevel": "Trình độ học vấn",
     "profile.educationPlaceholder": "VD: Cử nhân CNTT",
+    "profile.contractNumber": "Số hợp đồng",
+    "profile.contractNumberPlaceholder": "VD: HD-2026-001",
     "profile.updateSuccess": "Cập nhật thành công!",
     "profile.updateFailed": "Không thể cập nhật",
     "profile.cccdUpdateSuccess": "Cập nhật CCCD thành công!",

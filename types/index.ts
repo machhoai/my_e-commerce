@@ -141,6 +141,13 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         group: 'Nhân sự & Lịch',
         type: 'action',
     },
+    {
+        key: 'action.hr.edit_contract',
+        label: 'Chỉnh Sửa Số Hợp Đồng',
+        description: 'Cho phép chỉnh sửa số hợp đồng của nhân viên',
+        group: 'Nhân sự & Lịch',
+        type: 'action',
+    },
 
     // ── Kho cửa hàng ──────────────────────────────────────────
     {
@@ -422,6 +429,7 @@ export interface UserDoc {
     idCard?: string;
     bankAccount?: string;
     education?: string;
+    contractNumber?: string;  // Số hợp đồng (alphanumeric)
     gender?: string;           // Giới tính (from CCCD QR)
     permanentAddress?: string; // Địa chỉ thường trú (from CCCD QR)
     idCardFrontPhoto?: string; // WebP base64 — front of CCCD

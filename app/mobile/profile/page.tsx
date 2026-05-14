@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import {
     User, Mail, Phone, Calendar, Briefcase, CreditCard, GraduationCap,
     ShieldCheck, Home, ChevronRight, LogOut, Edit3, X, Loader2,
-    Lock, Camera, ScanLine, ImageIcon, MapPin,
+    Lock, Camera, ScanLine, ImageIcon, MapPin, FileText,
     Shield, Smartphone,
     AlertTriangle,
     CheckCircle2,
@@ -86,6 +86,7 @@ export default function MobileProfilePage() {
         setEditData({
             email: profileData.email || '', dob: profileData.dob || '',
             bankAccount: profileData.bankAccount || '', education: profileData.education || '',
+            contractNumber: profileData.contractNumber || '',
         });
         setEditSheetOpen(true);
     };
@@ -225,6 +226,7 @@ export default function MobileProfilePage() {
                 { icon: <MapPin className="w-4 h-4" />, label: t('profile.address'), value: profileData.permanentAddress || t('profile.notProvided'), locked: true },
                 { icon: <CreditCard className="w-4 h-4" />, label: t('profile.bank'), value: profileData.bankAccount || t('profile.notProvided') },
                 { icon: <GraduationCap className="w-4 h-4" />, label: t('profile.education'), value: profileData.education || t('profile.notProvided') },
+                { icon: <FileText className="w-4 h-4" />, label: t('profile.contractNumber'), value: profileData.contractNumber || t('profile.notProvided') },
             ],
         },
     ];
@@ -462,6 +464,13 @@ export default function MobileProfilePage() {
                         <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">{t('profile.educationLevel')}</label>
                         <input type="text" value={editData.education || ''} onChange={e => handleEditChange('education', e.target.value)}
                             placeholder={t('profile.educationPlaceholder')}
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-700 bg-gray-50 outline-none focus:border-primary-400" />
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">{t('profile.contractNumber')}</label>
+                        <input type="text" value={editData.contractNumber || ''} onChange={e => handleEditChange('contractNumber', e.target.value)}
+                            placeholder={t('profile.contractNumberPlaceholder')}
                             className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-700 bg-gray-50 outline-none focus:border-primary-400" />
                     </div>
 

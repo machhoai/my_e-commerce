@@ -43,6 +43,7 @@ function ManagerUsersPageContent() {
     const [newIdCard, setNewIdCard] = useState('');
     const [newBankAccount, setNewBankAccount] = useState('');
     const [newEducation, setNewEducation] = useState('');
+    const [newContractNumber, setNewContractNumber] = useState('');
     const [newStoreId, setNewStoreId] = useState('');
     /** For admin form: STORE | OFFICE | CENTRAL — drives which ID field is shown */
     const [newWorkplaceType, setNewWorkplaceType] = useState<LocationType>('STORE');
@@ -227,7 +228,8 @@ function ManagerUsersPageContent() {
                 email: newEmail,
                 idCard: newIdCard,
                 bankAccount: newBankAccount,
-                education: newEducation
+                education: newEducation,
+                contractNumber: newContractNumber,
             };
 
             if (editUid) {
@@ -288,7 +290,7 @@ function ManagerUsersPageContent() {
     const resetForm = () => {
         setNewName(''); setNewPhone(''); setNewType('PT'); setNewRole('employee'); setNewCustomRoleId('');
         setNewDob(''); setNewJobTitle(''); setNewEmail('');
-        setNewIdCard(''); setNewBankAccount(''); setNewEducation('');
+        setNewIdCard(''); setNewBankAccount(''); setNewEducation(''); setNewContractNumber('');
         setNewStoreId(''); setNewOfficeId(''); setNewWarehouseId('');
         setNewWorkplaceType('STORE');
     };
@@ -305,6 +307,7 @@ function ManagerUsersPageContent() {
         setNewIdCard(employee.idCard || '');
         setNewBankAccount(employee.bankAccount || '');
         setNewEducation(employee.education || '');
+        setNewContractNumber(employee.contractNumber || '');
         // Resolve workplace
         const wt: LocationType = employee.officeId ? 'OFFICE' : employee.warehouseId ? 'CENTRAL' : 'STORE';
         setNewWorkplaceType(wt);
@@ -999,6 +1002,15 @@ function ManagerUsersPageContent() {
                                                             value={newEducation} onChange={e => setNewEducation(e.target.value)}
                                                             className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
                                                             placeholder="VD: Cử nhân, Kỹ sư..."
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-sm font-medium text-surface-700">Số hợp đồng</label>
+                                                        <input
+                                                            type="text"
+                                                            value={newContractNumber} onChange={e => setNewContractNumber(e.target.value)}
+                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
+                                                            placeholder="VD: HD-2026-001"
                                                         />
                                                     </div>
                                                 </div>

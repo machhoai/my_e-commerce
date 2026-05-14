@@ -12,7 +12,7 @@ import {
     User, Award, CalendarDays, Phone, Mail, CreditCard, GraduationCap,
     Briefcase, Building2, ChevronLeft, ChevronRight, CheckCircle2, Clock,
     Loader2, Ban, TrendingUp, MapPin, UserCircle, Image as ImageIcon, X, Coins,
-    TimerIcon, LogIn, LogOut, AlertCircle,
+    TimerIcon, LogIn, LogOut, AlertCircle, FileText,
 } from 'lucide-react';
 import ReferralHistorySection from '@/components/referral/ReferralHistorySection';
 
@@ -403,6 +403,7 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose, in
         { icon: <MapPin className="w-4 h-4" />, label: 'Thường trú', value: employee.permanentAddress || '—' },
         { icon: <Building2 className="w-4 h-4" />, label: 'Tài khoản ngân hàng', value: employee.bankAccount || '—' },
         { icon: <GraduationCap className="w-4 h-4" />, label: 'Học vấn', value: employee.education || '—' },
+        { icon: <FileText className="w-4 h-4" />, label: 'Số hợp đồng', value: employee.contractNumber || '—' },
     ] : [];
 
     const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [

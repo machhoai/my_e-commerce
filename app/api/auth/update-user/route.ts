@@ -92,6 +92,7 @@ export async function POST(request: Request) {
         }
 
         if (body.education !== undefined) updateData.education = body.education;
+        if (body.contractNumber !== undefined) updateData.contractNumber = body.contractNumber;
         if (body.phone !== undefined) {
             const phoneCheck = await adminDb.collection('users')
                 .where('phone', '==', body.phone).limit(1).get();
