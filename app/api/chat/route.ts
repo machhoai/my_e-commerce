@@ -12,11 +12,16 @@ import { getAdminDb } from '@/lib/firebase-admin';
 
 // ── Anthropic provider qua gateway gwai.cloud ───────────────
 // Gateway yêu cầu header User-Agent cụ thể, nếu thiếu sẽ bị 403
+// ── Anthropic provider qua gateway gwai.cloud ───────────────
 const anthropic = createAnthropic({
     baseURL: 'https://1gw.gwai.cloud/v1',
     apiKey: process.env.ANTHROPIC_API_KEY,
     headers: {
         'User-Agent': 'curl/8.7.1',
+        // Bổ sung Authorization để gateway (OpenAI-compatible) có thể xác thực
+        'Authorization': `Bearer ${process.env.ANTHROPIC_API_KEY}`,
+        // Truyền tường minh x-api-key theo đúng thông báo lỗi
+        'x-api-key': process.env.ANTHROPIC_API_KEY || '',
     },
 });
 
