@@ -420,21 +420,26 @@ async function fetchSlimEvents(): Promise<string> {
 
         if (events.length === 0) return '🎪 SỰ KIỆN: Không có sự kiện nào.';
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const lines = events.map((e: any) => {
-            const prizes = (e.prizePool || []).length;
-            return `  · ${e.name}: ${e.status} | ${e.startDate}→${e.endDate} | ${prizes} giải thưởng`;
-        }).join('\n');
+        // Lấy số người tham gia cho TỪNG event + Tổng số người tham gia toàn hệ thống
+        const [totalPartSnap, ...eventParts] = await Promise.all([
+            db.collection('event_participations').count().get(),
+            ...events.map(e => db.collection('event_participations').where('eventId', '==', e.id).count().get())
+        ]);
 
-        // Event participations count
-        const partSnap = await db.collection('event_participations').count().get();
-        const totalParticipants = partSnap.data().count;
+        const totalParticipants = totalPartSnap.data().count;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const lines = events.map((e: any, index: number) => {
+            const prizes = (e.prizePool || []).length;
+            const joins = eventParts[index].data().count;
+            return `  · ${e.name}: ${e.status} | ${joins} lượt tham gia | ${e.startDate}→${e.endDate} | ${prizes} giải thưởng`;
+        }).join('\n');
 
         return [
             `🎪 SỰ KIỆN & MINI-GAME`,
             `• Tổng sự kiện gần đây: ${events.length}`,
-            `• Tổng lượt tham gia: ${totalParticipants}`,
-            `Danh sách:`,
+            `• Tổng lượt tham gia hệ thống: ${totalParticipants}`,
+            `Danh sách chi tiết:`,
             lines,
         ].join('\n');
     } catch (e) { return `⚠️ Lỗi lấy sự kiện: ${e}`; }
