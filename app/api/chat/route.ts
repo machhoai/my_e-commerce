@@ -11,17 +11,13 @@ import { buildStaticSystemPrompt, buildDataPrompt } from '@/lib/ai/system-prompt
 import { getAdminDb } from '@/lib/firebase-admin';
 
 // ── Anthropic provider qua gateway gwai.cloud ───────────────
-// Gateway yêu cầu header User-Agent cụ thể, nếu thiếu sẽ bị 403
-// ── Anthropic provider qua gateway gwai.cloud ───────────────
+// Gateway kiểm tra User-Agent — thiếu header này sẽ bị 403 Forbidden
+// SDK tự gắn x-api-key từ apiKey param, KHÔNG thêm thủ công để tránh xung đột
 const anthropic = createAnthropic({
     baseURL: 'https://1gw.gwai.cloud/v1',
     apiKey: process.env.ANTHROPIC_API_KEY,
     headers: {
         'User-Agent': 'curl/8.7.1',
-        // Bổ sung Authorization để gateway (OpenAI-compatible) có thể xác thực
-        'Authorization': `Bearer ${process.env.ANTHROPIC_API_KEY}`,
-        // Truyền tường minh x-api-key theo đúng thông báo lỗi
-        'x-api-key': process.env.ANTHROPIC_API_KEY || '',
     },
 });
 
