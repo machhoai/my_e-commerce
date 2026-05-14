@@ -10,8 +10,9 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { useChat } from 'ai/react';
 import type { Message } from 'ai';
-import { Send, X, Bot, Sparkles, Loader2, ChevronDown } from 'lucide-react';
+import { Send, X, Bot, Sparkles, Loader2, ChevronDown, AlertTriangle, Code2 } from 'lucide-react';
 import BottomSheet from '@/components/shared/BottomSheet';
+import RichHtmlRenderer, { isHtmlContent } from '@/components/shared/RichHtmlRenderer';
 
 // ── Model options (phải khớp với MODEL_OPTIONS trong route.ts) ───
 const MODELS = [
@@ -83,10 +84,10 @@ function TypingDots() {
 // ── Quick Prompts ────────────────────────────────────────────
 const QUICK_PROMPTS = [
     'Doanh thu hôm nay?',
+    'Phân tích doanh thu tháng này',
     'Vé nào bán chạy nhất?',
-    'Tình hình nhân sự?',
+    'Tình hình nhân sự tuần này?',
     'Tổng quan kho hàng?',
-    'Thành viên mới hôm nay?',
 ];
 
 // ── Props ────────────────────────────────────────────────────
@@ -101,6 +102,8 @@ export default function AIQuickChat({ isOpen, onClose }: AIQuickChatProps) {
     const [hasInteracted, setHasInteracted] = useState(false);
     const [selectedModel, setSelectedModel] = useState(MODELS[0]); // Default = Llama 70B (first item)
     const [showModelPicker, setShowModelPicker] = useState(false);
+    const [costWarning, setCostWarning] = useState<string | null>(null);
+    const [richMode, setRichMode] = useState(false);
 
     const {
         messages,
@@ -112,7 +115,12 @@ export default function AIQuickChat({ isOpen, onClose }: AIQuickChatProps) {
         setInput,
     } = useChat({
         api: '/api/chat',
-        body: { modelId: selectedModel.id },
+        body: { modelId: selectedModel.id, richMode },
+        onResponse: (response) => {
+            const warning = response.headers.get('X-AI-Cost-Warning');
+            if (warning) setCostWarning(decodeURIComponent(warning));
+            else setCostWarning(null);
+        },
         onError: (err) => {
             console.error('[AI Quick Chat] Error:', err);
         },
@@ -155,7 +163,7 @@ export default function AIQuickChat({ isOpen, onClose }: AIQuickChatProps) {
     const currentModelInfo = selectedModel;
 
     return (
-        <BottomSheet isOpen={isOpen} onClose={onClose} maxHeightClass="max-h-[85vh]">
+        <BottomSheet isOpen={isOpen} onClose={onClose} maxHeightClass={richMode ? 'max-h-[95vh]' : 'max-h-[85vh]'}>
             {/* ── Header ── */}
             <div className="flex items-center justify-between px-5 py-3 border-b border-surface-100">
                 <div className="flex items-center gap-2.5">
@@ -173,12 +181,21 @@ export default function AIQuickChat({ isOpen, onClose }: AIQuickChatProps) {
                         </p>
                     </div>
                 </div>
-                <button
-                    onClick={onClose}
-                    className="p-1.5 rounded-lg bg-surface-100 text-surface-500 hover:bg-surface-200 transition-colors"
-                >
-                    <X className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1.5">
+                    <button
+                        onClick={() => setRichMode(v => !v)}
+                        className={`p-1.5 rounded-lg transition-colors ${richMode ? 'bg-violet-100 text-violet-600' : 'bg-surface-100 text-surface-400 hover:bg-surface-200'}`}
+                        title={richMode ? 'Tắt HTML' : 'Bật HTML trực quan'}
+                    >
+                        <Code2 className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={onClose}
+                        className="p-1.5 rounded-lg bg-surface-100 text-surface-500 hover:bg-surface-200 transition-colors"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
 
             {/* ── Messages ── */}
@@ -193,12 +210,16 @@ export default function AIQuickChat({ isOpen, onClose }: AIQuickChatProps) {
                                 <Bot className="w-3.5 h-3.5 text-white" />
                             </div>
                         )}
-                        <div className={`max-w-[82%] text-sm leading-relaxed ${msg.role === 'user'
-                            ? 'bg-gradient-to-br from-violet-500 to-purple-600 text-white rounded-2xl rounded-tr-sm px-3.5 py-2.5'
-                            : 'bg-surface-100 text-surface-800 rounded-2xl rounded-tl-sm px-3.5 py-2.5'
+                        <div className={`text-sm leading-relaxed ${msg.role === 'user'
+                            ? 'max-w-[82%] bg-gradient-to-br from-violet-500 to-purple-600 text-white rounded-2xl rounded-tr-sm px-3.5 py-2.5'
+                            : msg.role === 'assistant' && isHtmlContent(msg.content)
+                                ? 'w-full rounded-2xl rounded-tl-sm overflow-hidden'
+                                : 'max-w-[82%] bg-surface-100 text-surface-800 rounded-2xl rounded-tl-sm px-3.5 py-2.5'
                             }`}>
                             {msg.role === 'assistant'
-                                ? <SimpleMarkdown text={msg.content} />
+                                ? isHtmlContent(msg.content)
+                                    ? <RichHtmlRenderer html={msg.content} />
+                                    : <SimpleMarkdown text={msg.content} />
                                 : <p>{msg.content}</p>
                             }
                         </div>
@@ -224,6 +245,21 @@ export default function AIQuickChat({ isOpen, onClose }: AIQuickChatProps) {
                         <p className="opacity-80 font-mono break-all">{error.message || String(error)}</p>
                     </div>
                 )}
+
+                {/* Cost Warning */}
+                {costWarning && (
+                    <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-[11px] text-amber-700">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                        <span className="flex-1">{costWarning}</span>
+                        <button
+                            onClick={() => setCostWarning(null)}
+                            className="text-amber-400 hover:text-amber-600 transition-colors"
+                        >
+                            <X className="w-3 h-3" />
+                        </button>
+                    </div>
+                )}
+
                 <div ref={messagesEndRef} />
             </div>
 

@@ -7,9 +7,9 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGroq } from '@ai-sdk/groq';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateText, streamText } from 'ai';
-import { classifyIntent, extractDateRange } from '@/lib/ai/intent-classifier';
+import { classifyIntent, extractDateRange, classifyDateScope, dateScopeLabel } from '@/lib/ai/intent-classifier';
 import { buildDataContext } from '@/lib/ai/context-builder';
-import { buildStaticSystemPrompt, buildDataPrompt } from '@/lib/ai/system-prompt';
+import { buildStaticSystemPrompt, buildDataPrompt, buildRichModeInstruction } from '@/lib/ai/system-prompt';
 import { getAdminDb } from '@/lib/firebase-admin';
 
 // ── Model registry ──────────────────────────────────────────
@@ -159,6 +159,7 @@ export async function POST(req: Request) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const rawMessages: any[] = Array.isArray(body?.messages) ? body.messages : [];
         const clientModelId: string = body?.modelId || DEFAULT_MODEL_ID;
+        const richMode: boolean = body?.richMode === true;
 
         // ── Resolve model ──────────────────────────────────────
         const { model, option: modelOption } = resolveModel(clientModelId);
@@ -201,8 +202,19 @@ export async function POST(req: Request) {
             context = '⚠️ Không thể tải dữ liệu. Hãy trả lời dựa trên kiến thức chung.';
         }
 
+        // ── Phase 2.5: Date scope classification ────────────
+        const dateScope = classifyDateScope(fetchedRange.start, fetchedRange.end);
+        const scopeLabel = dateScopeLabel(dateScope);
+        // Cảnh báo chi phí chỉ cho provider tốn kém + phạm vi lớn
+        const isPremiumProvider = modelOption.provider === 'anthropic' || modelOption.provider === 'google';
+        const isLargeScope = dateScope === 'quarter' || dateScope === 'large';
+        const costWarning = isPremiumProvider && isLargeScope
+            ? `Phạm vi ${scopeLabel} — model ${modelOption.label} có thể tốn nhiều token hơn`
+            : '';
+
         // ── Phase 3: Build messages ────────────────────────────
-        const staticPrompt = buildStaticSystemPrompt();
+        const staticPrompt = buildStaticSystemPrompt()
+            + (richMode ? '\n\n' + buildRichModeInstruction() : '');
         const dataPrompt = buildDataPrompt(context, today, sources, fetchedRange);
 
         // Anthropic supports prompt caching; Groq does not
@@ -236,7 +248,7 @@ export async function POST(req: Request) {
         const result = streamText({
             model,
             messages,
-            maxTokens: 2048,
+            maxTokens: richMode ? 4096 : 2048,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onFinish: async ({ usage }: any) => {
                 try {
@@ -271,7 +283,10 @@ export async function POST(req: Request) {
                 'X-AI-Intents': intents.join(','),
                 'X-AI-Sources': sources.join(','),
                 'X-AI-Fetch-Ms': String(fetchTimeMs),
-                'X-AI-Date-Range': `${startDate}--${endDate}`,
+                'X-AI-Date-Range': `${fetchedRange.start}--${fetchedRange.end}`,
+                'X-AI-Date-Scope': dateScope,
+                'X-AI-Scope-Label': encodeURIComponent(scopeLabel),
+                ...(costWarning ? { 'X-AI-Cost-Warning': encodeURIComponent(costWarning) } : {}),
             },
         });
 

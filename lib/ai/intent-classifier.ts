@@ -1,61 +1,63 @@
 // lib/ai/intent-classifier.ts
 // Phân loại câu hỏi người dùng → domain dữ liệu + date range (server-side, 0 token)
+// Hỗ trợ: hôm nay → toàn bộ dữ liệu, cảnh báo chi phí cho phạm vi lớn
 
 export type DataDomain =
-    | 'revenue'    // Doanh thu, thanh toán
-    | 'goods'      // Hàng hóa, vé, combo
-    | 'member'     // Thành viên, khách hàng
-    | 'orders'     // Đơn hàng chi tiết
-    | 'hr'         // Nhân sự, chấm công
-    | 'inventory'  // Kho, tồn kho
-    | 'voucher'    // Voucher, khuyến mãi
-    | 'event'      // Sự kiện, mini-game
+    | 'revenue'    // Doanh thu, thanh toán, PNL
+    | 'goods'      // Hàng hóa, vé, combo, SKU
+    | 'member'     // Thành viên, khách hàng, loyalty
+    | 'orders'     // Đơn hàng chi tiết, transaction
+    | 'hr'         // Nhân sự, chấm công, ca làm
+    | 'inventory'  // Kho, tồn kho, kiểm kê
+    | 'voucher'    // Voucher, khuyến mãi, discount
+    | 'event'      // Sự kiện, mini-game, popup
     | 'general';   // Tổng quan
 
 const KEYWORD_MAP: Record<DataDomain, string[]> = {
     revenue: [
-        'doanh thu', 'revenue', 'tiền', 'thu nhập', 'lợi nhuận',
-        'thanh toán', 'chuyển khoản', 'tiền mặt', 'cash', 'transfer',
-        'hoàn trả', 'refund', 'bao nhiêu tiền', 'kiếm được',
+        'doanh thu', 'revenue', 'tiền', 'thu nhập', 'lợi nhuận', 'pnl', 'lãi', 'lỗ',
+        'thanh toán', 'chuyển khoản', 'tiền mặt', 'cash', 'transfer', 'qr', 'mpos',
+        'hoàn trả', 'refund', 'bao nhiêu tiền', 'kiếm được', 'doanh số', 'tổng thu',
+        'thực thu', 'dòng tiền', 'tiền vô', 'tiền ra', 'arpu',
     ],
     goods: [
-        'hàng hóa', 'sản phẩm', 'vé', 'ticket', 'combo', 'gói',
-        'bán chạy', 'top', 'thẻ thành viên', 'lưu niệm', 'souvenir',
-        'loại vé', 'mặt hàng', 'bán được', 'số lượng bán',
+        'hàng hóa', 'sản phẩm', 'vé', 'ticket', 'combo', 'gói', 'sku', 'mã hàng',
+        'bán chạy', 'top', 'thẻ thành viên', 'lưu niệm', 'souvenir', 'b.duck', 'merch',
+        'loại vé', 'mặt hàng', 'bán được', 'số lượng bán', 'item', 'f&b', 'đồ ăn',
+        'thức uống', 'quầy',
     ],
     member: [
-        'thành viên', 'member', 'khách hàng', 'khách', 'đăng ký mới',
-        'lượt khách', 'số dư', 'xu', 'coin', 'nạp tiền', 'thẻ',
-        'tích điểm', 'gift', 'tặng',
+        'thành viên', 'member', 'khách hàng', 'khách', 'đăng ký mới', 'new user',
+        'lượt khách', 'số dư', 'xu', 'coin', 'nạp tiền', 'thẻ', 'loyalty', 'hạng thẻ',
+        'tích điểm', 'gift', 'tặng', 'khách vip', 'churn', 'khách cũ', 'quay lại',
     ],
     orders: [
-        'đơn hàng', 'order', 'giao dịch', 'hóa đơn', 'bill',
-        'chi tiết đơn', 'mã đơn',
+        'đơn hàng', 'order', 'giao dịch', 'hóa đơn', 'bill', 'transaction',
+        'chi tiết đơn', 'mã đơn', 'hủy đơn', 'void', 'trả hàng', 'receipt', 'lịch sử mua',
     ],
     hr: [
-        'nhân viên', 'nhân sự', 'chấm công', 'ca làm', 'nghỉ phép',
-        'lương', 'kpi', 'hiệu suất', 'attendance', 'staff',
-        'đi muộn', 'đi trễ', 'di tre', 'vắng mặt', 'vang mat',
-        'lịch làm', 'schedule', 'danh sách nhân viên',
-        'cửa hàng', 'store', 'giới thiệu', 'referral',
-        'điểm giới thiệu', 'chức vụ', 'phân công',
+        'nhân viên', 'nhân sự', 'chấm công', 'ca làm', 'nghỉ phép', 'nv', 'quản lý',
+        'lương', 'kpi', 'hiệu suất', 'attendance', 'staff', 'check in', 'check out',
+        'đi muộn', 'đi trễ', 'di tre', 'vắng mặt', 'vang mat', 'vào ca', 'ra ca',
+        'lịch làm', 'schedule', 'danh sách nhân viên', 'sếp', 'leader',
+        'cửa hàng', 'store', 'giới thiệu', 'referral', 'điểm giới thiệu', 'chức vụ',
     ],
     inventory: [
-        'kho', 'tồn kho', 'xuất kho', 'nhập kho', 'stock',
-        'hết hàng', 'đặt hàng', 'purchase order', 'inventory',
-        'sắp hết', 'tồn', 'warehouse',
+        'kho', 'tồn kho', 'xuất kho', 'nhập kho', 'stock', 'nhập hàng', 'xuất hàng',
+        'hết hàng', 'đặt hàng', 'purchase order', 'inventory', 'kiểm kê', 'stock count',
+        'sắp hết', 'tồn', 'warehouse', 'hao hụt', 'hàng lỗi', 'hư hỏng', 'jpos',
     ],
     voucher: [
-        'voucher', 'mã giảm giá', 'khuyến mãi', 'coupon',
-        'chiến dịch', 'campaign',
+        'voucher', 'mã giảm giá', 'khuyến mãi', 'coupon', 'promo', 'chiết khấu',
+        'chiến dịch', 'campaign', 'discount', 'flash sale', 'mã code',
     ],
     event: [
-        'sự kiện', 'event', 'mini game', 'minigame', 'quay số',
-        'gacha', 'giải thưởng', 'tham gia', 'trò chơi',
+        'sự kiện', 'event', 'mini game', 'minigame', 'quay số', 'gacha',
+        'giải thưởng', 'tham gia', 'trò chơi', 'đổi quà', 'trúng thưởng',
     ],
     general: [
-        'tổng quan', 'overview', 'báo cáo', 'report', 'hôm nay',
-        'so sánh', 'tóm tắt', 'summary', 'tình hình',
+        'tổng quan', 'overview', 'báo cáo', 'report', 'hôm nay', 'dashboard',
+        'so sánh', 'tóm tắt', 'summary', 'tình hình', 'kết quả', 'thống kê',
     ],
 };
 
@@ -122,6 +124,58 @@ export function extractDateRange(message: string): { start: string; end: string 
     if (norm.includes('hom qua') || norm.includes('ngay hom qua')) {
         const d = new Date(today); d.setDate(d.getDate() - 1);
         return { start: fmt(d), end: fmt(d) };
+    }
+
+    // ── Bổ sung: "hôm kia" ─────────────────────────────────────
+    if (norm.includes('hom kia') || norm.includes('ngay hom kia')) {
+        const d = new Date(today); d.setDate(d.getDate() - 2);
+        return { start: fmt(d), end: fmt(d) };
+    }
+
+    // ── Bổ sung: "cuối tuần này / trước" (Thứ 7 & CN) ──────────
+    if (norm.includes('cuoi tuan nay') || norm.includes('cuoi tuan')) {
+        const d = new Date(today);
+        const dayOfWeek = d.getDay() || 7;
+        const saturday = new Date(d); saturday.setDate(saturday.getDate() - dayOfWeek + 6);
+        const sunday = new Date(saturday); sunday.setDate(sunday.getDate() + 1);
+        // Nếu chủ nhật > hôm nay thì end = today (để không lấy data tương lai)
+        return { start: fmt(saturday), end: fmt(sunday > today ? today : sunday) };
+    }
+
+    if (norm.includes('cuoi tuan truoc')) {
+        const d = new Date(today);
+        const dayOfWeek = d.getDay() || 7;
+        const lastSaturday = new Date(d); lastSaturday.setDate(lastSaturday.getDate() - dayOfWeek - 1);
+        const lastSunday = new Date(lastSaturday); lastSunday.setDate(lastSunday.getDate() + 1);
+        return { start: fmt(lastSaturday), end: fmt(lastSunday) };
+    }
+
+    // ── Nâng cấp: Quý kết hợp năm (VD: "quý 1 năm ngoái") ───────
+    const qYearMatch = norm.match(/(?:quy|q)\s*(\d)\s*(?:nam ngoai|nam truoc|(\d{4}))/);
+    if (qYearMatch) {
+        const q = parseInt(qYearMatch[1], 10);
+        const y = qYearMatch[2] ? parseInt(qYearMatch[2], 10) : year - 1;
+        if (q >= 1 && q <= 4) {
+            const startMonth = (q - 1) * 3;
+            const start = new Date(Date.UTC(y, startMonth, 1));
+            const endMonth = startMonth + 2;
+            const lastDay = new Date(Date.UTC(y, endMonth + 1, 0));
+            const end = lastDay > today ? today : lastDay;
+            return { start: fmt(start), end: fmt(end) };
+        }
+    }
+
+    // ── Nâng cấp: "đầu tháng", "cuối tháng" ────────────────────
+    if (norm.includes('dau thang nay') || norm.includes('dau thang')) {
+        const start = new Date(Date.UTC(year, month, 1));
+        const end = new Date(Date.UTC(year, month, 5)); // Lấy 5 ngày đầu tháng
+        return { start: fmt(start), end: fmt(end > today ? today : end) };
+    }
+
+    if (norm.includes('cuoi thang truoc')) {
+        const start = new Date(Date.UTC(year, month, -4)); // 5 ngày cuối
+        const end = new Date(Date.UTC(year, month, 0));
+        return { start: fmt(start), end: fmt(end) };
     }
 
     // ── Tuần ───────────────────────────────────────────────────
@@ -198,6 +252,29 @@ export function extractDateRange(message: string): { start: string; end: string 
         return { start: fmt(start), end: fmt(end) };
     }
 
+    // ── "toàn bộ" / "tất cả" / "tổng cộng" / "từ đầu" / "all" ──
+    if (
+        norm.includes('toan bo') || norm.includes('tat ca') ||
+        norm.includes('tu dau') || norm.includes('tu truoc den gio') ||
+        norm.includes('tu truoc toi gio') || norm.includes('tu truoc den nay') ||
+        norm.includes('moi thoi gian') || norm.includes('tong cong') ||
+        lower.includes('all time') || lower.includes('all data')
+    ) {
+        // Lấy từ đầu năm hiện tại đến hôm nay (giới hạn hợp lý)
+        const start = new Date(Date.UTC(year, 0, 1));
+        return { start: fmt(start), end: fmt(today) };
+    }
+
+    // ── "X tháng gần đây" / "X tháng qua" / "X thang gan day" ───
+    const monthsAgoMatch = norm.match(/(\d+)\s*thang\s*(?:gan day|qua|truoc|gan nhat)/);
+    if (monthsAgoMatch) {
+        const n = parseInt(monthsAgoMatch[1], 10);
+        const start = new Date(today);
+        start.setMonth(start.getMonth() - n);
+        start.setDate(1); // Đầu tháng bắt đầu
+        return { start: fmt(start), end: fmt(today) };
+    }
+
     // ── Khoảng: "từ 1/5 đến 10/5", "tu 01/05 den 13/05" ───────
     const rangeMatch = norm.match(/tu\s*(\d{1,2})[/.](\d{1,2})(?:[/.](\d{4}))?\s*(?:den|toi|-)\s*(\d{1,2})[/.](\d{1,2})(?:[/.](\d{4}))?/);
     if (rangeMatch) {
@@ -229,5 +306,44 @@ export function extractDateRange(message: string): { start: string; end: string 
         return { start: d, end: d };
     }
 
+    // ── Match VN short: "ngày DD/MM" hoặc "DD/MM" (không có năm) ─
+    const vnShortMatch = message.match(/(?:ngay\s+)?(\d{1,2})[/.\/](\d{1,2})(?!\s*[/.\/]\d)/i)
+        || norm.match(/(?:ngay\s+)?(\d{1,2})[/.\/](\d{1,2})(?!\s*[/.\/]\d)/);
+    if (vnShortMatch) {
+        const day = vnShortMatch[1].padStart(2, '0');
+        const mon = vnShortMatch[2].padStart(2, '0');
+        const d = `${year}-${mon}-${day}`;
+        return { start: d, end: d };
+    }
+
     return null; // Default to today (caller handles)
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DATE SCOPE CLASSIFICATION — để cảnh báo chi phí token lớn
+// ═══════════════════════════════════════════════════════════════
+
+export type DateScope = 'single' | 'week' | 'month' | 'quarter' | 'large';
+
+/** Phân loại độ rộng phạm vi ngày để cảnh báo chi phí */
+export function classifyDateScope(start: string, end: string): DateScope {
+    const s = new Date(start);
+    const e = new Date(end);
+    const days = Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    if (days <= 1) return 'single';
+    if (days <= 7) return 'week';
+    if (days <= 31) return 'month';
+    if (days <= 93) return 'quarter';
+    return 'large';
+}
+
+/** Nhãn tiếng Việt cho scope */
+export function dateScopeLabel(scope: DateScope): string {
+    switch (scope) {
+        case 'single': return '1 ngày';
+        case 'week': return '~1 tuần';
+        case 'month': return '~1 tháng';
+        case 'quarter': return '~1 quý';
+        case 'large': return 'phạm vi lớn';
+    }
 }

@@ -17,6 +17,7 @@ import Portal from '@/components/Portal';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 import { LabelPrintConfigurator } from '@/components/admin/LabelPrintConfigurator';
+import UserInfoEditor from '@/components/shared/UserInfoEditor';
 import LocationPicker, { deriveLocationType, locationFieldName, locationIcon, locationLabel, type LocationType } from '@/components/hr/LocationPicker';
 
 function ManagerUsersPageContent() {
@@ -30,6 +31,7 @@ function ManagerUsersPageContent() {
     // Modal states
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [editUid, setEditUid] = useState<string | null>(null);
+    const [editEmployee, setEditEmployee] = useState<UserDoc | null>(null);
 
     // Form states
     const [newName, setNewName] = useState('');
@@ -303,25 +305,7 @@ function ManagerUsersPageContent() {
     };
 
     const openEditModal = (employee: UserDoc) => {
-        setNewName(employee.name);
-        setNewPhone(employee.phone);
-        setNewType(employee.type || 'PT');
-        setNewRole(employee.role ?? 'employee');
-        setNewCustomRoleId(employee.customRoleId ?? '');
-        setNewDob(employee.dob || '');
-        setNewJobTitle(employee.jobTitle || '');
-        setNewEmail(employee.email || '');
-        setNewIdCard(employee.idCard || '');
-        setNewBankAccount(employee.bankAccount || '');
-        setNewEducation(employee.education || '');
-        // Resolve workplace
-        const wt: LocationType = employee.officeId ? 'OFFICE' : employee.warehouseId ? 'CENTRAL' : 'STORE';
-        setNewWorkplaceType(wt);
-        setNewStoreId(employee.storeId || '');
-        setNewOfficeId(employee.officeId || '');
-        setNewWarehouseId(employee.warehouseId || '');
-        setEditUid(employee.uid);
-        setIsCreateModalOpen(true);
+        setEditEmployee(employee);
     };
 
     const handleToggleActive = async (targetUid: string, currentStatus: boolean, employeeName: string) => {
@@ -1033,6 +1017,40 @@ function ManagerUsersPageContent() {
                                                 </button>
                                             </div>
                                         </form>
+                                    </div>
+                                </div>
+                            </Portal>
+                        )}
+
+                        {/* Edit Employee Modal — uses UserInfoEditor */}
+                        {editEmployee && (
+                            <Portal>
+                                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-surface-900/50 backdrop-blur-sm overflow-y-auto">
+                                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-8 max-h-[90vh] overflow-y-auto">
+                                        <div className="p-6 border-b border-surface-100 flex items-center justify-between bg-surface-50/50 sticky top-0 z-10">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center shrink-0">
+                                                    <Users className="w-5 h-5" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-lg font-bold text-surface-900">Cập nhật Nhân viên</h3>
+                                                    <p className="text-xs text-surface-500">{editEmployee.name} — {editEmployee.phone}</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => setEditEmployee(null)}
+                                                className="w-8 h-8 rounded-lg bg-surface-100 hover:bg-surface-200 flex items-center justify-center transition-colors"
+                                            >
+                                                <span className="text-surface-500 text-lg">×</span>
+                                            </button>
+                                        </div>
+                                        <div className="p-6">
+                                            <UserInfoEditor
+                                                employee={editEmployee}
+                                                onUpdated={() => setEditEmployee(null)}
+                                                variant="full"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </Portal>

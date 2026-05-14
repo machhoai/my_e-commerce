@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { showToast } from '@/lib/utils/toast';
 import BottomSheet from '@/components/shared/BottomSheet';
 import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
+import UserInfoEditor from '@/components/shared/UserInfoEditor';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface FormState {
@@ -707,6 +708,7 @@ function MobileHrUsersContent() {
     const [formSubmitting, setFormSubmitting] = useState(false);
     const [formError, setFormError] = useState('');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [editEmployee, setEditEmployee] = useState<UserDoc | null>(null);
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
@@ -846,17 +848,7 @@ function MobileHrUsersContent() {
     }, []);
 
     const openEdit = useCallback((emp: UserDoc) => {
-        const wt: 'STORE' | 'OFFICE' | 'CENTRAL' = emp.officeId ? 'OFFICE' : emp.warehouseId ? 'CENTRAL' : 'STORE';
-        setForm({
-            name: emp.name, phone: emp.phone, type: emp.type || 'PT', role: emp.role ?? 'employee',
-            customRoleId: emp.customRoleId ?? '', dob: emp.dob || '', jobTitle: emp.jobTitle || '',
-            email: emp.email || '', idCard: emp.idCard || '', bankAccount: emp.bankAccount || '',
-            education: emp.education || '', storeId: emp.storeId || '',
-            officeId: emp.officeId || '', warehouseId: emp.warehouseId || '', workplaceType: wt,
-        });
-        setEditUid(emp.uid);
-        setFormError('');
-        setShowForm(true);
+        setEditEmployee(emp);
     }, []);
 
     const handleSubmitForm = async (e: React.FormEvent) => {
@@ -1084,6 +1076,24 @@ function MobileHrUsersContent() {
                     onClose={() => setProfileUid(null)}
                 />
             )}
+
+            {/* Edit Employee BottomSheet — uses UserInfoEditor */}
+            <BottomSheet
+                isOpen={!!editEmployee}
+                onClose={() => setEditEmployee(null)}
+                title={editEmployee ? `Cập nhật: ${editEmployee.name}` : 'Cập nhật nhân viên'}
+                maxHeightClass="max-h-[92vh]"
+            >
+                {editEmployee && (
+                    <div className="px-5 py-4">
+                        <UserInfoEditor
+                            employee={editEmployee}
+                            onUpdated={() => setEditEmployee(null)}
+                            variant="compact"
+                        />
+                    </div>
+                )}
+            </BottomSheet>
         </div>
     );
 }

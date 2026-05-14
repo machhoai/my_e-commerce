@@ -92,21 +92,23 @@ async function fetchSlimMember(start: string, end: string): Promise<string> {
     } catch (e) { return `⚠️ Lỗi lấy thành viên: ${e}`; }
 }
 
-async function fetchSlimOrders(date: string): Promise<string> {
+async function fetchSlimOrders(startDate: string, endDate: string): Promise<string> {
     try {
         const token = await getCachedToken();
         const raw = await getOrderList(token, {
-            startTime: `${date} 00:00:00`,
-            endTime: `${date} 23:59:59`,
-            page: 1, limit: 10,
+            startTime: `${startDate} 00:00:00`,
+            endTime: `${endDate} 23:59:59`,
+            page: 1, limit: 20,
         });
         const orders = raw?.data || [];
         const total = raw?.totals || orders.length;
+        const isMultiDay = startDate !== endDate;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const lines = orders.map((o: any) =>
-            `  · #${o.orderCode || o.orderId} | ${fmtVND(o.realMoney || o.totalMoney || 0)} | ${o.payMethodName || '?'} | ${o.statusName || o.status}`
+            `  · #${o.orderCode || o.orderId} | ${fmtVND(o.realMoney || o.totalMoney || 0)} | ${o.payMethodName || '?'} | ${o.statusName || o.status}${isMultiDay ? ` | ${(o.createTime || '').slice(0, 10)}` : ''}`
         ).join('\n');
-        return `📦 ĐƠN HÀNG (${date}) — Tổng: ${total} đơn\n${lines}`;
+        const rangeLabel = isMultiDay ? `${startDate} → ${endDate}` : startDate;
+        return `📦 ĐƠN HÀNG (${rangeLabel}) — Tổng: ${total} đơn${total > 20 ? ' (hiển thị 20 gần nhất)' : ''}\n${lines}`;
     } catch (e) { return `⚠️ Lỗi lấy đơn hàng: ${e}`; }
 }
 
@@ -516,7 +518,7 @@ export async function buildDataContext(
                 tasks.push(fetchSlimMember(startDate, endDate).then(r => { parts.push(r); sources.push('JoyWorld Member API'); }));
                 break;
             case 'orders':
-                tasks.push(fetchSlimOrders(isMultiDay ? endDate : startDate).then(r => { parts.push(r); sources.push('JoyWorld Orders API'); }));
+                tasks.push(fetchSlimOrders(startDate, endDate).then(r => { parts.push(r); sources.push('JoyWorld Orders API'); }));
                 break;
             case 'hr':
                 tasks.push(fetchSlimHR(startDate, endDate).then(r => { parts.push(r); sources.push('Firestore HR', 'Firestore Attendance', 'ZKTeco'); }));

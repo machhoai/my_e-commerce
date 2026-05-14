@@ -138,7 +138,7 @@ export default function BottomSheet({
             <div
                 ref={sheetRef}
                 className={cn(
-                    'relative w-full rounded-t-3xl bg-white shadow-2xl lg:max-w-2xl lg:left-full lg:-translate-x-full',
+                    'relative w-full rounded-t-3xl bg-white shadow-2xl lg:max-w-4xl lg:left-full lg:-translate-x-full',
                     'flex flex-col overflow-hidden',
                     maxHeightClass,
                     'transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]',

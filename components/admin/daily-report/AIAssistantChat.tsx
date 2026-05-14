@@ -10,8 +10,9 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useChat } from 'ai/react';
 import type { Message } from 'ai';
-import { Send, X, Bot, ChevronDown, Sparkles, Loader2, BarChart3 } from 'lucide-react';
+import { Send, X, Bot, ChevronDown, Sparkles, Loader2, BarChart3, AlertTriangle, Calendar, Code2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import RichHtmlRenderer, { isHtmlContent } from '@/components/shared/RichHtmlRenderer';
 
 // ── Model options (must match MODEL_OPTIONS in route.ts) ────
 const MODELS = [
@@ -90,10 +91,10 @@ function TypingIndicator() {
 // ─────────────────────────────────────────────────────────────
 const QUICK_PROMPTS = [
     'Doanh thu hôm nay là bao nhiêu?',
+    'Phân tích doanh thu tháng này',
     'Loại vé nào bán chạy nhất hôm nay?',
-    'Tình hình nhân sự hôm nay?',
+    'Tình hình nhân sự tuần này?',
     'Tổng quan kho hàng?',
-    'Số thành viên mới hôm nay?',
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -129,6 +130,8 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
     const [selectedModel, setSelectedModel] = useState(MODELS[0]); // Default = Llama 70B (first item)
     const [tokenMap, setTokenMap] = useState<Record<string, { input: number; output: number }>>({}); // msgId → usage
     const [totalUsage, setTotalUsage] = useState({ input: 0, output: 0, requests: 0 });
+    const [costWarning, setCostWarning] = useState<string | null>(null);
+    const [richMode, setRichMode] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -157,8 +160,14 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
         setInput,
     } = useChat({
         api: '/api/chat',
-        body: { modelId: selectedModel.id },
+        body: { modelId: selectedModel.id, richMode },
         onFinish: handleFinish,
+        onResponse: (response) => {
+            // Read cost warning from response headers
+            const warning = response.headers.get('X-AI-Cost-Warning');
+            if (warning) setCostWarning(decodeURIComponent(warning));
+            else setCostWarning(null);
+        },
         onError: (err) => {
             console.error('[AI Chat] useChat error:', err);
         },
@@ -218,8 +227,8 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 24 }}
                         transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-                        className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden w-[380px] max-w-[calc(100vw-2rem)]"
-                        style={{ height: isMinimized ? 'auto' : 540 }}
+                        className={`fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden max-w-[calc(100vw-2rem)] transition-all duration-300 ${richMode ? 'w-[640px]' : 'w-[380px]'}`}
+                        style={{ height: isMinimized ? 'auto' : richMode ? 640 : 540 }}
                     >
                         {/* ── Header ── */}
                         <div className="flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white shrink-0 relative">
@@ -237,6 +246,13 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
                                 </p>
                             </div>
                             <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setRichMode(v => !v)}
+                                    className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${richMode ? 'bg-white/30' : 'bg-white/15 hover:bg-white/25'}`}
+                                    title={richMode ? 'Tắt chế độ HTML' : 'Bật chế độ HTML trực quan'}
+                                >
+                                    <Code2 className="w-3.5 h-3.5" />
+                                </button>
                                 <button
                                     onClick={() => setShowUsage(v => !v)}
                                     className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${showUsage ? 'bg-white/30' : 'bg-white/15 hover:bg-white/25'}`}
@@ -307,6 +323,30 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
+
+                                    {/* Cost Warning Banner */}
+                                    <AnimatePresence>
+                                        {costWarning && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: 'auto', opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                className="mx-3 mb-1 overflow-hidden"
+                                            >
+                                                <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2 text-[11px] text-amber-700 dark:text-amber-400">
+                                                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                                    <span className="flex-1">{costWarning}</span>
+                                                    <button
+                                                        onClick={() => setCostWarning(null)}
+                                                        className="text-amber-400 hover:text-amber-600 transition-colors"
+                                                    >
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+
                                     {/* Messages list */}
                                     <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
                                         {messages.map((msg: Message) => (
@@ -319,12 +359,16 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
                                                         <Bot className="w-3.5 h-3.5 text-white" />
                                                     </div>
                                                 )}
-                                                <div className={`max-w-[82%] text-sm leading-relaxed ${msg.role === 'user'
-                                                    ? 'bg-gradient-to-br from-violet-500 to-purple-600 text-white rounded-2xl rounded-tr-sm px-3.5 py-2.5'
-                                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-2xl rounded-tl-sm px-3.5 py-2.5'
+                                                <div className={`text-sm leading-relaxed ${msg.role === 'user'
+                                                    ? 'max-w-[82%] bg-gradient-to-br from-violet-500 to-purple-600 text-white rounded-2xl rounded-tr-sm px-3.5 py-2.5'
+                                                    : msg.role === 'assistant' && isHtmlContent(msg.content)
+                                                        ? 'w-full rounded-2xl rounded-tl-sm overflow-hidden'
+                                                        : 'max-w-[82%] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-2xl rounded-tl-sm px-3.5 py-2.5'
                                                     }`}>
                                                     {msg.role === 'assistant'
-                                                        ? <SimpleMarkdown text={msg.content} />
+                                                        ? isHtmlContent(msg.content)
+                                                            ? <RichHtmlRenderer html={msg.content} />
+                                                            : <SimpleMarkdown text={msg.content} />
                                                         : <p>{msg.content}</p>
                                                     }
                                                     {msg.role === 'assistant' && tokenMap[msg.id] && (

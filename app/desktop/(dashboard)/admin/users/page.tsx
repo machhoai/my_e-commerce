@@ -15,6 +15,7 @@ import DataTablePagination from '@/components/DataTablePagination';
 import Portal from '@/components/Portal';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 import CCCDCamera, { CCCDScanResult } from '@/components/hr/CCCDCamera';
+import UserInfoEditor from '@/components/shared/UserInfoEditor';
 
 const ROLE_LABELS: Record<string, string> = {
     admin: 'Quản trị viên',
@@ -71,6 +72,7 @@ function AdminUsersPageContent() {
     // Modal states
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [editUid, setEditUid] = useState<string | null>(null);
+    const [editEmployee, setEditEmployee] = useState<UserDoc | null>(null);
 
     // Form states
     const [newName, setNewName] = useState('');
@@ -246,18 +248,7 @@ function AdminUsersPageContent() {
     };
 
     const openEditModal = (u: UserDoc) => {
-        setEditUid(u.uid);
-        setNewName(u.name); setNewPhone(u.phone); setNewRole(u.role); setNewType(u.type);
-        setNewDob(u.dob || ''); setNewJobTitle(u.jobTitle || ''); setNewEmail(u.email || '');
-        setNewIdCard(u.idCard || ''); setNewBankAccount(u.bankAccount || ''); setNewEducation(u.education || '');
-        setNewCanManageHR(u.canManageHR || false);
-        setNewGender(u.gender || ''); setNewPermanentAddress(u.permanentAddress || '');
-        setNewIdCardFrontPhoto(u.idCardFrontPhoto || ''); setNewIdCardBackPhoto(u.idCardBackPhoto || '');
-        setCccdScanned(!!u.idCard);
-        setNewWorkplaceType(u.workplaceType || 'STORE');
-        setNewStoreId(u.storeId || ''); setNewOfficeId(u.officeId || ''); setNewWarehouseId(u.warehouseId || '');
-        setNewCustomRoleId(u.customRoleId || '');
-        setIsCreateModalOpen(true);
+        setEditEmployee(u);
     };
 
     const handleCreateOrUpdateUser = async (e: React.FormEvent) => {
@@ -882,6 +873,40 @@ function AdminUsersPageContent() {
                                     </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                </Portal>
+            )}
+
+            {/* Edit User Modal — uses UserInfoEditor */}
+            {editEmployee && (
+                <Portal>
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-surface-900/50 backdrop-blur-sm">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+                            <div className="p-6 border-b border-surface-100 flex items-center justify-between sticky top-0 bg-white z-10">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-surface-100 text-surface-600 flex items-center justify-center">
+                                        <Users className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-surface-900">Cập nhật Người dùng</h3>
+                                        <p className="text-xs text-surface-500">{editEmployee.name} — {editEmployee.phone}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setEditEmployee(null)}
+                                    className="w-8 h-8 rounded-lg bg-surface-100 hover:bg-surface-200 flex items-center justify-center transition-colors"
+                                >
+                                    <span className="text-surface-500 text-lg">×</span>
+                                </button>
+                            </div>
+                            <div className="p-6">
+                                <UserInfoEditor
+                                    employee={editEmployee}
+                                    onUpdated={() => setEditEmployee(null)}
+                                    variant="full"
+                                />
+                            </div>
                         </div>
                     </div>
                 </Portal>
