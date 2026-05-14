@@ -41,19 +41,30 @@ async function fetchSlimRevenue(date: string): Promise<string> {
             getPaymentStatistics(token, date),
         ]);
 
-        // ShopSummary: 11 fields → 3 fields (drop shopId, totalMoney, shopMoney, preDeposit*, otherMoney, lastRefreshTime)
+        // ShopSummary → dùng ĐÚNG field như trang Revenue:
+        //   totalMoney = Thực thu (hero card), shopRealMoney = Doanh thu thực
         const sd = summaryRaw?.data;
-        const revenue = parseFloat(sd?.shopRealMoney) || 0;
+        const thucThu = parseFloat(sd?.totalMoney) || 0;        // ← Hero card "Thực thu"
+        const doanhThuThuc = parseFloat(sd?.shopRealMoney) || 0; // ← Doanh thu thực
+        const shopMoney = parseFloat(sd?.shopMoney) || 0;        // ← Tổng hóa đơn
         const refund = parseFloat(sd?.refundMoney) || 0;
 
-        // PaymentStat: 12 fields/item → 4 fields (drop shopId, forDate, paymentCategory, totalQty/Money, cancel*, sellRatio number)
+        // PaymentStat → giữ nguyên
         const payments = (paymentRaw?.data || [])
             .filter((p: { paymentCategory: number }) => p.paymentCategory !== 0)
             .map((p: { paymentCategoryName: string; totalRealQty: number; totalRealMoney: number; sellRatioDisplay: string }) =>
                 `  · ${p.paymentCategoryName}: ${fmtVND(p.totalRealMoney)} | ${p.totalRealQty} đơn | ${p.sellRatioDisplay}`
             ).join('\n');
 
-        return `📊 DOANH THU (${date})\n• Tổng doanh thu thực: ${fmtVND(revenue)}\n• Hoàn trả: ${fmtVND(refund)}\nTheo phương thức:\n${payments}`;
+        return [
+            `📊 DOANH THU (${date})`,
+            `• Thực thu: ${fmtVND(thucThu)}`,
+            `• Doanh thu thực: ${fmtVND(doanhThuThuc)}`,
+            `• Tổng hóa đơn: ${fmtVND(shopMoney)}`,
+            `• Hoàn trả/Hủy: ${fmtVND(refund)}`,
+            `Theo phương thức:`,
+            payments,
+        ].join('\n');
     } catch (e) { return `⚠️ Lỗi lấy doanh thu: ${e}`; }
 }
 
@@ -435,43 +446,49 @@ async function fetchSlimMultiDay(start: string, end: string): Promise<string> {
         const revenueRaw = await getRevenueData(token, start, end);
         const items = revenueRaw?.data?.dataXs || [];
 
-        // Filter valid day records
+        // Filter valid day records — dùng ĐÚNG field như trang Revenue:
+        //   sysMoney = "Thực thu" (hero card, chart), cashRealMoney = tiền mặt, transferRealMoney = chuyển khoản
+        //   KHÔNG dùng realMoney vì nó khác con số hiển thị trên UI
         const days = items
             .filter((r: { forDate: string }) => /^\d{4}-\d{2}-\d{2}$/.test(r.forDate))
-            .map((r: { forDate: string; realMoney: number; cashRealMoney: number }) => ({
+            .map((r: { forDate: string; sysMoney: number; realMoney: number; cashRealMoney: number; transferRealMoney: number }) => ({
                 date: r.forDate,
-                revenue: Number(r.realMoney) || 0,
+                thucThu: Number(r.sysMoney) || 0,         // ← Khớp hero card "Thực thu"
+                doanhThuThuc: Number(r.realMoney) || 0,   // ← Doanh thu thực
                 cash: Number(r.cashRealMoney) || 0,
+                transfer: Number(r.transferRealMoney) || 0,
             }));
 
         if (days.length === 0) return `📈 DOANH THU ${start} → ${end}\nKhông có dữ liệu.`;
 
-        // ── Aggregation ──
-        const totalRevenue = days.reduce((s: number, d: { revenue: number }) => s + d.revenue, 0);
+        // ── Aggregation (theo sysMoney = Thực thu, khớp với UI) ──
+        const totalThucThu = days.reduce((s: number, d: { thucThu: number }) => s + d.thucThu, 0);
         const totalCash = days.reduce((s: number, d: { cash: number }) => s + d.cash, 0);
-        const avgDaily = totalRevenue / days.length;
-        const daysWithRevenue = days.filter((d: { revenue: number }) => d.revenue > 0);
+        const totalTransfer = days.reduce((s: number, d: { transfer: number }) => s + d.transfer, 0);
+        const avgDaily = totalThucThu / days.length;
+        const daysWithRevenue = days.filter((d: { thucThu: number }) => d.thucThu > 0);
 
-        // Peak & Low days
+        // Peak & Low days (theo Thực thu)
         let peakDay = days[0];
         let lowDay = daysWithRevenue[0] || days[0];
         for (const d of days) {
-            if (d.revenue > peakDay.revenue) peakDay = d;
-            if (d.revenue > 0 && d.revenue < lowDay.revenue) lowDay = d;
+            if (d.thucThu > peakDay.thucThu) peakDay = d;
+            if (d.thucThu > 0 && d.thucThu < lowDay.thucThu) lowDay = d;
         }
 
         // Daily breakdown (compact: max 31 lines for a month)
-        const rows = days.map((d: { date: string; revenue: number; cash: number }) =>
-            `  · ${d.date}: ${fmtVND(d.revenue)} (TM: ${fmtVND(d.cash)})`
+        const rows = days.map((d: { date: string; thucThu: number; cash: number; transfer: number }) =>
+            `  · ${d.date}: ${fmtVND(d.thucThu)} (TM: ${fmtVND(d.cash)} | CK: ${fmtVND(d.transfer)})`
         ).join('\n');
 
         return [
             `📈 DOANH THU ${start} → ${end} (${days.length} ngày)`,
-            `• Tổng doanh thu: ${fmtVND(totalRevenue)}`,
+            `• Tổng thực thu: ${fmtVND(totalThucThu)}`,
             `• Tổng tiền mặt: ${fmtVND(totalCash)}`,
+            `• Tổng chuyển khoản: ${fmtVND(totalTransfer)}`,
             `• Trung bình/ngày: ${fmtVND(Math.round(avgDaily))}`,
-            `• Ngày cao nhất: ${peakDay.date} (${fmtVND(peakDay.revenue)})`,
-            lowDay !== peakDay ? `• Ngày thấp nhất: ${lowDay.date} (${fmtVND(lowDay.revenue)})` : '',
+            `• Ngày cao nhất: ${peakDay.date} (${fmtVND(peakDay.thucThu)})`,
+            lowDay !== peakDay ? `• Ngày thấp nhất: ${lowDay.date} (${fmtVND(lowDay.thucThu)})` : '',
             `• Ngày có doanh thu: ${daysWithRevenue.length}/${days.length}`,
             `Chi tiết theo ngày:`,
             rows,
