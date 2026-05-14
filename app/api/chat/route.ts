@@ -28,24 +28,30 @@ function getTodayVN(): string {
 /** Kiểm tra API key (có TTL để tự phục hồi khi lỗi tạm thời) */
 let apiKeyValid: boolean | null = null;
 let apiKeyCheckedAt = 0;
+let lastValidationError = '';
 const VALIDATION_TTL_MS = 5 * 60 * 1000; // 5 phút
 
-async function validateApiKey(): Promise<boolean> {
+async function validateApiKey(): Promise<{ ok: boolean; error?: string }> {
     // Cache hit — chỉ dùng nếu result = true hoặc chưa hết hạn
     if (apiKeyValid !== null) {
         const age = Date.now() - apiKeyCheckedAt;
-        // Nếu key đã valid → giữ cache lâu dài
-        if (apiKeyValid === true) return true;
-        // Nếu key invalid nhưng chưa hết TTL → trả cache
-        if (age < VALIDATION_TTL_MS) return false;
-        // Hết TTL → reset để thử lại
+        if (apiKeyValid === true) return { ok: true };
+        if (age < VALIDATION_TTL_MS) return { ok: false, error: lastValidationError };
         apiKeyValid = null;
     }
 
-    const keyPreview = process.env.ANTHROPIC_API_KEY
-        ? `${process.env.ANTHROPIC_API_KEY.slice(0, 12)}...${process.env.ANTHROPIC_API_KEY.slice(-4)}`
-        : '(MISSING)';
+    const rawKey = process.env.ANTHROPIC_API_KEY;
+    const keyPreview = rawKey
+        ? `${rawKey.slice(0, 12)}...${rawKey.slice(-4)} (len=${rawKey.length})`
+        : '⚠️ MISSING — env ANTHROPIC_API_KEY is undefined';
     console.log('[AI Chat] Validating API key:', keyPreview);
+
+    if (!rawKey) {
+        lastValidationError = 'ANTHROPIC_API_KEY chưa được cấu hình trên server.';
+        apiKeyValid = false;
+        apiKeyCheckedAt = Date.now();
+        return { ok: false, error: lastValidationError };
+    }
 
     try {
         await generateText({
@@ -55,24 +61,27 @@ async function validateApiKey(): Promise<boolean> {
         });
         apiKeyValid = true;
         apiKeyCheckedAt = Date.now();
+        lastValidationError = '';
         console.log('[AI Chat] ✅ Gateway + API key validated');
-        return true;
+        return { ok: true };
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error('[AI Chat] ❌ Validation failed:', msg);
+        lastValidationError = msg;
         apiKeyValid = false;
         apiKeyCheckedAt = Date.now();
-        return false;
+        return { ok: false, error: msg };
     }
 }
 
 export async function POST(req: Request) {
     try {
         // ── Pre-flight: Validate API key ───────────────────────
-        const keyOk = await validateApiKey();
-        if (!keyOk) {
+        const validation = await validateApiKey();
+        if (!validation.ok) {
+            console.error('[AI Chat] Key validation failed:', validation.error);
             return Response.json(
-                { error: 'API Key không hợp lệ hoặc Gateway không phản hồi.' },
+                { error: `API Key / Gateway lỗi: ${validation.error}` },
                 { status: 401 }
             );
         }
