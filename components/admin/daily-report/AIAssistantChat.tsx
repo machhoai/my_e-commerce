@@ -21,7 +21,7 @@ const MODELS = [
     { id: 'llama-scout', label: 'Llama 4 Scout', icon: '🔍', desc: 'Nhẹ, tiết kiệm', badge: null },
     { id: 'compound-beta', label: 'Compound Beta', icon: '🧬', desc: 'Đa model kết hợp', badge: null },
     { id: 'llama-8b', label: 'Llama 3.1 8B', icon: '⚡', desc: 'Siêu nhanh', badge: null },
-    { id: 'claude-sonnet', label: 'Claude Sonnet', icon: '🟣', desc: 'Gateway đang lỗi', badge: '⚠️ Lỗi' },
+    { id: 'claude-sonnet', label: 'Claude Sonnet', icon: '🟣', desc: 'Phân tích sâu, chính xác', badge: '💎 Premium' },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -440,8 +440,8 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
                                                                 <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">{m.label}</p>
                                                                 {m.badge && (
                                                                     <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${
-                                                                        m.badge.includes('Lỗi')
-                                                                            ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800'
+                                                                        m.badge.includes('Premium')
+                                                                            ? 'bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800'
                                                                             : 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
                                                                     }`}>
                                                                         {m.badge}

@@ -69,12 +69,14 @@ const MODEL_OPTIONS: ModelOption[] = [
 const DEFAULT_MODEL_ID = 'llama-70b';
 
 // ── Providers ───────────────────────────────────────────────
-// Anthropic qua gateway gwai.cloud (yêu cầu User-Agent đặc biệt)
+// Anthropic: ưu tiên gateway riêng (Cloudflare Worker), fallback gwai.cloud
+const ANTHROPIC_GATEWAY = process.env.ANTHROPIC_GATEWAY_URL || 'https://1gw.gwai.cloud/v1';
 const anthropic = createAnthropic({
-    baseURL: 'https://1gw.gwai.cloud/v1',
+    baseURL: ANTHROPIC_GATEWAY,
     apiKey: process.env.ANTHROPIC_API_KEY,
     headers: {
-        'User-Agent': 'curl/8.7.1',
+        // gwai.cloud yêu cầu User-Agent đặc biệt, worker thì không cần
+        ...(ANTHROPIC_GATEWAY.includes('gwai.cloud') ? { 'User-Agent': 'curl/8.7.1' } : {}),
     },
 });
 

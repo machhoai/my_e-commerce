@@ -21,7 +21,7 @@ const MODELS = [
     { id: 'llama-scout', label: 'Llama 4 Scout', icon: '🔍', desc: 'Nhẹ, tiết kiệm', badge: null },
     { id: 'compound-beta', label: 'Compound Beta', icon: '🧬', desc: 'Đa model kết hợp', badge: null },
     { id: 'llama-8b', label: 'Llama 3.1 8B', icon: '⚡', desc: 'Siêu nhanh', badge: null },
-    { id: 'claude-sonnet', label: 'Claude Sonnet', icon: '🟣', desc: 'Gateway đang lỗi', badge: '⚠️ Lỗi' },
+    { id: 'claude-sonnet', label: 'Claude Sonnet', icon: '🟣', desc: 'Phân tích sâu, chính xác', badge: '💎 Premium' },
 ];
 
 // ── Markdown renderer ────────────────────────────────────────
