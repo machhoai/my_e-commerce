@@ -231,46 +231,50 @@ export default function AIQuickChat({ isOpen, onClose }: AIQuickChatProps) {
                 </div>
 
                 {/* ── Header ── */}
-                <div className="flex items-center justify-between px-4 py-2 border-b border-surface-100 shrink-0">
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-                            <Sparkles className="w-4 h-4 text-white" />
+                <div className="flex flex-col items-center justify-between border-b border-surface-100 py-1">
+                    <div className="flex items-center justify-between px-4 py-1 w-full">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                                <Sparkles className="w-4 h-4 text-white" />
+                            </div>
+                            <div>
+                                <h2 className="text-sm font-bold text-surface-800">Trợ lý AI</h2>
+                                <p className="text-[10px] text-surface-400">
+                                    {isLoading ? (
+                                        <span className="flex items-center gap-1">
+                                            <Loader2 className="w-3 h-3 animate-spin" /> Đang phân tích...
+                                        </span>
+                                    ) : `${selectedModel.icon} ${selectedModel.label}`}
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <h2 className="text-sm font-bold text-surface-800">Trợ lý AI</h2>
-                            <p className="text-[10px] text-surface-400">
-                                {isLoading ? (
-                                    <span className="flex items-center gap-1">
-                                        <Loader2 className="w-3 h-3 animate-spin" /> Đang phân tích...
-                                    </span>
-                                ) : `${selectedModel.icon} ${selectedModel.label}`}
-                            </p>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => setRichMode(v => !v)}
+                                className={`p-1.5 rounded-lg transition-colors ${richMode ? 'bg-violet-100 text-violet-600' : 'bg-surface-100 text-surface-400'}`}
+                                title={richMode ? 'Tắt HTML' : 'Bật HTML trực quan'}
+                            >
+                                <Code2 className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => setShowUsage(v => !v)}
+                                className={`p-1.5 rounded-lg transition-colors ${showUsage ? 'bg-violet-100 text-violet-600' : 'bg-surface-100 text-surface-400'}`}
+                                title="Thống kê Token"
+                            >
+                                <BarChart3 className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={onClose}
+                                className="p-1.5 rounded-lg bg-surface-100 text-surface-500 hover:bg-surface-200 transition-colors"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
                         </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                        <button
-                            onClick={() => setRichMode(v => !v)}
-                            className={`p-1.5 rounded-lg transition-colors ${richMode ? 'bg-violet-100 text-violet-600' : 'bg-surface-100 text-surface-400'}`}
-                            title={richMode ? 'Tắt HTML' : 'Bật HTML trực quan'}
-                        >
-                            <Code2 className="w-4 h-4" />
-                        </button>
-                        <button
-                            onClick={() => setShowUsage(v => !v)}
-                            className={`p-1.5 rounded-lg transition-colors ${showUsage ? 'bg-violet-100 text-violet-600' : 'bg-surface-100 text-surface-400'}`}
-                            title="Thống kê Token"
-                        >
-                            <BarChart3 className="w-4 h-4" />
-                        </button>
-                        <button
-                            onClick={onClose}
-                            className="p-1.5 rounded-lg bg-surface-100 text-surface-500 hover:bg-surface-200 transition-colors"
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
-                    </div>
+                    <p className="text-[10px] text-surface-400">
+                        (AI có thể mắc lỗi, câu trả lời của AI chỉ mang tính tham khảo)
+                    </p>
                 </div>
-
                 {/* ── Token Usage Panel ── */}
                 {showUsage && (
                     <div className="bg-surface-50 border-b border-surface-100 px-4 py-2 text-[11px] font-mono space-y-0.5 shrink-0">

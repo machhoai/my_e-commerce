@@ -185,8 +185,18 @@ export async function POST(req: Request) {
         // ── Phase 1.5: Date Extraction ─────────────────────────
         const today = getTodayVN();
         const dateRange = extractDateRange(userText);
-        const startDate = dateRange?.start ?? today;
-        const endDate = dateRange?.end ?? today;
+        
+        // Nếu user không nhắc mốc thời gian, mặc định lấy dữ liệu từ đầu tháng đến hiện tại
+        let startDate = dateRange?.start;
+        let endDate = dateRange?.end;
+        
+        if (!startDate || !endDate) {
+            const d = new Date(Date.now() + 7 * 3600000); // GMT+7
+            const currentYear = d.getUTCFullYear();
+            const currentMonth = String(d.getUTCMonth() + 1).padStart(2, '0');
+            startDate = `${currentYear}-${currentMonth}-01`;
+            endDate = today;
+        }
 
         // ── Phase 2: Fetch + Slim relevant data ────────────────
         let context = '';

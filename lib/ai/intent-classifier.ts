@@ -39,7 +39,8 @@ const KEYWORD_MAP: Record<DataDomain, string[]> = {
         'nhân viên', 'nhân sự', 'chấm công', 'ca làm', 'nghỉ phép', 'nv', 'quản lý',
         'lương', 'kpi', 'hiệu suất', 'attendance', 'staff', 'check in', 'check out',
         'đi muộn', 'đi trễ', 'di tre', 'vắng mặt', 'vang mat', 'vào ca', 'ra ca',
-        'lịch làm', 'schedule', 'danh sách nhân viên', 'sếp', 'leader',
+        'lịch làm', 'lịch làm việc', 'schedule', 'phân ca', 'xếp lịch', 'xếp ca',
+        'danh sách nhân viên', 'sếp', 'leader',
         'cửa hàng', 'store', 'giới thiệu', 'referral', 'điểm giới thiệu', 'chức vụ',
     ],
     inventory: [
@@ -126,7 +127,18 @@ export function extractDateRange(message: string): { start: string; end: string 
         return { start: fmt(d), end: fmt(d) };
     }
 
-    // ── Bổ sung: "hôm kia" ─────────────────────────────────────
+    // ── Bổ sung: "ngày mai", "ngày kia" ────────────────────────
+    if (norm.includes('ngay mai') || norm.includes('hom mai')) {
+        const d = new Date(today); d.setDate(d.getDate() + 1);
+        return { start: fmt(d), end: fmt(d) };
+    }
+
+    if (norm.includes('ngay kia') || norm.includes('hom kia (tuong lai)')) { // hom kia có thể là quá khứ, ưu tiên ngay kia cho tương lai
+        const d = new Date(today); d.setDate(d.getDate() + 2);
+        return { start: fmt(d), end: fmt(d) };
+    }
+
+    // ── Bổ sung: "hôm kia" (quá khứ) ───────────────────────────
     if (norm.includes('hom kia') || norm.includes('ngay hom kia')) {
         const d = new Date(today); d.setDate(d.getDate() - 2);
         return { start: fmt(d), end: fmt(d) };
@@ -194,6 +206,41 @@ export function extractDateRange(message: string): { start: string; end: string 
         return { start: fmt(d), end: fmt(end) };
     }
 
+    if (norm.includes('tuan sau') || norm.includes('tuan toi')) {
+        const d = new Date(today);
+        const dayOfWeek = d.getDay() || 7;
+        d.setDate(d.getDate() - dayOfWeek + 8); // Monday next week
+        const end = new Date(d); end.setDate(end.getDate() + 6);
+        return { start: fmt(d), end: fmt(end) };
+    }
+
+    // ── "từ tháng X đến tháng Y" ───────────────────────────────
+    const monthRangeMatch = norm.match(/tu\s*thang\s*(\d{1,2})\s*(?:den|toi|-)\s*thang\s*(\d{1,2})/);
+    if (monthRangeMatch) {
+        const m1 = parseInt(monthRangeMatch[1], 10);
+        const m2 = parseInt(monthRangeMatch[2], 10);
+        if (m1 >= 1 && m1 <= 12 && m2 >= 1 && m2 <= 12) {
+            let y1 = m1 > month + 1 ? year - 1 : year;
+            const y2 = m2 > month + 1 ? year - 1 : year;
+            if (y1 > y2) y1 = y2;
+            const start = new Date(Date.UTC(y1, m1 - 1, 1));
+            const end = new Date(Date.UTC(y2, m2, 0));
+            return { start: fmt(start), end: fmt(end > today ? today : end) };
+        }
+    }
+
+    // ── "từ tháng X đến nay/hiện tại" ──────────────────────────
+    const fromMonthMatch = norm.match(/tu\s*thang\s*(\d{1,2})\s*(?:den|toi|->|-)\s*(?:nay|hien tai|bay gio)/)
+        || norm.match(/tu\s*thang\s*(\d{1,2})(?:\s*tro lai day)?$/); // "từ tháng 3 trở lại đây"
+    if (fromMonthMatch) {
+        const m = parseInt(fromMonthMatch[1], 10);
+        if (m >= 1 && m <= 12) {
+            const y = m > month + 1 ? year - 1 : year;
+            const start = new Date(Date.UTC(y, m - 1, 1));
+            return { start: fmt(start), end: fmt(today) };
+        }
+    }
+
     // ── Tháng cụ thể: "tháng 5", "thang 05", "t5" ─────────────
     const monthMatch = norm.match(/thang\s*(\d{1,2})/);
     if (monthMatch) {
@@ -221,6 +268,13 @@ export function extractDateRange(message: string): { start: string; end: string 
     if (norm.includes('thang truoc') || norm.includes('thang vua roi') || norm.includes('thang vua qua')) {
         const start = new Date(Date.UTC(year, month - 1, 1));
         const end = new Date(Date.UTC(year, month, 0));
+        return { start: fmt(start), end: fmt(end) };
+    }
+
+    // ── "tháng sau" / "tháng tới" ───────────────────────────────
+    if (norm.includes('thang sau') || norm.includes('thang toi')) {
+        const start = new Date(Date.UTC(year, month + 1, 1));
+        const end = new Date(Date.UTC(year, month + 2, 0));
         return { start: fmt(start), end: fmt(end) };
     }
 

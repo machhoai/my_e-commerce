@@ -13,6 +13,7 @@ import {
     getOrderList,
 } from '@/lib/joyworld';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { calculateAttendanceStatus } from '@/lib/attendance-rules';
 
 // ── Format helpers ───────────────────────────────────────────
 function fmtVND(n: number): string {
@@ -168,6 +169,19 @@ async function fetchSlimHR(startDate: string, endDate: string): Promise<string> 
             rosterLines.push(`  ▸ ${wp} (${names.length} NV): ${names.join(', ')}`);
         }
 
+        // Fetch global settings for attendance rules
+        const settingsDoc = await db.collection('settings').doc('global').get();
+        const settings = settingsDoc.exists ? settingsDoc.data() : null;
+        const byShift = settings?.attendanceRules?.byShift || {};
+        const shiftNames = Object.keys(byShift);
+        const ruleLines: string[] = [];
+        for (const shiftName of shiftNames) {
+            const rule = byShift[shiftName]?.defaultWeekday;
+            if (rule) {
+                ruleLines.push(`  · ${shiftName}: ${rule.startTime} → ${rule.endTime} (cho phép trễ ${rule.allowedLateMins}p, về sớm ${rule.allowedEarlyMins}p)`);
+            }
+        }
+
         // ── 2. Attendance (date range) ────────────────────────────
         const startISO = `${startDate}T00:00:00`;
         const endISO = `${endDate}T23:59:59`;
@@ -228,14 +242,15 @@ async function fetchSlimHR(startDate: string, endDate: string): Promise<string> 
             const dayTotal = dayMap.size;
             totalCheckins += dayTotal;
 
-            // Check late (after 09:00)
+            // Check late using real rules
             let dayLateCount = 0;
             const dayLateNames: string[] = [];
             for (const [, rec] of dayMap) {
-                const checkInTime = rec.checkIn.slice(11, 16); // HH:MM
-                if (checkInTime > '09:00') {
+                const inTime = rec.checkIn.slice(11, 16); // HH:MM
+                const statusRes = calculateAttendanceStatus(rec.checkIn, rec.checkOut, date, settings as any);
+                if (statusRes.status === 'LATE') {
                     dayLateCount++;
-                    dayLateNames.push(`${rec.name} (${checkInTime})`);
+                    dayLateNames.push(`${rec.name} (${inTime})`);
                 }
             }
             totalLateCount += dayLateCount;
@@ -246,9 +261,10 @@ async function fetchSlimHR(startDate: string, endDate: string): Promise<string> 
             // Compact daily line (only show per-day detail if <= 7 days)
             if (!isMultiDay || sortedDates.length <= 7) {
                 const empLines = [...dayMap.values()].map(r => {
+                    const statusRes = calculateAttendanceStatus(r.checkIn, r.checkOut, date, settings as any);
                     const inTime = r.checkIn.slice(11, 16);
                     const outTime = r.checkOut ? r.checkOut.slice(11, 16) : '--:--';
-                    const late = inTime > '09:00' ? ' ⚠️TRỄ' : '';
+                    const late = statusRes.status === 'LATE' ? ' ⚠️TRỄ' : '';
                     return `    - ${r.name}: ${inTime} → ${outTime}${late}`;
                 }).join('\n');
                 attLines.push(`  📅 ${date} (${dayTotal} NV):\n${empLines}`);
@@ -302,9 +318,11 @@ async function fetchSlimHR(startDate: string, endDate: string): Promise<string> 
             `• Phân theo role: ${[...byRole.entries()].map(([r, c]) => `${r}: ${c}`).join(', ')}`,
             `\nDanh sách theo nơi làm việc:`,
             rosterLines.join('\n'),
+            `\n⚙️ QUY TẮC CHẤM CÔNG (HỆ THỐNG):`,
+            ruleLines.length > 0 ? ruleLines.join('\n') : `  · Chưa cấu hình (Mặc định tính trễ nếu không khớp ca)`,
             `\n📋 CHẤM CÔNG (${totalAttDays} ngày có dữ liệu):`,
             `• Tổng lượt chấm công: ${totalCheckins}`,
-            `• Đi trễ (sau 09:00): ${totalLateCount} lượt`,
+            `• Đi trễ: ${totalLateCount} lượt`,
             `• Ca được xếp: ${totalScheduledSlots} slot trong ${scheduledDays.size} ngày`,
         ];
 
