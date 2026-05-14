@@ -1915,7 +1915,7 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
         <>
             <div className="min-h-screen bg-gray-50 pb-6">
                 {/* ── Header ──────────────────────────────────────────────────── */}
-                <header className="relative">
+                <header className="relative mb-12">
                     {/* Background wave */}
                     <div className="absolute inset-0 z-0 pointer-events-none">
                         <div className="bg-primary-600 h-full" />
@@ -2020,12 +2020,12 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
 
                 {/* ── Top Referral Employees Marquee ──────────────────────────── */}
                 {referralEnabled && (
-                <TopReferralMarquee
-                    className="mx-3 mt-12"
-                    initialData={topReferralData}
-                    onClick={() => setShowScrollModal(true)}
-                    lang={lang}
-                />
+                    <TopReferralMarquee
+                        className="mx-3 mt-12"
+                        initialData={topReferralData}
+                        onClick={() => setShowScrollModal(true)}
+                        lang={lang}
+                    />
                 )}
 
                 {/* ── Quick Access ─────────────────────────────────────────────── */}
