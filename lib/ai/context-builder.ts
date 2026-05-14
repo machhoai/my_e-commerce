@@ -449,15 +449,21 @@ async function fetchSlimMultiDay(start: string, end: string): Promise<string> {
         // Filter valid day records — dùng ĐÚNG field như trang Revenue:
         //   sysMoney = "Thực thu" (hero card, chart), cashRealMoney = tiền mặt, transferRealMoney = chuyển khoản
         //   KHÔNG dùng realMoney vì nó khác con số hiển thị trên UI
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const days = items
             .filter((r: { forDate: string }) => /^\d{4}-\d{2}-\d{2}$/.test(r.forDate))
-            .map((r: { forDate: string; sysMoney: number; realMoney: number; cashRealMoney: number; transferRealMoney: number }) => ({
-                date: r.forDate,
-                thucThu: Number(r.sysMoney) || 0,         // ← Khớp hero card "Thực thu"
-                doanhThuThuc: Number(r.realMoney) || 0,   // ← Doanh thu thực
-                cash: Number(r.cashRealMoney) || 0,
-                transfer: Number(r.transferRealMoney) || 0,
-            }));
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((r: any) => {
+                // Joyworld API uses dynamic keys for payment methods like 2_RealMoney or 123_RealMoney
+                const transferRealKey = Object.keys(r).find(k => k.includes('_RealMoney') && k !== 'cashRealMoney');
+                return {
+                    date: r.forDate,
+                    thucThu: Number(r.sysMoney) || 0,         // ← Khớp hero card "Thực thu"
+                    doanhThuThuc: Number(r.realMoney) || 0,   // ← Doanh thu thực
+                    cash: Number(r.cashRealMoney) || 0,
+                    transfer: transferRealKey ? Number(r[transferRealKey]) || 0 : 0,
+                };
+            });
 
         if (days.length === 0) return `📈 DOANH THU ${start} → ${end}\nKhông có dữ liệu.`;
 

@@ -223,7 +223,7 @@ export default function AIQuickChat({ isOpen, onClose }: AIQuickChatProps) {
             {/* ── Chat Sheet — full flex column, no double scroll ── */}
             <div
                 ref={sheetRef}
-                className={`relative w-full bg-white rounded-t-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom duration-300 ${richMode ? 'max-h-[95vh]' : 'max-h-[88vh]'}`}
+                className={`relative w-full bg-white rounded-t-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom duration-300 ${richMode ? 'max-h-[80vh] lg:max-h-[40vh]' : 'max-h-[80vh] lg:max-h-[50vh]'}`}
             >
                 {/* Drag handle */}
                 <div className="flex justify-center pt-2.5 pb-1 shrink-0">

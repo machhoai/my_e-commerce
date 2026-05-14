@@ -69,6 +69,12 @@ CẤU TRÚC HTML chuẩn:
     .bar-track{flex:1;height:24px;background:#f1f5f9;border-radius:12px;overflow:hidden;position:relative}
     .bar-fill{height:100%;border-radius:12px;background:linear-gradient(90deg,#8b5cf6,#7c3aed);display:flex;align-items:center;padding:0 8px;min-width:fit-content}
     .bar-value{font-size:11px;font-weight:700;color:#fff;white-space:nowrap}
+    .v-chart{display:flex;align-items:flex-end;height:200px;gap:4px;padding-top:20px;border-bottom:1px solid #e2e8f0;margin:16px 0}
+    .v-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;position:relative;cursor:pointer}
+    .v-bar{width:100%;max-width:24px;background:linear-gradient(180deg,#8b5cf6,#7c3aed);border-radius:4px 4px 0 0;min-height:2px}
+    .v-label{font-size:9px;color:#64748b;margin-top:4px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+    .v-value{position:absolute;top:-20px;font-size:9px;background:#1e1b4b;color:#fff;padding:2px 6px;border-radius:4px;font-weight:600;opacity:0;transition:opacity 0.2s;white-space:nowrap;pointer-events:none;z-index:10}
+    .v-bar-wrap:hover .v-value{opacity:1}
     .insight{background:linear-gradient(135deg,#faf5ff,#f5f3ff);border-left:3px solid #7c3aed;border-radius:0 12px 12px 0;padding:12px 16px;margin-top:12px;font-size:13px;color:#4c1d95}
     .trend-up{color:#16a34a}
     .trend-down{color:#dc2626}
@@ -80,16 +86,18 @@ COMPONENTS có thể dùng:
 • KPI Cards: .kpi-grid > .kpi > .kpi-value + .kpi-label
 • Bảng dữ liệu: <table> với header rõ ràng
 • Biểu đồ ngang (bar chart): .bar-chart > .bar-row > .bar-label + .bar-track > .bar-fill > .bar-value
+• Biểu đồ dọc (vertical bar chart cho chuỗi ngày): .v-chart > .v-bar-wrap > .v-value + .v-bar (height theo %) + .v-label
 • Badge trạng thái: .badge + .badge-green/red/amber/violet
 • Insight box: .insight cho nhận xét/đề xuất
 • Xu hướng: .trend-up / .trend-down cho chỉ số tăng/giảm
 
 QUAN TRỌNG:
 - Sử dụng emoji 📊💰🛍️👥📦 làm icon trong section-title
+- Nếu báo cáo doanh thu nhiều ngày/tháng, BẮT BUỘC vẽ biểu đồ dọc (.v-chart) thể hiện doanh thu từng ngày.
 - Luôn có ít nhất 1 KPI card và 1 insight box
 - Số liệu quan trọng phải nổi bật (font-size lớn, màu violet)
 - Bảng phải có header rõ ràng, dữ liệu align đúng
-- Bar chart width dùng % tương đối (max value = 100%)
+- Bar chart width/height dùng % tương đối (max value = 100%)
 - KHÔNG dùng JavaScript, chỉ HTML + CSS thuần`;
 }
 

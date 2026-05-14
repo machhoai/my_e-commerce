@@ -63,7 +63,7 @@ export default function RichHtmlRenderer({ html, className }: RichHtmlRendererPr
         const iframe = iframeRef.current;
         if (!iframe?.contentDocument?.body) return;
         const contentHeight = iframe.contentDocument.body.scrollHeight;
-        setHeight(Math.min(Math.max(contentHeight + 32, 200), 800));
+        setHeight(Math.min(Math.max(contentHeight + 32, 200), 2000));
     }, []);
 
     useEffect(() => {
