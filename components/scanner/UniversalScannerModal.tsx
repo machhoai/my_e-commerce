@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { X, ScanLine, Keyboard, SearchX, Camera, RotateCcw, Zap, ZapOff, User, Phone, ChevronDown, Loader2, CheckCircle2, Ticket } from 'lucide-react';
+import { X, ScanLine, Keyboard, SearchX, Camera, RotateCcw, Zap, ZapOff, User, Phone, ChevronDown, Loader2, CheckCircle2, Ticket, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { preloadScannerData, voucherSearchAction } from '@/actions/scanner';
 import type { PreloadedEmployee, PreloadedProduct } from '@/actions/scanner';
@@ -19,6 +19,9 @@ import ProductInfoCard from './ProductInfoCard';
 import TicketPassCard from './TicketPassCard';
 import TicketOrderCard from './TicketOrderCard';
 import BottomSheet from '@/components/shared/BottomSheet';
+import dynamic from 'next/dynamic';
+
+const AIQuickChat = dynamic(() => import('@/components/shared/AIQuickChat'), { ssr: false });
 
 // ── Normalize Vietnamese for diacritics-insensitive search ───
 const normalize = (s: string) =>
@@ -220,24 +223,33 @@ const FAB_MARGIN = 12; // distance from screen edge
 const IDLE_TIMEOUT = 5000;
 const DRAG_THRESHOLD = 12; // px moved to count as drag (not tap) — higher to avoid accidental drags on touchscreens
 
-function DraggableFAB({ onTap, hidden }: { onTap: () => void; hidden: boolean }) {
+function DraggableFAB({ onTapScan, onTapAI, hidden, hasAI }: {
+    onTapScan: () => void;
+    onTapAI: () => void;
+    hidden: boolean;
+    hasAI: boolean;
+}) {
     const btnRef = useRef<HTMLButtonElement>(null);
     const posRef = useRef({ x: 0, y: 0 });
     const dragState = useRef({ dragging: false, startX: 0, startY: 0, startPosX: 0, startPosY: 0, moved: false });
     const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [idle, setIdle] = useState(true);
-    const [pos, setPos] = useState<{ x: number; y: number } | null>(null); // null = not yet initialized
+    const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
     const [snapping, setSnapping] = useState(false);
-
-
+    const [expanded, setExpanded] = useState(false);
 
     // Initialize position to bottom-right
     useEffect(() => {
         const x = window.innerWidth - FAB_SIZE - FAB_MARGIN;
-        const y = window.innerHeight - FAB_SIZE - FAB_MARGIN - 60; // above bottom nav
+        const y = window.innerHeight - FAB_SIZE - FAB_MARGIN - 60;
         posRef.current = { x, y };
         setPos({ x, y });
     }, []);
+
+    // Close expanded when FAB is hidden
+    useEffect(() => {
+        if (hidden) setExpanded(false);
+    }, [hidden]);
 
     const resetIdleTimer = useCallback(() => {
         setIdle(false);
@@ -262,7 +274,7 @@ function DraggableFAB({ onTap, hidden }: { onTap: () => void; hidden: boolean })
     }, [resetIdleTimer]);
 
     const onPointerDown = useCallback((e: React.PointerEvent) => {
-        // Do NOT call e.preventDefault() — it blocks native tap/click on mobile browsers
+        if (expanded) return; // Don't drag when expanded
         const btn = btnRef.current;
         if (!btn) return;
         btn.setPointerCapture(e.pointerId);
@@ -275,7 +287,7 @@ function DraggableFAB({ onTap, hidden }: { onTap: () => void; hidden: boolean })
             moved: false,
         };
         resetIdleTimer();
-    }, [resetIdleTimer]);
+    }, [resetIdleTimer, expanded]);
 
     const onPointerMove = useCallback((e: React.PointerEvent) => {
         const ds = dragState.current;
@@ -304,49 +316,131 @@ function DraggableFAB({ onTap, hidden }: { onTap: () => void; hidden: boolean })
         btnRef.current?.releasePointerCapture(e.pointerId);
 
         if (ds.moved) {
-            // Snap to nearest corner
             const centerX = posRef.current.x + FAB_SIZE / 2;
             const centerY = posRef.current.y + FAB_SIZE / 2;
             snapToCorner(centerX, centerY);
         } else {
-            // It was a tap
-            onTap();
+            // Tap — nếu có quyền AI thì mở menu, không thì mở scan
+            if (hasAI) {
+                setExpanded(prev => !prev);
+            } else {
+                onTapScan();
+            }
         }
-    }, [snapToCorner, onTap]);
+    }, [snapToCorner, onTapScan, hasAI]);
+
+    const handleActionScan = useCallback(() => {
+        setExpanded(false);
+        onTapScan();
+    }, [onTapScan]);
+
+    const handleActionAI = useCallback(() => {
+        setExpanded(false);
+        onTapAI();
+    }, [onTapAI]);
 
     if (!pos) return null;
 
+    // Sub-button size & spacing
+    const SUB_SIZE = 52;
+    const SUB_GAP = 12;
+    // Position sub buttons above the main FAB, centered
+    const subOffsetX = (FAB_SIZE - SUB_SIZE) / 2;
+
     return (
-        <button
-            ref={btnRef}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            style={{
-                position: 'fixed',
-                left: pos.x,
-                top: pos.y + 50,
-                width: FAB_SIZE,
-                height: FAB_SIZE,
-                zIndex: 40,
-                touchAction: 'none',
-                transition: snapping ? 'left 0.3s cubic-bezier(.4,0,.2,1), top 0.3s cubic-bezier(.4,0,.2,1), opacity 0.5s' : 'opacity 0.5s',
-                opacity: hidden ? 0 : idle ? 0.75 : 1,
-                pointerEvents: hidden ? 'none' : 'auto',
-            }}
-            className={cn(
-                'rounded-2xl',
-                'bg-gradient-to-br from-accent-500 to-accent-600 text-white',
-                'shadow-xl shadow-accent-500/30',
-                'flex items-center justify-center',
-                'select-none',
-                // Invisible touch padding — extends tap area by 10px on each side
-                'before:content-[\'\'] before:absolute before:-inset-[10px] before:rounded-3xl',
+        <>
+            {/* ── Backdrop when expanded ── */}
+            {expanded && (
+                <div
+                    className="fixed inset-0 z-[39] bg-black/20 backdrop-blur-[1px]"
+                    onClick={() => setExpanded(false)}
+                />
             )}
-            title="Quét mã"
-        >
-            <ScanLine className="w-7 h-7 pointer-events-none" />
-        </button>
+
+            {/* ── Sub-action buttons (visible when expanded) ── */}
+            {expanded && (
+                <>
+                    {/* Scan button */}
+                    <button
+                        onClick={handleActionScan}
+                        style={{
+                            position: 'fixed',
+                            left: pos.x + subOffsetX,
+                            top: pos.y + 50 - (SUB_SIZE + SUB_GAP) * 2,
+                            width: SUB_SIZE,
+                            height: SUB_SIZE,
+                            zIndex: 41,
+                        }}
+                        className="rounded-2xl bg-gradient-to-br from-accent-500 to-accent-600 text-white shadow-xl shadow-accent-500/30 flex flex-col items-center justify-center gap-0.5 animate-in fade-in slide-in-from-bottom-4 duration-200"
+                    >
+                        <ScanLine className="w-5 h-5 pointer-events-none" />
+                        <span className="text-[9px] font-bold leading-none">Quét</span>
+                    </button>
+
+                    {/* AI button */}
+                    <button
+                        onClick={handleActionAI}
+                        style={{
+                            position: 'fixed',
+                            left: pos.x + subOffsetX,
+                            top: pos.y + 50 - (SUB_SIZE + SUB_GAP),
+                            width: SUB_SIZE,
+                            height: SUB_SIZE,
+                            zIndex: 41,
+                        }}
+                        className="rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-xl shadow-violet-500/30 flex flex-col items-center justify-center gap-0.5 animate-in fade-in slide-in-from-bottom-2 duration-200 delay-75"
+                    >
+                        <Sparkles className="w-5 h-5 pointer-events-none" />
+                        <span className="text-[9px] font-bold leading-none">AI</span>
+                    </button>
+                </>
+            )}
+
+            {/* ── Main FAB Button ── */}
+            <button
+                ref={btnRef}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                style={{
+                    position: 'fixed',
+                    left: pos.x,
+                    top: pos.y + 50,
+                    width: FAB_SIZE,
+                    height: FAB_SIZE,
+                    zIndex: 40,
+                    touchAction: 'none',
+                    transition: snapping ? 'left 0.3s cubic-bezier(.4,0,.2,1), top 0.3s cubic-bezier(.4,0,.2,1), opacity 0.5s' : 'opacity 0.5s',
+                    opacity: hidden ? 0 : idle && !expanded ? 0.75 : 1,
+                    pointerEvents: hidden ? 'none' : 'auto',
+                }}
+                className={cn(
+                    'rounded-2xl',
+                    expanded
+                        ? 'bg-surface-700 text-white shadow-xl'
+                        : hasAI
+                            ? 'bg-gradient-to-br from-violet-500 via-accent-500 to-accent-600 text-white shadow-xl shadow-accent-500/30'
+                            : 'bg-gradient-to-br from-accent-500 to-accent-600 text-white shadow-xl shadow-accent-500/30',
+                    'flex items-center justify-center',
+                    'select-none',
+                    'before:content-[\'\'] before:absolute before:-inset-[10px] before:rounded-3xl',
+                )}
+                title={expanded ? 'Đóng' : hasAI ? 'Quét mã / Hỏi AI' : 'Quét mã'}
+            >
+                {expanded ? (
+                    <X className="w-6 h-6 pointer-events-none" />
+                ) : hasAI ? (
+                    /* Dual icon: scan + sparkle */
+                    <div className="flex items-center gap-0.5 pointer-events-none">
+                        <ScanLine className="w-5 h-5" />
+                        <span className="text-white/60 text-xs font-bold">/</span>
+                        <Sparkles className="w-4 h-4" />
+                    </div>
+                ) : (
+                    <ScanLine className="w-7 h-7 pointer-events-none" />
+                )}
+            </button>
+        </>
     );
 }
 
@@ -358,9 +452,11 @@ export default function UniversalScannerModal() {
     const canSearchVouchers = hasPermission('search_vouchers');
     const canManageReferrals = hasPermission('manage_referrals');
     const canScanTickets = hasPermission('scan_tickets');
+    const canUseAI = hasPermission('action.ai.chat');
     const { referralEnabled } = useStoreSettings();
     // Effective referral gate: both permission AND store setting must be true
     const referralActive = canManageReferrals && referralEnabled;
+    const [isAIChatOpen, setIsAIChatOpen] = useState(false);
     const [view, setView] = useState<ModalView>({ kind: 'scanner' });
     const [manualInput, setManualInput] = useState('');
     const [showManual, setShowManual] = useState(false);
@@ -936,7 +1032,17 @@ export default function UniversalScannerModal() {
     return (
         <>
             {/* ── Draggable FAB Button ──────────────────────────── */}
-            <DraggableFAB onTap={open} hidden={isOpen} />
+            <DraggableFAB
+                onTapScan={open}
+                onTapAI={() => setIsAIChatOpen(true)}
+                hidden={isOpen || isAIChatOpen}
+                hasAI={canUseAI}
+            />
+
+            {/* ── AI Chat BottomSheet ─────────────────────────────── */}
+            {canUseAI && (
+                <AIQuickChat isOpen={isAIChatOpen} onClose={() => setIsAIChatOpen(false)} />
+            )}
 
             {/* ── BottomSheet ──────────────────────────────────────── */}
             <BottomSheet isOpen={isOpen} onClose={close} maxHeightClass="max-h-[92vh]">

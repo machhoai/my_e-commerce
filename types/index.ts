@@ -149,6 +149,15 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         type: 'action',
     },
 
+    // ── AI & Công cụ ────────────────────────────────────────────
+    {
+        key: 'action.ai.chat',
+        label: 'Sử Dụng Trợ Lý AI',
+        description: 'Cho phép sử dụng tính năng hỏi AI trên toàn hệ thống',
+        group: 'AI & Công cụ',
+        type: 'action',
+    },
+
     // ── Kho cửa hàng ──────────────────────────────────────────
     {
         key: 'page.manager.inventory',

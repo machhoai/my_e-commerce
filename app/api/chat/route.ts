@@ -10,12 +10,14 @@ import { buildDataContext } from '@/lib/ai/context-builder';
 import { buildStaticSystemPrompt, buildDataPrompt } from '@/lib/ai/system-prompt';
 import { getAdminDb } from '@/lib/firebase-admin';
 
-// ── Anthropic provider ──────────────────────────────────────
-// ANTHROPIC_BASE_URL cho phép dùng gateway ở local (gwai.cloud)
-// Trên Vercel, không set → mặc định gọi thẳng api.anthropic.com
+// ── Anthropic provider qua gateway gwai.cloud ───────────────
+// Gateway yêu cầu header User-Agent cụ thể, nếu thiếu sẽ bị 403
 const anthropic = createAnthropic({
-    ...(process.env.ANTHROPIC_BASE_URL && { baseURL: process.env.ANTHROPIC_BASE_URL }),
+    baseURL: 'https://1gw.gwai.cloud/v1',
     apiKey: process.env.ANTHROPIC_API_KEY,
+    headers: {
+        'User-Agent': 'curl/8.7.1',
+    },
 });
 
 export const runtime = 'nodejs';
