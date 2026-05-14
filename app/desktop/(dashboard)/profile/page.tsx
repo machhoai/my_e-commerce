@@ -97,7 +97,6 @@ export default function ProfilePage() {
                 dob: profileData.dob || '',
                 bankAccount: profileData.bankAccount || '',
                 education: profileData.education || '',
-                contractNumber: profileData.contractNumber || '',
             });
             setIsEditing(true);
         }
@@ -311,23 +310,6 @@ export default function ProfilePage() {
                                     />
                                 ) : (
                                     <div className="text-surface-900 font-medium px-1">{profileData.education || <span className="text-surface-400 italic">Chưa cung cấp</span>}</div>
-                                )}
-                            </div>
-
-                            <div className="space-y-1.5 group">
-                                <label className={`text-sm font-semibold flex items-center gap-2 ${isEditing ? 'text-primary-600' : 'text-surface-500'}`}>
-                                    <FileText className={`w-4 h-4 ${isEditing ? 'text-primary-500' : 'text-surface-400'}`} /> Số hợp đồng
-                                </label>
-                                {isEditing ? (
-                                    <input
-                                        type="text"
-                                        value={editData.contractNumber || ''}
-                                        onChange={e => handleEditChange('contractNumber', e.target.value)}
-                                        className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 transition-all"
-                                        placeholder="VD: HD-2026-001"
-                                    />
-                                ) : (
-                                    <div className="text-surface-900 font-medium px-1">{profileData.contractNumber || <span className="text-surface-400 italic">Chưa cung cấp</span>}</div>
                                 )}
                             </div>
                         </div>
