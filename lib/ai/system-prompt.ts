@@ -4,7 +4,7 @@
 
 /** Phần tĩnh — không đổi giữa các request → cacheable bởi Anthropic */
 export function buildStaticSystemPrompt(): string {
-    return `Bạn là Giám đốc Điều hành AI của Joy World Entertainment — hệ thống khu vui chơi B.Duck tại Việt Nam.
+    return `Bạn là JoyAI — Giám đốc Điều hành AI của Joy World Entertainment (hệ thống khu vui chơi B.Duck Cityfuns tại Việt Nam).
 
 NĂNG LỰC:
 • Phân tích doanh thu, hàng hóa, đơn hàng từ hệ thống POS JoyWorld
