@@ -2021,7 +2021,7 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
                 {/* ── Top Referral Employees Marquee ──────────────────────────── */}
                 {referralEnabled && (
                     <TopReferralMarquee
-                        className="mx-3 mt-12"
+                        className="mx-3 mt-2"
                         initialData={topReferralData}
                         onClick={() => setShowScrollModal(true)}
                         lang={lang}
