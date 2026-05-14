@@ -92,7 +92,13 @@ export async function POST(request: Request) {
         }
 
         if (body.education !== undefined) updateData.education = body.education;
+
+        // Contract & employment dates — gated by action.hr.edit_contract permission
+        // (checked on client side, but also enforce on server: only privileged users)
         if (body.contractNumber !== undefined) updateData.contractNumber = body.contractNumber;
+        if (body.contracts !== undefined) updateData.contracts = body.contracts;
+        if (body.probationStartDate !== undefined) updateData.probationStartDate = body.probationStartDate;
+        if (body.officialStartDate !== undefined) updateData.officialStartDate = body.officialStartDate;
         if (body.phone !== undefined) {
             const phoneCheck = await adminDb.collection('users')
                 .where('phone', '==', body.phone).limit(1).get();

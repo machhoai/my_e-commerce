@@ -143,8 +143,8 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
     },
     {
         key: 'action.hr.edit_contract',
-        label: 'Chỉnh Sửa Số Hợp Đồng',
-        description: 'Cho phép chỉnh sửa số hợp đồng của nhân viên',
+        label: 'Quản Lý Hợp Đồng & Ngày Nhận Việc',
+        description: 'Cho phép chỉnh sửa ngày thử việc, ngày chính thức, và lịch sử hợp đồng của nhân viên',
         group: 'Nhân sự & Lịch',
         type: 'action',
     },
@@ -416,6 +416,16 @@ export interface WarehouseDoc {
     createdAt?: string;
 }
 
+/** Một bản ghi hợp đồng trong lịch sử hợp đồng nhân viên */
+export interface ContractRecord {
+    /** Số hợp đồng (alphanumeric) */
+    contractNumber: string;
+    /** Ngày bắt đầu hợp đồng (YYYY-MM-DD) */
+    startDate: string;
+    /** Ngày kết thúc hợp đồng (YYYY-MM-DD) */
+    endDate: string;
+}
+
 export interface UserDoc {
     uid: string;
     name: string;
@@ -438,7 +448,10 @@ export interface UserDoc {
     idCard?: string;
     bankAccount?: string;
     education?: string;
-    contractNumber?: string;  // Số hợp đồng (alphanumeric)
+    contractNumber?: string;  // Số hợp đồng (alphanumeric) — deprecated, dùng contracts[]
+    contracts?: ContractRecord[];       // Lịch sử hợp đồng
+    probationStartDate?: string;        // Ngày bắt đầu thử việc (YYYY-MM-DD)
+    officialStartDate?: string;         // Ngày bắt đầu chính thức (YYYY-MM-DD)
     gender?: string;           // Giới tính (from CCCD QR)
     permanentAddress?: string; // Địa chỉ thường trú (from CCCD QR)
     idCardFrontPhoto?: string; // WebP base64 — front of CCCD

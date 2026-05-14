@@ -175,10 +175,14 @@ function ManagerUsersPageContent() {
         if (authLoading) return;
         if (!user || !userDoc) return;
 
-        // Non-admin: derive the correct field from userDoc workplace assignment
+        // Non-admin: derive the correct store/location ID
         const effectiveStoreId = userDoc.role === 'admin'
             ? selectedAdminStoreId
-            : (contextStoreId || userDoc.officeId || userDoc.warehouseId || userDoc.storeId);
+            : (contextStoreId || userDoc.storeId);
+
+        // Office-context user: contextStoreId is a managed storeId (from office's managedStoreIds)
+        // so we query employees by 'storeId' field, NOT by 'officeId'
+        const isOfficeUser = !!(userDoc.officeId && userDoc.role !== 'admin');
 
         // Build constraints: use the correct field based on location type
         const constraints: ReturnType<typeof where>[] = [];
@@ -186,15 +190,20 @@ function ManagerUsersPageContent() {
             if (userDoc.role === 'admin' && selectedLocationType) {
                 const fieldName = locationFieldName(selectedLocationType);
                 constraints.push(where(fieldName, '==', effectiveStoreId));
+            } else if (isOfficeUser) {
+                // Office user viewing a managed store: query by storeId
+                constraints.push(where('storeId', '==', effectiveStoreId));
+            } else if (userDoc.warehouseId) {
+                constraints.push(where('warehouseId', '==', effectiveStoreId));
             } else {
-                // Non-admin: derive field from their own workplace assignment
-                const nonAdminField = userDoc.officeId ? 'officeId'
-                    : userDoc.warehouseId ? 'warehouseId' : 'storeId';
-                constraints.push(where(nonAdminField, '==', effectiveStoreId));
+                constraints.push(where('storeId', '==', effectiveStoreId));
             }
+        } else if (isOfficeUser && userDoc.officeId) {
+            // No managed store selected — show office's own employees
+            constraints.push(where('officeId', '==', userDoc.officeId));
         }
 
-        const q = userDoc.role === 'store_manager' || userDoc.role === 'admin'
+        const q = userDoc.role === 'store_manager' || userDoc.role === 'admin' || isOfficeUser
             ? query(collection(db, 'users'), ...constraints)
             : query(collection(db, 'users'), where('role', '==', 'employee'), ...constraints);
 
@@ -210,7 +219,7 @@ function ManagerUsersPageContent() {
         });
 
         return () => unsubscribe();
-    }, [authLoading, user, userDoc, selectedAdminStoreId, selectedLocationType]);
+    }, [authLoading, user, userDoc, selectedAdminStoreId, selectedLocationType, contextStoreId]);
 
     const handleCreateOrUpdateUser = async (e: React.FormEvent) => {
         e.preventDefault();

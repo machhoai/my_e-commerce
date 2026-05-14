@@ -15,6 +15,7 @@ import {
     TimerIcon, LogIn, LogOut, AlertCircle, FileText,
 } from 'lucide-react';
 import ReferralHistorySection from '@/components/referral/ReferralHistorySection';
+import ContractSection from '@/components/shared/ContractSection';
 
 interface EmployeeProfilePopupProps {
     employeeUid: string;
@@ -279,6 +280,12 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose, in
             .finally(() => setLoadingUser(false));
     }, [employeeUid]);
 
+    // Refresh employee data (e.g. after contract update)
+    const refreshEmployee = useCallback(() => {
+        getDoc(doc(db, 'users', employeeUid))
+            .then(s => { if (s.exists()) setEmployee(s.data() as UserDoc); });
+    }, [employeeUid]);
+
     // Use storeId prop if provided, otherwise fall back to the employee's own storeId
     const effectiveStoreId = storeId || employee?.storeId || '';
 
@@ -403,7 +410,6 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose, in
         { icon: <MapPin className="w-4 h-4" />, label: 'Thường trú', value: employee.permanentAddress || '—' },
         { icon: <Building2 className="w-4 h-4" />, label: 'Tài khoản ngân hàng', value: employee.bankAccount || '—' },
         { icon: <GraduationCap className="w-4 h-4" />, label: 'Học vấn', value: employee.education || '—' },
-        { icon: <FileText className="w-4 h-4" />, label: 'Số hợp đồng', value: employee.contractNumber || '—' },
     ] : [];
 
     const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
@@ -542,6 +548,11 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose, in
                                         )}
                                     </div>
                                 </div>
+                            )}
+
+                            {/* Contract & Employment Dates Section */}
+                            {employee && (
+                                <ContractSection employee={employee} onUpdated={refreshEmployee} />
                             )}
                         </>
                     )}
