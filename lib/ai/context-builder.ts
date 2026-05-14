@@ -262,10 +262,25 @@ async function fetchSlimHR(startDate: string, endDate: string): Promise<string> 
             .get();
         const scheduledDays = new Set<string>();
         let totalScheduledSlots = 0;
+        const schedByDate = new Map<string, string[]>();
+        
         for (const d of schedSnap.docs) {
             const s = d.data();
             scheduledDays.add(s.date);
-            totalScheduledSlots += (s.employeeIds || []).length;
+            const empIds = s.employeeIds || [];
+            totalScheduledSlots += empIds.length;
+            
+            const empNames = empIds.map((id: string) => {
+                const u = users.find(u => u.uid === id);
+                return u ? u.name : id;
+            });
+            schedByDate.set(s.date, empNames);
+        }
+
+        const schedLines: string[] = [];
+        const sortedSchedDates = [...schedByDate.keys()].sort();
+        for (const date of sortedSchedDates) {
+            schedLines.push(`  · ${date}: ${schedByDate.get(date)!.join(', ')}`);
         }
 
         // ── 4. Referral Points ───────────────────────────────────
@@ -295,14 +310,20 @@ async function fetchSlimHR(startDate: string, endDate: string): Promise<string> 
 
         // Detail per day (compact mode for ranges > 7 days)
         if (isMultiDay && sortedDates.length > 7) {
-            parts.push(`\nTổng hợp theo ngày (${sortedDates.length} ngày):`);
+            parts.push(`\nTổng hợp chấm công (${sortedDates.length} ngày):`);
             for (const date of sortedDates) {
                 const dayMap = attByDate.get(date)!;
-                parts.push(`  · ${date}: ${dayMap.size} NV chấm công`);
+                const names = [...dayMap.values()].map(r => r.name).join(', ');
+                parts.push(`  · ${date} (${dayMap.size} NV): ${names}`);
             }
         } else if (attLines.length > 0) {
             parts.push(`\nChi tiết chấm công:`);
             parts.push(attLines.join('\n'));
+        }
+
+        if (schedLines.length > 0) {
+            parts.push(`\n📅 LỊCH ĐƯỢC XẾP:`);
+            parts.push(schedLines.join('\n'));
         }
 
         if (lateList.length > 0) {
