@@ -13,6 +13,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 // ── Anthropic provider trỏ đến gateway gwai.cloud ──────────
 const anthropic = createAnthropic({
     baseURL: 'https://1gw.gwai.cloud/v1',
+    apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
 export const runtime = 'nodejs';
@@ -24,11 +25,28 @@ function getTodayVN(): string {
     return new Date(Date.now() + 7 * 3600000).toISOString().split('T')[0];
 }
 
-/** Kiểm tra API key (chạy 1 lần) */
+/** Kiểm tra API key (có TTL để tự phục hồi khi lỗi tạm thời) */
 let apiKeyValid: boolean | null = null;
+let apiKeyCheckedAt = 0;
+const VALIDATION_TTL_MS = 5 * 60 * 1000; // 5 phút
 
 async function validateApiKey(): Promise<boolean> {
-    if (apiKeyValid !== null) return apiKeyValid;
+    // Cache hit — chỉ dùng nếu result = true hoặc chưa hết hạn
+    if (apiKeyValid !== null) {
+        const age = Date.now() - apiKeyCheckedAt;
+        // Nếu key đã valid → giữ cache lâu dài
+        if (apiKeyValid === true) return true;
+        // Nếu key invalid nhưng chưa hết TTL → trả cache
+        if (age < VALIDATION_TTL_MS) return false;
+        // Hết TTL → reset để thử lại
+        apiKeyValid = null;
+    }
+
+    const keyPreview = process.env.ANTHROPIC_API_KEY
+        ? `${process.env.ANTHROPIC_API_KEY.slice(0, 12)}...${process.env.ANTHROPIC_API_KEY.slice(-4)}`
+        : '(MISSING)';
+    console.log('[AI Chat] Validating API key:', keyPreview);
+
     try {
         await generateText({
             model: anthropic('claude-sonnet-4-6'),
@@ -36,17 +54,15 @@ async function validateApiKey(): Promise<boolean> {
             maxTokens: 1,
         });
         apiKeyValid = true;
+        apiKeyCheckedAt = Date.now();
         console.log('[AI Chat] ✅ Gateway + API key validated');
         return true;
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error('[AI Chat] ❌ Validation failed:', msg);
-        if (msg.includes('invalid') || msg.includes('401') || msg.includes('Unauthorized')) {
-            apiKeyValid = false;
-        } else {
-            apiKeyValid = null;
-        }
-        return apiKeyValid ?? false;
+        apiKeyValid = false;
+        apiKeyCheckedAt = Date.now();
+        return false;
     }
 }
 
