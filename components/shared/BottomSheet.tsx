@@ -130,7 +130,7 @@ export default function BottomSheet({
                 onClick={onClose}
                 className={cn(
                     'absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity duration-300',
-                    isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none',
+                    isOpen ? 'opacity-100 lg:hidden' : 'opacity-0 pointer-events-none',
                 )}
             />
 
@@ -138,7 +138,7 @@ export default function BottomSheet({
             <div
                 ref={sheetRef}
                 className={cn(
-                    'relative w-full rounded-t-3xl bg-white shadow-2xl',
+                    'relative w-full rounded-t-3xl bg-white shadow-2xl lg:max-w-2xl lg:left-full lg:-translate-x-full',
                     'flex flex-col overflow-hidden',
                     maxHeightClass,
                     'transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]',

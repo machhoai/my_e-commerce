@@ -4,14 +4,24 @@
  * AIQuickChat.tsx
  * ─────────────────────────────────────────────────────────────
  * AI Chat BottomSheet — Mở từ FAB lơ lửng khi user có quyền AI.
- * Dùng useChat từ ai/react (SDK v4).
+ * Hỗ trợ chọn model (Claude / Groq).
  */
 
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { useChat } from 'ai/react';
 import type { Message } from 'ai';
-import { Send, X, Bot, Sparkles, Loader2 } from 'lucide-react';
+import { Send, X, Bot, Sparkles, Loader2, ChevronDown } from 'lucide-react';
 import BottomSheet from '@/components/shared/BottomSheet';
+
+// ── Model options (phải khớp với MODEL_OPTIONS trong route.ts) ───
+const MODELS = [
+    { id: 'llama-70b', label: 'Llama 3.3 70B', icon: '🦙', desc: 'Nhanh, đa năng', badge: '⭐ Đề xuất' as string | null },
+    { id: 'gemini-flash', label: 'Gemini 2.0 Flash', icon: '✨', desc: 'Google AI, 1M context', badge: null },
+    { id: 'llama-scout', label: 'Llama 4 Scout', icon: '🔍', desc: 'Nhẹ, tiết kiệm', badge: null },
+    { id: 'compound-beta', label: 'Compound Beta', icon: '🧬', desc: 'Đa model kết hợp', badge: null },
+    { id: 'llama-8b', label: 'Llama 3.1 8B', icon: '⚡', desc: 'Siêu nhanh', badge: null },
+    { id: 'claude-sonnet', label: 'Claude Sonnet', icon: '🟣', desc: 'Gateway đang lỗi', badge: '⚠️ Lỗi' },
+];
 
 // ── Markdown renderer ────────────────────────────────────────
 function SimpleMarkdown({ text }: { text: string }) {
@@ -89,17 +99,20 @@ export default function AIQuickChat({ isOpen, onClose }: AIQuickChatProps) {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const [hasInteracted, setHasInteracted] = useState(false);
+    const [selectedModel, setSelectedModel] = useState(MODELS[0]); // Default = Llama 70B (first item)
+    const [showModelPicker, setShowModelPicker] = useState(false);
 
     const {
         messages,
         input,
         handleInputChange,
-        handleSubmit,
+        handleSubmit: rawSubmit,
         isLoading,
         error,
         setInput,
     } = useChat({
         api: '/api/chat',
+        body: { modelId: selectedModel.id },
         onError: (err) => {
             console.error('[AI Quick Chat] Error:', err);
         },
@@ -111,6 +124,13 @@ export default function AIQuickChat({ isOpen, onClose }: AIQuickChatProps) {
             } as Message,
         ],
     });
+
+    // Wrap submit to close model picker
+    const handleSubmit = useCallback((e: React.FormEvent) => {
+        setHasInteracted(true);
+        setShowModelPicker(false);
+        rawSubmit(e);
+    }, [rawSubmit]);
 
     // Auto scroll
     useEffect(() => {
@@ -132,6 +152,8 @@ export default function AIQuickChat({ isOpen, onClose }: AIQuickChatProps) {
         setTimeout(() => inputRef.current?.focus(), 50);
     }, [setInput]);
 
+    const currentModelInfo = selectedModel;
+
     return (
         <BottomSheet isOpen={isOpen} onClose={onClose} maxHeightClass="max-h-[85vh]">
             {/* ── Header ── */}
@@ -147,7 +169,7 @@ export default function AIQuickChat({ isOpen, onClose }: AIQuickChatProps) {
                                 <span className="flex items-center gap-1">
                                     <Loader2 className="w-3 h-3 animate-spin" /> Đang phân tích...
                                 </span>
-                            ) : 'Claude Sonnet · Smart Routing'}
+                            ) : `${currentModelInfo.icon} ${currentModelInfo.label}`}
                         </p>
                     </div>
                 </div>
@@ -221,14 +243,68 @@ export default function AIQuickChat({ isOpen, onClose }: AIQuickChatProps) {
                 </div>
             )}
 
+            {/* ── Model Picker (dropdown above input) ── */}
+            {showModelPicker && (
+                <div className="px-4 pb-2">
+                    <div className="bg-white border border-surface-200 rounded-2xl shadow-lg p-1.5 space-y-0.5">
+                        {MODELS.map(m => (
+                            <button
+                                key={m.id}
+                                onClick={() => {
+                                    setSelectedModel(m);
+                                    setShowModelPicker(false);
+                                }}
+                                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-colors ${
+                                    selectedModel.id === m.id
+                                        ? 'bg-violet-50 border border-violet-200'
+                                        : 'hover:bg-surface-50'
+                                }`}
+                            >
+                                <span className="text-base">{m.icon}</span>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                        <p className="text-[12px] font-bold text-surface-800">{m.label}</p>
+                                        {m.badge && (
+                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                                                m.badge.includes('Lỗi')
+                                                    ? 'bg-red-50 text-red-600 border border-red-200'
+                                                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                            }`}>
+                                                {m.badge}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-[10px] text-surface-400">{m.desc}</p>
+                                </div>
+                                {selectedModel.id === m.id && (
+                                    <span className="text-violet-600 text-[10px] font-bold">✓</span>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* ── Input bar ── */}
             <form
-                onSubmit={(e) => {
-                    setHasInteracted(true);
-                    handleSubmit(e);
-                }}
+                onSubmit={handleSubmit}
                 className="flex items-center gap-2 px-4 py-3 border-t border-surface-100 shrink-0"
             >
+                {/* Model selector toggle */}
+                <button
+                    type="button"
+                    onClick={() => setShowModelPicker(v => !v)}
+                    className={`flex items-center gap-1 text-[11px] font-bold px-2 py-2 rounded-xl border transition-colors shrink-0 ${
+                        showModelPicker
+                            ? 'bg-violet-50 border-violet-300 text-violet-700'
+                            : 'bg-surface-100 border-surface-200 text-surface-500 hover:bg-surface-50'
+                    }`}
+                    title="Chọn model AI"
+                >
+                    <span>{currentModelInfo.icon}</span>
+                    <ChevronDown className={`w-3 h-3 transition-transform ${showModelPicker ? 'rotate-180' : ''}`} />
+                </button>
+
                 <input
                     ref={inputRef}
                     value={input}

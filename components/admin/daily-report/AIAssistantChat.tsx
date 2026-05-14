@@ -13,6 +13,16 @@ import type { Message } from 'ai';
 import { Send, X, Bot, ChevronDown, Sparkles, Loader2, BarChart3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// ── Model options (must match MODEL_OPTIONS in route.ts) ────
+const MODELS = [
+    { id: 'llama-70b', label: 'Llama 3.3 70B', icon: '🦙', desc: 'Nhanh, đa năng', badge: '⭐ Đề xuất' as string | null },
+    { id: 'gemini-flash', label: 'Gemini 2.0 Flash', icon: '✨', desc: 'Google AI, 1M context', badge: null },
+    { id: 'llama-scout', label: 'Llama 4 Scout', icon: '🔍', desc: 'Nhẹ, tiết kiệm', badge: null },
+    { id: 'compound-beta', label: 'Compound Beta', icon: '🧬', desc: 'Đa model kết hợp', badge: null },
+    { id: 'llama-8b', label: 'Llama 3.1 8B', icon: '⚡', desc: 'Siêu nhanh', badge: null },
+    { id: 'claude-sonnet', label: 'Claude Sonnet', icon: '🟣', desc: 'Gateway đang lỗi', badge: '⚠️ Lỗi' },
+];
+
 // ─────────────────────────────────────────────────────────────
 // Markdown renderer (basic: bold, italic, list, heading)
 // ─────────────────────────────────────────────────────────────
@@ -115,6 +125,8 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
     const [showUsage, setShowUsage] = useState(false);
+    const [showModelPicker, setShowModelPicker] = useState(false);
+    const [selectedModel, setSelectedModel] = useState(MODELS[0]); // Default = Llama 70B (first item)
     const [tokenMap, setTokenMap] = useState<Record<string, { input: number; output: number }>>({}); // msgId → usage
     const [totalUsage, setTotalUsage] = useState({ input: 0, output: 0, requests: 0 });
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -145,6 +157,7 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
         setInput,
     } = useChat({
         api: '/api/chat',
+        body: { modelId: selectedModel.id },
         onFinish: handleFinish,
         onError: (err) => {
             console.error('[AI Chat] useChat error:', err);
@@ -219,7 +232,7 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
                                     {isLoading ? (
                                         <><Loader2 className="w-3 h-3 animate-spin" /> Đang phân tích...</>
                                     ) : (
-                                        'Claude Sonnet 4 · Smart Routing'
+                                        `${selectedModel.icon} ${selectedModel.label}`
                                     )}
                                 </p>
                             </div>
@@ -360,11 +373,68 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
                                         </div>
                                     )}
 
+                                    {/* Model Picker Dropdown */}
+                                    {showModelPicker && (
+                                        <div className="px-3 pb-2">
+                                            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg p-1 space-y-0.5">
+                                                {MODELS.map(m => (
+                                                    <button
+                                                        key={m.id}
+                                                        onClick={() => {
+                                                            setSelectedModel(m);
+                                                            setShowModelPicker(false);
+                                                        }}
+                                                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left transition-colors ${
+                                                            selectedModel.id === m.id
+                                                                ? 'bg-violet-50 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-700'
+                                                                : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                                                        }`}
+                                                    >
+                                                        <span className="text-sm">{m.icon}</span>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">{m.label}</p>
+                                                                {m.badge && (
+                                                                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${
+                                                                        m.badge.includes('Lỗi')
+                                                                            ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800'
+                                                                            : 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                                                                    }`}>
+                                                                        {m.badge}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-[9px] text-slate-400">{m.desc}</p>
+                                                        </div>
+                                                        {selectedModel.id === m.id && (
+                                                            <span className="text-violet-600 text-[10px] font-bold">✓</span>
+                                                        )}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Input bar */}
                                     <form
-                                        onSubmit={handleSubmit}
+                                        onSubmit={(e) => { setShowModelPicker(false); handleSubmit(e); }}
                                         className="flex items-center gap-2 px-3 py-3 border-t border-slate-100 dark:border-slate-800 shrink-0"
                                     >
+                                        {/* Model toggle */}
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowModelPicker(v => !v)}
+                                            className={`flex items-center gap-1 text-[11px] font-bold px-2 py-2 rounded-xl border transition-colors shrink-0 ${
+                                                showModelPicker
+                                                    ? 'bg-violet-50 dark:bg-violet-900/30 border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-400'
+                                                    : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'
+                                            }`}
+                                            title="Chọn model AI"
+                                        >
+                                            <span>{selectedModel.icon}</span>
+                                            <ChevronDown className={`w-3 h-3 transition-transform ${showModelPicker ? 'rotate-180' : ''}`} />
+                                        </button>
+
                                         <input
                                             ref={inputRef}
                                             value={input}
