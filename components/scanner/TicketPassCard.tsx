@@ -124,11 +124,29 @@ export default function TicketPassCard({
                 </div>
                 <div className="flex items-center gap-2.5">
                     <CalendarDays className="w-3.5 h-3.5 text-surface-400 shrink-0" />
-                    <span className="text-xs text-surface-500 w-20 shrink-0">Hiệu lực</span>
+                    <span className="text-xs text-surface-500 w-20 shrink-0">Bắt đầu</span>
                     <span className="text-xs font-medium text-surface-600">
-                        {formatDate(pass.validFrom)} — {formatDate(pass.validUntil)}
+                        {formatDate(pass.validFrom)}
                     </span>
                 </div>
+                <div className="flex items-center gap-2.5">
+                    <CalendarDays className="w-3.5 h-3.5 text-surface-400 shrink-0" />
+                    <span className="text-xs text-surface-500 w-20 shrink-0">Hết hạn</span>
+                    <span className="text-xs font-medium text-surface-600">
+                        {formatDate(pass.validUntil)}
+                    </span>
+                </div>
+
+                {pass.timeSlotStart && pass.timeSlotEnd && (
+                    <div className="flex items-center gap-2.5">
+                        <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span className="text-xs text-surface-500 w-20 shrink-0">Khung giờ</span>
+                        <span className="text-xs font-medium text-surface-600">
+                            {formatDate(pass.timeSlotStart)} - {formatDate(pass.timeSlotEnd)}
+                        </span>
+                    </div>
+                )}
+
                 {pass.usedAt && (
                     <div className="flex items-center gap-2.5">
                         <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />

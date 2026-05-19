@@ -806,6 +806,9 @@ export interface TicketPassData {
     createdAt: string;
     usedAt?: string | null;
     usedBy?: string | null;
+    timeSlotStart?: string | null;
+    timeSlotEnd?: string | null;
+    timeSlotStatus?: TicketPassStatus | null;
 }
 
 export interface TicketOrderItem {
