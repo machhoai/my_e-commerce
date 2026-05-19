@@ -781,7 +781,7 @@ export interface ScanResult {
 // Ticketing API (External B.Duck Scan & Ticketing System)
 // ============================================================
 
-export type TicketPassStatus = 'active' | 'used' | 'voided';
+export type TicketPassStatus = "active" | "used" | "expired" | "voided" | "out_of_time_slot";
 export type TicketOrderStatus = 'pending' | 'paid' | 'cancelled';
 
 export interface TicketPassData {
