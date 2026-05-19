@@ -13,6 +13,7 @@ import {
     getOrderList,
 } from '@/lib/joyworld';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { calculateAttendanceStatus } from '@/lib/attendance-rules';
 
 // ── Format helpers ───────────────────────────────────────────
 function fmtVND(n: number): string {
@@ -168,6 +169,19 @@ async function fetchSlimHR(startDate: string, endDate: string): Promise<string> 
             rosterLines.push(`  ▸ ${wp} (${names.length} NV): ${names.join(', ')}`);
         }
 
+        // Fetch global settings for attendance rules
+        const settingsDoc = await db.collection('settings').doc('global').get();
+        const settings = settingsDoc.exists ? settingsDoc.data() : null;
+        const byShift = settings?.attendanceRules?.byShift || {};
+        const shiftNames = Object.keys(byShift);
+        const ruleLines: string[] = [];
+        for (const shiftName of shiftNames) {
+            const rule = byShift[shiftName]?.defaultWeekday;
+            if (rule) {
+                ruleLines.push(`  · ${shiftName}: ${rule.startTime} → ${rule.endTime} (cho phép trễ ${rule.allowedLateMins}p, về sớm ${rule.allowedEarlyMins}p)`);
+            }
+        }
+
         // ── 2. Attendance (date range) ────────────────────────────
         const startISO = `${startDate}T00:00:00`;
         const endISO = `${endDate}T23:59:59`;
@@ -228,14 +242,15 @@ async function fetchSlimHR(startDate: string, endDate: string): Promise<string> 
             const dayTotal = dayMap.size;
             totalCheckins += dayTotal;
 
-            // Check late (after 09:00)
+            // Check late using real rules
             let dayLateCount = 0;
             const dayLateNames: string[] = [];
             for (const [, rec] of dayMap) {
-                const checkInTime = rec.checkIn.slice(11, 16); // HH:MM
-                if (checkInTime > '09:00') {
+                const inTime = rec.checkIn.slice(11, 16); // HH:MM
+                const statusRes = calculateAttendanceStatus(rec.checkIn, rec.checkOut, date, settings as any);
+                if (statusRes.status === 'LATE') {
                     dayLateCount++;
-                    dayLateNames.push(`${rec.name} (${checkInTime})`);
+                    dayLateNames.push(`${rec.name} (${inTime})`);
                 }
             }
             totalLateCount += dayLateCount;
@@ -246,9 +261,10 @@ async function fetchSlimHR(startDate: string, endDate: string): Promise<string> 
             // Compact daily line (only show per-day detail if <= 7 days)
             if (!isMultiDay || sortedDates.length <= 7) {
                 const empLines = [...dayMap.values()].map(r => {
+                    const statusRes = calculateAttendanceStatus(r.checkIn, r.checkOut, date, settings as any);
                     const inTime = r.checkIn.slice(11, 16);
                     const outTime = r.checkOut ? r.checkOut.slice(11, 16) : '--:--';
-                    const late = inTime > '09:00' ? ' ⚠️TRỄ' : '';
+                    const late = statusRes.status === 'LATE' ? ' ⚠️TRỄ' : '';
                     return `    - ${r.name}: ${inTime} → ${outTime}${late}`;
                 }).join('\n');
                 attLines.push(`  📅 ${date} (${dayTotal} NV):\n${empLines}`);
@@ -262,10 +278,25 @@ async function fetchSlimHR(startDate: string, endDate: string): Promise<string> 
             .get();
         const scheduledDays = new Set<string>();
         let totalScheduledSlots = 0;
+        const schedByDate = new Map<string, string[]>();
+        
         for (const d of schedSnap.docs) {
             const s = d.data();
             scheduledDays.add(s.date);
-            totalScheduledSlots += (s.employeeIds || []).length;
+            const empIds = s.employeeIds || [];
+            totalScheduledSlots += empIds.length;
+            
+            const empNames = empIds.map((id: string) => {
+                const u = users.find(u => u.uid === id);
+                return u ? u.name : id;
+            });
+            schedByDate.set(s.date, empNames);
+        }
+
+        const schedLines: string[] = [];
+        const sortedSchedDates = [...schedByDate.keys()].sort();
+        for (const date of sortedSchedDates) {
+            schedLines.push(`  · ${date}: ${schedByDate.get(date)!.join(', ')}`);
         }
 
         // ── 4. Referral Points ───────────────────────────────────
@@ -287,22 +318,30 @@ async function fetchSlimHR(startDate: string, endDate: string): Promise<string> 
             `• Phân theo role: ${[...byRole.entries()].map(([r, c]) => `${r}: ${c}`).join(', ')}`,
             `\nDanh sách theo nơi làm việc:`,
             rosterLines.join('\n'),
+            `\n⚙️ QUY TẮC CHẤM CÔNG (HỆ THỐNG):`,
+            ruleLines.length > 0 ? ruleLines.join('\n') : `  · Chưa cấu hình (Mặc định tính trễ nếu không khớp ca)`,
             `\n📋 CHẤM CÔNG (${totalAttDays} ngày có dữ liệu):`,
             `• Tổng lượt chấm công: ${totalCheckins}`,
-            `• Đi trễ (sau 09:00): ${totalLateCount} lượt`,
+            `• Đi trễ: ${totalLateCount} lượt`,
             `• Ca được xếp: ${totalScheduledSlots} slot trong ${scheduledDays.size} ngày`,
         ];
 
         // Detail per day (compact mode for ranges > 7 days)
         if (isMultiDay && sortedDates.length > 7) {
-            parts.push(`\nTổng hợp theo ngày (${sortedDates.length} ngày):`);
+            parts.push(`\nTổng hợp chấm công (${sortedDates.length} ngày):`);
             for (const date of sortedDates) {
                 const dayMap = attByDate.get(date)!;
-                parts.push(`  · ${date}: ${dayMap.size} NV chấm công`);
+                const names = [...dayMap.values()].map(r => r.name).join(', ');
+                parts.push(`  · ${date} (${dayMap.size} NV): ${names}`);
             }
         } else if (attLines.length > 0) {
             parts.push(`\nChi tiết chấm công:`);
             parts.push(attLines.join('\n'));
+        }
+
+        if (schedLines.length > 0) {
+            parts.push(`\n📅 LỊCH ĐƯỢC XẾP:`);
+            parts.push(schedLines.join('\n'));
         }
 
         if (lateList.length > 0) {
@@ -420,21 +459,26 @@ async function fetchSlimEvents(): Promise<string> {
 
         if (events.length === 0) return '🎪 SỰ KIỆN: Không có sự kiện nào.';
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const lines = events.map((e: any) => {
-            const prizes = (e.prizePool || []).length;
-            return `  · ${e.name}: ${e.status} | ${e.startDate}→${e.endDate} | ${prizes} giải thưởng`;
-        }).join('\n');
+        // Lấy số người tham gia cho TỪNG event + Tổng số người tham gia toàn hệ thống
+        const [totalPartSnap, ...eventParts] = await Promise.all([
+            db.collection('event_participations').count().get(),
+            ...events.map(e => db.collection('event_participations').where('eventId', '==', e.id).count().get())
+        ]);
 
-        // Event participations count
-        const partSnap = await db.collection('event_participations').count().get();
-        const totalParticipants = partSnap.data().count;
+        const totalParticipants = totalPartSnap.data().count;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const lines = events.map((e: any, index: number) => {
+            const prizes = (e.prizePool || []).length;
+            const joins = eventParts[index].data().count;
+            return `  · ${e.name}: ${e.status} | ${joins} lượt tham gia | ${e.startDate}→${e.endDate} | ${prizes} giải thưởng`;
+        }).join('\n');
 
         return [
             `🎪 SỰ KIỆN & MINI-GAME`,
             `• Tổng sự kiện gần đây: ${events.length}`,
-            `• Tổng lượt tham gia: ${totalParticipants}`,
-            `Danh sách:`,
+            `• Tổng lượt tham gia hệ thống: ${totalParticipants}`,
+            `Danh sách chi tiết:`,
             lines,
         ].join('\n');
     } catch (e) { return `⚠️ Lỗi lấy sự kiện: ${e}`; }
@@ -449,15 +493,21 @@ async function fetchSlimMultiDay(start: string, end: string): Promise<string> {
         // Filter valid day records — dùng ĐÚNG field như trang Revenue:
         //   sysMoney = "Thực thu" (hero card, chart), cashRealMoney = tiền mặt, transferRealMoney = chuyển khoản
         //   KHÔNG dùng realMoney vì nó khác con số hiển thị trên UI
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const days = items
             .filter((r: { forDate: string }) => /^\d{4}-\d{2}-\d{2}$/.test(r.forDate))
-            .map((r: { forDate: string; sysMoney: number; realMoney: number; cashRealMoney: number; transferRealMoney: number }) => ({
-                date: r.forDate,
-                thucThu: Number(r.sysMoney) || 0,         // ← Khớp hero card "Thực thu"
-                doanhThuThuc: Number(r.realMoney) || 0,   // ← Doanh thu thực
-                cash: Number(r.cashRealMoney) || 0,
-                transfer: Number(r.transferRealMoney) || 0,
-            }));
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((r: any) => {
+                // Joyworld API uses dynamic keys for payment methods like 2_RealMoney or 123_RealMoney
+                const transferRealKey = Object.keys(r).find(k => k.includes('_RealMoney') && k !== 'cashRealMoney');
+                return {
+                    date: r.forDate,
+                    thucThu: Number(r.sysMoney) || 0,         // ← Khớp hero card "Thực thu"
+                    doanhThuThuc: Number(r.realMoney) || 0,   // ← Doanh thu thực
+                    cash: Number(r.cashRealMoney) || 0,
+                    transfer: transferRealKey ? Number(r[transferRealKey]) || 0 : 0,
+                };
+            });
 
         if (days.length === 0) return `📈 DOANH THU ${start} → ${end}\nKhông có dữ liệu.`;
 

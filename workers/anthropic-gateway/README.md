@@ -17,14 +17,6 @@ npx wrangler secret put ANTHROPIC_API_KEY
 # Paste your API key when prompted
 ```
 
-## Update allowed origins
-
-Edit `wrangler.toml`:
-```toml
-[vars]
-ALLOWED_ORIGINS = "http://localhost:3000,https://your-domain.com"
-```
-
 ## Deploy
 
 ```bash

@@ -466,7 +466,7 @@ export default function UniversalScannerModal() {
     const scannerRef = useRef<HTMLDivElement>(null);
     const html5QrRef = useRef<any>(null);
     const scanLock = useRef(false);
-    const handleSearchRef = useRef<(input: string) => void>(() => {});
+    const handleSearchRef = useRef<(input: string) => void>(() => { });
     const [showLabel, setShowLabel] = useState(false);
 
     // ── Preloaded data (loaded once when modal opens) ────────────
@@ -676,7 +676,7 @@ export default function UniversalScannerModal() {
     const handleSearch = async (input: string) => {
         console.log('[Scanner] handleSearch called with:', JSON.stringify(input), '| ticketMode:', ticketMode);
         let trimmed = input.trim();
-        
+
         // Extract slug if input is a Joyworld URL from printed labels
         try {
             if (trimmed.startsWith('http')) {
@@ -1045,7 +1045,7 @@ export default function UniversalScannerModal() {
             )}
 
             {/* ── BottomSheet ──────────────────────────────────────── */}
-            <BottomSheet isOpen={isOpen} onClose={close} maxHeightClass="max-h-[92vh]">
+            <BottomSheet isOpen={isOpen} onClose={close} maxHeightClass="max-h-[92vh] lg:max-h-[40vh]">
                 {/* Custom header */}
                 <div className="flex items-center justify-between px-5 py-3 border-b border-surface-100">
                     <div className="flex items-center gap-2.5">

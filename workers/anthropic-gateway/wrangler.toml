@@ -3,4 +3,4 @@ main = "src/index.ts"
 compatibility_date = "2024-12-01"
 
 [vars]
-ALLOWED_ORIGINS = "http://localhost:3000,https://your-production-domain.com"
+ALLOWED_ORIGINS = "http://localhost:3000,https://employee.joyworld.vn"

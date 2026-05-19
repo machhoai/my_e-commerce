@@ -86,7 +86,7 @@ export function useStoreSettings() {
         loading,
         storeId,
         /** Whether referral program is active for this store. Default: true (opt-out model). */
-        referralEnabled: settings?.referralEnabled ?? true,
+        referralEnabled: settings?.referralEnabled ?? false,
         registrationOpen: settings?.registrationOpen ?? false,
     };
 }
