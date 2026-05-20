@@ -246,6 +246,13 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         group: 'Văn Phòng',
         type: 'page',
     },
+    {
+        key: 'page.office.tracking',
+        label: 'Tracking Links',
+        description: 'Truy cập trang quản lý link rút gọn & theo dõi lượt truy cập',
+        group: 'Văn Phòng',
+        type: 'page',
+    },
     // ── Cài Đặt Cửa Hàng ───────────────────────────────────────
     {
         key: 'page.manager.settings',
