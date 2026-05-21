@@ -9,14 +9,15 @@
  * - Hiển thị + chỉnh sửa các trường trong UserDoc
  * - Phân quyền: ẩn/hiện nút sửa theo role + custom permissions
  * - Tích hợp ContractSection cho hợp đồng
+ * - Chọn role theo customRoleId + cửa hàng (giống chức năng tạo mới)
  * - Dùng được ở desktop lẫn mobile
  * 
  * KHÔNG thay thế profile popup — dùng song song.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { UserDoc } from '@/types';
+import { UserDoc, UserRole, CustomRoleDoc, StoreDoc, OfficeDoc, WarehouseDoc } from '@/types';
 import { showToast } from '@/lib/utils/toast';
 import {
     User, Phone, Mail, Calendar, CreditCard, GraduationCap,
@@ -24,6 +25,7 @@ import {
     Shield, Building2,
 } from 'lucide-react';
 import ContractSection from '@/components/shared/ContractSection';
+import type { LocationType } from '@/components/hr/LocationPicker';
 
 // ── Field config ────────────────────────────────────────────
 interface FieldDef {
@@ -64,14 +66,7 @@ const FIELD_DEFS: FieldDef[] = [
 
     // ── Tài khoản ──
     { key: 'bankAccount', label: 'Tài khoản ngân hàng', icon: <CreditCard className="w-4 h-4" />, type: 'text', placeholder: 'STK - Tên ngân hàng', editableBy: 'self', group: 'account' },
-    { key: 'role', label: 'Vai trò', icon: <Shield className="w-4 h-4" />, type: 'select', editableBy: 'admin', group: 'account', options: [
-        { value: 'admin', label: 'Quản trị viên' },
-        { value: 'store_manager', label: 'Quản lý cửa hàng' },
-        { value: 'manager', label: 'Quản lý' },
-        { value: 'employee', label: 'Nhân viên' },
-        { value: 'cashier', label: 'Thu ngân' },
-        { value: 'warehouse', label: 'Kho' },
-    ]},
+    // NOTE: role is handled separately below (custom role picker), not as a simple FIELD_DEFS entry
 ];
 
 const GROUP_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -104,10 +99,25 @@ export default function UserInfoEditor({
     const [saving, setSaving] = useState(false);
     const [editData, setEditData] = useState<Record<string, string>>({});
 
+    // ── Custom roles + locations data ────────────────────────
+    const [customRoles, setCustomRoles] = useState<CustomRoleDoc[]>([]);
+    const [stores, setStores] = useState<StoreDoc[]>([]);
+    const [offices, setOffices] = useState<OfficeDoc[]>([]);
+    const [warehouses, setWarehouses] = useState<WarehouseDoc[]>([]);
+
+    // ── Role editing state ───────────────────────────────────
+    const [editRole, setEditRole] = useState<UserRole>('employee');
+    const [editCustomRoleId, setEditCustomRoleId] = useState('');
+    const [editWorkplaceType, setEditWorkplaceType] = useState<LocationType>('STORE');
+    const [editStoreId, setEditStoreId] = useState('');
+    const [editOfficeId, setEditOfficeId] = useState('');
+    const [editWarehouseId, setEditWarehouseId] = useState('');
+
     // ── Permission check ─────────────────────────────────────
     const isSelf = user?.uid === employee.uid;
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
     const isManager = userDoc?.role === 'store_manager' || userDoc?.canManageHR === true;
+    const canEditRole = isAdmin || isManager;
 
     function canEditField(field: FieldDef): boolean {
         // Nếu có permission key riêng, kiểm tra
@@ -122,7 +132,92 @@ export default function UserInfoEditor({
     }
 
     const editableFields = FIELD_DEFS.filter(f => canEditField(f));
-    const hasAnyEditable = editableFields.length > 0;
+    const hasAnyEditable = editableFields.length > 0 || canEditRole;
+
+    // ── Fetch custom roles ───────────────────────────────────
+    useEffect(() => {
+        if (!user) return;
+        (async () => {
+            try {
+                const token = await user.getIdToken();
+                const res = await fetch('/api/roles', { headers: { Authorization: `Bearer ${token}` } });
+                const data = await res.json();
+                setCustomRoles(Array.isArray(data) ? data : []);
+            } catch { /* silent */ }
+        })();
+    }, [user]);
+
+    // ── Fetch stores/offices/warehouses (admin only) ─────────
+    useEffect(() => {
+        if (!user || !isAdmin) return;
+        (async () => {
+            try {
+                const token = await user.getIdToken();
+                const headers = { Authorization: `Bearer ${token}` };
+                const [storesRes, officesRes, warehousesRes] = await Promise.all([
+                    fetch('/api/stores', { headers }),
+                    fetch('/api/offices', { headers }),
+                    fetch('/api/warehouses', { headers }),
+                ]);
+                const [storesData, officesData, warehousesData] = await Promise.all([
+                    storesRes.json(), officesRes.json(), warehousesRes.json(),
+                ]);
+                setStores(Array.isArray(storesData) ? storesData : []);
+                setOffices(Array.isArray(officesData) ? officesData : []);
+                setWarehouses(Array.isArray(warehousesData) ? warehousesData : []);
+            } catch { /* silent */ }
+        })();
+    }, [user, isAdmin]);
+
+    // ── Eligible roles (filtered by creatorRoles + applicableTo) ──
+    const eligibleRoles = useMemo(() => {
+        return customRoles.filter(r => {
+            if (r.isLocked) return false;
+            const canCreate = r.creatorRoles?.includes(userDoc?.role ?? '') ||
+                r.creatorRoles?.includes(userDoc?.customRoleId ?? '');
+            if (!canCreate) return false;
+            // If applicableTo is set, the role must support the selected workplaceType
+            if (r.applicableTo && r.applicableTo.length > 0) {
+                return r.applicableTo.includes(editWorkplaceType);
+            }
+            return true; // No restriction = applies to all locations
+        });
+    }, [customRoles, userDoc, editWorkplaceType]);
+
+    // ── Role display name for read-only ──────────────────────
+    const roleDisplayName = useMemo(() => {
+        if (employee.customRoleId) {
+            const cr = customRoles.find(r => r.id === employee.customRoleId);
+            if (cr) return cr.name;
+        }
+        const sysRole = customRoles.find(r => r.isSystem && r.id === employee.role);
+        if (sysRole) return sysRole.name;
+        // Fallback
+        switch (employee.role) {
+            case 'admin': return 'Quản trị viên';
+            case 'store_manager': return 'Quản lý cửa hàng';
+            case 'manager': return 'Quản lý';
+            case 'employee': return 'Nhân viên';
+            default: return employee.role;
+        }
+    }, [employee, customRoles]);
+
+    // ── Store display name for read-only ─────────────────────
+    const storeDisplayName = useMemo(() => {
+        if (employee.officeId) {
+            const o = offices.find(x => x.id === employee.officeId);
+            return o ? `🏢 ${o.name}` : employee.officeId;
+        }
+        if (employee.warehouseId) {
+            const w = warehouses.find(x => x.id === employee.warehouseId);
+            return w ? `🏭 ${w.name}` : employee.warehouseId;
+        }
+        if (employee.storeId) {
+            const s = stores.find(x => x.id === employee.storeId);
+            return s ? `🏪 ${s.name}` : employee.storeId;
+        }
+        return null;
+    }, [employee, stores, offices, warehouses]);
 
     // ── Start editing ────────────────────────────────────────
     const startEdit = () => {
@@ -131,6 +226,16 @@ export default function UserInfoEditor({
             data[f.key] = String((employee as unknown as Record<string, unknown>)[f.key] || '');
         }
         setEditData(data);
+
+        // Initialize role editing state from employee
+        setEditRole(employee.role);
+        setEditCustomRoleId(employee.customRoleId || '');
+        const wt: LocationType = employee.workplaceType as LocationType || 'STORE';
+        setEditWorkplaceType(wt);
+        setEditStoreId(employee.storeId || '');
+        setEditOfficeId(employee.officeId || '');
+        setEditWarehouseId(employee.warehouseId || '');
+
         setEditing(true);
     };
 
@@ -139,6 +244,19 @@ export default function UserInfoEditor({
     const handleChange = (key: string, value: string) => {
         setEditData(prev => ({ ...prev, [key]: value }));
     };
+
+    // ── Role change handler ──────────────────────────────────
+    const handleRoleChange = (val: string) => {
+        if (val.startsWith('custom:')) {
+            setEditRole('employee');
+            setEditCustomRoleId(val.slice(7));
+        } else {
+            setEditRole(val as UserRole);
+            setEditCustomRoleId('');
+        }
+    };
+
+    const roleSelectValue = editCustomRoleId ? `custom:${editCustomRoleId}` : editRole;
 
     // ── Save ─────────────────────────────────────────────────
     const handleSave = useCallback(async () => {
@@ -158,13 +276,48 @@ export default function UserInfoEditor({
                 }
             }
 
+            // Send role + customRoleId + store if changed (manager or admin)
+            if (canEditRole) {
+                const oldRole = employee.role;
+                const oldCustomRoleId = employee.customRoleId || '';
+                if (editRole !== oldRole) {
+                    payload.role = editRole;
+                }
+                if (editCustomRoleId !== oldCustomRoleId) {
+                    payload.customRoleId = editCustomRoleId || null;
+                }
+                // Always send role together with customRoleId for consistency
+                if (payload.customRoleId !== undefined || payload.role !== undefined) {
+                    payload.role = editRole;
+                    payload.customRoleId = editCustomRoleId || null;
+                }
+            }
+
+            // Admin: send workplace/store fields if changed
+            if (isAdmin) {
+                const oldWt = employee.workplaceType || 'STORE';
+                const oldStoreId = employee.storeId || '';
+                const oldOfficeId = employee.officeId || '';
+                const oldWarehouseId = employee.warehouseId || '';
+
+                if (editWorkplaceType !== oldWt ||
+                    editStoreId !== oldStoreId ||
+                    editOfficeId !== oldOfficeId ||
+                    editWarehouseId !== oldWarehouseId) {
+                    payload.workplaceType = editWorkplaceType;
+                    payload.storeId = editWorkplaceType === 'STORE' ? (editStoreId || null) : null;
+                    payload.officeId = editWorkplaceType === 'OFFICE' ? (editOfficeId || null) : null;
+                    payload.warehouseId = editWorkplaceType === 'CENTRAL' ? (editWarehouseId || null) : null;
+                }
+            }
+
             if (Object.keys(payload).length === 0) {
                 setEditing(false);
                 setSaving(false);
                 return;
             }
 
-            payload.uid = employee.uid;
+            payload.targetUid = employee.uid;
 
             const res = await fetch('/api/auth/update-user', {
                 method: 'POST',
@@ -189,7 +342,8 @@ export default function UserInfoEditor({
         } finally {
             setSaving(false);
         }
-    }, [user, employee, editData, editableFields, isSelf, onUpdated]);
+    }, [user, employee, editData, editableFields, canEditRole, isAdmin,
+        editRole, editCustomRoleId, editWorkplaceType, editStoreId, editOfficeId, editWarehouseId, onUpdated]);
 
     // ── Render helpers ───────────────────────────────────────
     const isCompact = variant === 'compact';
@@ -242,6 +396,129 @@ export default function UserInfoEditor({
         );
     }
 
+    // ── Render role + store section ──────────────────────────
+    function renderRoleSection() {
+        const roleEditable = editing && canEditRole;
+
+        return (
+            <>
+                {/* Vai trò */}
+                <div className="space-y-1">
+                    <label className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                        roleEditable ? 'text-primary-600' : 'text-gray-400'
+                    }`}>
+                        <span className={roleEditable ? 'text-primary-500' : 'text-gray-400'}>
+                            <Shield className="w-4 h-4" />
+                        </span>
+                        Vai trò
+                    </label>
+
+                    {roleEditable ? (
+                        <div className="space-y-2">
+                            <select
+                                value={roleSelectValue}
+                                onChange={e => handleRoleChange(e.target.value)}
+                                className="w-full bg-white border border-gray-200 text-sm rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition-all"
+                            >
+                                {eligibleRoles.map(r => (
+                                    <option key={r.id} value={r.isSystem ? r.id : `custom:${r.id}`}>
+                                        {r.name}{r.isSystem ? '' : ' ✦'}
+                                    </option>
+                                ))}
+                            </select>
+                            {eligibleRoles.length === 0 && (
+                                <p className="text-[10px] text-amber-600">Không có vai trò nào khả dụng cho loại địa điểm này.</p>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="text-sm font-medium text-gray-800 px-1 py-1">
+                            {roleDisplayName}
+                        </div>
+                    )}
+                </div>
+
+                {/* Admin: Loại địa điểm + cửa hàng */}
+                {isAdmin && (
+                    <div className="space-y-1">
+                        <label className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                            roleEditable ? 'text-primary-600' : 'text-gray-400'
+                        }`}>
+                            <span className={roleEditable ? 'text-primary-500' : 'text-gray-400'}>
+                                <Building2 className="w-4 h-4" />
+                            </span>
+                            Địa điểm làm việc
+                        </label>
+
+                        {roleEditable ? (
+                            <div className="space-y-2">
+                                {/* Workplace type toggle */}
+                                <div className="flex gap-1.5">
+                                    {(['STORE', 'OFFICE', 'CENTRAL'] as LocationType[]).map(wt => (
+                                        <button
+                                            key={wt}
+                                            type="button"
+                                            onClick={() => {
+                                                setEditWorkplaceType(wt);
+                                                setEditStoreId('');
+                                                setEditOfficeId('');
+                                                setEditWarehouseId('');
+                                                // Reset customRoleId nếu role không áp dụng cho location type mới
+                                                setEditCustomRoleId('');
+                                            }}
+                                            className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
+                                                editWorkplaceType === wt
+                                                    ? 'bg-primary-600 text-white border-primary-600 shadow-sm'
+                                                    : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
+                                            }`}
+                                        >
+                                            {wt === 'STORE' ? '🏪 CH' : wt === 'OFFICE' ? '🏢 VP' : '🏭 Kho'}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Location selector */}
+                                {editWorkplaceType === 'STORE' && (
+                                    <select
+                                        value={editStoreId}
+                                        onChange={e => setEditStoreId(e.target.value)}
+                                        className="w-full bg-white border border-gray-200 text-sm rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition-all"
+                                    >
+                                        <option value="">-- Chưa gán --</option>
+                                        {stores.map(s => <option key={s.id} value={s.id}>🏪 {s.name}</option>)}
+                                    </select>
+                                )}
+                                {editWorkplaceType === 'OFFICE' && (
+                                    <select
+                                        value={editOfficeId}
+                                        onChange={e => setEditOfficeId(e.target.value)}
+                                        className="w-full bg-white border border-gray-200 text-sm rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition-all"
+                                    >
+                                        <option value="">-- Chưa gán --</option>
+                                        {offices.map(o => <option key={o.id} value={o.id}>🏢 {o.name}</option>)}
+                                    </select>
+                                )}
+                                {editWorkplaceType === 'CENTRAL' && (
+                                    <select
+                                        value={editWarehouseId}
+                                        onChange={e => setEditWarehouseId(e.target.value)}
+                                        className="w-full bg-white border border-gray-200 text-sm rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition-all"
+                                    >
+                                        <option value="">-- Chưa gán --</option>
+                                        {warehouses.map(w => <option key={w.id} value={w.id}>🏭 {w.name}</option>)}
+                                    </select>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="text-sm font-medium text-gray-800 px-1 py-1">
+                                {storeDisplayName || <span className="text-gray-400 italic">Chưa gán</span>}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </>
+        );
+    }
+
     // ── Group fields ─────────────────────────────────────────
     const groups = ['personal', 'work', 'account'] as const;
 
@@ -285,8 +562,12 @@ export default function UserInfoEditor({
             {/* ── Field groups ── */}
             {groups.map(groupKey => {
                 const groupFields = FIELD_DEFS.filter(f => f.group === groupKey);
-                if (groupFields.length === 0) return null;
                 const groupMeta = GROUP_LABELS[groupKey];
+                // account group also includes role section
+                const showRoleInGroup = groupKey === 'account';
+
+                // Skip if no fields AND no role section
+                if (groupFields.length === 0 && !showRoleInGroup) return null;
 
                 return (
                     <div key={groupKey} className="space-y-3">
@@ -295,6 +576,7 @@ export default function UserInfoEditor({
                         </p>
                         <div className={`grid ${gridCols} gap-x-6 gap-y-3 px-1`}>
                             {groupFields.map(f => renderField(f))}
+                            {showRoleInGroup && renderRoleSection()}
                         </div>
                     </div>
                 );
