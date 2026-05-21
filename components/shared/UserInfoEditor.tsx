@@ -64,6 +64,14 @@ const FIELD_DEFS: FieldDef[] = [
 
     // ── Tài khoản ──
     { key: 'bankAccount', label: 'Tài khoản ngân hàng', icon: <CreditCard className="w-4 h-4" />, type: 'text', placeholder: 'STK - Tên ngân hàng', editableBy: 'self', group: 'account' },
+    { key: 'role', label: 'Vai trò', icon: <Shield className="w-4 h-4" />, type: 'select', editableBy: 'admin', group: 'account', options: [
+        { value: 'admin', label: 'Quản trị viên' },
+        { value: 'store_manager', label: 'Quản lý cửa hàng' },
+        { value: 'manager', label: 'Quản lý' },
+        { value: 'employee', label: 'Nhân viên' },
+        { value: 'cashier', label: 'Thu ngân' },
+        { value: 'warehouse', label: 'Kho' },
+    ]},
 ];
 
 const GROUP_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -151,19 +159,15 @@ export default function UserInfoEditor({
             }
 
             if (Object.keys(payload).length === 0) {
-                showToast.info('Không có thay đổi', 'Dữ liệu chưa được chỉnh sửa.');
                 setEditing(false);
                 setSaving(false);
                 return;
             }
 
-            // Xác định target
-            if (!isSelf) {
-                payload.targetUid = employee.uid;
-            }
+            payload.uid = employee.uid;
 
             const res = await fetch('/api/auth/update-user', {
-                method: 'PUT',
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
