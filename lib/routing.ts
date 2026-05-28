@@ -22,4 +22,5 @@ export const PROTECTED_ROUTE_PREFIXES = [
     '/notifications',
     '/profile',
     '/dashboard',
+    '/greensm',
 ];

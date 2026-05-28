@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ShoppingCart, ClipboardList, Ticket, CalendarDays, LayoutGrid, Link2, Star } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ShoppingCart, ClipboardList, Ticket, CalendarDays, LayoutGrid, Link2, Star, Gift } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -303,6 +303,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             icon: CalendarDays,
             show: hasPermission('page.admin.events') || isSuperAdmin || isAdmin,
             matchPrefix: '/admin/events',
+            group: 'Marketing',
+        },
+        {
+            label: 'GreenSM',
+            href: '/greensm',
+            icon: Gift,
+            show: hasPermission('page.greensm.promotion') || isSuperAdmin || isAdmin,
+            matchPrefix: '/greensm',
             group: 'Marketing',
         },
         {

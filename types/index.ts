@@ -313,6 +313,20 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         group: 'Sự kiện',
         type: 'page',
     },
+    {
+        key: 'page.greensm.promotion',
+        label: 'GreenSM Promotion',
+        description: 'Access the GreenSM monthly lucky wheel promotion',
+        group: 'GreenSM',
+        type: 'page',
+    },
+    {
+        key: 'action.greensm.settings',
+        label: 'GreenSM Settings',
+        description: 'Configure monthly play limits, prize rates, and prize inventory',
+        group: 'GreenSM',
+        type: 'action',
+    },
     // ── Vé & Đơn hàng (Ticketing) ────────────────────────────────
     {
         key: 'scan_tickets',
@@ -735,6 +749,54 @@ export interface AuditLogDoc {
     timestamp: string;        // ISO timestamp
     targetId: string;         // Event/Campaign ID
     details: string;          // Human-readable description
+}
+
+// ============================================================
+// GreenSM Promotion
+// ============================================================
+
+export interface GreenSMPrize {
+    id: string;
+    name: string;
+    imageUrl?: string;
+    rate: number;
+    quantity: number;
+    remaining: number;
+    isActive: boolean;
+}
+
+export interface GreenSMSettingsDoc {
+    id: 'global';
+    monthlyLimit: number;
+    prizes: GreenSMPrize[];
+    updatedAt?: string;
+    updatedBy?: string;
+}
+
+export interface GreenSMMonthlyUsageDoc {
+    id: string;
+    contact: string;
+    contactType: 'phone' | 'email';
+    participantKey: string;
+    monthKey: string;
+    usedCount: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface GreenSMPlayDoc {
+    id: string;
+    contact: string;
+    contactType: 'phone' | 'email';
+    participantKey: string;
+    monthKey: string;
+    staffUid: string;
+    staffName?: string;
+    prizeId?: string | null;
+    prizeName?: string | null;
+    prizeImageUrl?: string | null;
+    won: boolean;
+    createdAt: string;
 }
 
 // ============================================================
