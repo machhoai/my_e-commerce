@@ -225,3 +225,7 @@
  GET /api/roles 200 in 149ms (compile: 3ms, render: 146ms)
  PUT /api/roles/w5Ef2DxQDevZiWo0D84a 200 in 1271ms (compile: 10ms, render: 1261ms)
  GET /api/roles 200 in 140ms (compile: 4ms, render: 136ms)
+ GET /greensm 200 in 114ms (compile: 26ms, proxy.ts: 7ms, render: 82ms)
+ GET /manifest.webmanifest 200 in 42ms (compile: 26ms, proxy.ts: 7ms, render: 9ms)
+ GET /api/greensm 200 in 1248ms (compile: 10ms, render: 1237ms)
+ GET /api/greensm 200 in 875ms (compile: 5ms, render: 870ms)

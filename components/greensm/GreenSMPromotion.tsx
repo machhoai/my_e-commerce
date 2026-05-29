@@ -15,7 +15,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import type { GreenSMPlayDoc, GreenSMPrize, GreenSMSettingsDoc } from '@/types';
+import type { GreenSMPlayDoc, GreenSMPrize, GreenSMSettingsDoc, VoucherCampaign } from '@/types';
+import { QRCodeSVG } from 'qrcode.react';
 
 type Variant = 'desktop' | 'mobile';
 
@@ -38,6 +39,7 @@ type SpinResult = {
     remainingPlays?: number;
     prize?: GreenSMPrize | null;
     message: string;
+    voucherCode?: string | null;
 };
 
 const segmentColors = ['#00A66C', '#1F7A8C', '#FFD166', '#EF476F', '#6D5DFB', '#F97316', '#14B8A6', '#A3E635'];
@@ -125,18 +127,24 @@ export default function GreenSMPromotion({ variant = 'desktop' }: { variant?: Va
     const [rotation, setRotation] = useState(0);
     const [settingsOpen, setSettingsOpen] = useState(variant === 'desktop');
     const [flowStep, setFlowStep] = useState<'entry' | 'wheel'>('entry');
+    const [campaigns, setCampaigns] = useState<VoucherCampaign[]>([]);
 
     const isMobile = variant === 'mobile';
     const canAccess = Boolean(userDoc && hasPermission('page.greensm.promotion'));
     const canConfigure = Boolean(userDoc && hasPermission('action.greensm.settings'));
 
-    const loadData = useCallback(async () => {
+    const loadData = useCallback(async (silent = false) => {
         if (!userDoc) return;
-        setLoading(true);
+        if (!silent) setLoading(true);
         setError('');
         try {
             const token = await getToken();
-            const res = await fetch('/api/greensm', { headers: { Authorization: `Bearer ${token}` } });
+            const [res, campaignRes] = await Promise.all([
+                fetch('/api/greensm', { headers: { Authorization: `Bearer ${token}` } }),
+                canConfigure
+                    ? fetch('/api/vouchers?mode=stats', { headers: { Authorization: `Bearer ${token}` } }).catch(() => null)
+                    : Promise.resolve(null),
+            ]);
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Không tải được GreenSM.');
             setSettings(data.settings);
@@ -145,12 +153,17 @@ export default function GreenSMPromotion({ variant = 'desktop' }: { variant?: Va
                 prizes: ensureDraftMatchesWheel(data.settings.prizes || []),
             } : data.settings);
             setRecentPlays(data.recentPlays || []);
+
+            if (campaignRes?.ok) {
+                const campData = await campaignRes.json();
+                setCampaigns((campData.campaigns || []) as VoucherCampaign[]);
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Không tải được GreenSM.');
         } finally {
             setLoading(false);
         }
-    }, [getToken, userDoc]);
+    }, [getToken, userDoc, canConfigure]);
 
     useEffect(() => {
         if (!authLoading && userDoc) void loadData();
@@ -195,9 +208,11 @@ export default function GreenSMPromotion({ variant = 'desktop' }: { variant?: Va
             const result = await postGreenSM<SpinResult>({ action: 'spin', contact: eligibility.contact });
 
             // Find which physical segment on wheel.png to land on
+            // When no prize ('may mắn lần sau'), pick a random segment
+            // so the wheel doesn't misleadingly land on 'Giảm giá 20%' (segment 0)
             const segmentIndex = result.prize
                 ? findWheelSegmentIndex(result.prize.name)
-                : 0;
+                : Math.floor(Math.random() * SEGMENT_COUNT);
 
             // ── Rotation math ──────────────────────────────────────────
             // wheel.png has segment 0 ("Giảm giá 20%") CENTERED at 12-o'clock (0°).
@@ -226,7 +241,7 @@ export default function GreenSMPromotion({ variant = 'desktop' }: { variant?: Va
                     message: result.message,
                 } : prev);
                 setSpinning(false);
-                void loadData();
+                void loadData(true);
             }, 4500);
         } catch (err) {
             setSpinning(false);
@@ -482,7 +497,7 @@ export default function GreenSMPromotion({ variant = 'desktop' }: { variant?: Va
                                     <p className="text-xs text-gray-500">Giới hạn lượt, tỷ lệ trúng và cơ cấu quà.</p>
                                 </div>
                                 <button
-                                    onClick={loadData}
+                                    onClick={() => loadData()}
                                     className="grid h-9 w-9 place-items-center rounded-xl bg-gray-100 text-gray-600"
                                     aria-label="Tải lại"
                                 >
@@ -530,6 +545,18 @@ export default function GreenSMPromotion({ variant = 'desktop' }: { variant?: Va
                                                             placeholder="URL hình quà"
                                                             className="h-9 w-full rounded-lg border border-gray-200 px-2 text-xs outline-none focus:border-emerald-500"
                                                         />
+                                                        <select
+                                                            value={prize.campaignId || ''}
+                                                            onChange={(event) => updatePrize(prize.id, { campaignId: event.target.value || undefined })}
+                                                            className="h-9 w-full rounded-lg border border-amber-200 bg-amber-50 px-2 text-xs text-amber-900 outline-none focus:border-amber-500"
+                                                        >
+                                                            <option value="">— Không liên kết campaign —</option>
+                                                            {campaigns.map(c => (
+                                                                <option key={c.id} value={c.id}>
+                                                                    {c.name} ({c.rewardType === 'discount_percent' ? `${c.rewardValue}%` : c.rewardType})
+                                                                </option>
+                                                            ))}
+                                                        </select>
                                                     </div>
                                                 </div>
                                                 <div className="mt-3 grid grid-cols-3 gap-2">
@@ -607,6 +634,7 @@ export default function GreenSMPromotion({ variant = 'desktop' }: { variant?: Va
                                 <tr>
                                     <th className="py-2">Khách</th>
                                     <th className="py-2">Kết quả</th>
+                                    <th className="py-2">Voucher</th>
                                     <th className="py-2">Nhân viên</th>
                                     <th className="py-2">Thời gian</th>
                                 </tr>
@@ -616,6 +644,7 @@ export default function GreenSMPromotion({ variant = 'desktop' }: { variant?: Va
                                     <tr key={play.id}>
                                         <td className="py-2 font-medium">{play.contact}</td>
                                         <td className="py-2">{play.won ? play.prizeName : 'May mắn lần sau'}</td>
+                                        <td className="py-2 font-mono text-xs text-emerald-700">{play.voucherCode || '—'}</td>
                                         <td className="py-2 text-gray-500">{play.staffName || play.staffUid}</td>
                                         <td className="py-2 text-gray-500">{new Date(play.createdAt).toLocaleString('vi-VN')}</td>
                                     </tr>
@@ -644,18 +673,42 @@ export default function GreenSMPromotion({ variant = 'desktop' }: { variant?: Va
                         ))}
                     </div>
                     <div className={cn('relative w-full max-w-sm overflow-hidden rounded-[28px] bg-white p-5 text-center shadow-2xl', isMobile && 'max-w-[340px]')}>
-                        <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
-                            {spinResult.prize ? <Sparkles className="h-8 w-8" /> : <Gift className="h-8 w-8" />}
-                        </div>
                         <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-600">
                             {spinResult.prize ? 'Chúc mừng' : 'GreenSM'}
                         </p>
+                        {spinResult.voucherCode ? (
+                            <div className="mx-auto mb-3">
+                                <div className="inline-block rounded-2xl bg-white p-2 shadow-sm ring-1 ring-emerald-100">
+                                    <QRCodeSVG
+                                        value={spinResult.voucherCode}
+                                        size={120}
+                                        bgColor="#ffffff"
+                                        fgColor="#064e3b"
+                                        level="M"
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
+                                {spinResult.prize ? <Sparkles className="h-8 w-8" /> : <Gift className="h-8 w-8" />}
+                            </div>
+                        )}
+
                         <h3 className="mt-1 text-2xl font-black text-gray-950">
                             {spinResult.prize?.name || 'May mắn lần sau'}
                         </h3>
-                        <div className="mx-auto mt-4 h-40 w-40 overflow-hidden rounded-3xl border border-gray-100">
-                            {prizeImage(spinResult.prize?.imageUrl, 'h-full w-full')}
-                        </div>
+
+                        {spinResult.voucherCode && (
+                            <div className="mx-auto mt-4 w-full max-w-xs rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-center">
+                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-600">Mã voucher của bạn</p>
+                                <p className="mt-1.5 text-xl font-black tracking-wider text-emerald-900 select-all">{spinResult.voucherCode}</p>
+                            </div>
+                        )}
+                        {spinResult.voucherCode && (
+                            <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-amber-600">
+                                <span>📸</span> Vui lòng chụp màn hình để lưu lại mã voucher
+                            </p>
+                        )}
                         <p className="mt-4 text-sm text-gray-600">{spinResult.message}</p>
                         <button
                             onClick={() => setSpinResult(null)}

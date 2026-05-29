@@ -119,6 +119,7 @@ function sanitizePrizes(prizes: GreenSMPrize[]): GreenSMPrize[] {
             quantity,
             remaining,
             isActive: prize.isActive !== false,
+            ...(prize.campaignId?.trim() ? { campaignId: prize.campaignId.trim() } : {}),
         };
     });
 }
@@ -189,6 +190,8 @@ export async function POST(req: NextRequest) {
 
         const result = await db.runTransaction(async (tx) => {
             const settingsRef = db.collection(SETTINGS_COLLECTION).doc(SETTINGS_DOC_ID);
+
+            // ── PHASE 1: ALL READS first (Firestore Admin rule) ──────────
             const [settingsSnap, usageSnap] = await Promise.all([
                 tx.get(settingsRef),
                 tx.get(usageRef),
@@ -215,17 +218,51 @@ export async function POST(req: NextRequest) {
             const now = new Date().toISOString();
             const prizes = sanitizePrizes(txSettings.prizes || []);
             const selectedPrize = pickPrize(prizes);
-            const updatedPrizes = selectedPrize
-                ? prizes.map((prize) => prize.id === selectedPrize.id ? { ...prize, remaining: Math.max(0, prize.remaining - 1) } : prize)
-                : prizes;
 
+            // Read voucher code BEFORE any writes (Firestore Admin SDK requirement)
+            let distributedVoucherCode: string | null = null;
+            let voucherCodeRef: FirebaseFirestore.DocumentReference | null = null;
+
+            if (selectedPrize?.campaignId) {
+                const codeQuery = db.collection('voucher_codes')
+                    .where('campaignId', '==', selectedPrize.campaignId)
+                    .where('status', '==', 'available')
+                    .limit(1);
+
+                const codeSnap = await tx.get(codeQuery);
+
+                if (!codeSnap.empty) {
+                    const codeDoc = codeSnap.docs[0];
+                    voucherCodeRef = codeDoc.ref;
+                    distributedVoucherCode = codeDoc.id;
+                }
+            }
+
+            // ── PHASE 2: ALL WRITES after reads ─────────────────────────
+
+            // Update prize inventory
             if (selectedPrize) {
+                const updatedPrizes = prizes.map((prize) =>
+                    prize.id === selectedPrize.id
+                        ? { ...prize, remaining: Math.max(0, prize.remaining - 1) }
+                        : prize
+                );
                 tx.update(settingsRef, {
                     prizes: updatedPrizes,
                     updatedAt: now,
                 });
             }
 
+            // Distribute voucher code
+            if (voucherCodeRef) {
+                tx.update(voucherCodeRef, {
+                    status: 'distributed',
+                    distributedToPhone: contact,
+                    distributedAt: now,
+                });
+            }
+
+            // Update usage count
             if (usageSnap.exists) {
                 tx.update(usageRef, {
                     usedCount: FieldValue.increment(1),
@@ -245,6 +282,7 @@ export async function POST(req: NextRequest) {
                 tx.set(usageRef, usageDoc);
             }
 
+            // Write play log
             const playRef = db.collection(PLAYS_COLLECTION).doc();
             const playDoc: GreenSMPlayDoc = {
                 id: playRef.id,
@@ -259,6 +297,7 @@ export async function POST(req: NextRequest) {
                 prizeImageUrl: selectedPrize?.imageUrl || null,
                 won: Boolean(selectedPrize),
                 createdAt: now,
+                voucherCode: distributedVoucherCode,
             };
             tx.set(playRef, playDoc);
 
@@ -270,6 +309,7 @@ export async function POST(req: NextRequest) {
                 usedCount: newUsedCount,
                 remainingPlays: Math.max(0, monthlyLimit - newUsedCount),
                 prize: selectedPrize || null,
+                voucherCode: distributedVoucherCode,
                 message: selectedPrize ? `Chúc mừng! Khách hàng trúng ${selectedPrize.name}.` : 'Chúc khách hàng may mắn lần sau.',
             };
         });

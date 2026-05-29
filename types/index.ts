@@ -763,6 +763,7 @@ export interface GreenSMPrize {
     quantity: number;
     remaining: number;
     isActive: boolean;
+    campaignId?: string;  // Liên kết với voucher_campaigns (cho giải voucher)
 }
 
 export interface GreenSMSettingsDoc {
@@ -797,6 +798,7 @@ export interface GreenSMPlayDoc {
     prizeImageUrl?: string | null;
     won: boolean;
     createdAt: string;
+    voucherCode?: string | null;  // Mã voucher đã phát (nếu giải là voucher)
 }
 
 // ============================================================
