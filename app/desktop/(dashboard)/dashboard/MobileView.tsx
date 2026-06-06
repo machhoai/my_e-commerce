@@ -20,7 +20,7 @@ import {
     BarChart3, Banknote, ArrowUpDown, Coins, XCircle, RefreshCw,
     Wifi, WifiOff, CalendarDays, CalendarRange,
     // Extra icons for new routes
-    FileText, Repeat, LayoutDashboard, Star, Ticket, Link2,
+    FileText, Repeat, LayoutDashboard, Star, Ticket, Link2, Gift,
 } from 'lucide-react';
 import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -1876,6 +1876,7 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
                 { icon: Link2, label: t('nav_trackingLinks'), route: '/office/tracking', color: 'bg-pink-50 text-pink-600', permKey: 'page.office.tracking' },
                 { icon: Ticket, label: t('nav_voucherMgmt'), route: '/admin/vouchers', color: 'bg-pink-50 text-pink-600', permKey: 'page.admin.vouchers' },
                 { icon: CalendarDays, label: t('nav_eventMgmt'), route: '/admin/events', color: 'bg-pink-50 text-pink-600', permKey: 'page.admin.events' },
+                { icon: Gift, label: 'GreenSM', route: '/greensm', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.greensm.promotion' },
             ],
         },
         // ── Admin (admin only) ─────────────────────────────────────────

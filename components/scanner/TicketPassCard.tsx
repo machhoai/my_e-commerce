@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle2, XCircle, Clock, RotateCcw, Loader2, ShieldAlert, CalendarDays, User, Mail, Tag, QrCode } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, RotateCcw, Loader2, ShieldAlert, CalendarDays, User, Mail, Tag, QrCode, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TicketPassData } from '@/types';
 import { ticketUsePassAction } from '@/actions/ticket-scan';
@@ -48,6 +48,7 @@ export default function TicketPassCard({
 
     const statusInfo = STATUS_MAP[pass.status] ?? STATUS_MAP.active;
     const canUse = pass.status === 'active';
+    console.log(pass);
 
     const handleUsePass = async () => {
         if (loading || !canUse) return;
@@ -124,11 +125,29 @@ export default function TicketPassCard({
                 </div>
                 <div className="flex items-center gap-2.5">
                     <CalendarDays className="w-3.5 h-3.5 text-surface-400 shrink-0" />
-                    <span className="text-xs text-surface-500 w-20 shrink-0">Hiệu lực</span>
+                    <span className="text-xs text-surface-500 w-20 shrink-0">Bắt đầu</span>
                     <span className="text-xs font-medium text-surface-600">
-                        {formatDate(pass.validFrom)} — {formatDate(pass.validUntil)}
+                        {formatDate(pass.validFrom)}
                     </span>
                 </div>
+                <div className="flex items-center gap-2.5">
+                    <CalendarDays className="w-3.5 h-3.5 text-surface-400 shrink-0" />
+                    <span className="text-xs text-surface-500 w-20 shrink-0">Hết hạn</span>
+                    <span className="text-xs font-medium text-surface-600">
+                        {formatDate(pass.validUntil)}
+                    </span>
+                </div>
+
+                {pass.timeSlotStart && pass.timeSlotEnd && (
+                    <div className="flex items-center gap-2.5">
+                        <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span className="text-xs text-surface-500 w-20 shrink-0">Khung giờ</span>
+                        <span className="text-xs font-medium text-surface-600">
+                            {pass.timeSlotStart} - {pass.timeSlotEnd}
+                        </span>
+                    </div>
+                )}
+
                 {pass.usedAt && (
                     <div className="flex items-center gap-2.5">
                         <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -168,15 +187,18 @@ export default function TicketPassCard({
 
             {/* Action buttons */}
             <div className="space-y-2 pt-1">
-                {canUse && !success && (
+                {!success && (
                     <button
                         onClick={handleUsePass}
-                        disabled={loading}
+                        disabled={pass.status === 'used' || pass.status === 'expired' || pass.status === 'out_of_time_slot' || loading}
                         className={cn(
                             'w-full py-3.5 rounded-xl font-bold text-sm transition-all',
                             loading
                                 ? 'bg-surface-200 text-surface-400 cursor-not-allowed'
                                 : 'bg-emerald-500 text-white hover:bg-emerald-600 active:scale-[0.98] shadow-md shadow-emerald-200',
+                            pass.status === 'used' ? 'bg-surface-100 text-surface-500  cursor-not-allowed disabled:bg-surface-100 disabled:text-surface-500' :
+                                pass.status === 'expired' ? 'bg-surface-100 text-surface-500 cursor-not-allowed disabled:bg-surface-100 disabled:text-surface-500' :
+                                    pass.status === 'out_of_time_slot' ? 'bg-surface-100 text-surface-500 cursor-not-allowed disabled:bg-surface-100 disabled:text-surface-500' : ''
                         )}
                     >
                         {loading ? (
@@ -184,9 +206,26 @@ export default function TicketPassCard({
                                 <Loader2 className="w-4 h-4 animate-spin" /> Đang xử lý...
                             </span>
                         ) : (
-                            <span className="flex items-center justify-center gap-2">
-                                <CheckCircle2 className="w-4 h-4" /> Sử dụng vé
-                            </span>
+                            pass.status === 'used' ? (
+                                <span className="flex items-center justify-center gap-2">
+                                    <CheckCircle2 className="w-4 h-4" /> Vé đã được sử dụng
+                                </span>
+                            )
+                                : pass.status === 'expired' ? (
+                                    <span className="flex items-center justify-center gap-2">
+                                        <X className="w-4 h-4" /> Vé đã hết hạn
+                                    </span>
+                                )
+                                    : pass.status === 'out_of_time_slot' ? (
+                                        <span className="flex items-center justify-center gap-2">
+                                            <Clock className="w-4 h-4" /> Vé chưa đến giờ vào
+                                        </span>
+                                    )
+                                        : (
+                                            <span className="flex items-center justify-center gap-2">
+                                                <CheckCircle2 className="w-4 h-4" /> Sử dụng vé
+                                            </span>
+                                        )
                         )}
                     </button>
                 )}

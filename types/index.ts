@@ -246,6 +246,13 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         group: 'Văn Phòng',
         type: 'page',
     },
+    {
+        key: 'page.office.tracking',
+        label: 'Tracking Links',
+        description: 'Truy cập trang quản lý link rút gọn & theo dõi lượt truy cập',
+        group: 'Văn Phòng',
+        type: 'page',
+    },
     // ── Cài Đặt Cửa Hàng ───────────────────────────────────────
     {
         key: 'page.manager.settings',
@@ -305,6 +312,20 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         description: 'Truy cập trang quản lý sự kiện và phát hành voucher',
         group: 'Sự kiện',
         type: 'page',
+    },
+    {
+        key: 'page.greensm.promotion',
+        label: 'GreenSM Promotion',
+        description: 'Access the GreenSM monthly lucky wheel promotion',
+        group: 'GreenSM',
+        type: 'page',
+    },
+    {
+        key: 'action.greensm.settings',
+        label: 'GreenSM Settings',
+        description: 'Configure monthly play limits, prize rates, and prize inventory',
+        group: 'GreenSM',
+        type: 'action',
     },
     // ── Vé & Đơn hàng (Ticketing) ────────────────────────────────
     {
@@ -731,6 +752,56 @@ export interface AuditLogDoc {
 }
 
 // ============================================================
+// GreenSM Promotion
+// ============================================================
+
+export interface GreenSMPrize {
+    id: string;
+    name: string;
+    imageUrl?: string;
+    rate: number;
+    quantity: number;
+    remaining: number;
+    isActive: boolean;
+    campaignId?: string;  // Liên kết với voucher_campaigns (cho giải voucher)
+}
+
+export interface GreenSMSettingsDoc {
+    id: 'global';
+    monthlyLimit: number;
+    prizes: GreenSMPrize[];
+    updatedAt?: string;
+    updatedBy?: string;
+}
+
+export interface GreenSMMonthlyUsageDoc {
+    id: string;
+    contact: string;
+    contactType: 'phone' | 'email';
+    participantKey: string;
+    monthKey: string;
+    usedCount: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface GreenSMPlayDoc {
+    id: string;
+    contact: string;
+    contactType: 'phone' | 'email';
+    participantKey: string;
+    monthKey: string;
+    staffUid: string;
+    staffName?: string;
+    prizeId?: string | null;
+    prizeName?: string | null;
+    prizeImageUrl?: string | null;
+    won: boolean;
+    createdAt: string;
+    voucherCode?: string | null;  // Mã voucher đã phát (nếu giải là voucher)
+}
+
+// ============================================================
 // Headless Promotion Engine
 // ============================================================
 
@@ -781,7 +852,7 @@ export interface ScanResult {
 // Ticketing API (External B.Duck Scan & Ticketing System)
 // ============================================================
 
-export type TicketPassStatus = 'active' | 'used' | 'voided';
+export type TicketPassStatus = "active" | "used" | "expired" | "voided" | "out_of_time_slot";
 export type TicketOrderStatus = 'pending' | 'paid' | 'cancelled';
 
 export interface TicketPassData {
@@ -806,6 +877,9 @@ export interface TicketPassData {
     createdAt: string;
     usedAt?: string | null;
     usedBy?: string | null;
+    timeSlotStart?: string | null;
+    timeSlotEnd?: string | null;
+    timeSlotStatus?: TicketPassStatus | null;
 }
 
 export interface TicketOrderItem {

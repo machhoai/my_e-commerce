@@ -83,7 +83,7 @@ export default function ContractSection({ employee, onUpdated }: ContractSection
         try {
             const token = await user.getIdToken();
             const res = await fetch('/api/auth/update-user', {
-                method: 'PUT',
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
