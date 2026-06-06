@@ -2,25 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { StoreSettings, RegistrationSchedule } from '@/types';
 
-// --- Auto-Schedule Logic (same as global settings, but applied per-store) ---
-function isInOpenWindow(schedule: RegistrationSchedule): boolean {
-    const nowUtc = new Date();
-    const vnMs = nowUtc.getTime() + 7 * 60 * 60 * 1000;
-    const vnNow = new Date(vnMs);
-
-    const currentDay = vnNow.getUTCDay();
-    const currentMinutes = vnNow.getUTCHours() * 60 + vnNow.getUTCMinutes();
-
-    const openTotal = schedule.openDay * 24 * 60 + schedule.openHour * 60 + schedule.openMinute;
-    const closeTotal = schedule.closeDay * 24 * 60 + schedule.closeHour * 60 + schedule.closeMinute;
-    const nowTotal = currentDay * 24 * 60 + currentMinutes;
-
-    if (openTotal <= closeTotal) {
-        return nowTotal >= openTotal && nowTotal < closeTotal;
-    } else {
-        return nowTotal >= openTotal || nowTotal < closeTotal;
-    }
-}
+import { isInOpenWindow } from '@/lib/utils/schedule';
 
 // GET /api/stores/[storeId]/settings — any authenticated user can read (needed for real-time checks)
 export async function GET(
