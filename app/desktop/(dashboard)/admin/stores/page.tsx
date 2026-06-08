@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,6 +12,7 @@ import {
 import { cn } from '@/lib/utils';
 import Portal from '@/components/Portal';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
+import { getAvailableWmsWarehousesAction } from '@/actions/scanner';
 
 type LocationType = 'STORE' | 'OFFICE' | 'CENTRAL';
 
@@ -38,6 +39,8 @@ export default function AdminStoresPage() {
     const [formName, setFormName] = useState('');
     const [formAddress, setFormAddress] = useState('');
     const [formType, setFormType] = useState<LocationType>('STORE');
+    const [formWmsWarehouseId, setFormWmsWarehouseId] = useState('');
+    const [wmsWarehouses, setWmsWarehouses] = useState<{ id: string; name: string; code: string; }[]>([]);
 
     const [actionLoading, setActionLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
@@ -85,7 +88,19 @@ export default function AdminStoresPage() {
         }
     }, [user, getToken]);
 
-    useEffect(() => { fetchStores(); }, [fetchStores]);
+
+
+    const fetchWmsWarehouses = useCallback(async () => {
+        const res = await getAvailableWmsWarehousesAction();
+        if (res.success && res.data) {
+            setWmsWarehouses(res.data);
+        }
+    }, []);
+
+    useEffect(() => { 
+        fetchStores(); 
+        fetchWmsWarehouses();
+    }, [fetchStores, fetchWmsWarehouses]);
 
     const handleCreateOrUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -97,14 +112,14 @@ export default function AdminStoresPage() {
                 await fetch('/api/stores', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ id: editStore.id, name: formName, address: formAddress, type: formType }),
+                    body: JSON.stringify({ id: editStore.id, name: formName, address: formAddress, type: formType, wmsWarehouseId: formWmsWarehouseId }),
                 });
                 showMsg('success', 'Đã cập nhật cửa hàng!');
             } else {
                 await fetch('/api/stores', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ name: formName, address: formAddress, type: formType }),
+                    body: JSON.stringify({ name: formName, address: formAddress, type: formType, wmsWarehouseId: formWmsWarehouseId }),
                 });
                 showMsg('success', 'Đã tạo cửa hàng mới!');
             }
@@ -140,6 +155,7 @@ export default function AdminStoresPage() {
         setFormName(store.name);
         setFormAddress(store.address || '');
         setFormType((store as any).type || 'STORE');
+        setFormWmsWarehouseId(store.wmsWarehouseId || '');
         setIsCreateOpen(true);
     };
 
@@ -148,6 +164,7 @@ export default function AdminStoresPage() {
         setEditStore(null);
         setFormName('');
         setFormAddress('');
+        setFormWmsWarehouseId('');
         setFormType(activeTab); // Default to the currently visible tab type
     };
 
@@ -279,6 +296,22 @@ export default function AdminStoresPage() {
                                         className="w-full border border-surface-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-accent-300 focus:border-accent-400"
                                     />
                                 </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-surface-700 mb-1.5">Liên kết kho WMS</label>
+                                    <select
+                                        value={formWmsWarehouseId}
+                                        onChange={e => setFormWmsWarehouseId(e.target.value)}
+                                        className="w-full border border-surface-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-accent-300 focus:border-accent-400 bg-white"
+                                    >
+                                        <option value="">-- Không liên kết --</option>
+                                        {wmsWarehouses.map(w => (
+                                            <option key={w.id} value={w.id}>{w.name} ({w.code})</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-[10px] text-surface-400 mt-1">
+                                        Khi liên kết, nhân viên tại đây sẽ quét và thao tác trên kho này.
+                                    </p>
+                                </div>
                                 <div className="flex gap-3 pt-2">
                                     <button type="button" onClick={resetForm} className="flex-1 border border-surface-200 hover:bg-surface-50 text-surface-700 px-4 py-2.5 rounded-xl font-medium text-sm">Hủy</button>
                                     <button type="submit" disabled={actionLoading} className="flex-1 bg-accent-600 hover:bg-accent-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm disabled:opacity-50">
@@ -345,7 +378,10 @@ export default function AdminStoresPage() {
                                                             <MapPin className="w-3 h-3" />{store.address}
                                                         </p>
                                                     )}
-                                                    <p className="text-[10px] text-surface-300 font-mono mt-0.5">{store.id}</p>
+                                                    <p className="text-[10px] text-surface-300 font-mono mt-0.5">
+                                                        ID: {store.id} 
+                                                        {store.wmsWarehouseId && ` • WMS: ${wmsWarehouses.find(w => w.id === store.wmsWarehouseId)?.name || store.wmsWarehouseId}`}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </td>

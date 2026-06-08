@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { X, ScanLine, Keyboard, SearchX, Camera, RotateCcw, Zap, ZapOff, User, Phone, ChevronDown, Loader2, CheckCircle2, Ticket } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { preloadScannerData, voucherSearchAction } from '@/actions/scanner';
+import { preloadScannerData, voucherSearchAction, getWmsWarehouseMappingAction, getAvailableWmsWarehousesAction } from '@/actions/scanner';
 import type { PreloadedEmployee, PreloadedProduct } from '@/actions/scanner';
 import { createPendingReferral } from '@/actions/referral';
 import { useAuth } from '@/contexts/AuthContext';
@@ -364,21 +364,49 @@ export default function UniversalScannerModal() {
     const scanLock = useRef(false);
     const [showLabel, setShowLabel] = useState(false);
 
-    // ── Preloaded data (loaded once when modal opens) ────────────
     const [preloadedEmployees, setPreloadedEmployees] = useState<PreloadedEmployee[]>([]);
     const [preloadedProducts, setPreloadedProducts] = useState<PreloadedProduct[]>([]);
     const [preloading, setPreloading] = useState(false);
+    const [wmsWarehouseId, setWmsWarehouseId] = useState<string | null>(null);
+    const [availableWarehouses, setAvailableWarehouses] = useState<any[]>([]);
 
     useEffect(() => {
         let isMounted = true;
 
         const fetchPreloadData = async () => {
-            // Nếu đã tải rồi hoặc đang tải thì bỏ qua
             if (preloadedEmployees.length > 0 || preloadedProducts.length > 0 || preloading) return;
-
             setPreloading(true);
             try {
-                const data = await preloadScannerData();
+                let warehouseIdToUse: string | null = null;
+                const isAdmin = authUser?.role === 'super_admin' || authUser?.role === 'admin';
+                
+                // 1. Get mapping
+                if (authUser?.uid && authUser?.workplaceType) {
+                    const locId = authUser.workplaceType === 'CENTRAL' ? authUser.warehouseId : authUser.storeId;
+                    if (locId) {
+                        const mapRes = await getWmsWarehouseMappingAction(authUser.workplaceType as any, locId);
+                        if (mapRes.success && mapRes.wmsWarehouseId) {
+                            warehouseIdToUse = mapRes.wmsWarehouseId;
+                            if (isMounted) setWmsWarehouseId(warehouseIdToUse);
+                        }
+                    }
+                }
+
+                // If Admin or no mapping found, load available warehouses
+                if (isAdmin || !warehouseIdToUse) {
+                    const whRes = await getAvailableWmsWarehousesAction();
+                    if (whRes.success && whRes.data) {
+                        if (isMounted) setAvailableWarehouses(whRes.data);
+                        // Default to the first one if not set
+                        if (!warehouseIdToUse && whRes.data.length > 0) {
+                            warehouseIdToUse = whRes.data[0].id;
+                            if (isMounted) setWmsWarehouseId(warehouseIdToUse);
+                        }
+                    }
+                }
+
+                // 2. Load products
+                const data = await preloadScannerData(warehouseIdToUse || undefined);
                 if (isMounted) {
                     setPreloadedEmployees(data.employees);
                     setPreloadedProducts(data.products);
@@ -390,15 +418,27 @@ export default function UniversalScannerModal() {
             }
         };
 
-        // Đợi 1 giây sau khi render xong giao diện mới bắt đầu tải ngầm
-        // Việc này giúp trang web mượt mà, không bị giật lúc mới vào
         const timer = setTimeout(fetchPreloadData, 1000);
-
         return () => {
             isMounted = false;
             clearTimeout(timer);
         };
-    }, []); // Chạy 1 lần duy nhất khi Component mount
+    }, [authUser]); // Chạy khi có authUser
+
+    // ── Handle Admin Warehouse Change ────────────────────────────────
+    const handleWarehouseChange = async (newId: string) => {
+        setWmsWarehouseId(newId);
+        setPreloading(true);
+        try {
+            const data = await preloadScannerData(newId);
+            setPreloadedEmployees(data.employees);
+            setPreloadedProducts(data.products);
+        } catch (err) {
+            console.error('[Scanner] Preload failed on warehouse change:', err);
+        } finally {
+            setPreloading(false);
+        }
+    };
 
     // ── Start camera — QR + Code128 only, high-res, adaptive qrbox ──
     const startCamera = useCallback(async () => {
@@ -663,8 +703,30 @@ export default function UniversalScannerModal() {
     const renderContent = () => {
         switch (view.kind) {
             case 'scanner':
+                const isAdmin = authUser?.role === 'super_admin' || authUser?.role === 'admin';
                 return (
                     <div className="flex flex-col">
+                        {/* Warehouse selector for Admin */}
+                        {(isAdmin || availableWarehouses.length > 0) && (
+                            <div className="px-4 pt-4 pb-0 bg-white">
+                                <label className="block text-xs font-semibold text-surface-600 mb-1">Kho / Nơi thao tác</label>
+                                <div className="relative">
+                                    <select
+                                        value={wmsWarehouseId || ''}
+                                        onChange={(e) => handleWarehouseChange(e.target.value)}
+                                        disabled={!isAdmin && availableWarehouses.length === 0}
+                                        className="w-full appearance-none bg-surface-50 border border-surface-200 text-surface-800 text-sm rounded-xl px-3 py-2.5 focus:ring-accent-500 focus:border-accent-400 outline-none pr-8 font-medium"
+                                    >
+                                        <option value="" disabled>-- Chọn kho WMS --</option>
+                                        {availableWarehouses.map(wh => (
+                                            <option key={wh.id} value={wh.id}>{wh.name} ({wh.code})</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="w-4 h-4 text-surface-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                </div>
+                            </div>
+                        )}
+
                         {/* Manual input */}
                         <div className="p-4 bg-white">
                             {showManual ? (
@@ -866,7 +928,7 @@ export default function UniversalScannerModal() {
                 return <VoucherResultCard success={view.success} title={view.title} details={view.details} onClose={close} />;
 
             case 'product':
-                return <ProductScanConfirmCard product={view.product as any} onClose={resetToScanner} />;
+                return <ProductScanConfirmCard product={view.product as any} wmsWarehouseId={wmsWarehouseId} onClose={resetToScanner} />;
 
             case 'referral':
                 return <ReferralView employee={view.employee} cashierId={authUser?.uid || ''} onDone={close} onRescan={resetToScanner} />;

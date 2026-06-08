@@ -361,6 +361,7 @@ export interface StoreDoc {
     isActive: boolean;
     createdAt?: string;
     settings?: StoreSettings;  // Per-store registration & shift configuration
+    wmsWarehouseId?: string;   // ID của kho bên hệ thống WMS để đồng bộ (tuỳ chọn)
 }
 
 export interface OfficeDoc {
@@ -381,6 +382,7 @@ export interface WarehouseDoc {
     capacitySqm?: number;
     isActive: boolean;
     createdAt?: string;
+    wmsWarehouseId?: string;   // ID của kho bên hệ thống WMS để đồng bộ (tuỳ chọn)
 }
 
 export interface UserDoc {

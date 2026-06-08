@@ -42,21 +42,30 @@ export type PreloadedProduct = {
     createdAt: string;
 };
 
-// ── Preload all employees + products (called once on modal open) ──
-export async function preloadScannerData(): Promise<{
+export async function preloadScannerData(wmsWarehouseId?: string): Promise<{
     employees: PreloadedEmployee[];
     products: PreloadedProduct[];
 }> {
     const db = getAdminDb();
 
+    const fetchProducts = async () => {
+        if (!wmsWarehouseId) return { success: false, data: [] };
+        try {
+            const res = await fetch(`${process.env.WMS_API_URL}/api/external/v1/products?warehouse_id=${wmsWarehouseId}`, {
+                headers: {
+                    'x-api-key': process.env.WMS_API_KEY || ''
+                },
+                cache: 'no-store'
+            });
+            return await res.json();
+        } catch {
+            return { success: false, data: [] };
+        }
+    };
+
     const [empSnap, productsResponse] = await Promise.all([
         db.collection('users').where('isActive', '==', true).get(),
-        fetch(`${process.env.WMS_API_URL}/api/external/v1/products?warehouse_id=${process.env.WMS_DEFAULT_WAREHOUSE_ID}`, {
-            headers: {
-                'x-api-key': process.env.WMS_API_KEY || ''
-            },
-            cache: 'no-store'
-        }).then(res => res.json()).catch(() => ({ success: false, data: [] }))
+        fetchProducts()
     ]);
 
     const employees: PreloadedEmployee[] = empSnap.docs.map(d => {
@@ -155,8 +164,9 @@ export async function lookupEmployeeByUid(uid: string): Promise<PreloadedEmploye
 // ── WMS API Actions ──────────────────────────────────────────
 
 export async function submitExternalScanAction(data: {
-    barcode: string | null;
-    product_id: string | null;
+    warehouse_id: string;
+    barcode: string;
+    product_id: string;
     warehouse_location_id: string;
     quantity: number;
     operator_name: string;
@@ -171,7 +181,6 @@ export async function submitExternalScanAction(data: {
         },
         body: JSON.stringify({
             ...data,
-            warehouse_id: process.env.WMS_DEFAULT_WAREHOUSE_ID,
             scan_time: new Date().toISOString(),
         })
     });
@@ -200,6 +209,7 @@ export async function cancelExternalScanAction(scanId: string) {
 }
 
 export async function submitBatchAction(data: {
+    warehouse_id: string;
     warehouse_location_id: string;
     shift_date: string;
     operator_name: string;
@@ -212,11 +222,58 @@ export async function submitBatchAction(data: {
             'Content-Type': 'application/json',
             'x-api-key': process.env.WMS_API_KEY || ''
         },
-        body: JSON.stringify({
-            ...data,
-            warehouse_id: process.env.WMS_DEFAULT_WAREHOUSE_ID,
-        })
+        body: JSON.stringify(data)
     });
     return res.json();
 }
 
+export async function getAvailableWmsWarehousesAction() {
+    try {
+        const res = await fetch(`${process.env.WMS_API_URL}/api/external/v1/warehouses`, {
+            headers: {
+                'x-api-key': process.env.WMS_API_KEY || ''
+            },
+            cache: 'no-store'
+        });
+        return await res.json();
+    } catch {
+        return { success: false, data: [] };
+    }
+}
+
+export async function getWmsLocationsAction(warehouseId: string) {
+    if (!warehouseId) return { success: false, data: [] };
+    try {
+        const res = await fetch(`${process.env.WMS_API_URL}/api/external/v1/locations?warehouse_id=${warehouseId}`, {
+            headers: {
+                'x-api-key': process.env.WMS_API_KEY || ''
+            },
+            cache: 'no-store'
+        });
+        return await res.json();
+    } catch {
+        return { success: false, data: [] };
+    }
+}
+
+export async function getWmsWarehouseMappingAction(type: 'STORE' | 'CENTRAL' | 'OFFICE', locationId: string) {
+    if (!locationId) return { success: false, wmsWarehouseId: null };
+    const db = getAdminDb();
+    try {
+        let docRef;
+        if (type === 'STORE' || type === 'OFFICE') {
+            docRef = db.collection('stores').doc(locationId);
+        } else if (type === 'CENTRAL') {
+            docRef = db.collection('warehouses').doc(locationId);
+        } else {
+            return { success: false, wmsWarehouseId: null };
+        }
+        
+        const snap = await docRef.get();
+        if (!snap.exists) return { success: false, wmsWarehouseId: null };
+        const data = snap.data();
+        return { success: true, wmsWarehouseId: data?.wmsWarehouseId || null };
+    } catch {
+        return { success: false, wmsWarehouseId: null };
+    }
+}
