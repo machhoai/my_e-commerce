@@ -15,7 +15,7 @@ import type { ProductDoc } from '@/types/inventory';
 import VoucherListSelector from './VoucherListSelector';
 import VoucherDetailsCard from './VoucherDetailsCard';
 import VoucherResultCard from './VoucherResultCard';
-import ProductInfoCard from './ProductInfoCard';
+import ProductScanConfirmCard from './ProductScanConfirmCard';
 import TicketPassCard from './TicketPassCard';
 import TicketOrderCard from './TicketOrderCard';
 import BottomSheet from '@/components/shared/BottomSheet';
@@ -996,7 +996,7 @@ export default function UniversalScannerModal() {
                 return <VoucherResultCard success={view.success} title={view.title} details={view.details} onClose={close} />;
 
             case 'product':
-                return <ProductInfoCard product={view.product} onClose={close} />;
+                return <ProductScanConfirmCard product={view.product as any} onClose={resetToScanner} />;
 
             case 'ticket-pass':
                 return <TicketPassCard pass={view.pass} onClose={close} onRescan={resetToScanner} />;

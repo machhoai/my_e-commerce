@@ -49,9 +49,14 @@ export async function preloadScannerData(): Promise<{
 }> {
     const db = getAdminDb();
 
-    const [empSnap, prodSnap] = await Promise.all([
+    const [empSnap, productsResponse] = await Promise.all([
         db.collection('users').where('isActive', '==', true).get(),
-        db.collection('products').where('isActive', '==', true).get(),
+        fetch(`${process.env.WMS_API_URL}/api/external/v1/products?warehouse_id=${process.env.WMS_DEFAULT_WAREHOUSE_ID}`, {
+            headers: {
+                'x-api-key': process.env.WMS_API_KEY || ''
+            },
+            cache: 'no-store'
+        }).then(res => res.json()).catch(() => ({ success: false, data: [] }))
     ]);
 
     const employees: PreloadedEmployee[] = empSnap.docs.map(d => {
@@ -65,24 +70,21 @@ export async function preloadScannerData(): Promise<{
         };
     });
 
-    const products: PreloadedProduct[] = prodSnap.docs.map(d => {
-        const data = d.data();
-        return {
-            id: d.id,
-            name: data.name || '',
-            barcode: data.barcode || '',
-            companyCode: data.companyCode || '',
-            image: data.image || '',
-            actualPrice: data.actualPrice ?? 0,
-            unit: data.unit || '',
-            category: data.category || '',
-            origin: data.origin || '',
-            invoicePrice: data.invoicePrice ?? 0,
-            minStock: data.minStock ?? 0,
-            isActive: true,
-            createdAt: data.createdAt || '',
-        };
-    });
+    const products: PreloadedProduct[] = (productsResponse.data || []).map((p: any) => ({
+        id: p.id,
+        name: p.name || '',
+        barcode: p.barcode || '',
+        companyCode: p.code || '',
+        image: p.image_url || '',
+        actualPrice: p.unit_price || 0,
+        unit: p.unit || '',
+        category: p.product_type || '',
+        origin: '',
+        invoicePrice: 0,
+        minStock: 0,
+        isActive: true,
+        createdAt: '',
+    }));
 
     return { employees, products };
 }
@@ -149,3 +151,72 @@ export async function lookupEmployeeByUid(uid: string): Promise<PreloadedEmploye
         referralPoints: data.referralPoints ?? 0,
     };
 }
+
+// ── WMS API Actions ──────────────────────────────────────────
+
+export async function submitExternalScanAction(data: {
+    barcode: string | null;
+    product_id: string | null;
+    warehouse_location_id: string;
+    quantity: number;
+    operator_name: string;
+    operator_id_external: string | null;
+    device_id: string | null;
+}) {
+    const res = await fetch(`${process.env.WMS_API_URL}/api/external/v1/scan`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': process.env.WMS_API_KEY || ''
+        },
+        body: JSON.stringify({
+            ...data,
+            warehouse_id: process.env.WMS_DEFAULT_WAREHOUSE_ID,
+            scan_time: new Date().toISOString(),
+        })
+    });
+    
+    return res.json();
+}
+
+export async function getMyScansAction(operatorIdExternal: string) {
+    const res = await fetch(`${process.env.WMS_API_URL}/api/external/v1/scan?operator_id_external=${operatorIdExternal}`, {
+        headers: {
+            'x-api-key': process.env.WMS_API_KEY || ''
+        },
+        cache: 'no-store'
+    });
+    return res.json();
+}
+
+export async function cancelExternalScanAction(scanId: string) {
+    const res = await fetch(`${process.env.WMS_API_URL}/api/external/v1/scan/${scanId}`, {
+        method: 'DELETE',
+        headers: {
+            'x-api-key': process.env.WMS_API_KEY || ''
+        }
+    });
+    return res.json();
+}
+
+export async function submitBatchAction(data: {
+    warehouse_location_id: string;
+    shift_date: string;
+    operator_name: string;
+    operator_id_external: string | null;
+    notes: string | null;
+}) {
+    const res = await fetch(`${process.env.WMS_API_URL}/api/external/v1/batch-submit`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': process.env.WMS_API_KEY || ''
+        },
+        body: JSON.stringify({
+            ...data,
+            warehouse_id: process.env.WMS_DEFAULT_WAREHOUSE_ID,
+        })
+    });
+    return res.json();
+}
+
