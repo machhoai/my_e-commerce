@@ -50,14 +50,18 @@ export async function preloadScannerData(wmsWarehouseId?: string): Promise<{
 
     const fetchProducts = async () => {
         if (!wmsWarehouseId) return { success: false, data: [] };
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
         try {
             const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
             const res = await fetch(`${apiUrl}/api/external/v1/products?warehouse_id=${wmsWarehouseId}`, {
                 headers: {
                     'x-api-key': process.env.WMS_API_KEY || ''
                 },
-                cache: 'no-store'
+                cache: 'no-store',
+                signal: controller.signal
             });
+            clearTimeout(timeout);
             return await res.json();
         } catch (err: any) {
             console.error('fetchProducts error:', err.message);
@@ -165,16 +169,9 @@ export async function lookupEmployeeByUid(uid: string): Promise<PreloadedEmploye
 
 // ── WMS API Actions ──────────────────────────────────────────
 
-export async function submitExternalScanAction(data: {
-    warehouse_id: string;
-    barcode: string;
-    product_id: string;
-    warehouse_location_id: string;
-    quantity: number;
-    operator_name: string;
-    operator_id_external: string | null;
-    device_id: string | null;
-}) {
+export async function submitExternalScanAction(data: any) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
     try {
         const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
         const res = await fetch(`${apiUrl}/api/external/v1/scan`, {
@@ -186,52 +183,61 @@ export async function submitExternalScanAction(data: {
             body: JSON.stringify({
                 ...data,
                 scan_time: new Date().toISOString(),
-            })
+            }),
+            signal: controller.signal
         });
+        clearTimeout(timeout);
         return res.json();
     } catch (err: any) {
+        clearTimeout(timeout);
         return { success: false, data: null, messages: { vi: `Network Error: ${err.message}` } };
     }
 }
 
-export async function getMyScansAction(operatorIdExternal: string) {
+export async function getMyScansAction(operator_id_external: string) {
+    if (!operator_id_external) return { success: false, data: [] };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
     try {
         const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
-        const res = await fetch(`${apiUrl}/api/external/v1/scan?operator_id_external=${operatorIdExternal}`, {
+        const res = await fetch(`${apiUrl}/api/external/v1/scan?operator_id_external=${operator_id_external}`, {
             headers: {
                 'x-api-key': process.env.WMS_API_KEY || ''
             },
-            cache: 'no-store'
+            cache: 'no-store',
+            signal: controller.signal
         });
+        clearTimeout(timeout);
         return res.json();
     } catch (err: any) {
+        clearTimeout(timeout);
         return { success: false, data: null, error: err.message };
     }
 }
 
 export async function cancelExternalScanAction(scanId: string) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
     try {
         const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
         const res = await fetch(`${apiUrl}/api/external/v1/scan/${scanId}`, {
             method: 'DELETE',
             headers: {
                 'x-api-key': process.env.WMS_API_KEY || ''
-            }
+            },
+            signal: controller.signal
         });
+        clearTimeout(timeout);
         return res.json();
     } catch (err: any) {
+        clearTimeout(timeout);
         return { success: false, error: err.message };
     }
 }
 
-export async function submitBatchAction(data: {
-    warehouse_id: string;
-    warehouse_location_id: string;
-    shift_date: string;
-    operator_name: string;
-    operator_id_external: string | null;
-    notes: string | null;
-}) {
+export async function submitBatchAction(data: any) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
     try {
         const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
         const res = await fetch(`${apiUrl}/api/external/v1/batch-submit`, {
@@ -240,42 +246,55 @@ export async function submitBatchAction(data: {
                 'Content-Type': 'application/json',
                 'x-api-key': process.env.WMS_API_KEY || ''
             },
-            body: JSON.stringify(data)
+            body: JSON.stringify(data),
+            signal: controller.signal
         });
+        clearTimeout(timeout);
         return res.json();
     } catch (err: any) {
+        clearTimeout(timeout);
         return { success: false, error: err.message };
     }
 }
 
 export async function getAvailableWmsWarehousesAction() {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     try {
         const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
         const res = await fetch(`${apiUrl}/api/external/v1/warehouses`, {
             headers: {
                 'x-api-key': process.env.WMS_API_KEY || ''
             },
-            cache: 'no-store'
+            cache: 'no-store',
+            signal: controller.signal
         });
+        clearTimeout(timeout);
         const data = await res.json();
         return data;
     } catch (err: any) {
+        clearTimeout(timeout);
         return { success: false, data: [], error: err.message, apiUrl: process.env.WMS_API_URL };
     }
 }
 
 export async function getWmsLocationsAction(warehouseId: string) {
     if (!warehouseId) return { success: false, data: [] };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     try {
         const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
         const res = await fetch(`${apiUrl}/api/external/v1/locations?warehouse_id=${warehouseId}`, {
             headers: {
                 'x-api-key': process.env.WMS_API_KEY || ''
             },
-            cache: 'no-store'
+            cache: 'no-store',
+            signal: controller.signal
         });
+        clearTimeout(timeout);
         return await res.json();
     } catch (err: any) {
+        clearTimeout(timeout);
         return { success: false, data: [], error: err.message };
     }
 }
@@ -292,7 +311,7 @@ export async function getWmsWarehouseMappingAction(type: 'STORE' | 'CENTRAL' | '
         } else {
             return { success: false, wmsWarehouseId: null };
         }
-        
+
         const snap = await docRef.get();
         if (!snap.exists) return { success: false, wmsWarehouseId: null };
         const data = snap.data();

@@ -418,7 +418,7 @@ export default function ProductScannerPage() {
                                         <span className="hidden sm:inline">Quét mã</span>
                                     </button>
                                 </div>
-                                <div className="flex-1 overflow-y-auto p-2">
+                                <div className="flex-1 overflow-y-auto p-2 bg-surface-50 min-h-0">
                                     {preloading ? (
                                         <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-accent-500" /></div>
                                     ) : filteredProducts.length === 0 ? (
