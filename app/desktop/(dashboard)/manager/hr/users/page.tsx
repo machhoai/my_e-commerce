@@ -41,6 +41,10 @@ function ManagerUsersPageContent() {
     const [newIdCard, setNewIdCard] = useState('');
     const [newBankAccount, setNewBankAccount] = useState('');
     const [newEducation, setNewEducation] = useState('');
+    const [newProbationStartDate, setNewProbationStartDate] = useState('');
+    const [newOfficialStartDate, setNewOfficialStartDate] = useState('');
+    const [newResignationDate, setNewResignationDate] = useState('');
+    const [newContractNumber, setNewContractNumber] = useState('');
     const [newStoreId, setNewStoreId] = useState('');
 
     const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -224,7 +228,11 @@ function ManagerUsersPageContent() {
                 email: newEmail,
                 idCard: newIdCard,
                 bankAccount: newBankAccount,
-                education: newEducation
+                education: newEducation,
+                probationStartDate: newProbationStartDate,
+                officialStartDate: newOfficialStartDate,
+                resignationDate: newResignationDate,
+                contractNumber: newContractNumber
             };
 
             if (editUid) {
@@ -281,6 +289,7 @@ function ManagerUsersPageContent() {
         setNewName(''); setNewPhone(''); setNewType('PT'); setNewRole('employee'); setNewCustomRoleId('');
         setNewDob(''); setNewJobTitle(''); setNewEmail('');
         setNewIdCard(''); setNewBankAccount(''); setNewEducation('');
+        setNewProbationStartDate(''); setNewOfficialStartDate(''); setNewResignationDate(''); setNewContractNumber('');
         setNewStoreId('');
     };
 
@@ -296,6 +305,10 @@ function ManagerUsersPageContent() {
         setNewIdCard(employee.idCard || '');
         setNewBankAccount(employee.bankAccount || '');
         setNewEducation(employee.education || '');
+        setNewProbationStartDate(employee.probationStartDate || '');
+        setNewOfficialStartDate(employee.officialStartDate || '');
+        setNewResignationDate(employee.resignationDate || '');
+        setNewContractNumber(employee.contractNumber || '');
         setNewStoreId(employee.storeId || '');
         setEditUid(employee.uid);
         setIsCreateModalOpen(true);
@@ -938,6 +951,39 @@ function ManagerUsersPageContent() {
                                                             value={newEducation} onChange={e => setNewEducation(e.target.value)}
                                                             className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
                                                             placeholder="VD: Cử nhân, Kỹ sư..."
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-sm font-medium text-surface-700">Ngày bắt đầu thử việc</label>
+                                                        <input
+                                                            type="date"
+                                                            value={newProbationStartDate} onChange={e => setNewProbationStartDate(e.target.value)}
+                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-sm font-medium text-surface-700">Ngày chính thức làm việc</label>
+                                                        <input
+                                                            type="date"
+                                                            value={newOfficialStartDate} onChange={e => setNewOfficialStartDate(e.target.value)}
+                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-sm font-medium text-surface-700">Ngày chính thức nghỉ việc</label>
+                                                        <input
+                                                            type="date"
+                                                            value={newResignationDate} onChange={e => setNewResignationDate(e.target.value)}
+                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-sm font-medium text-surface-700">Số hợp đồng</label>
+                                                        <input
+                                                            type="text"
+                                                            value={newContractNumber} onChange={e => setNewContractNumber(e.target.value)}
+                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
+                                                            placeholder="VD: HĐ123456"
                                                         />
                                                     </div>
                                                 </div>

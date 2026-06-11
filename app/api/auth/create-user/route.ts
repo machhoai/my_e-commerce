@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
             name, phone, type, dob, jobTitle,
             email: realEmail, idCard, bankAccount, education,
             gender, permanentAddress, idCardFrontPhoto, idCardBackPhoto,
+            probationStartDate, officialStartDate, resignationDate, contractNumber,
             canManageHR,
             // Workplace assignment
             workplaceType: bodyWorkplaceType,
@@ -48,6 +49,8 @@ export async function POST(req: NextRequest) {
             idCard?: string; bankAccount?: string; education?: string;
             gender?: string; permanentAddress?: string;
             idCardFrontPhoto?: string; idCardBackPhoto?: string;
+            probationStartDate?: string; officialStartDate?: string;
+            resignationDate?: string; contractNumber?: string;
             canManageHR?: boolean;
             workplaceType?: 'STORE' | 'OFFICE' | 'CENTRAL';
             storeId?: string; officeId?: string; warehouseId?: string;
@@ -113,6 +116,10 @@ export async function POST(req: NextRequest) {
             ...(permanentAddress && { permanentAddress }),
             ...(idCardFrontPhoto && { idCardFrontPhoto }),
             ...(idCardBackPhoto && { idCardBackPhoto }),
+            ...(probationStartDate && { probationStartDate }),
+            ...(officialStartDate && { officialStartDate }),
+            ...(resignationDate && { resignationDate }),
+            ...(contractNumber && { contractNumber }),
             ...(isAdmin && canManageHR !== undefined && { canManageHR: Boolean(canManageHR) }),
         };
 

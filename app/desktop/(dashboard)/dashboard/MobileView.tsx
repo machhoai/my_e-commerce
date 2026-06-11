@@ -1903,7 +1903,7 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
                         >
                             <path
                                 className='fill-primary-600'
-                                fill-opacity="1"
+                                fillOpacity="1"
                                 d="M0,224L80,202.7C160,181,320,139,480,149.3C640,160,800,224,960,229.3C1120,235,1280,181,1360,154.7L1440,128L1440,0L1360,0C1280,0,1120,0,960,0C800,0,640,0,480,0C320,0,160,0,80,0L0,0Z"></path>
                         </svg>
                     </div>
