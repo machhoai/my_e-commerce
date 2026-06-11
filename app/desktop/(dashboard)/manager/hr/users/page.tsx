@@ -45,6 +45,10 @@ function ManagerUsersPageContent() {
     const [newIdCard, setNewIdCard] = useState('');
     const [newBankAccount, setNewBankAccount] = useState('');
     const [newEducation, setNewEducation] = useState('');
+    const [newProbationStartDate, setNewProbationStartDate] = useState('');
+    const [newOfficialStartDate, setNewOfficialStartDate] = useState('');
+    const [newResignationDate, setNewResignationDate] = useState('');
+    const [newContractNumber, setNewContractNumber] = useState('');
     const [newStoreId, setNewStoreId] = useState('');
     /** For admin form: STORE | OFFICE | CENTRAL — drives which ID field is shown */
     const [newWorkplaceType, setNewWorkplaceType] = useState<LocationType>('STORE');
@@ -239,6 +243,10 @@ function ManagerUsersPageContent() {
                 idCard: newIdCard,
                 bankAccount: newBankAccount,
                 education: newEducation,
+                probationStartDate: newProbationStartDate,
+                officialStartDate: newOfficialStartDate,
+                resignationDate: newResignationDate,
+                contractNumber: newContractNumber
             };
 
             if (editUid) {
@@ -300,12 +308,29 @@ function ManagerUsersPageContent() {
         setNewName(''); setNewPhone(''); setNewType('PT'); setNewRole('employee'); setNewCustomRoleId('');
         setNewDob(''); setNewJobTitle(''); setNewEmail('');
         setNewIdCard(''); setNewBankAccount(''); setNewEducation('');
-        setNewStoreId(''); setNewOfficeId(''); setNewWarehouseId('');
-        setNewWorkplaceType('STORE');
+        setNewProbationStartDate(''); setNewOfficialStartDate(''); setNewResignationDate(''); setNewContractNumber('');
+        setNewStoreId('');
     };
 
     const openEditModal = (employee: UserDoc) => {
-        setEditEmployee(employee);
+        setNewName(employee.name);
+        setNewPhone(employee.phone);
+        setNewType(employee.type || 'PT');
+        setNewRole(employee.role ?? 'employee');
+        setNewCustomRoleId(employee.customRoleId ?? '');
+        setNewDob(employee.dob || '');
+        setNewJobTitle(employee.jobTitle || '');
+        setNewEmail(employee.email || '');
+        setNewIdCard(employee.idCard || '');
+        setNewBankAccount(employee.bankAccount || '');
+        setNewEducation(employee.education || '');
+        setNewProbationStartDate(employee.probationStartDate || '');
+        setNewOfficialStartDate(employee.officialStartDate || '');
+        setNewResignationDate(employee.resignationDate || '');
+        setNewContractNumber(employee.contractNumber || '');
+        setNewStoreId(employee.storeId || '');
+        setEditUid(employee.uid);
+        setIsCreateModalOpen(true);
     };
 
     const handleToggleActive = async (targetUid: string, currentStatus: boolean, employeeName: string) => {
@@ -992,6 +1017,39 @@ function ManagerUsersPageContent() {
                                                             value={newEducation} onChange={e => setNewEducation(e.target.value)}
                                                             className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
                                                             placeholder="VD: Cử nhân, Kỹ sư..."
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-sm font-medium text-surface-700">Ngày bắt đầu thử việc</label>
+                                                        <input
+                                                            type="date"
+                                                            value={newProbationStartDate} onChange={e => setNewProbationStartDate(e.target.value)}
+                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-sm font-medium text-surface-700">Ngày chính thức làm việc</label>
+                                                        <input
+                                                            type="date"
+                                                            value={newOfficialStartDate} onChange={e => setNewOfficialStartDate(e.target.value)}
+                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-sm font-medium text-surface-700">Ngày chính thức nghỉ việc</label>
+                                                        <input
+                                                            type="date"
+                                                            value={newResignationDate} onChange={e => setNewResignationDate(e.target.value)}
+                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-sm font-medium text-surface-700">Số hợp đồng</label>
+                                                        <input
+                                                            type="text"
+                                                            value={newContractNumber} onChange={e => setNewContractNumber(e.target.value)}
+                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5"
+                                                            placeholder="VD: HĐ123456"
                                                         />
                                                     </div>
                                                 </div>

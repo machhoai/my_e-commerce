@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { WarehouseDoc } from '@/types';
 import { Warehouse, Plus, Pencil, Power, PowerOff, MapPin, Loader2, X, CheckCircle2, AlertCircle, Ruler } from 'lucide-react';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
+import { getAvailableWmsWarehousesAction } from '@/actions/scanner';
 
 export default function AdminWarehousesPage() {
     const { user, userDoc } = useAuth();
@@ -18,6 +19,8 @@ export default function AdminWarehousesPage() {
     const [formName, setFormName] = useState('');
     const [formAddress, setFormAddress] = useState('');
     const [formCapacity, setFormCapacity] = useState('');
+    const [formWmsWarehouseId, setFormWmsWarehouseId] = useState('');
+    const [wmsWarehouses, setWmsWarehouses] = useState<{ id: string; name: string; code: string; }[]>([]);
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
@@ -32,10 +35,20 @@ export default function AdminWarehousesPage() {
         }
     }, [getToken]);
 
-    useEffect(() => { fetchWarehouses(); }, [fetchWarehouses]);
+    const fetchWmsWarehouses = useCallback(async () => {
+        const res = await getAvailableWmsWarehousesAction();
+        if (res.success && res.data) {
+            setWmsWarehouses(res.data);
+        }
+    }, []);
+
+    useEffect(() => { 
+        fetchWarehouses(); 
+        fetchWmsWarehouses();
+    }, [fetchWarehouses, fetchWmsWarehouses]);
 
     const resetForm = () => {
-        setFormName(''); setFormAddress(''); setFormCapacity('');
+        setFormName(''); setFormAddress(''); setFormCapacity(''); setFormWmsWarehouseId('');
         setEditingId(null); setShowForm(false);
     };
 
@@ -46,6 +59,7 @@ export default function AdminWarehousesPage() {
         setFormName(wh.name);
         setFormAddress(wh.address || '');
         setFormCapacity(wh.capacitySqm ? String(wh.capacitySqm) : '');
+        setFormWmsWarehouseId(wh.wmsWarehouseId || '');
         setShowForm(true);
     };
 
@@ -59,6 +73,7 @@ export default function AdminWarehousesPage() {
                 name: formName,
                 address: formAddress,
                 capacitySqm: formCapacity ? Number(formCapacity) : undefined,
+                wmsWarehouseId: formWmsWarehouseId,
             };
             const res = await fetch('/api/warehouses', {
                 method: editingId ? 'PUT' : 'POST',
@@ -148,6 +163,19 @@ export default function AdminWarehousesPage() {
                                 className="w-full border border-surface-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-accent-300"
                                 placeholder="123 Đường ABC, Bình Dương" />
                         </div>
+                        <div>
+                            <label className="text-xs font-semibold text-surface-600 block mb-1">Liên kết kho WMS</label>
+                            <select
+                                value={formWmsWarehouseId}
+                                onChange={e => setFormWmsWarehouseId(e.target.value)}
+                                className="w-full border border-surface-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-accent-300 bg-white"
+                            >
+                                <option value="">-- Không liên kết --</option>
+                                {wmsWarehouses.map(w => (
+                                    <option key={w.id} value={w.id}>{w.name} ({w.code})</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                     <div className="flex gap-3 mt-4">
                         <button onClick={handleSubmit} disabled={submitting}
@@ -195,6 +223,7 @@ export default function AdminWarehousesPage() {
                                     </td>
                                     <td className="px-5 py-3 text-surface-500">
                                         {wh.capacitySqm ? <span className="flex items-center gap-1"><Ruler className="w-3 h-3" />{wh.capacitySqm.toLocaleString()} m²</span> : '—'}
+                                        {wh.wmsWarehouseId && <div className="text-[10px] text-surface-400 mt-1">WMS: {wmsWarehouses.find(w => w.id === wh.wmsWarehouseId)?.name || wh.wmsWarehouseId}</div>}
                                     </td>
                                     <td className="px-5 py-3">
                                         <span className={`text-xs font-bold px-2 py-1 rounded-full ${wh.isActive ? 'bg-success-100 text-success-700' : 'bg-surface-100 text-surface-500'}`}>

@@ -42,21 +42,32 @@ export type PreloadedProduct = {
     createdAt: string;
 };
 
-// ── Preload all employees + products (called once on modal open) ──
-export async function preloadScannerData(): Promise<{
+export async function preloadScannerData(wmsWarehouseId?: string): Promise<{
     employees: PreloadedEmployee[];
     products: PreloadedProduct[];
 }> {
     const db = getAdminDb();
 
+    const fetchProducts = async () => {
+        if (!wmsWarehouseId) return { success: false, data: [] };
+        try {
+            const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
+            const res = await fetch(`${apiUrl}/api/external/v1/products?warehouse_id=${wmsWarehouseId}`, {
+                headers: {
+                    'x-api-key': process.env.WMS_API_KEY || ''
+                },
+                cache: 'no-store'
+            });
+            return await res.json();
+        } catch (err: any) {
+            console.error('fetchProducts error:', err.message);
+            return { success: false, data: [], error: err.message };
+        }
+    };
+
     const [empSnap, productsResponse] = await Promise.all([
         db.collection('users').where('isActive', '==', true).get(),
-        fetch(`${process.env.WMS_API_URL}/api/external/v1/products?warehouse_id=${process.env.WMS_DEFAULT_WAREHOUSE_ID}`, {
-            headers: {
-                'x-api-key': process.env.WMS_API_KEY || ''
-            },
-            cache: 'no-store'
-        }).then(res => res.json()).catch(() => ({ success: false, data: [] }))
+        fetchProducts()
     ]);
 
     const employees: PreloadedEmployee[] = empSnap.docs.map(d => {
@@ -155,68 +166,138 @@ export async function lookupEmployeeByUid(uid: string): Promise<PreloadedEmploye
 // ── WMS API Actions ──────────────────────────────────────────
 
 export async function submitExternalScanAction(data: {
-    barcode: string | null;
-    product_id: string | null;
+    warehouse_id: string;
+    barcode: string;
+    product_id: string;
     warehouse_location_id: string;
     quantity: number;
     operator_name: string;
     operator_id_external: string | null;
     device_id: string | null;
 }) {
-    const res = await fetch(`${process.env.WMS_API_URL}/api/external/v1/scan`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': process.env.WMS_API_KEY || ''
-        },
-        body: JSON.stringify({
-            ...data,
-            warehouse_id: process.env.WMS_DEFAULT_WAREHOUSE_ID,
-            scan_time: new Date().toISOString(),
-        })
-    });
-    
-    return res.json();
+    try {
+        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
+        const res = await fetch(`${apiUrl}/api/external/v1/scan`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': process.env.WMS_API_KEY || ''
+            },
+            body: JSON.stringify({
+                ...data,
+                scan_time: new Date().toISOString(),
+            })
+        });
+        return res.json();
+    } catch (err: any) {
+        return { success: false, data: null, messages: { vi: `Network Error: ${err.message}` } };
+    }
 }
 
 export async function getMyScansAction(operatorIdExternal: string) {
-    const res = await fetch(`${process.env.WMS_API_URL}/api/external/v1/scan?operator_id_external=${operatorIdExternal}`, {
-        headers: {
-            'x-api-key': process.env.WMS_API_KEY || ''
-        },
-        cache: 'no-store'
-    });
-    return res.json();
+    try {
+        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
+        const res = await fetch(`${apiUrl}/api/external/v1/scan?operator_id_external=${operatorIdExternal}`, {
+            headers: {
+                'x-api-key': process.env.WMS_API_KEY || ''
+            },
+            cache: 'no-store'
+        });
+        return res.json();
+    } catch (err: any) {
+        return { success: false, data: null, error: err.message };
+    }
 }
 
 export async function cancelExternalScanAction(scanId: string) {
-    const res = await fetch(`${process.env.WMS_API_URL}/api/external/v1/scan/${scanId}`, {
-        method: 'DELETE',
-        headers: {
-            'x-api-key': process.env.WMS_API_KEY || ''
-        }
-    });
-    return res.json();
+    try {
+        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
+        const res = await fetch(`${apiUrl}/api/external/v1/scan/${scanId}`, {
+            method: 'DELETE',
+            headers: {
+                'x-api-key': process.env.WMS_API_KEY || ''
+            }
+        });
+        return res.json();
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
 }
 
 export async function submitBatchAction(data: {
+    warehouse_id: string;
     warehouse_location_id: string;
     shift_date: string;
     operator_name: string;
     operator_id_external: string | null;
     notes: string | null;
 }) {
-    const res = await fetch(`${process.env.WMS_API_URL}/api/external/v1/batch-submit`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': process.env.WMS_API_KEY || ''
-        },
-        body: JSON.stringify({
-            ...data,
-            warehouse_id: process.env.WMS_DEFAULT_WAREHOUSE_ID,
-        })
-    });
-    return res.json();
+    try {
+        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
+        const res = await fetch(`${apiUrl}/api/external/v1/batch-submit`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': process.env.WMS_API_KEY || ''
+            },
+            body: JSON.stringify(data)
+        });
+        return res.json();
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
 }
 
+export async function getAvailableWmsWarehousesAction() {
+    try {
+        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
+        const res = await fetch(`${apiUrl}/api/external/v1/warehouses`, {
+            headers: {
+                'x-api-key': process.env.WMS_API_KEY || ''
+            },
+            cache: 'no-store'
+        });
+        const data = await res.json();
+        return data;
+    } catch (err: any) {
+        return { success: false, data: [], error: err.message, apiUrl: process.env.WMS_API_URL };
+    }
+}
+
+export async function getWmsLocationsAction(warehouseId: string) {
+    if (!warehouseId) return { success: false, data: [] };
+    try {
+        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
+        const res = await fetch(`${apiUrl}/api/external/v1/locations?warehouse_id=${warehouseId}`, {
+            headers: {
+                'x-api-key': process.env.WMS_API_KEY || ''
+            },
+            cache: 'no-store'
+        });
+        return await res.json();
+    } catch (err: any) {
+        return { success: false, data: [], error: err.message };
+    }
+}
+
+export async function getWmsWarehouseMappingAction(type: 'STORE' | 'CENTRAL' | 'OFFICE', locationId: string) {
+    if (!locationId) return { success: false, wmsWarehouseId: null };
+    const db = getAdminDb();
+    try {
+        let docRef;
+        if (type === 'STORE' || type === 'OFFICE') {
+            docRef = db.collection('stores').doc(locationId);
+        } else if (type === 'CENTRAL') {
+            docRef = db.collection('warehouses').doc(locationId);
+        } else {
+            return { success: false, wmsWarehouseId: null };
+        }
+        
+        const snap = await docRef.get();
+        if (!snap.exists) return { success: false, wmsWarehouseId: null };
+        const data = snap.data();
+        return { success: true, wmsWarehouseId: data?.wmsWarehouseId || null };
+    } catch {
+        return { success: false, wmsWarehouseId: null };
+    }
+}

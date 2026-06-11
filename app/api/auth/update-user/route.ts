@@ -84,6 +84,11 @@ export async function POST(request: Request) {
         if (body.idCardFrontPhoto !== undefined) updateData.idCardFrontPhoto = body.idCardFrontPhoto;
         if (body.idCardBackPhoto !== undefined) updateData.idCardBackPhoto = body.idCardBackPhoto;
 
+        if (body.probationStartDate !== undefined) updateData.probationStartDate = body.probationStartDate;
+        if (body.officialStartDate !== undefined) updateData.officialStartDate = body.officialStartDate;
+        if (body.resignationDate !== undefined) updateData.resignationDate = body.resignationDate;
+        if (body.contractNumber !== undefined) updateData.contractNumber = body.contractNumber;
+
 
 
 

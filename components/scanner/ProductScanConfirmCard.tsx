@@ -1,56 +1,84 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Package, Tag, Barcode, DollarSign, MapPin, Layers, Loader2, Plus, Minus, CheckCircle2 } from 'lucide-react';
 import type { PreloadedProduct } from '@/actions/scanner';
-import { submitExternalScanAction } from '@/actions/scanner';
+import { submitExternalScanAction, getWmsLocationsAction } from '@/actions/scanner';
 import { useAuth } from '@/contexts/AuthContext';
-import { showToast } from '@/lib/utils/toast';
 import { cn } from '@/lib/utils';
 
 interface ProductScanConfirmCardProps {
     product: PreloadedProduct;
+    wmsWarehouseId: string | null;
     onClose: () => void;
 }
 
-export default function ProductScanConfirmCard({ product, onClose }: ProductScanConfirmCardProps) {
+export default function ProductScanConfirmCard({ product, wmsWarehouseId, onClose }: ProductScanConfirmCardProps) {
     const { user } = useAuth();
     const [quantity, setQuantity] = useState<number>(1);
     const [submitting, setSubmitting] = useState(false);
     const [done, setDone] = useState(false);
+
+    const [locations, setLocations] = useState<any[]>([]);
+    const [selectedLocationId, setSelectedLocationId] = useState<string>('');
+    const [loadingLocs, setLoadingLocs] = useState(true);
+
+    useEffect(() => {
+        if (!wmsWarehouseId) {
+            setLoadingLocs(false);
+            return;
+        }
+        let isMounted = true;
+        getWmsLocationsAction(wmsWarehouseId).then(res => {
+            if (isMounted) {
+                if (res.success && res.data) {
+                    setLocations(res.data);
+                    if (res.data.length > 0) {
+                        setSelectedLocationId(res.data[0].id);
+                    }
+                }
+                setLoadingLocs(false);
+            }
+        });
+        return () => { isMounted = false; };
+    }, [wmsWarehouseId]);
 
     const handleIncrement = () => setQuantity(q => q + 1);
     const handleDecrement = () => setQuantity(q => Math.max(1, q - 1));
 
     const handleSubmit = async () => {
         if (submitting || !user) return;
+        if (!wmsWarehouseId) {
+            alert('Lỗi: Cửa hàng này chưa được liên kết với kho WMS nào.');
+            return;
+        }
+        if (!selectedLocationId) {
+            alert('Lỗi: Vui lòng chọn vị trí/kệ hàng trước khi thêm.');
+            return;
+        }
         setSubmitting(true);
         
         const action = submitExternalScanAction({
+            warehouse_id: wmsWarehouseId,
             barcode: product.barcode,
             product_id: product.id,
-            warehouse_location_id: process.env.NEXT_PUBLIC_DEFAULT_LOCATION_ID || 'LOC-A1', // Needs a valid location ID
+            warehouse_location_id: selectedLocationId,
             quantity,
             operator_name: user.displayName || user.email || 'Unknown',
             operator_id_external: user.uid,
             device_id: null,
         });
 
-        showToast.promise(action, {
-            loading: 'Đang lưu...',
-            success: 'Đã thêm vào hàng đợi',
-            error: 'Đã xảy ra lỗi',
-            successDescription: 'Sản phẩm đã được ghi nhận thành công.',
-            errorDescription: 'Vui lòng thử lại sau.'
-        });
-
         try {
             const result = await action;
             if (result.success) {
                 setDone(true);
+            } else {
+                alert('Đã xảy ra lỗi: ' + (result.messages?.vi || 'Không thể gửi lên WMS'));
             }
         } catch (error) {
             console.error(error);
+            alert('Đã xảy ra lỗi hệ thống khi lưu');
         } finally {
             setSubmitting(false);
         }
@@ -113,6 +141,34 @@ export default function ProductScanConfirmCard({ product, onClose }: ProductScan
                             <Plus className="w-5 h-5" />
                         </button>
                     </div>
+                </div>
+
+                {/* Location Selection */}
+                <div className="bg-surface-50 rounded-xl p-3 border border-surface-200">
+                    <span className="text-xs font-bold text-surface-500 uppercase mb-1 block">Vị trí lưu trữ</span>
+                    {loadingLocs ? (
+                        <div className="text-xs text-surface-400 flex items-center gap-2 py-2">
+                            <Loader2 className="w-4 h-4 animate-spin" /> Đang tải vị trí...
+                        </div>
+                    ) : !wmsWarehouseId ? (
+                        <div className="text-xs text-danger-500 font-medium py-2">
+                            Lỗi: Chưa liên kết với kho WMS.
+                        </div>
+                    ) : locations.length === 0 ? (
+                        <div className="text-xs text-warning-600 font-medium py-2">
+                            Kho này chưa có vị trí (Location) nào được cấu hình.
+                        </div>
+                    ) : (
+                        <select 
+                            value={selectedLocationId}
+                            onChange={(e) => setSelectedLocationId(e.target.value)}
+                            className="w-full bg-white border border-surface-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-accent-500 font-medium"
+                        >
+                            {locations.map(loc => (
+                                <option key={loc.id} value={loc.id}>{loc.name} ({loc.code})</option>
+                            ))}
+                        </select>
+                    )}
                 </div>
 
                 {/* Actions */}

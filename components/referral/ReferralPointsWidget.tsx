@@ -70,9 +70,11 @@ export default function ReferralPointsWidget() {
     };
 
     return (
-        <button
+        <div
+            role="button"
+            tabIndex={0}
             onClick={() => router.push('/employee/referral-history')}
-            className="w-full text-left rounded-2xl overflow-hidden bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100 border border-amber-200 shadow-sm active:scale-[0.98] transition-transform duration-100"
+            className="w-full text-left rounded-2xl overflow-hidden bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100 border border-amber-200 shadow-sm active:scale-[0.98] transition-transform duration-100 cursor-pointer"
         >
             <div className="h-1 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500" />
             <div className="p-4 space-y-2.5">
@@ -132,6 +134,6 @@ export default function ReferralPointsWidget() {
 
                 {/* Employee referral code */}
             </div>
-        </button>
+        </div>
     );
 }

@@ -60,6 +60,10 @@ export default function ExportEmployeesExcel({ employees }: ExportEmployeesExcel
                 { header: 'Giới tính', key: 'gender', width: 10 },
                 { header: 'Số CCCD', key: 'idCard', width: 16 },
                 { header: 'Địa chỉ thường trú', key: 'permanentAddress', width: 32 },
+                { header: 'Thử việc', key: 'probationStartDate', width: 14 },
+                { header: 'Làm việc', key: 'officialStartDate', width: 14 },
+                { header: 'Nghỉ việc', key: 'resignationDate', width: 14 },
+                { header: 'Số hợp đồng', key: 'contractNumber', width: 16 },
                 { header: 'Loại HĐ', key: 'type', width: 10 },
                 { header: 'Vai trò', key: 'role', width: 14 },
                 { header: 'Chức danh', key: 'jobTitle', width: 18 },
@@ -105,6 +109,10 @@ export default function ExportEmployeesExcel({ employees }: ExportEmployeesExcel
                     gender: e.gender || '',
                     idCard: e.idCard || '',
                     permanentAddress: e.permanentAddress || '',
+                    probationStartDate: e.probationStartDate || '',
+                    officialStartDate: e.officialStartDate || '',
+                    resignationDate: e.resignationDate || '',
+                    contractNumber: e.contractNumber || '',
                     type: e.type === 'FT' ? 'Toàn thời gian' : 'Bán thời gian',
                     role: roleLabel,
                     jobTitle: e.jobTitle || '',
@@ -154,9 +162,9 @@ export default function ExportEmployeesExcel({ employees }: ExportEmployeesExcel
                     } as any);
                 };
 
-                addImageToCell(e.avatar, 16);           // Col P = 16
-                addImageToCell(e.idCardFrontPhoto, 17);  // Col Q = 17
-                addImageToCell(e.idCardBackPhoto, 18);   // Col R = 18
+                addImageToCell(e.avatar, 20);           // Col T = 20
+                addImageToCell(e.idCardFrontPhoto, 21);  // Col U = 21
+                addImageToCell(e.idCardBackPhoto, 22);   // Col V = 22
 
                 if (hasImage) {
                     row.height = IMAGE_ROW_HEIGHT;

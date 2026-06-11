@@ -20,7 +20,8 @@ import {
     BarChart3, Banknote, ArrowUpDown, Coins, XCircle, RefreshCw,
     Wifi, WifiOff, CalendarDays, CalendarRange,
     // Extra icons for new routes
-    FileText, Repeat, LayoutDashboard, Star, Ticket, Link2, Gift,
+    FileText, Repeat, LayoutDashboard, Star, Ticket, Link2, ScanBarcode,
+    Gift,
 } from 'lucide-react';
 import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -1852,14 +1853,15 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
         {
             group: t('group_storeInventory'),
             items: [
-                { icon: Package, label: t('nav_orderGoods'), route: '/manager/inventory/order', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: PackagePlus, label: t('nav_receiveGoods'), route: '/manager/inventory/receive', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: ArrowLeftRight, label: t('nav_transferGoods'), route: '/manager/inventory/transfer', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: ClipboardList, label: t('nav_stockLedger'), route: '/manager/inventory/ledger', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: LayoutGrid, label: t('nav_counters'), route: '/manager/inventory/counters', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: Repeat, label: t('nav_handoverInv'), route: '/manager/inventory/handover', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: FileText, label: t('nav_usage'), route: '/manager/inventory/usage', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
-                { icon: Package, label: t('nav_dispatchGoods'), route: '/manager/inventory/dispatch', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: Package, label: t('dashboard.navOrder'), route: '/manager/inventory/order', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: PackagePlus, label: t('dashboard.navReceive'), route: '/manager/inventory/receive', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: ArrowLeftRight, label: t('dashboard.navTransfer'), route: '/manager/inventory/transfer', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: ClipboardList, label: t('dashboard.navLedger'), route: '/manager/inventory/ledger', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: LayoutGrid, label: t('dashboard.navCounters'), route: '/manager/inventory/counters', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: Repeat, label: t('dashboard.navHandover'), route: '/manager/inventory/handover', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: FileText, label: t('dashboard.navUsage'), route: '/manager/inventory/usage', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: Package, label: t('dashboard.navDispatch'), route: '/manager/inventory/dispatch', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: ScanBarcode, label: 'Quét SP Xuất Kho', route: '/product-scanner', color: 'bg-orange-50 text-orange-600', permKey: 'page.product_scanner' },
             ],
         },
         // ── Revenue (office+) ─────────────────────────────────────────
@@ -1927,7 +1929,7 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
                         >
                             <path
                                 className='fill-primary-600'
-                                fill-opacity="1"
+                                fillOpacity="1"
                                 d="M0,224L80,202.7C160,181,320,139,480,149.3C640,160,800,224,960,229.3C1120,235,1280,181,1360,154.7L1440,128L1440,0L1360,0C1280,0,1120,0,960,0C800,0,640,0,480,0C320,0,160,0,80,0L0,0Z"></path>
                         </svg>
                     </div>

@@ -1,21 +1,19 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { X, ScanLine, Keyboard, SearchX, Camera, RotateCcw, Zap, ZapOff, User, Phone, ChevronDown, Loader2, CheckCircle2, Ticket, Sparkles } from 'lucide-react';
+import { X, ScanLine, Keyboard, SearchX, Camera, RotateCcw, Zap, ZapOff, Phone, Loader2, CheckCircle2, Ticket, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { preloadScannerData, voucherSearchAction } from '@/actions/scanner';
-import type { PreloadedEmployee, PreloadedProduct } from '@/actions/scanner';
+import type { PreloadedEmployee } from '@/actions/scanner';
 import { createPendingReferral } from '@/actions/referral';
 import { ticketLookupAction } from '@/actions/ticket-scan';
 import { useAuth } from '@/contexts/AuthContext';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
-import type { ScanResult } from '@/types';
-import type { VoucherCode, TicketPassData, TicketOrderData } from '@/types';
-import type { ProductDoc } from '@/types/inventory';
+import type { ScanResult, TicketOrderData, TicketPassData } from '@/types';
+import type { VoucherCode } from '@/types';
 import VoucherListSelector from './VoucherListSelector';
 import VoucherDetailsCard from './VoucherDetailsCard';
 import VoucherResultCard from './VoucherResultCard';
-import ProductScanConfirmCard from './ProductScanConfirmCard';
 import TicketPassCard from './TicketPassCard';
 import TicketOrderCard from './TicketOrderCard';
 import BottomSheet from '@/components/shared/BottomSheet';
@@ -33,7 +31,6 @@ type ModalView =
     | { kind: 'phone'; phone: string; vouchers: VoucherCode[] }
     | { kind: 'voucher-detail'; voucher: VoucherCode & { campaignImage?: string; campaignName?: string } }
     | { kind: 'voucher-result'; success: boolean; title: string; details: { label: string; value: string }[] }
-    | { kind: 'product'; product: ProductDoc }
     | { kind: 'referral'; employee: { uid: string; name: string; phone: string; storeId: string; referralPoints: number } }
     | { kind: 'ticket-pass'; pass: TicketPassData }
     | { kind: 'ticket-order'; order: TicketOrderData }
@@ -469,24 +466,19 @@ export default function UniversalScannerModal() {
     const handleSearchRef = useRef<(input: string) => void>(() => { });
     const [showLabel, setShowLabel] = useState(false);
 
-    // ── Preloaded data (loaded once when modal opens) ────────────
     const [preloadedEmployees, setPreloadedEmployees] = useState<PreloadedEmployee[]>([]);
-    const [preloadedProducts, setPreloadedProducts] = useState<PreloadedProduct[]>([]);
     const [preloading, setPreloading] = useState(false);
 
     useEffect(() => {
         let isMounted = true;
 
         const fetchPreloadData = async () => {
-            // Nếu đã tải rồi hoặc đang tải thì bỏ qua
-            if (preloadedEmployees.length > 0 || preloadedProducts.length > 0 || preloading) return;
-
+            if (preloadedEmployees.length > 0 || preloading) return;
             setPreloading(true);
             try {
                 const data = await preloadScannerData();
                 if (isMounted) {
                     setPreloadedEmployees(data.employees);
-                    setPreloadedProducts(data.products);
                 }
             } catch (err) {
                 console.error('[Scanner] Preload failed:', err);
@@ -495,15 +487,12 @@ export default function UniversalScannerModal() {
             }
         };
 
-        // Đợi 1 giây sau khi render xong giao diện mới bắt đầu tải ngầm
-        // Việc này giúp trang web mượt mà, không bị giật lúc mới vào
         const timer = setTimeout(fetchPreloadData, 1000);
-
         return () => {
             isMounted = false;
             clearTimeout(timer);
         };
-    }, []); // Chạy 1 lần duy nhất khi Component mount
+    }, [authUser]); // Chạy khi có authUser
 
     // ── Start camera — QR + Code128 only, high-res, adaptive qrbox ──
     const startCamera = useCallback(async () => {
@@ -738,18 +727,6 @@ export default function UniversalScannerModal() {
             return;
         }
 
-        // 3. Product barcode / companyCode → local lookup
-        const product = preloadedProducts.find(
-            p => p.barcode === trimmed || p.companyCode === trimmed
-        );
-        if (product) {
-            setView({
-                kind: 'product',
-                product: product as ProductDoc,
-            });
-            return;
-        }
-
         // 4. Phone or Voucher code → must hit server (permission-gated)
         if (!canSearchVouchers) {
             setView({ kind: 'not-found', query: trimmed });
@@ -795,6 +772,7 @@ export default function UniversalScannerModal() {
             case 'scanner':
                 return (
                     <div className="flex flex-col">
+
                         {/* Manual input */}
                         <div className="p-4 bg-white">
                             {showManual ? (
@@ -994,10 +972,6 @@ export default function UniversalScannerModal() {
 
             case 'voucher-result':
                 return <VoucherResultCard success={view.success} title={view.title} details={view.details} onClose={close} />;
-
-            case 'product':
-                return <ProductScanConfirmCard product={view.product as any} onClose={resetToScanner} />;
-
             case 'ticket-pass':
                 return <TicketPassCard pass={view.pass} onClose={close} onRescan={resetToScanner} />;
 

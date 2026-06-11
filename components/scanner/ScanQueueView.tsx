@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMyScansAction, cancelExternalScanAction, submitBatchAction } from '@/actions/scanner';
 import { Trash2, Send, Loader2, Package, CheckCircle2, SearchX } from 'lucide-react';
-import { showToast } from '@/lib/utils/toast';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 
@@ -39,16 +38,12 @@ export default function ScanQueueView() {
 
     const handleRemove = async (scanId: string) => {
         const action = cancelExternalScanAction(scanId);
-        showToast.promise(action, {
-            loading: 'Đang xóa...',
-            success: 'Đã xóa khỏi hàng đợi',
-            error: 'Lỗi khi xóa',
-            successDescription: 'Sản phẩm đã được xóa khỏi hàng đợi.',
-            errorDescription: 'Không thể xóa sản phẩm khỏi hàng đợi lúc này.'
-        });
         const res = await action;
         if (res.success) {
             setScans(s => s.filter(x => x.id !== scanId));
+            alert('Đã xóa khỏi hàng đợi');
+        } else {
+            alert('Lỗi khi xóa: ' + (res.messages?.vi || 'Không thể xóa'));
         }
     };
 
@@ -56,28 +51,43 @@ export default function ScanQueueView() {
         if (!user || scans.length === 0 || submitting) return;
         setSubmitting(true);
 
-        const shiftDate = new Date().toISOString().split('T')[0]; // Simple YYYY-MM-DD
-        const action = submitBatchAction({
-            warehouse_location_id: process.env.NEXT_PUBLIC_DEFAULT_LOCATION_ID || 'LOC-A1',
-            shift_date: shiftDate,
-            operator_name: user.displayName || user.email || 'Unknown',
-            operator_id_external: user.uid,
-            notes: notes || null
-        });
+        const shiftDate = new Date().toISOString().split('T')[0];
 
-        showToast.promise(action, {
-            loading: 'Đang gửi phiếu...',
-            success: 'Đã gửi phiếu thành công',
-            error: 'Đã xảy ra lỗi khi gửi',
-            successDescription: 'Phiếu đã được gửi lên hệ thống WMS để quản lý phê duyệt.',
-            errorDescription: 'Không thể gửi phiếu kho. Vui lòng kiểm tra kết nối mạng và thử lại.'
-        });
+        // Group scans by warehouse_id + warehouse_location_id
+        const groups = new Map<string, { warehouse_id: string, warehouse_location_id: string }>();
+        for (const scan of scans) {
+            const key = `${scan.warehouse_id}_${scan.warehouse_location_id}`;
+            if (!groups.has(key)) {
+                groups.set(key, { warehouse_id: scan.warehouse_id, warehouse_location_id: scan.warehouse_location_id });
+            }
+        }
 
         try {
-            const res = await action;
-            if (res.success) {
+            let allSuccess = true;
+            for (const group of Array.from(groups.values())) {
+                const action = submitBatchAction({
+                    warehouse_id: group.warehouse_id,
+                    warehouse_location_id: group.warehouse_location_id,
+                    shift_date: shiftDate,
+                    operator_name: user.displayName || user.email || 'Unknown',
+                    operator_id_external: user.uid,
+                    notes: notes || null
+                });
+
+                const res = await action;
+                if (!res.success) {
+                    allSuccess = false;
+                    console.error('Failed to submit group:', group);
+                    alert(`Lỗi khi gửi phiếu kho cho vị trí ${group.warehouse_location_id}: ` + (res.messages?.vi || 'Lỗi hệ thống'));
+                }
+            }
+
+            if (allSuccess) {
                 setIsDone(true);
             }
+        } catch (err) {
+            console.error('Batch submit error', err);
+            alert('Không thể gửi phiếu kho. Vui lòng thử lại.');
         } finally {
             setSubmitting(false);
         }
@@ -154,7 +164,8 @@ export default function ScanQueueView() {
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-surface-800 truncate">{scan.product_id}</p>
-                            <p className="text-xs text-surface-500">Mã: {scan.barcode}</p>
+                            <p className="text-xs text-surface-500">Mã: {scan.barcode_scanned || scan.barcode}</p>
+                            <p className="text-xs text-surface-500">Vị trí: <span className="font-semibold text-accent-600">{scan.warehouse_location_id}</span></p>
                             <p className="text-xs text-surface-500 mt-0.5">Thời gian: {new Date(scan.scan_time).toLocaleTimeString()}</p>
                         </div>
                         <div className="flex flex-col items-end gap-2 shrink-0">

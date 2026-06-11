@@ -85,6 +85,10 @@ function AdminUsersPageContent() {
     const [newIdCard, setNewIdCard] = useState('');
     const [newBankAccount, setNewBankAccount] = useState('');
     const [newEducation, setNewEducation] = useState('');
+    const [newProbationStartDate, setNewProbationStartDate] = useState('');
+    const [newOfficialStartDate, setNewOfficialStartDate] = useState('');
+    const [newResignationDate, setNewResignationDate] = useState('');
+    const [newContractNumber, setNewContractNumber] = useState('');
     const [newCanManageHR, setNewCanManageHR] = useState(false);
     const [newWorkplaceType, setNewWorkplaceType] = useState<'STORE' | 'OFFICE' | 'CENTRAL'>('STORE');
     const [newStoreId, setNewStoreId] = useState('');
@@ -215,6 +219,7 @@ function AdminUsersPageContent() {
         setNewName(''); setNewPhone(''); setNewRole('employee'); setNewType('PT');
         setNewDob(''); setNewJobTitle(''); setNewEmail(''); setNewIdCard('');
         setNewBankAccount(''); setNewEducation(''); setNewCanManageHR(false); setNewCustomRoleId('');
+        setNewProbationStartDate(''); setNewOfficialStartDate(''); setNewResignationDate(''); setNewContractNumber('');
         setNewGender(''); setNewPermanentAddress(''); setNewIdCardFrontPhoto(''); setNewIdCardBackPhoto('');
         setCccdScanned(false);
         setNewStoreId(selectedLocationType === 'STORE' ? selectedLocationId : '');
@@ -261,6 +266,10 @@ function AdminUsersPageContent() {
                 name: newName, phone: newPhone, role: newRole, type: newType,
                 dob: newDob, jobTitle: newJobTitle, email: newEmail,
                 idCard: newIdCard, bankAccount: newBankAccount, education: newEducation,
+                probationStartDate: newProbationStartDate || undefined,
+                officialStartDate: newOfficialStartDate || undefined,
+                resignationDate: newResignationDate || undefined,
+                contractNumber: newContractNumber || undefined,
                 gender: newGender || undefined,
                 permanentAddress: newPermanentAddress || undefined,
                 idCardFrontPhoto: newIdCardFrontPhoto || undefined,
@@ -840,6 +849,10 @@ function AdminUsersPageContent() {
                                             { label: 'CCCD/CMND', value: newIdCard, setter: setNewIdCard, placeholder: '0123456789', readOnly: cccdScanned },
                                             { label: 'Tài khoản ngân hàng', value: newBankAccount, setter: setNewBankAccount, placeholder: '123456789' },
                                             { label: 'Học vấn', value: newEducation, setter: setNewEducation, placeholder: 'Đại học, Cao đẳng...' },
+                                            { label: 'Ngày bắt đầu thử việc', value: newProbationStartDate, setter: setNewProbationStartDate, type: 'date' },
+                                            { label: 'Ngày chính thức làm việc', value: newOfficialStartDate, setter: setNewOfficialStartDate, type: 'date' },
+                                            { label: 'Ngày chính thức nghỉ việc', value: newResignationDate, setter: setNewResignationDate, type: 'date' },
+                                            { label: 'Số hợp đồng', value: newContractNumber, setter: setNewContractNumber, placeholder: 'HĐ...' },
                                         ].map(f => (
                                             <div key={f.label} className="space-y-1.5">
                                                 <label className={cn('text-sm font-medium', (f as any).readOnly ? 'text-success-600' : 'text-surface-700')}>
