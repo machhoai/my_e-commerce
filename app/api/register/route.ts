@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { WeeklyRegistration } from '@/types';
+import { isInOpenWindow } from '@/lib/utils/schedule';
 
 // POST /api/register — Submit weekly shift registration with server-side validation
 export async function POST(req: NextRequest) {
@@ -30,7 +31,19 @@ export async function POST(req: NextRequest) {
         // Fetch the LATEST store settings — cannot be spoofed by client
         const storeSnap = await adminDb.collection('stores').doc(storeId).get();
         const storeData = storeSnap.data();
-        const registrationOpen: boolean = storeData?.settings?.registrationOpen ?? false;
+        let registrationOpen: boolean = storeData?.settings?.registrationOpen ?? false;
+
+        const schedule = storeData?.settings?.registrationSchedule;
+        if (schedule?.enabled) {
+            registrationOpen = isInOpenWindow(schedule);
+            if (registrationOpen !== (storeData?.settings?.registrationOpen ?? false)) {
+                // Background update — don't await to keep response fast
+                adminDb.collection('stores').doc(storeId).set(
+                    { settings: { ...storeData?.settings, registrationOpen } },
+                    { merge: true }
+                ).catch(console.error);
+            }
+        }
 
         if (!registrationOpen) {
             return NextResponse.json(
@@ -186,7 +199,21 @@ export async function DELETE(req: NextRequest) {
         // Server-side check: registration must be open to allow deletion too
         if (storeId) {
             const storeSnap = await adminDb.collection('stores').doc(storeId).get();
-            const registrationOpen: boolean = storeSnap.data()?.settings?.registrationOpen ?? false;
+            const storeData = storeSnap.data();
+            let registrationOpen: boolean = storeData?.settings?.registrationOpen ?? false;
+
+            const schedule = storeData?.settings?.registrationSchedule;
+            if (schedule?.enabled) {
+                registrationOpen = isInOpenWindow(schedule);
+                if (registrationOpen !== (storeData?.settings?.registrationOpen ?? false)) {
+                    // Background update — don't await to keep response fast
+                    adminDb.collection('stores').doc(storeId).set(
+                        { settings: { ...storeData?.settings, registrationOpen } },
+                        { merge: true }
+                    ).catch(console.error);
+                }
+            }
+
             if (!registrationOpen) {
                 return NextResponse.json(
                     { error: 'Đăng ký thất bại do cổng đăng ký đã đóng' },
