@@ -275,6 +275,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             matchPrefix: '/admin/products',
             group: 'Kho Hàng',
         },
+        {
+            label: 'Quét SP Xuất Kho',
+            href: '/product-scanner',
+            icon: ScanBarcode,
+            show: isAdmin || isSuperAdmin || hasPermission('page.product_scanner'),
+            matchPrefix: '/product-scanner',
+            group: 'Kho Hàng',
+        },
 
         {
             label: 'Duyệt Lệnh',

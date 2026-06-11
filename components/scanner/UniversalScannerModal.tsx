@@ -1,19 +1,17 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { X, ScanLine, Keyboard, SearchX, Camera, RotateCcw, Zap, ZapOff, User, Phone, ChevronDown, Loader2, CheckCircle2, Ticket } from 'lucide-react';
+import { X, ScanLine, Keyboard, SearchX, Camera, RotateCcw, Zap, ZapOff, User, Phone, Loader2, CheckCircle2, Ticket } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { preloadScannerData, voucherSearchAction, getWmsWarehouseMappingAction, getAvailableWmsWarehousesAction } from '@/actions/scanner';
-import type { PreloadedEmployee, PreloadedProduct } from '@/actions/scanner';
+import { preloadScannerData, voucherSearchAction } from '@/actions/scanner';
+import type { PreloadedEmployee } from '@/actions/scanner';
 import { createPendingReferral } from '@/actions/referral';
 import { useAuth } from '@/contexts/AuthContext';
 import type { ScanResult } from '@/types';
 import type { VoucherCode } from '@/types';
-import type { ProductDoc } from '@/types/inventory';
 import VoucherListSelector from './VoucherListSelector';
 import VoucherDetailsCard from './VoucherDetailsCard';
 import VoucherResultCard from './VoucherResultCard';
-import ProductScanConfirmCard from './ProductScanConfirmCard';
 import TicketPassCard from './TicketPassCard';
 import TicketOrderCard from './TicketOrderCard';
 import BottomSheet from '@/components/shared/BottomSheet';
@@ -28,7 +26,6 @@ type ModalView =
     | { kind: 'phone'; phone: string; vouchers: VoucherCode[] }
     | { kind: 'voucher-detail'; voucher: VoucherCode & { campaignImage?: string; campaignName?: string } }
     | { kind: 'voucher-result'; success: boolean; title: string; details: { label: string; value: string }[] }
-    | { kind: 'product'; product: ProductDoc }
     | { kind: 'referral'; employee: { uid: string; name: string; phone: string; storeId: string; referralPoints: number } }
     | { kind: 'not-found'; query: string };
 
@@ -365,51 +362,18 @@ export default function UniversalScannerModal() {
     const [showLabel, setShowLabel] = useState(false);
 
     const [preloadedEmployees, setPreloadedEmployees] = useState<PreloadedEmployee[]>([]);
-    const [preloadedProducts, setPreloadedProducts] = useState<PreloadedProduct[]>([]);
     const [preloading, setPreloading] = useState(false);
-    const [wmsWarehouseId, setWmsWarehouseId] = useState<string | null>(null);
-    const [availableWarehouses, setAvailableWarehouses] = useState<any[]>([]);
 
     useEffect(() => {
         let isMounted = true;
 
         const fetchPreloadData = async () => {
-            if (preloadedEmployees.length > 0 || preloadedProducts.length > 0 || preloading) return;
+            if (preloadedEmployees.length > 0 || preloading) return;
             setPreloading(true);
             try {
-                let warehouseIdToUse: string | null = null;
-                const isAdmin = authUser?.role === 'super_admin' || authUser?.role === 'admin';
-                
-                // 1. Get mapping
-                if (authUser?.uid && authUser?.workplaceType) {
-                    const locId = authUser.workplaceType === 'CENTRAL' ? authUser.warehouseId : authUser.storeId;
-                    if (locId) {
-                        const mapRes = await getWmsWarehouseMappingAction(authUser.workplaceType as any, locId);
-                        if (mapRes.success && mapRes.wmsWarehouseId) {
-                            warehouseIdToUse = mapRes.wmsWarehouseId;
-                            if (isMounted) setWmsWarehouseId(warehouseIdToUse);
-                        }
-                    }
-                }
-
-                // If Admin or no mapping found, load available warehouses
-                if (isAdmin || !warehouseIdToUse) {
-                    const whRes = await getAvailableWmsWarehousesAction();
-                    if (whRes.success && whRes.data) {
-                        if (isMounted) setAvailableWarehouses(whRes.data);
-                        // Default to the first one if not set
-                        if (!warehouseIdToUse && whRes.data.length > 0) {
-                            warehouseIdToUse = whRes.data[0].id;
-                            if (isMounted) setWmsWarehouseId(warehouseIdToUse);
-                        }
-                    }
-                }
-
-                // 2. Load products
-                const data = await preloadScannerData(warehouseIdToUse || undefined);
+                const data = await preloadScannerData();
                 if (isMounted) {
                     setPreloadedEmployees(data.employees);
-                    setPreloadedProducts(data.products);
                 }
             } catch (err) {
                 console.error('[Scanner] Preload failed:', err);
@@ -424,21 +388,6 @@ export default function UniversalScannerModal() {
             clearTimeout(timer);
         };
     }, [authUser]); // Chạy khi có authUser
-
-    // ── Handle Admin Warehouse Change ────────────────────────────────
-    const handleWarehouseChange = async (newId: string) => {
-        setWmsWarehouseId(newId);
-        setPreloading(true);
-        try {
-            const data = await preloadScannerData(newId);
-            setPreloadedEmployees(data.employees);
-            setPreloadedProducts(data.products);
-        } catch (err) {
-            console.error('[Scanner] Preload failed on warehouse change:', err);
-        } finally {
-            setPreloading(false);
-        }
-    };
 
     // ── Start camera — QR + Code128 only, high-res, adaptive qrbox ──
     const startCamera = useCallback(async () => {
@@ -649,19 +598,7 @@ export default function UniversalScannerModal() {
             return;
         }
 
-        // 2. Product barcode / companyCode → local lookup (skip if voucherMode)
-        if (!voucherMode) {
-            const product = preloadedProducts.find(
-                p => p.barcode === trimmed || p.companyCode === trimmed
-            );
-            if (product) {
-                setView({
-                    kind: 'product',
-                    product: product as ProductDoc,
-                });
-                return;
-            }
-        }
+        // 2. Product scanning has been moved to /product-scanner page
 
         // 3. Phone or Voucher code → must hit server (permission-gated)
         if (!canSearchVouchers) {
@@ -703,29 +640,8 @@ export default function UniversalScannerModal() {
     const renderContent = () => {
         switch (view.kind) {
             case 'scanner':
-                const isAdmin = authUser?.role === 'super_admin' || authUser?.role === 'admin';
                 return (
                     <div className="flex flex-col">
-                        {/* Warehouse selector for Admin */}
-                        {(isAdmin || availableWarehouses.length > 0) && (
-                            <div className="px-4 pt-4 pb-0 bg-white">
-                                <label className="block text-xs font-semibold text-surface-600 mb-1">Kho / Nơi thao tác</label>
-                                <div className="relative">
-                                    <select
-                                        value={wmsWarehouseId || ''}
-                                        onChange={(e) => handleWarehouseChange(e.target.value)}
-                                        disabled={!isAdmin && availableWarehouses.length === 0}
-                                        className="w-full appearance-none bg-surface-50 border border-surface-200 text-surface-800 text-sm rounded-xl px-3 py-2.5 focus:ring-accent-500 focus:border-accent-400 outline-none pr-8 font-medium"
-                                    >
-                                        <option value="" disabled>-- Chọn kho WMS --</option>
-                                        {availableWarehouses.map(wh => (
-                                            <option key={wh.id} value={wh.id}>{wh.name} ({wh.code})</option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown className="w-4 h-4 text-surface-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                                </div>
-                            </div>
-                        )}
 
                         {/* Manual input */}
                         <div className="p-4 bg-white">
@@ -927,8 +843,7 @@ export default function UniversalScannerModal() {
             case 'voucher-result':
                 return <VoucherResultCard success={view.success} title={view.title} details={view.details} onClose={close} />;
 
-            case 'product':
-                return <ProductScanConfirmCard product={view.product as any} wmsWarehouseId={wmsWarehouseId} onClose={resetToScanner} />;
+
 
             case 'referral':
                 return <ReferralView employee={view.employee} cashierId={authUser?.uid || ''} onDone={close} onRescan={resetToScanner} />;
@@ -970,7 +885,7 @@ export default function UniversalScannerModal() {
                         </div>
                         <div>
                             <h2 className="text-sm font-bold text-surface-800">Quét mã</h2>
-                            <p className="text-[10px] text-surface-400">QR • Barcode • Voucher • SĐT</p>
+                            <p className="text-[10px] text-surface-400">QR • Voucher • SĐT • Giới thiệu</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">

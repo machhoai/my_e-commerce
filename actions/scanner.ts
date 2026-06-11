@@ -51,15 +51,17 @@ export async function preloadScannerData(wmsWarehouseId?: string): Promise<{
     const fetchProducts = async () => {
         if (!wmsWarehouseId) return { success: false, data: [] };
         try {
-            const res = await fetch(`${process.env.WMS_API_URL}/api/external/v1/products?warehouse_id=${wmsWarehouseId}`, {
+            const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
+            const res = await fetch(`${apiUrl}/api/external/v1/products?warehouse_id=${wmsWarehouseId}`, {
                 headers: {
                     'x-api-key': process.env.WMS_API_KEY || ''
                 },
                 cache: 'no-store'
             });
             return await res.json();
-        } catch {
-            return { success: false, data: [] };
+        } catch (err: any) {
+            console.error('fetchProducts error:', err.message);
+            return { success: false, data: [], error: err.message };
         }
     };
 
@@ -173,39 +175,53 @@ export async function submitExternalScanAction(data: {
     operator_id_external: string | null;
     device_id: string | null;
 }) {
-    const res = await fetch(`${process.env.WMS_API_URL}/api/external/v1/scan`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': process.env.WMS_API_KEY || ''
-        },
-        body: JSON.stringify({
-            ...data,
-            scan_time: new Date().toISOString(),
-        })
-    });
-    
-    return res.json();
+    try {
+        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
+        const res = await fetch(`${apiUrl}/api/external/v1/scan`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': process.env.WMS_API_KEY || ''
+            },
+            body: JSON.stringify({
+                ...data,
+                scan_time: new Date().toISOString(),
+            })
+        });
+        return res.json();
+    } catch (err: any) {
+        return { success: false, data: null, messages: { vi: `Network Error: ${err.message}` } };
+    }
 }
 
 export async function getMyScansAction(operatorIdExternal: string) {
-    const res = await fetch(`${process.env.WMS_API_URL}/api/external/v1/scan?operator_id_external=${operatorIdExternal}`, {
-        headers: {
-            'x-api-key': process.env.WMS_API_KEY || ''
-        },
-        cache: 'no-store'
-    });
-    return res.json();
+    try {
+        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
+        const res = await fetch(`${apiUrl}/api/external/v1/scan?operator_id_external=${operatorIdExternal}`, {
+            headers: {
+                'x-api-key': process.env.WMS_API_KEY || ''
+            },
+            cache: 'no-store'
+        });
+        return res.json();
+    } catch (err: any) {
+        return { success: false, data: null, error: err.message };
+    }
 }
 
 export async function cancelExternalScanAction(scanId: string) {
-    const res = await fetch(`${process.env.WMS_API_URL}/api/external/v1/scan/${scanId}`, {
-        method: 'DELETE',
-        headers: {
-            'x-api-key': process.env.WMS_API_KEY || ''
-        }
-    });
-    return res.json();
+    try {
+        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
+        const res = await fetch(`${apiUrl}/api/external/v1/scan/${scanId}`, {
+            method: 'DELETE',
+            headers: {
+                'x-api-key': process.env.WMS_API_KEY || ''
+            }
+        });
+        return res.json();
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
 }
 
 export async function submitBatchAction(data: {
@@ -216,43 +232,51 @@ export async function submitBatchAction(data: {
     operator_id_external: string | null;
     notes: string | null;
 }) {
-    const res = await fetch(`${process.env.WMS_API_URL}/api/external/v1/batch-submit`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': process.env.WMS_API_KEY || ''
-        },
-        body: JSON.stringify(data)
-    });
-    return res.json();
+    try {
+        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
+        const res = await fetch(`${apiUrl}/api/external/v1/batch-submit`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': process.env.WMS_API_KEY || ''
+            },
+            body: JSON.stringify(data)
+        });
+        return res.json();
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
 }
 
 export async function getAvailableWmsWarehousesAction() {
     try {
-        const res = await fetch(`${process.env.WMS_API_URL}/api/external/v1/warehouses`, {
+        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
+        const res = await fetch(`${apiUrl}/api/external/v1/warehouses`, {
             headers: {
                 'x-api-key': process.env.WMS_API_KEY || ''
             },
             cache: 'no-store'
         });
-        return await res.json();
-    } catch {
-        return { success: false, data: [] };
+        const data = await res.json();
+        return data;
+    } catch (err: any) {
+        return { success: false, data: [], error: err.message, apiUrl: process.env.WMS_API_URL };
     }
 }
 
 export async function getWmsLocationsAction(warehouseId: string) {
     if (!warehouseId) return { success: false, data: [] };
     try {
-        const res = await fetch(`${process.env.WMS_API_URL}/api/external/v1/locations?warehouse_id=${warehouseId}`, {
+        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
+        const res = await fetch(`${apiUrl}/api/external/v1/locations?warehouse_id=${warehouseId}`, {
             headers: {
                 'x-api-key': process.env.WMS_API_KEY || ''
             },
             cache: 'no-store'
         });
         return await res.json();
-    } catch {
-        return { success: false, data: [] };
+    } catch (err: any) {
+        return { success: false, data: [], error: err.message };
     }
 }
 

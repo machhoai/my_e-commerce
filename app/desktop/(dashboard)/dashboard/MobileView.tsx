@@ -18,7 +18,7 @@ import {
     BarChart3, Banknote, ArrowUpDown, Coins, XCircle, RefreshCw,
     Wifi, WifiOff, CalendarDays, CalendarRange,
     // Extra icons for new routes
-    FileText, Repeat, LayoutDashboard, Star, Ticket, Link2,
+    FileText, Repeat, LayoutDashboard, Star, Ticket, Link2, ScanBarcode,
 } from 'lucide-react';
 import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -1842,6 +1842,7 @@ export default function MobileView({ topReferralData }: { topReferralData?: { ui
                 { icon: Repeat, label: t('dashboard.navHandover'), route: '/manager/inventory/handover', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
                 { icon: FileText, label: t('dashboard.navUsage'), route: '/manager/inventory/usage', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
                 { icon: Package, label: t('dashboard.navDispatch'), route: '/manager/inventory/dispatch', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
+                { icon: ScanBarcode, label: 'Quét SP Xuất Kho', route: '/product-scanner', color: 'bg-orange-50 text-orange-600', permKey: 'page.product_scanner' },
             ],
         },
         // ── Revenue (office+) ─────────────────────────────────────────

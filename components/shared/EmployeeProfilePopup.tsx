@@ -403,6 +403,10 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose, in
         { icon: <MapPin className="w-4 h-4" />, label: 'Thường trú', value: employee.permanentAddress || '—' },
         { icon: <Building2 className="w-4 h-4" />, label: 'Tài khoản ngân hàng', value: employee.bankAccount || '—' },
         { icon: <GraduationCap className="w-4 h-4" />, label: 'Học vấn', value: employee.education || '—' },
+        { icon: <CalendarDays className="w-4 h-4" />, label: 'Thử việc', value: employee.probationStartDate ? formatDate(employee.probationStartDate) : '—' },
+        { icon: <CalendarDays className="w-4 h-4" />, label: 'Chính thức', value: employee.officialStartDate ? formatDate(employee.officialStartDate) : '—' },
+        { icon: <CalendarDays className="w-4 h-4" />, label: 'Nghỉ việc', value: employee.resignationDate ? formatDate(employee.resignationDate) : '—' },
+        { icon: <Briefcase className="w-4 h-4" />, label: 'Số hợp đồng', value: employee.contractNumber || '—' },
     ] : [];
 
     const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
