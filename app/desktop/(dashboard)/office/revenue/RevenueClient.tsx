@@ -17,6 +17,7 @@ import { subscribeDocument } from '@/lib/firestore';
 import { JOYWORLD_CACHE_COLLECTION, getCacheDocId, type RevenueCache, type RevenueRecord, type SellCategory, type DailyPanel } from '@/lib/revenue-cache';
 import { fetchRevenueFromCache, triggerSyncAction } from './actions';
 import OrdersClient from './orders/OrdersClient';
+import ExcelExportDialog from './ExcelExportDialog';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 const fmt = (v: number) => v.toLocaleString('vi-VN');
@@ -153,6 +154,7 @@ export default function RevenueClient() {
     const [customStart, setCustomStart] = useState(monthStart());
     const [customEnd, setCustomEnd] = useState(todayStr());
     const [viewTab, setViewTab] = useState<ViewTab>('overview');
+    const [showExportDialog, setShowExportDialog] = useState(false);
 
     const [data, setData] = useState<RevenueRecord[]>([]);
     const [sellData, setSellData] = useState<SellCategory[]>([]);
@@ -319,7 +321,7 @@ export default function RevenueClient() {
     }
 
     return (
-        <div className="space-y-5 animate-in fade-in duration-500">
+        <div className="flex flex-col gap-3 animate-in fade-in duration-500">
 
             {/* ═══ HEADER ═══ */}
             <div className="flex flex-col gap-4">
@@ -647,7 +649,7 @@ export default function RevenueClient() {
 
                             {/* Product analytics section */}
                             {(sellData.length > 0 || (dailyPanel?.goodsTypeStats && dailyPanel.goodsTypeStats.length > 0)) && (
-                                <div className="space-y-4">
+                                <div className="flex flex-col gap-3">
                                     <SectionHeader
                                         icon={<ShoppingBag className="size-4 text-accent-600" />}
                                         title="Phân tích sản phẩm"
@@ -771,9 +773,18 @@ export default function RevenueClient() {
                                     <h3 className="text-sm font-bold text-surface-700">Chi tiết doanh thu</h3>
                                     <p className="text-xs text-surface-400 mt-0.5">{data.length} bản ghi · {activeRange}</p>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-lg font-bold text-surface-800">{fmtShort(kpis.totalReal)}</p>
-                                    <p className="text-[10px] text-surface-400 uppercase tracking-wider">Tổng thực thu</p>
+                                <div className="flex items-center gap-3">
+                                    <div className="text-right">
+                                        <p className="text-lg font-bold text-surface-800">{fmtShort(kpis.totalReal)}</p>
+                                        <p className="text-[10px] text-surface-400 uppercase tracking-wider">Tổng thực thu</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowExportDialog(true)}
+                                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-accent-600 to-violet-600 text-white text-xs font-semibold shadow-sm shadow-accent-200 hover:shadow-md hover:shadow-accent-300 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="16" y2="17" /><line x1="8" y1="9" x2="10" y2="9" /></svg>
+                                        Xuất Excel
+                                    </button>
                                 </div>
                             </div>
                             <div className="overflow-x-auto -mx-0 scrollbar-thin">
@@ -845,6 +856,16 @@ export default function RevenueClient() {
                     </button>
                 </div>
             )}
+
+            {/* ═══ EXCEL EXPORT DIALOG ═══ */}
+            <ExcelExportDialog
+                open={showExportDialog}
+                onClose={() => setShowExportDialog(false)}
+                data={data}
+                sellData={sellData}
+                dailyPanel={dailyPanel}
+                activeRange={activeRange}
+            />
         </div>
     );
 }

@@ -64,7 +64,7 @@ function formatNumber(n: number): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function TrackingPage() {
-    const { user } = useAuth();
+    const { user, userDoc, hasPermission } = useAuth();
     const router = useRouter();
 
     const [links, setLinks] = useState<TrackingLink[]>([]);
@@ -206,6 +206,15 @@ export default function TrackingPage() {
         return { totalClicks, totalDevices, activeLinks, avgClicksPerLink, engagementRate };
     }, [links]);
 
+    // ── Permission guard ──────────────────────────────────────────────────
+    if (userDoc && userDoc.role !== 'office' && userDoc.role !== 'admin' && userDoc.role !== 'super_admin' && !hasPermission('page.office.tracking')) {
+        return (
+            <div className="flex items-center justify-center h-[60vh] text-surface-400">
+                <p>Bạn không có quyền truy cập trang này.</p>
+            </div>
+        );
+    }
+
     // ── Loading state ────────────────────────────────────────────────────
     if (loading) {
         return (
@@ -217,7 +226,7 @@ export default function TrackingPage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="flex flex-col gap-3">
             {/* ═══ HEADER ═══ */}
             <DashboardHeader
                 showSelect={false}

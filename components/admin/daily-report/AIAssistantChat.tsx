@@ -7,11 +7,22 @@
  * Dùng useChat từ ai/react (SDK v4).
  */
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useChat } from 'ai/react';
 import type { Message } from 'ai';
-import { Send, X, Bot, ChevronDown, Sparkles, Loader2 } from 'lucide-react';
+import { Send, X, Bot, ChevronDown, Sparkles, Loader2, BarChart3, AlertTriangle, Calendar, Code2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import RichHtmlRenderer, { isHtmlContent } from '@/components/shared/RichHtmlRenderer';
+
+// ── Model options (must match MODEL_OPTIONS in route.ts) ────
+const MODELS = [
+    { id: 'llama-70b', label: 'Llama 3.3 70B', icon: '🦙', desc: 'Nhanh, đa năng', badge: '⭐ Đề xuất' as string | null },
+    { id: 'gemini-flash', label: 'Gemini 2.0 Flash', icon: '✨', desc: 'Google AI, 1M context', badge: null },
+    { id: 'llama-scout', label: 'Llama 4 Scout', icon: '🔍', desc: 'Nhẹ, tiết kiệm', badge: null },
+    { id: 'compound-beta', label: 'Compound Beta', icon: '🧬', desc: 'Đa model kết hợp', badge: null },
+    { id: 'llama-8b', label: 'Llama 3.1 8B', icon: '⚡', desc: 'Siêu nhanh', badge: null },
+    { id: 'claude-sonnet', label: 'Claude Sonnet', icon: '🟣', desc: 'Phân tích sâu, chính xác', badge: '💎 Premium' },
+];
 
 // ─────────────────────────────────────────────────────────────
 // Markdown renderer (basic: bold, italic, list, heading)
@@ -80,10 +91,26 @@ function TypingIndicator() {
 // ─────────────────────────────────────────────────────────────
 const QUICK_PROMPTS = [
     'Doanh thu hôm nay là bao nhiêu?',
-    'So sánh doanh thu tuần này với tuần trước',
+    'Phân tích doanh thu tháng này',
     'Loại vé nào bán chạy nhất hôm nay?',
-    'Số thành viên mới tháng này?',
+    'Tình hình nhân sự tuần này?',
+    'Tổng quan kho hàng?',
 ];
+
+// ─────────────────────────────────────────────────────────────
+// Token Usage Badge (hiển thị dưới mỗi câu trả lời AI)
+// ─────────────────────────────────────────────────────────────
+function TokenBadge({ usage }: { usage: { input: number; output: number } }) {
+    return (
+        <div className="flex items-center gap-1.5 mt-1 text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+            <span title="Input tokens">↑{usage.input}</span>
+            <span className="opacity-40">·</span>
+            <span title="Output tokens">↓{usage.output}</span>
+            <span className="opacity-40">·</span>
+            <span title="Total tokens">Σ{usage.input + usage.output}</span>
+        </div>
+    );
+}
 
 // ─────────────────────────────────────────────────────────────
 // Props
@@ -98,8 +125,30 @@ interface AIAssistantChatProps {
 export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
+    const [showUsage, setShowUsage] = useState(false);
+    const [showModelPicker, setShowModelPicker] = useState(false);
+    const [selectedModel, setSelectedModel] = useState(MODELS[0]); // Default = Llama 70B (first item)
+    const [tokenMap, setTokenMap] = useState<Record<string, { input: number; output: number }>>({}); // msgId → usage
+    const [totalUsage, setTotalUsage] = useState({ input: 0, output: 0, requests: 0 });
+    const [costWarning, setCostWarning] = useState<string | null>(null);
+    const [richMode, setRichMode] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleFinish = useCallback((message: Message, options: any) => {
+        const u = options?.usage;
+        if (u) {
+            const inp = u.promptTokens ?? u.inputTokens ?? 0;
+            const out = u.completionTokens ?? u.outputTokens ?? 0;
+            setTokenMap(prev => ({ ...prev, [message.id]: { input: inp, output: out } }));
+            setTotalUsage(prev => ({
+                input: prev.input + inp,
+                output: prev.output + out,
+                requests: prev.requests + 1,
+            }));
+        }
+    }, []);
 
     const {
         messages,
@@ -111,6 +160,14 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
         setInput,
     } = useChat({
         api: '/api/chat',
+        body: { modelId: selectedModel.id, richMode },
+        onFinish: handleFinish,
+        onResponse: (response) => {
+            // Read cost warning from response headers
+            const warning = response.headers.get('X-AI-Cost-Warning');
+            if (warning) setCostWarning(decodeURIComponent(warning));
+            else setCostWarning(null);
+        },
         onError: (err) => {
             console.error('[AI Chat] useChat error:', err);
         },
@@ -118,7 +175,7 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
             {
                 id: 'welcome',
                 role: 'assistant',
-                content: `Xin chào! Tôi là Trợ lý AI Joy World 👋\n\nBạn đang xem báo cáo ngày **${currentDate ?? 'hôm nay'}**. Tôi có thể tra cứu doanh thu, hàng hóa, và dữ liệu thành viên từ hệ thống Joyworld.\n\nHãy đặt câu hỏi nhé!`,
+                content: `Xin chào! Tôi là Trợ lý AI Joy World 👋\n\nBạn đang xem báo cáo ngày **${currentDate ?? 'hôm nay'}**. Tôi có thể phân tích:\n• 💰 Doanh thu & thanh toán\n• 🛍️ Hàng hóa & vé\n• 👥 Thành viên\n• 👔 Nhân sự & chấm công\n• 📦 Kho hàng & tồn kho\n• 🎫 Voucher\n\nHãy đặt câu hỏi nhé!`,
             } as Message,
         ],
     });
@@ -170,8 +227,8 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 24 }}
                         transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-                        className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden w-[380px] max-w-[calc(100vw-2rem)]"
-                        style={{ height: isMinimized ? 'auto' : 540 }}
+                        className={`fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden max-w-[calc(100vw-2rem)] transition-all duration-300 ${richMode ? 'w-[640px]' : 'w-[380px]'}`}
+                        style={{ height: isMinimized ? 'auto' : richMode ? 640 : 540 }}
                     >
                         {/* ── Header ── */}
                         <div className="flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white shrink-0 relative">
@@ -182,13 +239,27 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
                                 <p className="font-semibold text-sm leading-tight">Trợ lý AI Joy World</p>
                                 <p className="text-[11px] text-white/70 leading-tight flex items-center gap-1">
                                     {isLoading ? (
-                                        <><Loader2 className="w-3 h-3 animate-spin" /> Đang xử lý...</>
+                                        <><Loader2 className="w-3 h-3 animate-spin" /> Đang phân tích...</>
                                     ) : (
-                                        'Gemini 1.5 Flash · Dữ liệu thực tế'
+                                        `${selectedModel.icon} ${selectedModel.label}`
                                     )}
                                 </p>
                             </div>
                             <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setRichMode(v => !v)}
+                                    className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${richMode ? 'bg-white/30' : 'bg-white/15 hover:bg-white/25'}`}
+                                    title={richMode ? 'Tắt chế độ HTML' : 'Bật chế độ HTML trực quan'}
+                                >
+                                    <Code2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                    onClick={() => setShowUsage(v => !v)}
+                                    className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${showUsage ? 'bg-white/30' : 'bg-white/15 hover:bg-white/25'}`}
+                                    title="Token Usage"
+                                >
+                                    <BarChart3 className="w-3.5 h-3.5" />
+                                </button>
                                 <button
                                     onClick={() => setIsMinimized(v => !v)}
                                     className="w-7 h-7 rounded-lg bg-white/15 hover:bg-white/25 flex items-center justify-center transition-colors"
@@ -220,6 +291,62 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
                                     className="flex flex-col overflow-hidden"
                                     style={{ flex: 1 }}
                                 >
+                                    {/* Token Usage Panel */}
+                                    <AnimatePresence>
+                                        {showUsage && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: 'auto', opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 px-3 py-2 text-[11px] font-mono space-y-1 overflow-hidden"
+                                            >
+                                                <div className="flex justify-between text-slate-600 dark:text-slate-300">
+                                                    <span>Phiên này:</span>
+                                                    <span className="font-semibold">{totalUsage.requests} câu hỏi</span>
+                                                </div>
+                                                <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                                                    <span>↑ Input tokens:</span>
+                                                    <span>{totalUsage.input.toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                                                    <span>↓ Output tokens:</span>
+                                                    <span>{totalUsage.output.toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex justify-between text-violet-600 dark:text-violet-400 font-semibold">
+                                                    <span>Σ Tổng tokens:</span>
+                                                    <span>{(totalUsage.input + totalUsage.output).toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                                                    <span>≈ Chi phí:</span>
+                                                    <span>${((totalUsage.input / 1_000_000) * 3 + (totalUsage.output / 1_000_000) * 15).toFixed(5)}</span>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+
+                                    {/* Cost Warning Banner */}
+                                    <AnimatePresence>
+                                        {costWarning && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: 'auto', opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                className="mx-3 mb-1 overflow-hidden"
+                                            >
+                                                <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2 text-[11px] text-amber-700 dark:text-amber-400">
+                                                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                                    <span className="flex-1">{costWarning}</span>
+                                                    <button
+                                                        onClick={() => setCostWarning(null)}
+                                                        className="text-amber-400 hover:text-amber-600 transition-colors"
+                                                    >
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+
                                     {/* Messages list */}
                                     <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
                                         {messages.map((msg: Message) => (
@@ -232,14 +359,21 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
                                                         <Bot className="w-3.5 h-3.5 text-white" />
                                                     </div>
                                                 )}
-                                                <div className={`max-w-[82%] text-sm leading-relaxed ${msg.role === 'user'
-                                                    ? 'bg-gradient-to-br from-violet-500 to-purple-600 text-white rounded-2xl rounded-tr-sm px-3.5 py-2.5'
-                                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-2xl rounded-tl-sm px-3.5 py-2.5'
+                                                <div className={`text-sm leading-relaxed ${msg.role === 'user'
+                                                    ? 'max-w-[82%] bg-gradient-to-br from-violet-500 to-purple-600 text-white rounded-2xl rounded-tr-sm px-3.5 py-2.5'
+                                                    : msg.role === 'assistant' && isHtmlContent(msg.content)
+                                                        ? 'w-full rounded-2xl rounded-tl-sm overflow-hidden'
+                                                        : 'max-w-[82%] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-2xl rounded-tl-sm px-3.5 py-2.5'
                                                     }`}>
                                                     {msg.role === 'assistant'
-                                                        ? <SimpleMarkdown text={msg.content} />
+                                                        ? isHtmlContent(msg.content)
+                                                            ? <RichHtmlRenderer html={msg.content} />
+                                                            : <SimpleMarkdown text={msg.content} />
                                                         : <p>{msg.content}</p>
                                                     }
+                                                    {msg.role === 'assistant' && tokenMap[msg.id] && (
+                                                        <TokenBadge usage={tokenMap[msg.id]} />
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -283,11 +417,68 @@ export default function AIAssistantChat({ currentDate }: AIAssistantChatProps) {
                                         </div>
                                     )}
 
+                                    {/* Model Picker Dropdown */}
+                                    {showModelPicker && (
+                                        <div className="px-3 pb-2">
+                                            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg p-1 space-y-0.5">
+                                                {MODELS.map(m => (
+                                                    <button
+                                                        key={m.id}
+                                                        onClick={() => {
+                                                            setSelectedModel(m);
+                                                            setShowModelPicker(false);
+                                                        }}
+                                                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left transition-colors ${
+                                                            selectedModel.id === m.id
+                                                                ? 'bg-violet-50 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-700'
+                                                                : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                                                        }`}
+                                                    >
+                                                        <span className="text-sm">{m.icon}</span>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">{m.label}</p>
+                                                                {m.badge && (
+                                                                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${
+                                                                        m.badge.includes('Premium')
+                                                                            ? 'bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800'
+                                                                            : 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                                                                    }`}>
+                                                                        {m.badge}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-[9px] text-slate-400">{m.desc}</p>
+                                                        </div>
+                                                        {selectedModel.id === m.id && (
+                                                            <span className="text-violet-600 text-[10px] font-bold">✓</span>
+                                                        )}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Input bar */}
                                     <form
-                                        onSubmit={handleSubmit}
+                                        onSubmit={(e) => { setShowModelPicker(false); handleSubmit(e); }}
                                         className="flex items-center gap-2 px-3 py-3 border-t border-slate-100 dark:border-slate-800 shrink-0"
                                     >
+                                        {/* Model toggle */}
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowModelPicker(v => !v)}
+                                            className={`flex items-center gap-1 text-[11px] font-bold px-2 py-2 rounded-xl border transition-colors shrink-0 ${
+                                                showModelPicker
+                                                    ? 'bg-violet-50 dark:bg-violet-900/30 border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-400'
+                                                    : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'
+                                            }`}
+                                            title="Chọn model AI"
+                                        >
+                                            <span>{selectedModel.icon}</span>
+                                            <ChevronDown className={`w-3 h-3 transition-transform ${showModelPicker ? 'rotate-180' : ''}`} />
+                                        </button>
+
                                         <input
                                             ref={inputRef}
                                             value={input}

@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-    Package, Plus, Pencil, X, Save, Search, CheckCircle2, AlertCircle,
+    Package, Plus, Pencil, X, Save, Search, AlertCircle,
     ToggleLeft, ToggleRight, Tag, Barcode, DollarSign, MapPin, Layers, ImagePlus, Upload,
     ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, Printer
 } from 'lucide-react';
+import { showToast } from '@/lib/utils/toast';
 import type { ProductDoc } from '@/types/inventory';
 import Portal from '@/components/Portal';
 import { storage } from '@/lib/firebase';
@@ -109,7 +110,6 @@ export default function ProductManagementPage() {
         setEditingId(null);
         setForm(EMPTY_FORM);
         setModalOpen(true);
-        setMessage({ type: '', text: '' });
         setPendingImageFile(null);
         setImagePreview('');
         setUploadProgress(0);
@@ -119,7 +119,6 @@ export default function ProductManagementPage() {
         setEditingId(p.id);
         setForm({ ...p });
         setModalOpen(true);
-        setMessage({ type: '', text: '' });
         setPendingImageFile(null);          // no pending file yet
         setImagePreview(p.image || '');    // show existing image
         setUploadProgress(0);
@@ -132,17 +131,16 @@ export default function ProductManagementPage() {
         if (!file) return;
 
         if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-            setMessage({ type: 'error', text: 'Chỉ chấp nhận JPG, PNG hoặc WebP.' });
+            showToast.error('Lỗi định dạng', 'Chỉ chấp nhận JPG, PNG hoặc WebP.');
             return;
         }
         if (file.size > 20 * 1024 * 1024) {
-            setMessage({ type: 'error', text: 'File quá lớn (tối đa 20 MB).' });
+            showToast.error('File quá lớn', 'File quá lớn (tối đa 20 MB).');
             return;
         }
 
         setImageCompressing(true);
         setUploadStatus('compressing');
-        setMessage({ type: '', text: '' });
 
         // Revoke any previous blob URL to prevent memory leaks
         if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
@@ -164,7 +162,7 @@ export default function ProductManagementPage() {
             setImagePreview(URL.createObjectURL(compressed)); // local blob preview
             setMessage({ type: '', text: `Ảnh đã sẵn sàng (${(compressed.size / 1024).toFixed(0)} KB). Nhấn Lưu để hoàn tất.` });
         } catch {
-            setMessage({ type: 'error', text: 'Nén ảnh thất bại. Vui lòng chọn lại.' });
+            showToast.error('Nén ảnh thất bại', 'Vui lòng chọn lại.');
         } finally {
             setImageCompressing(false);
             setUploadStatus('');
@@ -197,9 +195,8 @@ export default function ProductManagementPage() {
 
     // â”€â”€ Step 2: Save â†’ upload pending image first, then save doc â”€
     const handleSave = async () => {
-        if (!form.name?.trim()) { setMessage({ type: 'error', text: 'Tên sản phẩm không được để trống' }); return; }
+        if (!form.name?.trim()) { showToast.warning('Thiếu thông tin', 'Tên sản phẩm không được để trống'); return; }
         setSaving(true);
-        setMessage({ type: '', text: '' });
         try {
             // Upload image to Storage only now (no orphan files if user cancelled)
             let finalImageUrl = form.image || '';
@@ -226,7 +223,7 @@ export default function ProductManagementPage() {
             fetchProducts();
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : 'Có lỗi xảy ra';
-            setMessage({ type: 'error', text: msg });
+            showToast.error('Lỗi lưu sản phẩm', msg);
         } finally {
             setSaving(false);
             setUploadStatus('');
@@ -605,9 +602,8 @@ export default function ProductManagementPage() {
                                 <button onClick={() => setModalOpen(false)} className="text-surface-400 hover:text-surface-700 p-1"><X className="w-5 h-5" /></button>
                             </div>
 
-                            {message.text && (
-                                <div className={`mx-6 mt-4 p-3 rounded-lg flex items-center gap-2 text-sm ${message.type === 'error' ? 'bg-danger-50 text-danger-700' : 'bg-success-50 text-success-700'}`}>
-                                    {message.type === 'error' ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                            {message.text && message.type !== 'error' && (
+                                <div className="mx-6 mt-4 p-3 rounded-lg flex items-center gap-2 text-sm bg-surface-50 text-surface-600">
                                     {message.text}
                                 </div>
                             )}

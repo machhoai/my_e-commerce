@@ -41,3 +41,9 @@ yarn-error.log*
 next-env.d.ts
 
 certificates
+
+# cloudflare workers
+workers/**/node_modules
+workers/**/.dev.vars
+workers/**/.wrangler
+workers/**/dist

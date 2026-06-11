@@ -12,9 +12,10 @@ import {
     User, Award, CalendarDays, Phone, Mail, CreditCard, GraduationCap,
     Briefcase, Building2, ChevronLeft, ChevronRight, CheckCircle2, Clock,
     Loader2, Ban, TrendingUp, MapPin, UserCircle, Image as ImageIcon, X, Coins,
-    TimerIcon, LogIn, LogOut, AlertCircle,
+    TimerIcon, LogIn, LogOut, AlertCircle, FileText,
 } from 'lucide-react';
 import ReferralHistorySection from '@/components/referral/ReferralHistorySection';
+import ContractSection from '@/components/shared/ContractSection';
 
 interface EmployeeProfilePopupProps {
     employeeUid: string;
@@ -277,6 +278,12 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose, in
         getDoc(doc(db, 'users', employeeUid))
             .then(s => { if (s.exists()) setEmployee(s.data() as UserDoc); })
             .finally(() => setLoadingUser(false));
+    }, [employeeUid]);
+
+    // Refresh employee data (e.g. after contract update)
+    const refreshEmployee = useCallback(() => {
+        getDoc(doc(db, 'users', employeeUid))
+            .then(s => { if (s.exists()) setEmployee(s.data() as UserDoc); });
     }, [employeeUid]);
 
     // Use storeId prop if provided, otherwise fall back to the employee's own storeId
@@ -545,6 +552,11 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose, in
                                         )}
                                     </div>
                                 </div>
+                            )}
+
+                            {/* Contract & Employment Dates Section */}
+                            {employee && (
+                                <ContractSection employee={employee} onUpdated={refreshEmployee} />
                             )}
                         </>
                     )}

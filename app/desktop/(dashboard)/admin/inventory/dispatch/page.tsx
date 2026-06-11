@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { showToast } from '@/lib/utils/toast';
 import { Truck, CheckCircle2, AlertCircle, ChevronDown, X, Package, Printer, QrCode, XCircle, Warehouse, FileText, ExternalLink, PackageCheck } from 'lucide-react';
 import Portal from '@/components/Portal';
 import type { PurchaseOrderDoc, PurchaseOrderItem } from '@/types/inventory';
@@ -26,7 +27,7 @@ export default function AdminDispatchPage() {
     const [loading, setLoading] = useState(true);
     const [dispatchingId, setDispatchingId] = useState<string | null>(null);
     const [modalItems, setModalItems] = useState<(PurchaseOrderItem & { approvedQty: number })[]>([]);
-    const [message, setMessage] = useState({ type: '', text: '' });
+
     const [dispatchResult, setDispatchResult] = useState<DispatchResult | null>(null);
     const printRef = useRef<HTMLDivElement>(null);
 
@@ -96,7 +97,7 @@ export default function AdminDispatchPage() {
 
     const handleDispatch = async () => {
         if (!dispatchingId) return;
-        setMessage({ type: '', text: '' });
+
         try {
             const token = await getToken();
             const currentOrder = orders.find(o => o.id === dispatchingId)!;
@@ -110,7 +111,7 @@ export default function AdminDispatchPage() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
 
-            setMessage({ type: 'success', text: 'Đã duyệt xuất kho — đơn hàng đang vận chuyển!' });
+            showToast.success('Đã duyệt xuất kho', 'Đơn hàng đang vận chuyển!');
             setDispatchResult({
                 orderId: dispatchingId,
                 qrCodeToken: data.qrCodeToken,
@@ -119,8 +120,8 @@ export default function AdminDispatchPage() {
             });
             setDispatchingId(null);
             fetchOrders();
-        } catch (err: any) {
-            setMessage({ type: 'error', text: err.message || 'Có lỗi xảy ra' });
+        } catch (err: unknown) {
+            showToast.error('Lỗi xuất kho', err instanceof Error ? err.message : 'Có lỗi xảy ra');
         }
     };
 
@@ -135,10 +136,10 @@ export default function AdminDispatchPage() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
-            setMessage({ type: 'success', text: 'Đã chấp nhận — bắt đầu đóng gói!' });
+            showToast.success('Chấp nhận thành công', 'Đã chấp nhận — bắt đầu đóng gói!');
             fetchOrders();
-        } catch (err: any) {
-            setMessage({ type: 'error', text: err.message || 'Có lỗi xảy ra' });
+        } catch (err: unknown) {
+            showToast.error('Lỗi', err instanceof Error ? err.message : 'Có lỗi xảy ra');
         }
     };
 
@@ -159,11 +160,11 @@ export default function AdminDispatchPage() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
-            setMessage({ type: 'success', text: 'Đã từ chối đơn hàng.' });
+            showToast.success('Từ chối thành công', 'Đã từ chối đơn hàng.');
             setRejectingId(null);
             fetchOrders();
-        } catch (err: any) {
-            setMessage({ type: 'error', text: err.message || 'Có lỗi xảy ra' });
+        } catch (err: unknown) {
+            showToast.error('Lỗi từ chối', err instanceof Error ? err.message : 'Có lỗi xảy ra');
         } finally {
             setIsRejecting(false);
         }
@@ -235,12 +236,7 @@ export default function AdminDispatchPage() {
                 </div>
             </div>
 
-            {message.text && (
-                <div className={`p-3 rounded-xl flex items-center gap-2 border text-sm font-medium ${message.type === 'error' ? 'bg-danger-50 text-danger-700 border-danger-200' : 'bg-success-50 text-success-700 border-success-200'}`}>
-                    {message.type === 'error' ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
-                    {message.text}
-                </div>
-            )}
+
 
             {/* Dispatch Result with QR Code */}
             {dispatchResult && (

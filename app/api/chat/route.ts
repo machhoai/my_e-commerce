@@ -1,114 +1,310 @@
 // app/api/chat/route.ts
 // AI Chat API — Trợ lý Tài chính Joy World
-// Vercel AI SDK v4 + @ai-sdk/google + Gemini 1.5 Flash + Function Calling
+// Multi-provider: Anthropic (gwai.cloud) + Groq + Google Gemini
+// Smart Context Routing + Prompt Caching (Anthropic only)
 
-import { google } from '@ai-sdk/google';
-import { streamText } from 'ai';
-import { z } from 'zod';
-import {
-    getJoyworldToken,
-    getRevenueData,
-    getSellData,
-    getShopSummary,
-    getPaymentStatistics,
-    getGoodsTypeStatistics,
-    getStoreBalance,
-} from '@/lib/joyworld';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createGroq } from '@ai-sdk/groq';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { generateText, streamText } from 'ai';
+import { classifyIntent, extractDateRange, classifyDateScope, dateScopeLabel } from '@/lib/ai/intent-classifier';
+import { buildDataContext } from '@/lib/ai/context-builder';
+import { buildStaticSystemPrompt, buildDataPrompt, buildRichModeInstruction } from '@/lib/ai/system-prompt';
+import { getAdminDb } from '@/lib/firebase-admin';
+
+// ── Model registry ──────────────────────────────────────────
+interface ModelOption {
+    id: string;         // Key gửi từ client
+    label: string;      // Tên hiển thị
+    provider: 'anthropic' | 'groq' | 'google';
+    modelId: string;    // Model ID thực tế của provider
+    description: string;
+}
+
+const MODEL_OPTIONS: ModelOption[] = [
+    {
+        id: 'claude-sonnet',
+        label: 'Claude Sonnet',
+        provider: 'anthropic',
+        modelId: 'claude-sonnet-4-6',
+        description: 'Phân tích sâu, chính xác nhất',
+    },
+    {
+        id: 'llama-70b',
+        label: 'Llama 3.3 70B',
+        provider: 'groq',
+        modelId: 'llama-3.3-70b-versatile',
+        description: 'Nhanh, đa năng, miễn phí',
+    },
+    {
+        id: 'llama-scout',
+        label: 'Llama 4 Scout',
+        provider: 'groq',
+        modelId: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        description: 'Nhanh, nhẹ, tiết kiệm',
+    },
+    {
+        id: 'compound-beta',
+        label: 'Compound Beta',
+        provider: 'groq',
+        modelId: 'compound-beta',
+        description: 'Đa model kết hợp, thông minh',
+    },
+    {
+        id: 'llama-8b',
+        label: 'Llama 3.1 8B',
+        provider: 'groq',
+        modelId: 'llama-3.1-8b-instant',
+        description: 'Siêu nhanh, nhẹ nhất',
+    },
+    {
+        id: 'gemini-flash',
+        label: 'Gemini 2.0 Flash',
+        provider: 'google',
+        modelId: 'gemini-2.0-flash',
+        description: 'Google AI, context 1M tokens',
+    },
+];
+
+const DEFAULT_MODEL_ID = 'llama-70b';
+
+// ── Providers ───────────────────────────────────────────────
+// Anthropic: ưu tiên gateway riêng (Cloudflare Worker), fallback gwai.cloud
+const ANTHROPIC_GATEWAY = process.env.ANTHROPIC_GATEWAY_URL || 'https://1gw.gwai.cloud/v1';
+const anthropic = createAnthropic({
+    baseURL: ANTHROPIC_GATEWAY,
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    headers: {
+        // gwai.cloud yêu cầu User-Agent đặc biệt, worker thì không cần
+        ...(ANTHROPIC_GATEWAY.includes('gwai.cloud') ? { 'User-Agent': 'curl/8.7.1' } : {}),
+    },
+});
+
+// Groq — trực tiếp, không cần gateway
+const groq = createGroq({
+    apiKey: process.env.GROQ_API_KEY,
+});
+
+// Google Gemini — trực tiếp
+const google = createGoogleGenerativeAI({
+    apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+});
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `Bạn là Giám đốc Tài chính AI của Joy World Entertainment — hệ thống khu vui chơi tại Việt Nam.
+/** Lấy ngày hôm nay (VN timezone) */
+function getTodayVN(): string {
+    return new Date(Date.now() + 7 * 3600000).toISOString().split('T')[0];
+}
 
-Nhiệm vụ:
-- Phân tích dữ liệu doanh thu, thành viên, hàng hóa từ hệ thống thực tế.
-- Trả lời ngắn gọn, chính xác bằng tiếng Việt.
-- BẮT BUỘC gọi tools để lấy số liệu thực tế trước khi trả lời.
-- Format số tiền: VNĐ (ví dụ: 12,500,000 VNĐ hoặc 12.5 triệu VNĐ).
+/** Resolve model từ client ID */
+function resolveModel(clientModelId?: string) {
+    const opt = MODEL_OPTIONS.find(m => m.id === clientModelId) ??
+                MODEL_OPTIONS.find(m => m.id === DEFAULT_MODEL_ID)!;
 
-Ngày hôm nay: ${new Date(Date.now() + 7 * 3600000).toISOString().split('T')[0]} (GMT+7).
-Định dạng ngày cho tools: YYYY-MM-DD.`;
+    if (opt.provider === 'anthropic') {
+        return { model: anthropic(opt.modelId), option: opt };
+    }
+    if (opt.provider === 'google') {
+        return { model: google(opt.modelId), option: opt };
+    }
+    return { model: groq(opt.modelId), option: opt };
+}
+
+/** Kiểm tra API key theo provider (có TTL cache) */
+const validationCache = new Map<string, { ok: boolean; error?: string; at: number }>();
+const VALIDATION_TTL_MS = 5 * 60 * 1000;
+
+async function validateProvider(provider: 'anthropic' | 'groq' | 'google'): Promise<{ ok: boolean; error?: string }> {
+    const cached = validationCache.get(provider);
+    if (cached) {
+        const age = Date.now() - cached.at;
+        if (cached.ok || age < VALIDATION_TTL_MS) return { ok: cached.ok, error: cached.error };
+    }
+
+    const key = provider === 'anthropic'
+        ? process.env.ANTHROPIC_API_KEY
+        : provider === 'google'
+            ? process.env.GOOGLE_GENERATIVE_AI_API_KEY
+            : process.env.GROQ_API_KEY;
+    const envName = provider === 'anthropic'
+        ? 'ANTHROPIC_API_KEY'
+        : provider === 'google'
+            ? 'GOOGLE_GENERATIVE_AI_API_KEY'
+            : 'GROQ_API_KEY';
+    if (!key) {
+        const error = `${envName} chưa được cấu hình.`;
+        validationCache.set(provider, { ok: false, error, at: Date.now() });
+        return { ok: false, error };
+    }
+
+    try {
+        const testModelId = provider === 'anthropic' ? 'claude-sonnet' : provider === 'google' ? 'gemini-flash' : 'llama-70b';
+        const { model } = resolveModel(testModelId);
+        await generateText({ model, prompt: 'Hi', maxTokens: 1 });
+        validationCache.set(provider, { ok: true, at: Date.now() });
+        console.log(`[AI Chat] ✅ ${provider} validated`);
+        return { ok: true };
+    } catch (err) {
+        const error = err instanceof Error ? err.message : String(err);
+        console.error(`[AI Chat] ❌ ${provider} validation failed:`, error);
+        validationCache.set(provider, { ok: false, error, at: Date.now() });
+        return { ok: false, error };
+    }
+}
 
 export async function POST(req: Request) {
     try {
         const body = await req.json();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const messages: any[] = Array.isArray(body?.messages) ? body.messages : [];
+        const rawMessages: any[] = Array.isArray(body?.messages) ? body.messages : [];
+        const clientModelId: string = body?.modelId || DEFAULT_MODEL_ID;
+        const richMode: boolean = body?.richMode === true;
 
-        const result = streamText({
-            model: google('gemini-flash-latest'),
-            system: SYSTEM_PROMPT,
-            messages,
-            maxSteps: 5,
-            onError: (event) => {
-                console.error('[AI Chat] Stream error:', JSON.stringify(event, null, 2));
+        // ── Resolve model ──────────────────────────────────────
+        const { model, option: modelOption } = resolveModel(clientModelId);
+
+        // ── Pre-flight: Validate provider ──────────────────────
+        const validation = await validateProvider(modelOption.provider);
+        if (!validation.ok) {
+            console.error(`[AI Chat] ${modelOption.provider} validation failed:`, validation.error);
+            return Response.json(
+                { error: `API Key / Gateway lỗi (${modelOption.label}): ${validation.error}` },
+                { status: 401 }
+            );
+        }
+
+        // ── Phase 1: Intent Classification (0 token cost) ──────
+        const lastUserMsg = [...rawMessages].reverse().find(m => m.role === 'user');
+        const userText = typeof lastUserMsg?.content === 'string' ? lastUserMsg.content : '';
+        const intents = classifyIntent(userText);
+        console.log(`[AI Chat] Model: ${modelOption.label} | Intents:`, intents, '| Q:', userText.slice(0, 80));
+
+        // ── Phase 1.5: Date Extraction ─────────────────────────
+        const today = getTodayVN();
+        const dateRange = extractDateRange(userText);
+        
+        // Nếu user không nhắc mốc thời gian, mặc định lấy dữ liệu từ đầu tháng đến hiện tại
+        let startDate = dateRange?.start;
+        let endDate = dateRange?.end;
+        
+        if (!startDate || !endDate) {
+            const d = new Date(Date.now() + 7 * 3600000); // GMT+7
+            const currentYear = d.getUTCFullYear();
+            const currentMonth = String(d.getUTCMonth() + 1).padStart(2, '0');
+            startDate = `${currentYear}-${currentMonth}-01`;
+            endDate = today;
+        }
+
+        // ── Phase 2: Fetch + Slim relevant data ────────────────
+        let context = '';
+        let sources: string[] = [];
+        let fetchTimeMs = 0;
+        let fetchedRange = { start: startDate, end: endDate };
+        try {
+            const data = await buildDataContext(intents, startDate, endDate);
+            context = data.context;
+            sources = data.sources;
+            fetchTimeMs = data.fetchTimeMs;
+            fetchedRange = data.dateRange;
+        } catch (fetchErr) {
+            console.error('[AI Chat] Data fetch error:', fetchErr);
+            context = '⚠️ Không thể tải dữ liệu. Hãy trả lời dựa trên kiến thức chung.';
+        }
+
+        // ── Phase 2.5: Date scope classification ────────────
+        const dateScope = classifyDateScope(fetchedRange.start, fetchedRange.end);
+        const scopeLabel = dateScopeLabel(dateScope);
+        // Cảnh báo chi phí chỉ cho provider tốn kém + phạm vi lớn
+        const isPremiumProvider = modelOption.provider === 'anthropic' || modelOption.provider === 'google';
+        const isLargeScope = dateScope === 'quarter' || dateScope === 'large';
+        const costWarning = isPremiumProvider && isLargeScope
+            ? `Phạm vi ${scopeLabel} — model ${modelOption.label} có thể tốn nhiều token hơn`
+            : '';
+
+        // ── Phase 3: Build messages ────────────────────────────
+        const staticPrompt = buildStaticSystemPrompt()
+            + (richMode ? '\n\n' + buildRichModeInstruction() : '');
+        const dataPrompt = buildDataPrompt(context, today, sources, fetchedRange);
+
+        // Anthropic supports prompt caching; Groq does not
+        const isAnthropic = modelOption.provider === 'anthropic';
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const messages: any[] = [
+            {
+                role: 'user',
+                content: isAnthropic
+                    ? [
+                        {
+                            type: 'text',
+                            text: staticPrompt,
+                            experimental_providerMetadata: {
+                                anthropic: { cacheControl: { type: 'ephemeral' } },
+                            },
+                        },
+                        { type: 'text', text: dataPrompt },
+                    ]
+                    : `${staticPrompt}\n\n${dataPrompt}`,
             },
-            tools: {
-                getRevenue: {
-                    description: 'Lấy dữ liệu doanh thu tổng quan theo khoảng ngày.',
-                    parameters: z.object({
-                        startDate: z.string().describe('Ngày bắt đầu YYYY-MM-DD'),
-                        endDate: z.string().describe('Ngày kết thúc YYYY-MM-DD'),
-                    }),
-                    execute: async ({ startDate, endDate }) => {
-                        try {
-                            const token = await getJoyworldToken();
-                            return { success: true, data: await getRevenueData(token, startDate, endDate) };
-                        } catch (err) { return { success: false, error: String(err) }; }
-                    },
-                },
-                getSellOverview: {
-                    description: 'Lấy dữ liệu hàng hóa/vé/combo bán theo khoảng ngày.',
-                    parameters: z.object({
-                        startDate: z.string().describe('Ngày bắt đầu YYYY-MM-DD'),
-                        endDate: z.string().describe('Ngày kết thúc YYYY-MM-DD'),
-                    }),
-                    execute: async ({ startDate, endDate }) => {
-                        try {
-                            const token = await getJoyworldToken();
-                            return { success: true, data: await getSellData(token, startDate, endDate) };
-                        } catch (err) { return { success: false, error: String(err) }; }
-                    },
-                },
-                getDailyPanel: {
-                    description: 'Lấy dữ liệu đầy đủ 1 ngày: doanh thu, thanh toán, hàng hóa.',
-                    parameters: z.object({
-                        date: z.string().describe('Ngày YYYY-MM-DD'),
-                    }),
-                    execute: async ({ date }) => {
-                        try {
-                            const token = await getJoyworldToken();
-                            const [summary, payment, goods] = await Promise.all([
-                                getShopSummary(token, date),
-                                getPaymentStatistics(token, date),
-                                getGoodsTypeStatistics(token, date),
-                            ]);
-                            return { success: true, date, summary, payment, goods };
-                        } catch (err) { return { success: false, error: String(err) }; }
-                    },
-                },
-                getMemberStats: {
-                    description: 'Lấy thống kê thành viên: tổng số, thành viên mới, lượt khách, số dư.',
-                    parameters: z.object({
-                        startDate: z.string().describe('Ngày bắt đầu YYYY-MM-DD'),
-                        endDate: z.string().describe('Ngày kết thúc YYYY-MM-DD'),
-                    }),
-                    execute: async ({ startDate, endDate }) => {
-                        try {
-                            const token = await getJoyworldToken();
-                            return { success: true, data: await getStoreBalance(token, startDate, endDate) };
-                        } catch (err) { return { success: false, error: String(err) }; }
-                    },
-                },
+            {
+                role: 'assistant',
+                content: 'Đã nhận dữ liệu. Tôi sẵn sàng phân tích. Hãy đặt câu hỏi.',
+            },
+            ...rawMessages,
+        ];
+
+        // ── Phase 4: Stream response ───────────────────────────
+        const result = streamText({
+            model,
+            messages,
+            maxTokens: richMode ? 4096 : 2048,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onFinish: async ({ usage }: any) => {
+                try {
+                    const db = getAdminDb();
+                    await db.collection('ai_usage_logs').add({
+                        timestamp: new Date().toISOString(),
+                        model: modelOption.modelId,
+                        modelLabel: modelOption.label,
+                        provider: modelOption.provider,
+                        gateway: isAnthropic ? '1gw.gwai.cloud' : 'api.groq.com',
+                        intents,
+                        sources,
+                        dateRange: fetchedRange,
+                        inputTokens: usage?.promptTokens ?? 0,
+                        outputTokens: usage?.completionTokens ?? 0,
+                        totalTokens: (usage?.promptTokens ?? 0) + (usage?.completionTokens ?? 0),
+                        cacheCreationInputTokens: usage?.cacheCreationInputTokens ?? 0,
+                        cacheReadInputTokens: usage?.cacheReadInputTokens ?? 0,
+                        fetchTimeMs,
+                        question: userText.slice(0, 200),
+                    });
+                } catch (logErr) {
+                    console.error('[AI Usage Log]', logErr);
+                }
             },
         });
 
-        return result.toDataStreamResponse();
+        return result.toDataStreamResponse({
+            headers: {
+                'X-AI-Model': modelOption.id,
+                'X-AI-Provider': modelOption.provider,
+                'X-AI-Intents': intents.join(','),
+                'X-AI-Sources': sources.join(','),
+                'X-AI-Fetch-Ms': String(fetchTimeMs),
+                'X-AI-Date-Range': `${fetchedRange.start}--${fetchedRange.end}`,
+                'X-AI-Date-Scope': dateScope,
+                'X-AI-Scope-Label': encodeURIComponent(scopeLabel),
+                ...(costWarning ? { 'X-AI-Cost-Warning': encodeURIComponent(costWarning) } : {}),
+            },
+        });
 
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.error('[AI Chat FATAL]', msg, err instanceof Error ? err.stack : '');
+        console.error('[AI Chat FATAL]', msg);
         return Response.json({ error: msg }, { status: 500 });
     }
 }

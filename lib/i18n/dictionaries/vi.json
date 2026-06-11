@@ -162,9 +162,12 @@
     "profile.processingCCCD": "Đang xử lý CCCD...",
     "profile.cccdInfoNote": "Thông tin CCCD (tên, ngày sinh, giới tính, địa chỉ) chỉ cập nhật qua quét CCCD",
     "profile.bankAccount": "Tài khoản ngân hàng",
-    "profile.bankPlaceholder": "Tên NH - Số TK",
+    "profile.bankPlaceholder": "Nhập số tài khoản Techcombank",
+    "profile.bankTechcombankNote": "Chỉ chấp nhận số tài khoản ngân hàng Techcombank",
     "profile.educationLevel": "Trình độ học vấn",
     "profile.educationPlaceholder": "VD: Cử nhân CNTT",
+    "profile.contractNumber": "Số hợp đồng",
+    "profile.contractNumberPlaceholder": "VD: HD-2026-001",
     "profile.updateSuccess": "Cập nhật thành công!",
     "profile.updateFailed": "Không thể cập nhật",
     "profile.cccdUpdateSuccess": "Cập nhật CCCD thành công!",
@@ -372,5 +375,13 @@
     "referral.syncDone": "Đồng bộ xong ({totalOrders} đơn): {details}",
     "referral.syncNoChanges": "Đã kiểm tra {totalOrders} đơn hàng. Không có thay đổi.",
     "referral.syncError": "Lỗi đồng bộ.",
-    "referral.syncConnectionError": "Không thể kết nối đến Joy World."
+    "referral.syncConnectionError": "Không thể kết nối đến Joy World.",
+    "referral.filterMonth": "Tháng",
+    "referral.totalTransactions": "Giao dịch",
+    "referral.netPoints": "Điểm ròng",
+    "referral.exportExcel": "Xuất Excel",
+    "referral.exporting": "Đang xuất...",
+    "referral.exportAll": "Tổng hợp",
+    "referral.exportByEmployee": "Từng NV",
+    "common.reset": "Đặt lại"
 }

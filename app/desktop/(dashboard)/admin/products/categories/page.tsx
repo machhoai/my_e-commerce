@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Layers, Plus, Pencil, Trash2, X, Save, CheckCircle2, AlertCircle, Package, Search } from 'lucide-react';
+import { showToast } from '@/lib/utils/toast';
+import { Layers, Plus, Pencil, Trash2, X, Save, AlertCircle, Package, Search } from 'lucide-react';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 interface Category {
@@ -19,7 +20,7 @@ export default function CategoryManagementPage() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editName, setEditName] = useState('');
     const [saving, setSaving] = useState(false);
-    const [message, setMessage] = useState({ type: '', text: '' });
+
     const [search, setSearch] = useState('');
 
     // Product count per category
@@ -67,7 +68,6 @@ export default function CategoryManagementPage() {
     const handleAdd = async () => {
         if (!newName.trim()) return;
         setSaving(true);
-        setMessage({ type: '', text: '' });
         try {
             const token = await getToken();
             const res = await fetch('/api/inventory/categories', {
@@ -77,10 +77,10 @@ export default function CategoryManagementPage() {
             });
             if (!res.ok) throw new Error((await res.json()).error);
             setNewName('');
-            setMessage({ type: 'success', text: 'Đã tạo danh mục!' });
+            showToast.success('Đã tạo danh mục', 'Danh mục mới đã được tạo thành công!');
             fetchCategories();
-        } catch (err: any) {
-            setMessage({ type: 'error', text: err.message || 'Có lỗi xảy ra' });
+        } catch (err: unknown) {
+            showToast.error('Lỗi tạo danh mục', err instanceof Error ? err.message : 'Có lỗi xảy ra');
         } finally { setSaving(false); }
     };
 
@@ -97,8 +97,8 @@ export default function CategoryManagementPage() {
             if (!res.ok) throw new Error((await res.json()).error);
             setEditingId(null);
             fetchCategories();
-        } catch (err: any) {
-            setMessage({ type: 'error', text: err.message });
+        } catch (err: unknown) {
+            showToast.error('Lỗi đổi tên', err instanceof Error ? err.message : 'Có lỗi xảy ra');
         } finally { setSaving(false); }
     };
 
@@ -194,12 +194,7 @@ export default function CategoryManagementPage() {
                 </div>
             </div>
 
-            {message.text && (
-                <div className={`p-3 rounded-xl flex items-center gap-2 border text-sm font-medium ${message.type === 'error' ? 'bg-danger-50 text-danger-700 border-danger-200' : 'bg-success-50 text-success-700 border-success-200'}`}>
-                    {message.type === 'error' ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
-                    {message.text}
-                </div>
-            )}
+
 
             {/* Add new category */}
             <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-4">

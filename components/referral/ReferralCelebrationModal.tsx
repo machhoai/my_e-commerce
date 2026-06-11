@@ -29,9 +29,35 @@ const particles: Particle[] = Array.from({ length: 45 }, (_, i) => ({
 
 const RANK_EMOJI = ['🐉', '🐅', '🦅', '📜', '🏮'];
 const RANK_COLOR = ['#C9252D', '#8B7355', '#8B4513', '#4A5568', '#6B7280'];
-const RANK_LABEL = ['Trạng Nguyên', 'Bảng Nhãn', 'Thám Hoa', 'Hoàng Giáp', 'Tiến Sĩ'];
 const SESSION_KEY = 'referral_celebration_shown';
 const DAILY_SKIP_KEY = 'referral_celebration_skip_date';
+
+// ── Bilingual dictionary ──────────────────────────────────────────────────────
+const MODAL_DICT = {
+    vi: {
+        rankLabels: ['Trạng Nguyên', 'Bảng Nhãn', 'Thám Hoa', 'Hoàng Giáp', 'Tiến Sĩ'],
+        title: 'KIM BẢNG ĐỀ DANH',
+        subtitle: 'TUYÊN DƯƠNG CÔNG TRẠNG',
+        intro: (month: string) =>
+            `Phụng thiên thừa vận, B.Duck chiếu viết:\nXét thấy tháng {month} bá tánh nô nức vui chơi. Nay lập bảng vàng này để phong thưởng cho các vị đại thần có công lớn chiêu mộ anh hào:`
+                .replace('{month}', month),
+        merit: 'công trạng',
+        skipToday: 'Không xuất hiện lại hôm nay',
+        closeAriaLabel: 'Đóng thánh chỉ',
+        monthLocale: 'vi-VN',
+    },
+    zh: {
+        rankLabels: ['状元', '榜眼', '探花', '二甲', '进士'],
+        title: '金榜题名',
+        subtitle: '表彰销售精英',
+        intro: (month: string) =>
+            `承天运，B.Duck颁布：\n鉴于${month}，顾客络绎不绝。特此列榜，表彰以下招募有功之臣：`,
+        merit: '积分',
+        skipToday: '今日不再显示',
+        closeAriaLabel: '关闭榜单',
+        monthLocale: 'zh-CN',
+    },
+} as const;
 
 export async function fetchTop5(): Promise<TopEmployee[]> {
     const now = new Date();
@@ -49,7 +75,7 @@ export async function fetchTop5(): Promise<TopEmployee[]> {
         .slice(0, 5);
 }
 
-// Decorative border SVG pattern
+// ── Decorative border SVG pattern ─────────────────────────────────────────────
 function BorderPattern({ side }: { side: 'left' | 'right' }) {
     return (
         <div className={`absolute top-0 bottom-0 ${side === 'left' ? 'left-0' : 'right-0'} w-7 flex flex-col items-center justify-around py-2 overflow-hidden`}>
@@ -65,7 +91,7 @@ function BorderPattern({ side }: { side: 'left' | 'right' }) {
     );
 }
 
-// Scroll roll bar (top or bottom)
+// ── Scroll roll bar ───────────────────────────────────────────────────────────
 function ScrollRoll() {
     return (
         <div className="relative z-20" style={{ height: 36 }}>
@@ -103,31 +129,32 @@ interface ReferralCelebrationModalProps {
     onClose?: () => void;
     /** Pre-loaded data (optional, fetched client-side if not provided) */
     initialData?: TopEmployee[];
+    /** Language code — 'vi' (default) or 'zh' */
+    lang?: 'vi' | 'zh';
 }
 
 export default function ReferralCelebrationModal({
     forceOpen = false,
     onClose,
     initialData,
+    lang = 'vi',
 }: ReferralCelebrationModalProps) {
     const [visible, setVisible] = useState(false);
-    const [unrolling, setUnrolling] = useState(false); // scroll-open animation
+    const [unrolling, setUnrolling] = useState(false);
     const [closing, setClosing] = useState(false);
     const [employees, setEmployees] = useState<TopEmployee[]>(initialData ?? []);
     const [dontShowToday, setDontShowToday] = useState(false);
     const checked = useRef(false);
 
-    const todayStr = () => new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+    const todayStr = () => new Date().toISOString().slice(0, 10);
 
     useEffect(() => {
-        // Luôn fetch dữ liệu mới nhất từ Firestore khi mount — không cache
         fetchTop5().then(data => { if (data.length > 0) setEmployees(data); }).catch(() => { });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
         if (forceOpen) {
-            // Opened via user tap — fetch fresh data then show
             fetchTop5()
                 .then(data => { if (data.length > 0) setEmployees(data); })
                 .catch(() => { })
@@ -135,12 +162,10 @@ export default function ReferralCelebrationModal({
             return;
         }
 
-        // Auto-open: only once per session
         if (checked.current) return;
         checked.current = true;
         if (sessionStorage.getItem(SESSION_KEY)) return;
 
-        // Kiểm tra "không xuất hiện lại hôm nay"
         const skipDate = localStorage.getItem(DAILY_SKIP_KEY);
         if (skipDate === todayStr()) return;
 
@@ -153,18 +178,15 @@ export default function ReferralCelebrationModal({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [forceOpen]);
 
-    /** Start the scroll-unroll entrance sequence */
     const triggerOpen = () => {
         setVisible(true);
         setUnrolling(true);
-        // After unroll animation completes, remove the unrolling flag
         setTimeout(() => setUnrolling(false), 800);
     };
 
     const handleClose = () => {
         setClosing(true);
         if (!forceOpen) sessionStorage.setItem(SESSION_KEY, '1');
-        // Nếu user tích "không xuất hiện lại hôm nay"
         if (dontShowToday) localStorage.setItem(DAILY_SKIP_KEY, todayStr());
         setTimeout(() => {
             setVisible(false);
@@ -175,8 +197,9 @@ export default function ReferralCelebrationModal({
 
     if (!visible || employees.length === 0) return null;
 
+    const dict = MODAL_DICT[lang];
     const now = new Date();
-    const monthName = now.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' });
+    const monthName = now.toLocaleDateString(dict.monthLocale, { month: 'long', year: 'numeric' });
 
     return (
         <div
@@ -189,7 +212,7 @@ export default function ReferralCelebrationModal({
             }}
             onClick={handleClose}
         >
-            {/* ── Confetti (only visible when fully open) ──────────── */}
+            {/* ── Confetti ──────────────────────────────────────────── */}
             {!unrolling && (
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                     {particles.map(p => (
@@ -220,9 +243,7 @@ export default function ReferralCelebrationModal({
                 }}
                 onClick={e => e.stopPropagation()}
             >
-                {/* ═══ TOP SCROLL ROLL ═════════════════════════════
-                    During unroll: starts overlapping the body, slides UP to its
-                    natural position using translateY animation               */}
+                {/* TOP SCROLL ROLL */}
                 <div
                     className="relative z-20 w-[395px] right-5"
                     style={{
@@ -233,8 +254,7 @@ export default function ReferralCelebrationModal({
                     <ScrollRoll />
                 </div>
 
-                {/* ═══ MAIN SCROLL BODY ════════════════════════════
-                    During unroll: scaleY(0) → scaleY(1), origin = top center */}
+                {/* MAIN SCROLL BODY */}
                 <div
                     className="relative -mt-2 -mb-2 z-10 overflow-hidden"
                     style={{
@@ -267,7 +287,7 @@ export default function ReferralCelebrationModal({
 
                     {/* Content */}
                     <div className="px-6 py-3 relative">
-                        {/* Logo + sub-brand */}
+                        {/* Logo */}
                         <div className="flex flex-col items-center mb-3 gap-1">
                             <Image src="/bduck.png" alt="B.Duck" width={48} height={48}
                                 style={{ filter: 'drop-shadow(0 2px 4px rgba(139,26,26,0.4))' }}
@@ -284,10 +304,10 @@ export default function ReferralCelebrationModal({
                                 textShadow: '0 1px 2px rgba(139,26,26,0.25)',
                                 fontFamily: 'Georgia, serif',
                             }}>
-                                KIM BẢNG ĐỀ DANH
+                                {dict.title}
                             </h1>
                             <p className="text-[10px] mt-0.5 font-bold" style={{ color: '#6B3A1F', letterSpacing: '0.15em' }}>
-                                TUYÊN DƯƠNG CÔNG TRẠNG
+                                {dict.subtitle}
                             </p>
                         </div>
 
@@ -299,9 +319,8 @@ export default function ReferralCelebrationModal({
                         </div>
 
                         {/* Intro text */}
-                        <p className="text-center text-[10px] leading-relaxed mb-3 font-medium" style={{ color: '#5C3317' }}>
-                            Phụng thiên thừa vận, B.Duck chiếu viết:<br />
-                            Xét thấy tháng <span className="font-black" style={{ color: '#8B1A1A' }}>{monthName}</span> bá tánh nô nức vui chơi. Nay lập bảng vàng này để phong thưởng cho các vị đại thần có công lớn chiêu mộ anh hào:
+                        <p className="text-center text-[10px] leading-relaxed mb-3 font-medium whitespace-pre-line" style={{ color: '#5C3317' }}>
+                            {dict.intro(monthName)}
                         </p>
 
                         {/* Leaderboard */}
@@ -318,31 +337,28 @@ export default function ReferralCelebrationModal({
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="font-black text-sm truncate leading-tight" style={{ color: i === 0 ? '#8B1A1A' : '#3D1F0A' }}>{emp.name}</p>
-                                        <p className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: RANK_COLOR[i], opacity: 0.8 }}>{RANK_LABEL[i]}</p>
+                                        <p className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: RANK_COLOR[i], opacity: 0.8 }}>
+                                            {dict.rankLabels[i]}
+                                        </p>
                                     </div>
                                     <div className="text-right shrink-0">
                                         <p className="font-black tabular-nums" style={{ color: i === 0 ? '#8B1A1A' : '#5C3317', fontSize: i === 0 ? 16 : 13 }}>
                                             {emp.points.toLocaleString('vi-VN')}
                                         </p>
                                         <p className="text-[8px] font-bold uppercase tracking-wider" style={{ color: '#8B6914' }}>
-                                            công trạng
+                                            {dict.merit}
                                         </p>
                                     </div>
                                 </div>
                             ))}
                         </div>
 
-
-
-                        {/* Checkbox "Không xuất hiện lại hôm nay" */}
+                        {/* Checkbox - skip today */}
                         <label
                             className="flex items-center justify-center gap-2 mt-3 mb-1 cursor-pointer select-none group"
                             onClick={e => e.stopPropagation()}
                         >
-                            <span
-                                className="relative flex items-center justify-center shrink-0"
-                                style={{ width: 16, height: 16 }}
-                            >
+                            <span className="relative flex items-center justify-center shrink-0" style={{ width: 16, height: 16 }}>
                                 <input
                                     type="checkbox"
                                     checked={dontShowToday}
@@ -366,15 +382,13 @@ export default function ReferralCelebrationModal({
                                 </span>
                             </span>
                             <span className="text-[9px] font-semibold" style={{ color: '#5C3317', letterSpacing: '0.05em' }}>
-                                Không xuất hiện lại hôm nay
+                                {dict.skipToday}
                             </span>
                         </label>
                     </div>
-
-
                 </div>
 
-                {/* ═══ BOTTOM SCROLL ROLL — slides DOWN during unroll ═ */}
+                {/* BOTTOM SCROLL ROLL */}
                 <div
                     className="relative z-20 w-[395px] right-5"
                     style={{
@@ -389,7 +403,7 @@ export default function ReferralCelebrationModal({
                 <button onClick={handleClose}
                     className="absolute top-0 -right-4 z-30 w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-lg"
                     style={{ background: 'linear-gradient(135deg, #8B1A1A, #C9252D)', border: '2px solid rgba(255,220,100,0.6)' }}
-                    aria-label="Đóng thánh chỉ">
+                    aria-label={dict.closeAriaLabel}>
                     <X className="w-4 h-4 text-yellow-100" />
                 </button>
             </div>

@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
         const body = await req.json();
         const {
             name, phone, type, dob, jobTitle,
-            email: realEmail, idCard, bankAccount, education,
+            email: realEmail, idCard, bankAccount, education, contractNumber,
             gender, permanentAddress, idCardFrontPhoto, idCardBackPhoto,
             probationStartDate, officialStartDate, resignationDate, contractNumber,
             canManageHR,
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
         } = body as {
             name: string; phone: string; type: UserDoc['type'];
             dob?: string; jobTitle?: string; email?: string;
-            idCard?: string; bankAccount?: string; education?: string;
+            idCard?: string; bankAccount?: string; education?: string; contractNumber?: string;
             gender?: string; permanentAddress?: string;
             idCardFrontPhoto?: string; idCardBackPhoto?: string;
             probationStartDate?: string; officialStartDate?: string;
@@ -112,6 +112,7 @@ export async function POST(req: NextRequest) {
             ...(idCard && { idCard }),
             ...(bankAccount && { bankAccount }),
             ...(education && { education }),
+            ...(contractNumber && { contractNumber }),
             ...(gender && { gender }),
             ...(permanentAddress && { permanentAddress }),
             ...(idCardFrontPhoto && { idCardFrontPhoto }),

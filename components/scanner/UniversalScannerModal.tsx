@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { X, ScanLine, Keyboard, SearchX, Camera, RotateCcw, Zap, ZapOff, User, Phone, Loader2, CheckCircle2, Ticket } from 'lucide-react';
+import { X, ScanLine, Keyboard, SearchX, Camera, RotateCcw, Zap, ZapOff, Phone, Loader2, CheckCircle2, Ticket, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { preloadScannerData, voucherSearchAction } from '@/actions/scanner';
 import type { PreloadedEmployee } from '@/actions/scanner';
 import { createPendingReferral } from '@/actions/referral';
+import { ticketLookupAction } from '@/actions/ticket-scan';
 import { useAuth } from '@/contexts/AuthContext';
-import type { ScanResult } from '@/types';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
+import type { ScanResult, TicketOrderData, TicketPassData } from '@/types';
 import type { VoucherCode } from '@/types';
 import VoucherListSelector from './VoucherListSelector';
 import VoucherDetailsCard from './VoucherDetailsCard';
@@ -15,6 +17,9 @@ import VoucherResultCard from './VoucherResultCard';
 import TicketPassCard from './TicketPassCard';
 import TicketOrderCard from './TicketOrderCard';
 import BottomSheet from '@/components/shared/BottomSheet';
+import dynamic from 'next/dynamic';
+
+const AIQuickChat = dynamic(() => import('@/components/shared/AIQuickChat'), { ssr: false });
 
 // ── Normalize Vietnamese for diacritics-insensitive search ───
 const normalize = (s: string) =>
@@ -27,6 +32,8 @@ type ModalView =
     | { kind: 'voucher-detail'; voucher: VoucherCode & { campaignImage?: string; campaignName?: string } }
     | { kind: 'voucher-result'; success: boolean; title: string; details: { label: string; value: string }[] }
     | { kind: 'referral'; employee: { uid: string; name: string; phone: string; storeId: string; referralPoints: number } }
+    | { kind: 'ticket-pass'; pass: TicketPassData }
+    | { kind: 'ticket-order'; order: TicketOrderData }
     | { kind: 'not-found'; query: string };
 
 // ── Beep via Web Audio API ───────────────────────────────────────
@@ -213,24 +220,33 @@ const FAB_MARGIN = 12; // distance from screen edge
 const IDLE_TIMEOUT = 5000;
 const DRAG_THRESHOLD = 12; // px moved to count as drag (not tap) — higher to avoid accidental drags on touchscreens
 
-function DraggableFAB({ onTap, hidden }: { onTap: () => void; hidden: boolean }) {
+function DraggableFAB({ onTapScan, onTapAI, hidden, hasAI }: {
+    onTapScan: () => void;
+    onTapAI: () => void;
+    hidden: boolean;
+    hasAI: boolean;
+}) {
     const btnRef = useRef<HTMLButtonElement>(null);
     const posRef = useRef({ x: 0, y: 0 });
     const dragState = useRef({ dragging: false, startX: 0, startY: 0, startPosX: 0, startPosY: 0, moved: false });
     const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [idle, setIdle] = useState(true);
-    const [pos, setPos] = useState<{ x: number; y: number } | null>(null); // null = not yet initialized
+    const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
     const [snapping, setSnapping] = useState(false);
-
-
+    const [expanded, setExpanded] = useState(false);
 
     // Initialize position to bottom-right
     useEffect(() => {
         const x = window.innerWidth - FAB_SIZE - FAB_MARGIN;
-        const y = window.innerHeight - FAB_SIZE - FAB_MARGIN - 60; // above bottom nav
+        const y = window.innerHeight - FAB_SIZE - FAB_MARGIN - 60;
         posRef.current = { x, y };
         setPos({ x, y });
     }, []);
+
+    // Close expanded when FAB is hidden
+    useEffect(() => {
+        if (hidden) setExpanded(false);
+    }, [hidden]);
 
     const resetIdleTimer = useCallback(() => {
         setIdle(false);
@@ -255,7 +271,7 @@ function DraggableFAB({ onTap, hidden }: { onTap: () => void; hidden: boolean })
     }, [resetIdleTimer]);
 
     const onPointerDown = useCallback((e: React.PointerEvent) => {
-        // Do NOT call e.preventDefault() — it blocks native tap/click on mobile browsers
+        if (expanded) return; // Don't drag when expanded
         const btn = btnRef.current;
         if (!btn) return;
         btn.setPointerCapture(e.pointerId);
@@ -268,7 +284,7 @@ function DraggableFAB({ onTap, hidden }: { onTap: () => void; hidden: boolean })
             moved: false,
         };
         resetIdleTimer();
-    }, [resetIdleTimer]);
+    }, [resetIdleTimer, expanded]);
 
     const onPointerMove = useCallback((e: React.PointerEvent) => {
         const ds = dragState.current;
@@ -297,49 +313,131 @@ function DraggableFAB({ onTap, hidden }: { onTap: () => void; hidden: boolean })
         btnRef.current?.releasePointerCapture(e.pointerId);
 
         if (ds.moved) {
-            // Snap to nearest corner
             const centerX = posRef.current.x + FAB_SIZE / 2;
             const centerY = posRef.current.y + FAB_SIZE / 2;
             snapToCorner(centerX, centerY);
         } else {
-            // It was a tap
-            onTap();
+            // Tap — nếu có quyền AI thì mở menu, không thì mở scan
+            if (hasAI) {
+                setExpanded(prev => !prev);
+            } else {
+                onTapScan();
+            }
         }
-    }, [snapToCorner, onTap]);
+    }, [snapToCorner, onTapScan, hasAI]);
+
+    const handleActionScan = useCallback(() => {
+        setExpanded(false);
+        onTapScan();
+    }, [onTapScan]);
+
+    const handleActionAI = useCallback(() => {
+        setExpanded(false);
+        onTapAI();
+    }, [onTapAI]);
 
     if (!pos) return null;
 
+    // Sub-button size & spacing
+    const SUB_SIZE = 52;
+    const SUB_GAP = 12;
+    // Position sub buttons above the main FAB, centered
+    const subOffsetX = (FAB_SIZE - SUB_SIZE) / 2;
+
     return (
-        <button
-            ref={btnRef}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            style={{
-                position: 'fixed',
-                left: pos.x,
-                top: pos.y + 50,
-                width: FAB_SIZE,
-                height: FAB_SIZE,
-                zIndex: 40,
-                touchAction: 'none',
-                transition: snapping ? 'left 0.3s cubic-bezier(.4,0,.2,1), top 0.3s cubic-bezier(.4,0,.2,1), opacity 0.5s' : 'opacity 0.5s',
-                opacity: hidden ? 0 : idle ? 0.75 : 1,
-                pointerEvents: hidden ? 'none' : 'auto',
-            }}
-            className={cn(
-                'rounded-2xl',
-                'bg-gradient-to-br from-accent-500 to-accent-600 text-white',
-                'shadow-xl shadow-accent-500/30',
-                'flex items-center justify-center',
-                'select-none',
-                // Invisible touch padding — extends tap area by 10px on each side
-                'before:content-[\'\'] before:absolute before:-inset-[10px] before:rounded-3xl',
+        <>
+            {/* ── Backdrop when expanded ── */}
+            {expanded && (
+                <div
+                    className="fixed inset-0 z-[39] bg-black/20 backdrop-blur-[1px]"
+                    onClick={() => setExpanded(false)}
+                />
             )}
-            title="Quét mã"
-        >
-            <ScanLine className="w-7 h-7 pointer-events-none" />
-        </button>
+
+            {/* ── Sub-action buttons (visible when expanded) ── */}
+            {expanded && (
+                <>
+                    {/* Scan button */}
+                    <button
+                        onClick={handleActionScan}
+                        style={{
+                            position: 'fixed',
+                            left: pos.x + subOffsetX,
+                            top: pos.y + 50 - (SUB_SIZE + SUB_GAP) * 2,
+                            width: SUB_SIZE,
+                            height: SUB_SIZE,
+                            zIndex: 41,
+                        }}
+                        className="rounded-2xl bg-gradient-to-br from-accent-500 to-accent-600 text-white shadow-xl shadow-accent-500/30 flex flex-col items-center justify-center gap-0.5 animate-in fade-in slide-in-from-bottom-4 duration-200"
+                    >
+                        <ScanLine className="w-5 h-5 pointer-events-none" />
+                        <span className="text-[9px] font-bold leading-none">Quét</span>
+                    </button>
+
+                    {/* AI button */}
+                    <button
+                        onClick={handleActionAI}
+                        style={{
+                            position: 'fixed',
+                            left: pos.x + subOffsetX,
+                            top: pos.y + 50 - (SUB_SIZE + SUB_GAP),
+                            width: SUB_SIZE,
+                            height: SUB_SIZE,
+                            zIndex: 41,
+                        }}
+                        className="rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-xl shadow-violet-500/30 flex flex-col items-center justify-center gap-0.5 animate-in fade-in slide-in-from-bottom-2 duration-200 delay-75"
+                    >
+                        <Sparkles className="w-5 h-5 pointer-events-none" />
+                        <span className="text-[9px] font-bold leading-none">AI</span>
+                    </button>
+                </>
+            )}
+
+            {/* ── Main FAB Button ── */}
+            <button
+                ref={btnRef}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                style={{
+                    position: 'fixed',
+                    left: pos.x,
+                    top: pos.y + 50,
+                    width: FAB_SIZE,
+                    height: FAB_SIZE,
+                    zIndex: 40,
+                    touchAction: 'none',
+                    transition: snapping ? 'left 0.3s cubic-bezier(.4,0,.2,1), top 0.3s cubic-bezier(.4,0,.2,1), opacity 0.5s' : 'opacity 0.5s',
+                    opacity: hidden ? 0 : idle && !expanded ? 0.75 : 1,
+                    pointerEvents: hidden ? 'none' : 'auto',
+                }}
+                className={cn(
+                    'rounded-2xl',
+                    expanded
+                        ? 'bg-surface-700 text-white shadow-xl'
+                        : hasAI
+                            ? 'bg-gradient-to-br from-violet-500 via-accent-500 to-accent-600 text-white shadow-xl shadow-accent-500/30'
+                            : 'bg-gradient-to-br from-accent-500 to-accent-600 text-white shadow-xl shadow-accent-500/30',
+                    'flex items-center justify-center',
+                    'select-none',
+                    'before:content-[\'\'] before:absolute before:-inset-[10px] before:rounded-3xl',
+                )}
+                title={expanded ? 'Đóng' : hasAI ? 'Quét mã / Hỏi AI' : 'Quét mã'}
+            >
+                {expanded ? (
+                    <X className="w-6 h-6 pointer-events-none" />
+                ) : hasAI ? (
+                    /* Dual icon: scan + sparkle */
+                    <div className="flex items-center gap-0.5 pointer-events-none">
+                        <ScanLine className="w-5 h-5" />
+                        <span className="text-white/60 text-xs font-bold">/</span>
+                        <Sparkles className="w-4 h-4" />
+                    </div>
+                ) : (
+                    <ScanLine className="w-7 h-7 pointer-events-none" />
+                )}
+            </button>
+        </>
     );
 }
 
@@ -350,15 +448,22 @@ export default function UniversalScannerModal() {
     // Permission gates — admin always bypasses via hasPermission()
     const canSearchVouchers = hasPermission('search_vouchers');
     const canManageReferrals = hasPermission('manage_referrals');
+    const canScanTickets = hasPermission('scan_tickets');
+    const canUseAI = hasPermission('action.ai.chat');
+    const { referralEnabled } = useStoreSettings();
+    // Effective referral gate: both permission AND store setting must be true
+    const referralActive = canManageReferrals && referralEnabled;
+    const [isAIChatOpen, setIsAIChatOpen] = useState(false);
     const [view, setView] = useState<ModalView>({ kind: 'scanner' });
     const [manualInput, setManualInput] = useState('');
     const [showManual, setShowManual] = useState(false);
-    const [voucherMode, setVoucherMode] = useState(false);
+    const [ticketMode, setTicketMode] = useState(false);
     const [torchOn, setTorchOn] = useState(false);
     const [torchSupported, setTorchSupported] = useState(false);
     const scannerRef = useRef<HTMLDivElement>(null);
     const html5QrRef = useRef<any>(null);
     const scanLock = useRef(false);
+    const handleSearchRef = useRef<(input: string) => void>(() => { });
     const [showLabel, setShowLabel] = useState(false);
 
     const [preloadedEmployees, setPreloadedEmployees] = useState<PreloadedEmployee[]>([]);
@@ -438,7 +543,7 @@ export default function UniversalScannerModal() {
                     if (scanLock.current) return;
                     scanLock.current = true;
                     playBeep();
-                    handleSearch(text);
+                    handleSearchRef.current(text);
                 },
                 () => { },
             );
@@ -529,7 +634,7 @@ export default function UniversalScannerModal() {
     }, [isOpen, view.kind, startCamera, stopCamera]);
 
     useEffect(() => {
-        // Mỗi khi voucherMode thay đổi, hiện chữ lên
+        // Mỗi khi ticketMode thay đổi, hiện chữ lên
         setShowLabel(true);
 
         // Đặt hẹn giờ 1.5 giây để ẩn chữ đi
@@ -540,11 +645,11 @@ export default function UniversalScannerModal() {
         // Cleanup: Cực kỳ quan trọng! Nếu user bấm liên tục 2-3 lần,
         // nó sẽ xóa timer cũ đi để không bị giật/nháy chữ.
         return () => clearTimeout(timer);
-    }, [voucherMode]);
+    }, [ticketMode]);
 
     // ── Employee suggestions (local, instant — no API call) ──────
     const empSuggestions = useMemo(() => {
-        if (!canManageReferrals || !showManual) return [];
+        if (!referralActive || !showManual) return [];
         const q = manualInput.trim();
         if (q.length < 2 || /^(03|05|07|08|09)\d/.test(q) || /^REF-/.test(q)) return [];
         const qNorm = normalize(q);
@@ -554,12 +659,13 @@ export default function UniversalScannerModal() {
                 return nameNorm.includes(qNorm) || nameNorm.split(/\s+/).some(w => w.startsWith(qNorm));
             })
             .slice(0, 5);
-    }, [manualInput, showManual, preloadedEmployees, canManageReferrals]);
+    }, [manualInput, showManual, preloadedEmployees, referralActive]);
 
     // ── Search handler ───────────────────────────────────────────
     const handleSearch = async (input: string) => {
+        console.log('[Scanner] handleSearch called with:', JSON.stringify(input), '| ticketMode:', ticketMode);
         let trimmed = input.trim();
-        
+
         // Extract slug if input is a Joyworld URL from printed labels
         try {
             if (trimmed.startsWith('http')) {
@@ -575,8 +681,8 @@ export default function UniversalScannerModal() {
 
         // 1. REF- code → find employee (permission-gated)
         if (trimmed.startsWith('REF-')) {
-            if (!canManageReferrals) {
-                setView({ kind: 'not-found', query: 'Bạn không có quyền quét mã nhân viên' });
+            if (!referralActive) {
+                setView({ kind: 'not-found', query: !referralEnabled ? 'Chương trình giới thiệu hiện đang tắt' : 'Bạn không có quyền quét mã nhân viên' });
                 return;
             }
             const uid = trimmed.slice(4);
@@ -598,9 +704,30 @@ export default function UniversalScannerModal() {
             return;
         }
 
-        // 2. Product scanning has been moved to /product-scanner page
+        // 2. Ticket mode ON → call external Ticketing API
+        if (ticketMode && canScanTickets) {
+            setView({ kind: 'searching' });
+            try {
+                const ticketResult = await ticketLookupAction(trimmed);
+                if (ticketResult && ticketResult.success) {
+                    if (ticketResult.type === 'pass') {
+                        setView({ kind: 'ticket-pass', pass: ticketResult.pass });
+                        return;
+                    }
+                    if (ticketResult.type === 'order') {
+                        setView({ kind: 'ticket-order', order: ticketResult.order });
+                        return;
+                    }
+                }
+                // API returned not_found or null (not configured)
+                setView({ kind: 'not-found', query: trimmed });
+            } catch {
+                setView({ kind: 'not-found', query: trimmed });
+            }
+            return;
+        }
 
-        // 3. Phone or Voucher code → must hit server (permission-gated)
+        // 4. Phone or Voucher code → must hit server (permission-gated)
         if (!canSearchVouchers) {
             setView({ kind: 'not-found', query: trimmed });
             return;
@@ -623,6 +750,9 @@ export default function UniversalScannerModal() {
             setView({ kind: 'not-found', query: trimmed });
         }
     };
+
+    // Keep ref in sync so the camera callback (stale closure) always calls the latest handleSearch
+    handleSearchRef.current = handleSearch;
 
     const handleManualSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -703,20 +833,20 @@ export default function UniversalScannerModal() {
                                     Nhập thủ công
                                 </button>
                             )}
-                            {/* Voucher mode toggle */}
+                            {/* Ticket mode toggle */}
                         </div>
                         {/* Camera viewport */}
                         <div className="relative bg-black overflow-hidden" style={{ height: 500 }}>
-                            {canSearchVouchers && (
+                            {canScanTickets && (
                                 <label className="flex absolute items-center gap-2 mt-2 cursor-pointer select-none z-50 left-3 top-3">
                                     <div
-                                        onClick={() => setVoucherMode(v => !v)}
+                                        onClick={() => setTicketMode(v => !v)}
                                         className={cn(
                                             'relative z-30 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200',
-                                            voucherMode ? 'bg-accent-500' : 'bg-surface-300',
+                                            ticketMode ? 'bg-violet-500' : 'bg-surface-300',
                                         )}
                                     >
-                                        <Ticket className={cn('w-5 h-5', voucherMode ? 'text-white' : 'text-surface-600')} />
+                                        <Ticket className={cn('w-5 h-5', ticketMode ? 'text-white' : 'text-surface-600')} />
                                     </div>
 
                                     {/* Container tạo hiệu ứng trượt */}
@@ -724,15 +854,15 @@ export default function UniversalScannerModal() {
                                         className={cn(
                                             'overflow-hidden transition-all duration-500 ease-in-out flex items-center',
                                             showLabel
-                                                ? 'max-w-[200px] opacity-100 translate-x-0' // Hiện: trượt ra, rõ nét, bung chiều rộng
-                                                : 'max-w-0 opacity-0 -translate-x-4'        // Ẩn: co lại, mờ đi, lùi về trái
+                                                ? 'max-w-[200px] opacity-100 translate-x-0'
+                                                : 'max-w-0 opacity-0 -translate-x-4'
                                         )}
                                     >
                                         <span className={cn(
-                                            'text-xs font-semibold whitespace-nowrap', // Bắt buộc có whitespace-nowrap để chữ không bị rớt dòng khi max-w co lại
-                                            voucherMode ? 'text-accent-600' : 'text-surface-500'
+                                            'text-xs font-semibold whitespace-nowrap',
+                                            ticketMode ? 'text-violet-300' : 'text-surface-500'
                                         )}>
-                                            Chế độ Voucher: {voucherMode ? 'Bật' : 'Tắt'}
+                                            Chế độ Vé: {ticketMode ? 'Bật' : 'Tắt'}
                                         </span>
                                     </div>
                                 </label>
@@ -845,6 +975,12 @@ export default function UniversalScannerModal() {
 
 
 
+            case 'ticket-pass':
+                return <TicketPassCard pass={view.pass} onClose={close} onRescan={resetToScanner} />;
+
+            case 'ticket-order':
+                return <TicketOrderCard order={view.order} onClose={close} onRescan={resetToScanner} />;
+
             case 'referral':
                 return <ReferralView employee={view.employee} cashierId={authUser?.uid || ''} onDone={close} onRescan={resetToScanner} />;
 
@@ -873,10 +1009,20 @@ export default function UniversalScannerModal() {
     return (
         <>
             {/* ── Draggable FAB Button ──────────────────────────── */}
-            <DraggableFAB onTap={open} hidden={isOpen} />
+            <DraggableFAB
+                onTapScan={open}
+                onTapAI={() => setIsAIChatOpen(true)}
+                hidden={isOpen || isAIChatOpen}
+                hasAI={canUseAI}
+            />
+
+            {/* ── AI Chat BottomSheet ─────────────────────────────── */}
+            {canUseAI && (
+                <AIQuickChat isOpen={isAIChatOpen} onClose={() => setIsAIChatOpen(false)} />
+            )}
 
             {/* ── BottomSheet ──────────────────────────────────────── */}
-            <BottomSheet isOpen={isOpen} onClose={close} maxHeightClass="max-h-[92vh]">
+            <BottomSheet isOpen={isOpen} onClose={close} maxHeightClass="max-h-[92vh] lg:max-h-[40vh]">
                 {/* Custom header */}
                 <div className="flex items-center justify-between px-5 py-3 border-b border-surface-100">
                     <div className="flex items-center gap-2.5">
@@ -885,7 +1031,7 @@ export default function UniversalScannerModal() {
                         </div>
                         <div>
                             <h2 className="text-sm font-bold text-surface-800">Quét mã</h2>
-                            <p className="text-[10px] text-surface-400">QR • Voucher • SĐT • Giới thiệu</p>
+                            <p className="text-[10px] text-surface-400">QR • Barcode • Vé • Voucher • SĐT</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">

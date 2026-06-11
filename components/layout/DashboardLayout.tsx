@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ShoppingCart, ClipboardList, Ticket, CalendarDays, LayoutGrid, Link2, Star } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ShoppingCart, ClipboardList, Ticket, CalendarDays, LayoutGrid, Link2, Star, Gift } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -11,12 +11,14 @@ import { db } from '@/lib/firebase';
 import { StoreDoc, CustomRoleDoc } from '@/types';
 
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { user, userDoc, logout, loading, hasPermission } = useAuth();
+    const { referralEnabled } = useStoreSettings();
     const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [storeName, setStoreName] = useState<string>('');
@@ -149,13 +151,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             group: 'Cá Nhân',
         },
         {
-            label: 'Đăng Ký Ca Làm',
-            href: '/employee/register',
-            icon: Calendar,
-            show: isStoreContext,
-            group: 'Cá Nhân',
-        },
-        {
             label: 'KPI Của Tôi',
             href: '/employee/kpi-stats',
             icon: BarChart3,
@@ -181,7 +176,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             label: 'Điểm Giới Thiệu',
             href: '/employee/referral-history',
             icon: Star,
-            show: true,
+            show: referralEnabled,
             group: 'Cá Nhân',
         },
 
@@ -316,6 +311,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             icon: CalendarDays,
             show: hasPermission('page.admin.events') || isSuperAdmin || isAdmin,
             matchPrefix: '/admin/events',
+            group: 'Marketing',
+        },
+        {
+            label: 'GreenSM',
+            href: '/greensm',
+            icon: Gift,
+            show: hasPermission('page.greensm.promotion') || isSuperAdmin || isAdmin,
+            matchPrefix: '/greensm',
             group: 'Marketing',
         },
         {

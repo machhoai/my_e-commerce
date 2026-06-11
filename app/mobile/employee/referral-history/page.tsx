@@ -95,6 +95,7 @@ export default function ReferralHistoryPage() {
     // Bottom sheet filter
     const [filterSheetOpen, setFilterSheetOpen] = useState(false);
     const [filterStatus, setFilterStatus] = useState<string>('');
+    const [filterMonth, setFilterMonth] = useState<string>(''); // 'YYYY-MM' or '' for all
 
     // ── Load data
     const loadData = useCallback(async () => {
@@ -137,9 +138,19 @@ export default function ReferralHistoryPage() {
 
     const [filterEmp, setFilterEmp] = useState('');
 
-    // Group by date
+    // Available months from data
+    const availableMonths = useMemo(() => {
+        const set = new Set<string>();
+        txns.forEach(tx => { try { set.add(tx.createdAt.slice(0, 7)); } catch {} });
+        pendingRefs.forEach(pr => { try { set.add(pr.createdAt.slice(0, 7)); } catch {} });
+        return Array.from(set).sort().reverse();
+    }, [txns, pendingRefs]);
+
+    // Group by date (with month + employee filter)
     const grouped = useMemo(() => {
-        const filtered = filterEmp ? txns.filter(t => t.employeeId === filterEmp) : txns;
+        let filtered = txns;
+        if (filterEmp) filtered = filtered.filter(t => t.employeeId === filterEmp);
+        if (filterMonth) filtered = filtered.filter(t => t.createdAt.startsWith(filterMonth));
         const map = new Map<string, TxWithName[]>();
         filtered.forEach(tx => {
             const dk = dateKey(tx.createdAt);
@@ -147,15 +158,23 @@ export default function ReferralHistoryPage() {
             map.get(dk)!.push(tx);
         });
         return Array.from(map.entries());
-    }, [txns, filterEmp]);
+    }, [txns, filterEmp, filterMonth]);
 
-    // Filtered pending refs (by employee + status)
+    // Filtered pending refs (by employee + status + month)
     const filteredPendingRefs = useMemo(() => {
         let refs = pendingRefs;
         if (filterEmp) refs = refs.filter(r => r.saleEmployeeId === filterEmp);
         if (filterStatus) refs = refs.filter(r => r.status === filterStatus);
+        if (filterMonth) refs = refs.filter(r => r.createdAt.startsWith(filterMonth));
         return refs;
-    }, [pendingRefs, filterEmp, filterStatus]);
+    }, [pendingRefs, filterEmp, filterStatus, filterMonth]);
+
+    // Summary stats for filtered data
+    const filteredStats = useMemo(() => {
+        const allFiltered = grouped.flatMap(([, items]) => items);
+        const totalPts = allFiltered.reduce((s, tx) => s + (tx.isRevoked ? 0 : tx.points), 0);
+        return { count: allFiltered.length, totalPts };
+    }, [grouped]);
 
     // Admin adjust
     const handleAdjust = async () => {
@@ -298,6 +317,40 @@ export default function ReferralHistoryPage() {
                         <button onClick={() => { setTab('store'); setFilterEmp(''); }} className={cn('flex-1 py-2 rounded-lg text-xs font-bold transition-all', tab === 'store' ? 'bg-white shadow text-amber-700' : 'text-gray-500')}>
                             {t('referral.tabStore')}
                         </button>
+                    </div>
+                )}
+
+                {/* Month quick filter — both tabs */}
+                {!loading && availableMonths.length > 0 && (
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+                        <button
+                            onClick={() => setFilterMonth('')}
+                            className={cn('px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors shrink-0', !filterMonth ? 'bg-amber-500 text-white shadow-sm' : 'bg-gray-100 text-gray-500')}
+                        >{t('common.all')}</button>
+                        {availableMonths.map(m => (
+                            <button
+                                key={m}
+                                onClick={() => setFilterMonth(m)}
+                                className={cn('px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors shrink-0', filterMonth === m ? 'bg-amber-500 text-white shadow-sm' : 'bg-gray-100 text-gray-500')}
+                            >T{m.split('-')[1]}/{m.split('-')[0]}</button>
+                        ))}
+                    </div>
+                )}
+
+                {/* Summary bar */}
+                {!loading && grouped.length > 0 && (
+                    <div className="flex items-center gap-3 bg-white border border-gray-100 rounded-xl px-3 py-2 shadow-sm">
+                        <div className="flex-1">
+                            <p className="text-[9px] text-gray-400 font-bold uppercase">{t('referral.totalTransactions')}</p>
+                            <p className="text-sm font-black text-gray-700">{filteredStats.count}</p>
+                        </div>
+                        <div className="w-px h-6 bg-gray-100" />
+                        <div className="flex-1 text-right">
+                            <p className="text-[9px] text-gray-400 font-bold uppercase">{t('referral.netPoints')}</p>
+                            <p className={cn('text-sm font-black', filteredStats.totalPts >= 0 ? 'text-emerald-600' : 'text-red-600')}>
+                                {filteredStats.totalPts > 0 ? '+' : ''}{filteredStats.totalPts}
+                            </p>
+                        </div>
                     </div>
                 )}
 
@@ -591,12 +644,36 @@ export default function ReferralHistoryPage() {
                             })}
                         </div>
                     </div>
-                    {/* Apply */}
-                    <button
-                        onClick={() => setFilterSheetOpen(false)}
-                        className="w-full py-3 rounded-xl bg-primary-600 text-white text-sm font-bold active:scale-[0.98] transition-transform"
-                    >{t('common.apply')}
-                    </button>
+                    {/* Month filter */}
+                    {availableMonths.length > 0 && (
+                        <div>
+                            <p className="text-xs font-bold text-gray-600 mb-2">{t('referral.filterMonth')}</p>
+                            <div className="flex flex-wrap gap-1.5">
+                                <button
+                                    onClick={() => setFilterMonth('')}
+                                    className={cn('px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors', !filterMonth ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-600')}
+                                >{t('common.all')}</button>
+                                {availableMonths.map(m => (
+                                    <button
+                                        key={m}
+                                        onClick={() => setFilterMonth(m)}
+                                        className={cn('px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors', filterMonth === m ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-600')}
+                                    >T{m.split('-')[1]}/{m.split('-')[0]}</button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {/* Reset + Apply */}
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => { setFilterEmp(''); setFilterStatus(''); setFilterMonth(''); }}
+                            className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-600 text-sm font-bold active:scale-[0.98] transition-transform"
+                        >{t('common.reset')}</button>
+                        <button
+                            onClick={() => setFilterSheetOpen(false)}
+                            className="flex-1 py-3 rounded-xl bg-primary-600 text-white text-sm font-bold active:scale-[0.98] transition-transform"
+                        >{t('common.apply')}</button>
+                    </div>
                 </div>
             </BottomSheet>
         </MobilePageShell>

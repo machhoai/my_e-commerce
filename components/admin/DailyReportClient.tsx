@@ -33,7 +33,6 @@ import {
 } from 'recharts';
 import type { DailyPanel, GoodsTypeStats } from '@/app/desktop/(dashboard)/office/revenue/actions';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
-import AIAssistantChat from '@/components/admin/daily-report/AIAssistantChat';
 
 // ─────────────────────────────────────────────────────────────
 // Types & Props
@@ -715,9 +714,6 @@ export default function DailyReportClient({
                 </motion.div>
 
             </div>
-
-            {/* ── AI Assistant (floating) ── */}
-            <AIAssistantChat currentDate={forDate} />
         </div>
     );
 }

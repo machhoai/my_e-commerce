@@ -1,0 +1,231 @@
+   ▲ Next.js 16.0.7 (Turbopack)
+   - Local:         http://localhost:3001
+   - Network:       http://192.168.30.61:3001
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · serverActions
+
+ ✓ Starting...
+ ✓ Ready in 4.2s
+ ○ Compiling /desktop/greensm ...
+ GET /greensm 200 in 7.4s (compile: 6.6s, proxy.ts: 166ms, render: 590ms)
+ GET /greensm 200 in 229ms (compile: 24ms, proxy.ts: 10ms, render: 195ms)
+ GET /api/auth/session 200 in 820ms (compile: 4ms, render: 816ms)
+ POST /api/auth/session 200 in 336ms (compile: 4ms, render: 332ms)
+ GET /api/roles 200 in 714ms (compile: 229ms, render: 484ms)
+ GET /api/roles 200 in 214ms (compile: 4ms, render: 209ms)
+ GET /api/greensm 200 in 2.7s (compile: 173ms, render: 2.5s)
+ GET /api/greensm 200 in 2.2s (compile: 5ms, render: 2.2s)
+ POST /greensm 200 in 7.8s (compile: 11ms, proxy.ts: 8ms, render: 7.8s)
+ POST /api/greensm 200 in 1285ms (compile: 5ms, render: 1281ms)
+ POST /api/greensm 200 in 1377ms (compile: 4ms, render: 1373ms)
+ GET /api/greensm 200 in 1220ms (compile: 2ms, render: 1218ms)
+ GET /greensm 200 in 1354ms (compile: 1173ms, proxy.ts: 6ms, render: 175ms)
+ POST /api/auth/session 200 in 396ms (compile: 3ms, render: 394ms)
+ GET /api/greensm 200 in 1305ms (compile: 3ms, render: 1303ms)
+ GET /api/greensm 200 in 2.3s (compile: 1899µs, render: 2.3s)
+ POST /greensm 200 in 7.2s (compile: 5ms, proxy.ts: 4ms, render: 7.2s)
+ POST /api/auth/session 200 in 416ms (compile: 4ms, render: 412ms)
+ GET /dashboard 200 in 7.7s (compile: 1443ms, proxy.ts: 3ms, render: 6.3s)
+ GET /api/roles 200 in 292ms (compile: 5ms, render: 287ms)
+ GET /api/roles 200 in 153ms (compile: 5ms, render: 148ms)
+ GET /api/stores 200 in 1099ms (compile: 204ms, render: 896ms)
+ GET /api/stores 200 in 1944ms (compile: 2ms, render: 1942ms)
+ POST /dashboard 200 in 6.7s (compile: 4ms, proxy.ts: 3ms, render: 6.7s)
+ ✓ Compiled in 553ms
+ ✓ Compiled in 592ms
+ GET /greensm 200 in 36ms (compile: 6ms, proxy.ts: 4ms, render: 27ms)
+ GET /manifest.webmanifest 200 in 119ms (compile: 106ms, proxy.ts: 6ms, render: 7ms)
+ GET /api/greensm 200 in 1222ms (compile: 3ms, render: 1218ms)
+ GET /api/greensm 200 in 961ms (compile: 2ms, render: 959ms)
+ ✓ Compiled in 750ms
+ GET /api/greensm 200 in 1397ms (compile: 3ms, render: 1394ms)
+ POST /api/greensm 200 in 1161ms (compile: 3ms, render: 1158ms)
+ POST /api/greensm 200 in 1290ms (compile: 3ms, render: 1286ms)
+ GET /api/greensm 200 in 1250ms (compile: 3ms, render: 1247ms)
+ ✓ Compiled in 882ms
+ ✓ Compiled in 431ms
+ GET /api/greensm 200 in 2.0s (compile: 144ms, render: 1864ms)
+ GET /dashboard 200 in 1083ms (compile: 330ms, proxy.ts: 5ms, render: 747ms)
+ ✓ Compiled in 441ms
+ GET /api/greensm 200 in 3.1s (compile: 3ms, render: 3.1s)
+ GET /api/greensm 200 in 2.2s (compile: 3ms, render: 2.2s)
+ ○ Compiling /_not-found/page ...
+ GET /iam 404 in 4.1s (compile: 4.0s, proxy.ts: 5ms, render: 131ms)
+ ✓ Compiled in 512ms
+ GET /greensm 200 in 731ms (compile: 197ms, proxy.ts: 8ms, render: 527ms)
+ ✓ Compiled in 414ms
+ GET /api/greensm 200 in 1930ms (compile: 9ms, render: 1922ms)
+ GET /greensm 200 in 653ms (compile: 159ms, proxy.ts: 4ms, render: 489ms)
+ ✓ Compiled in 414ms
+ GET /greensm/w 404 in 96ms (compile: 27ms, proxy.ts: 5ms, render: 64ms)
+ GET /api/greensm 200 in 1610ms (compile: 3ms, render: 1606ms)
+ GET /greensm/w 404 in 72ms (compile: 18ms, proxy.ts: 3ms, render: 51ms)
+ GET /api/greensm 200 in 927ms (compile: 3ms, render: 925ms)
+ ✓ Compiled in 437ms
+ GET /greensm/wheel 404 in 111ms (compile: 28ms, proxy.ts: 10ms, render: 74ms)
+ GET /api/greensm 200 in 1153ms (compile: 5ms, render: 1148ms)
+ GET /greensm/wheel 404 in 259ms (compile: 214ms, proxy.ts: 2ms, render: 42ms)
+ ✓ Compiled in 418ms
+ GET /api/greensm 200 in 892ms (compile: 3ms, render: 889ms)
+ ✓ Compiled in 425ms
+ GET /api/greensm 200 in 1257ms (compile: 3ms, render: 1254ms)
+ ✓ Compiled in 493ms
+ GET /api/greensm 200 in 1363ms (compile: 5ms, render: 1358ms)
+ ✓ Compiled in 397ms
+ GET /api/greensm 200 in 1268ms (compile: 4ms, render: 1265ms)
+ ✓ Compiled in 645ms
+ GET /api/greensm 200 in 1438ms (compile: 5ms, render: 1433ms)
+ ✓ Compiled in 487ms
+ GET /api/greensm 200 in 1266ms (compile: 4ms, render: 1262ms)
+ POST /api/greensm 200 in 1221ms (compile: 3ms, render: 1218ms)
+ POST /api/greensm 200 in 1451ms (compile: 3ms, render: 1448ms)
+ GET /api/greensm 200 in 1212ms (compile: 1868µs, render: 1210ms)
+ ✓ Compiled in 464ms
+ GET /api/greensm 200 in 1265ms (compile: 3ms, render: 1262ms)
+ POST /api/greensm 200 in 1244ms (compile: 3ms, render: 1241ms)
+ ✓ Compiled in 442ms
+ GET /api/greensm 200 in 1242ms (compile: 3ms, render: 1239ms)
+ POST /api/greensm 200 in 1185ms (compile: 3ms, render: 1183ms)
+ ✓ Compiled in 422ms
+ GET /api/greensm 200 in 1741ms (compile: 2ms, render: 1739ms)
+ ✓ Compiled in 443ms
+ GET /api/greensm 200 in 919ms (compile: 3ms, render: 916ms)
+ ✓ Compiled in 396ms
+ GET /api/greensm 200 in 1250ms (compile: 3ms, render: 1247ms)
+ POST /api/greensm 200 in 1066ms (compile: 3ms, render: 1064ms)
+ ✓ Compiled in 429ms
+ GET /api/greensm 200 in 1242ms (compile: 3ms, render: 1239ms)
+ ✓ Compiled in 410ms
+ GET /api/greensm 200 in 1281ms (compile: 5ms, render: 1276ms)
+ ✓ Compiled in 438ms
+ GET /api/greensm 200 in 1236ms (compile: 2ms, render: 1233ms)
+ ✓ Compiled in 451ms
+ GET /api/greensm 200 in 922ms (compile: 4ms, render: 918ms)
+ ✓ Compiled in 701ms
+ GET /api/greensm 200 in 1157ms (compile: 6ms, render: 1150ms)
+ ✓ Compiled in 590ms
+ GET /api/greensm 200 in 1192ms (compile: 5ms, render: 1187ms)
+ POST /api/greensm 200 in 1735ms (compile: 99ms, render: 1636ms)
+ POST /api/greensm 200 in 1448ms (compile: 8ms, render: 1439ms)
+ GET /api/greensm 200 in 1111ms (compile: 6ms, render: 1104ms)
+ ✓ Compiled in 918ms
+ GET /api/greensm 200 in 1087ms (compile: 6ms, render: 1081ms)
+ ✓ Compiled in 1162ms
+ GET /api/greensm 200 in 1082ms (compile: 8ms, render: 1074ms)
+ ✓ Compiled in 551ms
+ GET /api/greensm 200 in 1098ms (compile: 6ms, render: 1092ms)
+ ✓ Compiled in 500ms
+ GET /api/greensm 200 in 824ms (compile: 6ms, render: 817ms)
+ ✓ Compiled in 459ms
+ GET /api/greensm 200 in 827ms (compile: 3ms, render: 824ms)
+ ✓ Compiled in 392ms
+ GET /api/greensm 200 in 1079ms (compile: 3ms, render: 1076ms)
+ ✓ Compiled in 553ms
+ GET /api/greensm 200 in 1129ms (compile: 7ms, render: 1122ms)
+ ✓ Compiled in 676ms
+ GET /api/greensm 200 in 1055ms (compile: 3ms, render: 1052ms)
+ ✓ Compiled in 363ms
+ GET /api/greensm 200 in 1006ms (compile: 3ms, render: 1003ms)
+ ✓ Compiled in 591ms
+ ✓ Compiled in 367ms
+ GET /api/greensm 200 in 1134ms (compile: 5ms, render: 1129ms)
+ GET /api/greensm 200 in 777ms (compile: 3ms, render: 774ms)
+ ✓ Compiled in 371ms
+ GET /api/greensm 200 in 815ms (compile: 2ms, render: 813ms)
+ ✓ Compiled in 343ms
+ GET /api/greensm 200 in 1182ms (compile: 4ms, render: 1178ms)
+ ✓ Compiled in 352ms
+ GET /api/greensm 200 in 1214ms (compile: 3ms, render: 1211ms)
+ ✓ Compiled in 537ms
+ GET /api/greensm 200 in 1185ms (compile: 4ms, render: 1181ms)
+ ✓ Compiled in 1305ms
+ GET /api/greensm 200 in 1194ms (compile: 3ms, render: 1191ms)
+ ✓ Compiled in 484ms
+ GET /api/greensm 200 in 1224ms (compile: 4ms, render: 1220ms)
+ ✓ Compiled in 349ms
+ ✓ Compiled in 473ms
+ GET /api/greensm 200 in 1215ms (compile: 4ms, render: 1210ms)
+ GET /api/greensm 200 in 1237ms (compile: 2ms, render: 1235ms)
+ ✓ Compiled in 1166ms
+ GET /api/greensm 200 in 1204ms (compile: 4ms, render: 1199ms)
+ POST /api/greensm 200 in 1366ms (compile: 4ms, render: 1362ms)
+ GET /api/greensm 200 in 1185ms (compile: 6ms, render: 1179ms)
+ GET /greensm 200 in 987ms (compile: 254ms, proxy.ts: 4ms, render: 729ms)
+ POST /api/auth/session 200 in 982ms (compile: 10ms, render: 972ms)
+ GET /api/greensm 200 in 1442ms (compile: 6ms, render: 1435ms)
+ GET /api/greensm 200 in 2.1s (compile: 3ms, render: 2.1s)
+ POST /api/greensm 200 in 1850ms (compile: 3ms, render: 1847ms)
+ POST /greensm 200 in 8.1s (compile: 5ms, proxy.ts: 6ms, render: 8.1s)
+ GET /api/greensm 200 in 1243ms (compile: 4ms, render: 1239ms)
+ PATCH /api/greensm 200 in 1226ms (compile: 3ms, render: 1223ms)
+ POST /api/greensm 200 in 1428ms (compile: 6ms, render: 1422ms)
+ GET /api/greensm 200 in 1229ms (compile: 4ms, render: 1225ms)
+ PATCH /api/greensm 200 in 1238ms (compile: 3ms, render: 1236ms)
+ PATCH /api/greensm 200 in 1226ms (compile: 3ms, render: 1224ms)
+ GET /api/greensm 200 in 1232ms (compile: 2ms, render: 1230ms)
+ PATCH /api/greensm 200 in 1191ms (compile: 3ms, render: 1188ms)
+ PATCH /api/greensm 200 in 1178ms (compile: 5ms, render: 1174ms)
+ PATCH /api/greensm 200 in 1544ms (compile: 2ms, render: 1542ms)
+ GET /api/greensm 200 in 1267ms (compile: 2ms, render: 1265ms)
+ POST /api/greensm 200 in 1288ms (compile: 5ms, render: 1283ms)
+ POST /api/greensm 200 in 1319ms (compile: 3ms, render: 1316ms)
+ GET /api/greensm 200 in 1289ms (compile: 3ms, render: 1286ms)
+ ✓ Compiled in 813ms
+ GET /api/greensm 200 in 1505ms (compile: 6ms, render: 1499ms)
+ ✓ Compiled in 716ms
+ GET /api/greensm 200 in 1264ms (compile: 5ms, render: 1259ms)
+ ✓ Compiled in 562ms
+ GET /api/greensm 200 in 1834ms (compile: 237ms, render: 1597ms)
+ ✓ Compiled in 476ms
+ GET /api/greensm 200 in 1225ms (compile: 6ms, render: 1219ms)
+ ✓ Compiled in 390ms
+ GET /api/greensm 200 in 1168ms (compile: 4ms, render: 1164ms)
+ PATCH /api/greensm 200 in 1068ms (compile: 2ms, render: 1066ms)
+ GET /api/greensm 200 in 1078ms (compile: 2ms, render: 1075ms)
+ POST /api/greensm 200 in 1546ms (compile: 2ms, render: 1544ms)
+ GET /api/greensm 200 in 1190ms (compile: 5ms, render: 1186ms)
+ POST /api/greensm 200 in 1277ms (compile: 3ms, render: 1274ms)
+ POST /api/greensm 200 in 1298ms (compile: 3ms, render: 1295ms)
+ GET /api/greensm 200 in 1266ms (compile: 1953µs, render: 1264ms)
+ ✓ Compiled in 595ms
+ GET /api/greensm 200 in 1884ms (compile: 5ms, render: 1879ms)
+ ✓ Compiled in 690ms
+ GET /api/greensm 200 in 1261ms (compile: 10ms, render: 1250ms)
+ POST /api/greensm 200 in 1503ms (compile: 3ms, render: 1500ms)
+ GET /api/greensm 200 in 1232ms (compile: 3ms, render: 1229ms)
+ POST /api/greensm 200 in 1347ms (compile: 3ms, render: 1344ms)
+ POST /api/greensm 200 in 1439ms (compile: 3ms, render: 1436ms)
+ GET /api/greensm 200 in 1350ms (compile: 2ms, render: 1348ms)
+ ✓ Compiled in 601ms
+ GET /api/greensm 200 in 1170ms (compile: 4ms, render: 1166ms)
+ POST /api/greensm 200 in 1716ms (compile: 4ms, render: 1712ms)
+ GET /api/greensm 200 in 1219ms (compile: 2ms, render: 1217ms)
+ GET /greensm 200 in 872ms (compile: 190ms, proxy.ts: 3ms, render: 680ms)
+ POST /api/auth/session 200 in 436ms (compile: 3ms, render: 433ms)
+ GET /api/greensm 200 in 1455ms (compile: 2ms, render: 1453ms)
+ GET /api/greensm 200 in 2.2s (compile: 3ms, render: 2.2s)
+ POST /greensm 200 in 4.5s (compile: 5ms, proxy.ts: 5ms, render: 4.5s)
+ GET /greensm 200 in 580ms (compile: 152ms, proxy.ts: 5ms, render: 424ms)
+ POST /api/auth/session 200 in 399ms (compile: 2ms, render: 397ms)
+ GET /api/roles 200 in 192ms (compile: 10ms, render: 181ms)
+ GET /api/roles 200 in 253ms (compile: 3ms, render: 249ms)
+ GET /api/greensm 200 in 2.7s (compile: 2ms, render: 2.7s)
+ GET /api/greensm 200 in 3.4s (compile: 1913µs, render: 3.4s)
+ GET /admin/settings/general 200 in 2.4s (compile: 2.3s, proxy.ts: 5ms, render: 58ms)
+ GET /manifest.webmanifest 200 in 14ms (compile: 5ms, proxy.ts: 4ms, render: 5ms)
+ GET /api/stores 200 in 1546ms (compile: 5ms, render: 1541ms)
+ GET /admin/settings/roles 200 in 879ms (compile: 843ms, proxy.ts: 5ms, render: 30ms)
+ GET /manifest.webmanifest 200 in 16ms (compile: 4ms, proxy.ts: 4ms, render: 8ms)
+ GET /api/roles 200 in 212ms (compile: 4ms, render: 208ms)
+ GET /api/roles 200 in 217ms (compile: 3ms, render: 215ms)
+ GET /api/stores 200 in 1945ms (compile: 2ms, render: 1943ms)
+ POST /greensm 200 in 11.6s (compile: 5ms, proxy.ts: 4ms, render: 11.6s)
+ PUT /api/roles/ux2cI2AIxkuDnkGdVRkw 200 in 3.6s (compile: 2.4s, render: 1188ms)
+ GET /api/roles 200 in 149ms (compile: 3ms, render: 146ms)
+ PUT /api/roles/w5Ef2DxQDevZiWo0D84a 200 in 1271ms (compile: 10ms, render: 1261ms)
+ GET /api/roles 200 in 140ms (compile: 4ms, render: 136ms)
+ GET /greensm 200 in 114ms (compile: 26ms, proxy.ts: 7ms, render: 82ms)
+ GET /manifest.webmanifest 200 in 42ms (compile: 26ms, proxy.ts: 7ms, render: 9ms)
+ GET /api/greensm 200 in 1248ms (compile: 10ms, render: 1237ms)
+ GET /api/greensm 200 in 875ms (compile: 5ms, render: 870ms)

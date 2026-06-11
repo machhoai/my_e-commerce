@@ -11,9 +11,10 @@ const withSerwist = withSerwistInit({
     disable: true,
 });
 
-// Auto-generate build version on every build: format YYMMDD.HHMM
-const d = new Date();
-const buildVer = `${d.getFullYear().toString().slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
+// Auto-generate build version on every build: format YYMMDD.HHMM (Vietnam Time GMT+7)
+const now = new Date();
+const d = new Date(now.getTime() + (7 * 60 * 60 * 1000));
+const buildVer = `${d.getUTCFullYear().toString().slice(2)}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCHours()).padStart(2, '0')}${String(d.getUTCMinutes()).padStart(2, '0')}`;
 
 const nextConfig: NextConfig = {
     /* config options here */

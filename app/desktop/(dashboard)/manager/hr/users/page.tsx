@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { UserDoc, EmployeeType, UserRole, StoreDoc, OfficeDoc, WarehouseDoc, CustomRoleDoc } from '@/types';
 import { Users, Search, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Plus, MailPlus, KeyRound, Building2, Shield, Award, UserX, RotateCcw, Briefcase, TrendingUp, FileWarning, CheckCircle2, AlertTriangle, QrCode } from 'lucide-react';
+import { showToast } from '@/lib/utils/toast';
 import ExportEmployeesExcel from '@/components/hr/ExportEmployeesExcel';
 import { cn } from '@/lib/utils';
 import { useTableParams } from '@/hooks/useTableParams';
@@ -16,6 +17,8 @@ import Portal from '@/components/Portal';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 import { LabelPrintConfigurator } from '@/components/admin/LabelPrintConfigurator';
+import UserInfoEditor from '@/components/shared/UserInfoEditor';
+import LocationPicker, { deriveLocationType, locationFieldName, locationIcon, locationLabel, type LocationType } from '@/components/hr/LocationPicker';
 
 function ManagerUsersPageContent() {
     const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId, managedStoreIds } = useAuth();
@@ -28,6 +31,7 @@ function ManagerUsersPageContent() {
     // Modal states
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [editUid, setEditUid] = useState<string | null>(null);
+    const [editEmployee, setEditEmployee] = useState<UserDoc | null>(null);
 
     // Form states
     const [newName, setNewName] = useState('');
@@ -46,9 +50,13 @@ function ManagerUsersPageContent() {
     const [newResignationDate, setNewResignationDate] = useState('');
     const [newContractNumber, setNewContractNumber] = useState('');
     const [newStoreId, setNewStoreId] = useState('');
+    /** For admin form: STORE | OFFICE | CENTRAL — drives which ID field is shown */
+    const [newWorkplaceType, setNewWorkplaceType] = useState<LocationType>('STORE');
+    const [newOfficeId, setNewOfficeId] = useState('');
+    const [newWarehouseId, setNewWarehouseId] = useState('');
 
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-    const [actionMessage, setActionMessage] = useState({ type: '', text: '' });
+
     const [customRoles, setCustomRoles] = useState<CustomRoleDoc[]>([]);
     const [kpiAverages, setKpiAverages] = useState<Record<string, { avgOfficial: number; count: number }>>({});
 
@@ -109,13 +117,10 @@ function ManagerUsersPageContent() {
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
-    // Determine location type from selected ID
-    const selectedLocationType: 'STORE' | 'OFFICE' | 'CENTRAL' | null = useMemo(() => {
+    // Determine location type from selected ID (admin)
+    const selectedLocationType: LocationType | null = useMemo(() => {
         if (!selectedAdminStoreId) return null;
-        if (stores.some(s => s.id === selectedAdminStoreId)) return 'STORE';
-        if (offices.some(o => o.id === selectedAdminStoreId)) return 'OFFICE';
-        if (warehouses.some(w => w.id === selectedAdminStoreId)) return 'CENTRAL';
-        return null;
+        return deriveLocationType(selectedAdminStoreId, stores, offices, warehouses);
     }, [selectedAdminStoreId, stores, offices, warehouses]);
 
     // Fetch stores, offices, warehouses for admin
@@ -175,25 +180,35 @@ function ManagerUsersPageContent() {
         if (authLoading) return;
         if (!user || !userDoc) return;
 
-        // Admin: filter by selected location if chosen, otherwise show all
-        // Office users: use effectiveStoreId from AuthContext (managed store selection)
-        const effectiveStoreId = userDoc.role === 'admin' ? selectedAdminStoreId : (contextStoreId || userDoc.storeId);
+        // Non-admin: derive the correct store/location ID
+        const effectiveStoreId = userDoc.role === 'admin'
+            ? selectedAdminStoreId
+            : (contextStoreId || userDoc.storeId);
+
+        // Office-context user: contextStoreId is a managed storeId (from office's managedStoreIds)
+        // so we query employees by 'storeId' field, NOT by 'officeId'
+        const isOfficeUser = !!(userDoc.officeId && userDoc.role !== 'admin');
 
         // Build constraints: use the correct field based on location type
         const constraints: ReturnType<typeof where>[] = [];
         if (effectiveStoreId) {
             if (userDoc.role === 'admin' && selectedLocationType) {
-                const fieldName = selectedLocationType === 'OFFICE' ? 'officeId'
-                    : selectedLocationType === 'CENTRAL' ? 'warehouseId'
-                        : 'storeId';
+                const fieldName = locationFieldName(selectedLocationType);
                 constraints.push(where(fieldName, '==', effectiveStoreId));
+            } else if (isOfficeUser) {
+                // Office user viewing a managed store: query by storeId
+                constraints.push(where('storeId', '==', effectiveStoreId));
+            } else if (userDoc.warehouseId) {
+                constraints.push(where('warehouseId', '==', effectiveStoreId));
             } else {
-                // Non-admin: assumed STORE context
                 constraints.push(where('storeId', '==', effectiveStoreId));
             }
+        } else if (isOfficeUser && userDoc.officeId) {
+            // No managed store selected — show office's own employees
+            constraints.push(where('officeId', '==', userDoc.officeId));
         }
 
-        const q = userDoc.role === 'store_manager' || userDoc.role === 'admin'
+        const q = userDoc.role === 'store_manager' || userDoc.role === 'admin' || isOfficeUser
             ? query(collection(db, 'users'), ...constraints)
             : query(collection(db, 'users'), where('role', '==', 'employee'), ...constraints);
 
@@ -209,12 +224,11 @@ function ManagerUsersPageContent() {
         });
 
         return () => unsubscribe();
-    }, [authLoading, user, userDoc, selectedAdminStoreId, selectedLocationType]);
+    }, [authLoading, user, userDoc, selectedAdminStoreId, selectedLocationType, contextStoreId]);
 
     const handleCreateOrUpdateUser = async (e: React.FormEvent) => {
         e.preventDefault();
         setActionLoading(editUid ? 'update' : 'create');
-        setActionMessage({ type: '', text: '' });
 
         try {
             const token = await user?.getIdToken();
@@ -242,16 +256,21 @@ function ManagerUsersPageContent() {
                     bodyPayload.customRoleId = newCustomRoleId || null;
                 }
                 if (userDoc?.role === 'admin') {
-                    // Always send storeId so admin can change or clear it
-                    bodyPayload.storeId = newStoreId || null;
+                    bodyPayload.workplaceType = newWorkplaceType;
+                    bodyPayload.storeId = newWorkplaceType === 'STORE' ? (newStoreId || null) : null;
+                    bodyPayload.officeId = newWorkplaceType === 'OFFICE' ? (newOfficeId || null) : null;
+                    bodyPayload.warehouseId = newWorkplaceType === 'CENTRAL' ? (newWarehouseId || null) : null;
                 }
             } else {
                 bodyPayload.role = (userDoc?.role === 'store_manager' || userDoc?.role === 'admin') ? newRole : 'employee';
                 if (userDoc?.role === 'store_manager' || userDoc?.role === 'admin') {
                     bodyPayload.customRoleId = newCustomRoleId || null;
                 }
-                if (userDoc?.role === 'admin' && newStoreId) {
-                    bodyPayload.storeId = newStoreId;
+                if (userDoc?.role === 'admin') {
+                    bodyPayload.workplaceType = newWorkplaceType;
+                    if (newWorkplaceType === 'STORE' && newStoreId) bodyPayload.storeId = newStoreId;
+                    if (newWorkplaceType === 'OFFICE' && newOfficeId) bodyPayload.officeId = newOfficeId;
+                    if (newWorkplaceType === 'CENTRAL' && newWarehouseId) bodyPayload.warehouseId = newWarehouseId;
                 }
             }
 
@@ -267,7 +286,7 @@ function ManagerUsersPageContent() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `Không thể ${editUid ? 'cập nhật' : 'tạo'} nhân viên`);
 
-            setActionMessage({ type: 'success', text: `Nhân viên ${newName} đã được ${editUid ? 'cập nhật' : 'tạo'} thành công!` });
+            showToast.success('Thành công', `Nhân viên ${newName} đã được ${editUid ? 'cập nhật' : 'tạo'} thành công!`);
             setIsCreateModalOpen(false);
             setEditUid(null);
 
@@ -276,9 +295,9 @@ function ManagerUsersPageContent() {
 
         } catch (err: unknown) {
             if (err instanceof Error) {
-                setActionMessage({ type: 'error', text: err.message });
+                showToast.error('Lỗi', err.message);
             } else {
-                setActionMessage({ type: 'error', text: 'Đã xảy ra lỗi không xác định' });
+                showToast.error('Lỗi', 'Đã xảy ra lỗi không xác định');
             }
         } finally {
             setActionLoading(null);
@@ -319,7 +338,6 @@ function ManagerUsersPageContent() {
         if (!confirm(`Bạn có chắc chắn muốn ${actionName.toLowerCase()} ${employeeName}?`)) return;
 
         setActionLoading(targetUid);
-        setActionMessage({ type: '', text: '' });
 
         try {
             const token = await user?.getIdToken();
@@ -335,12 +353,12 @@ function ManagerUsersPageContent() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `Không thể ${actionName.toLowerCase()} người dùng`);
 
-            setActionMessage({ type: 'success', text: `Đã ${actionName.toLowerCase()} ${employeeName} thành công.` });
+            showToast.success('Đã cập nhật', `Đã ${actionName.toLowerCase()} ${employeeName} thành công.`);
         } catch (err: unknown) {
             if (err instanceof Error) {
-                setActionMessage({ type: 'error', text: err.message });
+                showToast.error('Lỗi', err.message);
             } else {
-                setActionMessage({ type: 'error', text: 'Đã xảy ra lỗi không xác định' });
+                showToast.error('Lỗi', 'Đã xảy ra lỗi không xác định');
             }
         } finally {
             setActionLoading(null);
@@ -446,28 +464,25 @@ function ManagerUsersPageContent() {
                             <div className="bg-white rounded-xl items-center border border-surface-200 shadow-sm p-3 flex sm:flex-row sm:items-center gap-3">
                                 <div className="flex items-center gap-2 shrink-0">
                                     <Building2 className="w-5 h-5 text-accent-500" />
+                                    <span className="text-sm font-semibold text-surface-600 hidden sm:inline">
+                                        {selectedAdminStoreId
+                                            ? <>{locationIcon(selectedLocationType)} {locationLabel(selectedLocationType)}<span className="mx-1 text-surface-300">·</span></>                                            : null}
+                                        Xem theo địa điểm:
+                                    </span>
                                 </div>
-                                <select
+                                <LocationPicker
                                     value={selectedAdminStoreId}
-                                    onChange={e => setSelectedAdminStoreId(e.target.value)}
+                                    onChange={(id) => setSelectedAdminStoreId(id)}
+                                    stores={stores}
+                                    offices={offices}
+                                    warehouses={warehouses}
+                                    placeholder="— Tất cả địa điểm —"
                                     className="flex-1 border border-surface-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-accent-300 bg-white font-medium"
-                                >
-                                    <option value="">-- Tất cả cửa hàng --</option>
-                                    {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
-                                </select>
+                                />
                             </div>
                         )}
 
-                        {actionMessage.text && (
-                            <div className={`p-4 rounded-xl flex items-center justify-between gap-3 border shadow-sm animate-in fade-in slide-in-from-top-2 ${actionMessage.type === 'error' ? 'bg-danger-50 text-danger-700 border-danger-200' : 'bg-success-50 text-success-700 border-success-200'
-                                }`}>
-                                <div className="flex items-center gap-2">
-                                    {actionMessage.type === 'error' ? <ShieldAlert className="w-5 h-5 flex-shrink-0" /> : <ShieldCheck className="w-5 h-5 flex-shrink-0" />}
-                                    <p className="text-sm font-medium">{actionMessage.text}</p>
-                                </div>
-                                <button onClick={() => setActionMessage({ type: '', text: '' })} className="opacity-50 hover:opacity-100 font-bold px-2">×</button>
-                            </div>
-                        )}
+
 
                         {/* Toolbar */}
 
@@ -679,8 +694,15 @@ function ManagerUsersPageContent() {
                                                         </td>
                                                         {userDoc?.role === 'admin' && (
                                                             <td className="px-4 py-3.5">
-                                                                <span className="text-xs font-medium truncate px-2.5 py-1 rounded-lg bg-surface-50 text-surface-600 border border-surface-200">
-                                                                    {e.storeId ? (storeMap.get(e.storeId) ?? e.storeId) : <span className="italic text-surface-400">—</span>}
+                                                                <span className="text-xs font-medium truncate px-2.5 py-1 rounded-lg bg-surface-50 text-surface-600 border border-surface-200 inline-flex items-center gap-1">
+                                                                    {e.workplaceType === 'OFFICE' ? '🏢' : e.workplaceType === 'CENTRAL' ? '🏭' : '🏪'}
+                                                                    {e.officeId
+                                                                        ? (offices.find(o => o.id === e.officeId)?.name ?? e.officeId)
+                                                                        : e.warehouseId
+                                                                            ? (warehouses.find(w => w.id === e.warehouseId)?.name ?? e.warehouseId)
+                                                                            : e.storeId
+                                                                                ? (storeMap.get(e.storeId) ?? e.storeId)
+                                                                                : <span className="italic text-surface-400">—</span>}
                                                                 </span>
                                                             </td>
                                                         )}
@@ -833,27 +855,87 @@ function ManagerUsersPageContent() {
                                                     </div>
                                                     {(userDoc?.role === 'store_manager' || userDoc?.role === 'admin' || hasPermission('action.hr.manage')) && (() => {
                                                         // Filter roles this user can assign (based on creatorRoles), exclude locked roles
-                                                        const eligibleRoles = customRoles.filter(r =>
-                                                            !r.isLocked && (
-                                                                r.creatorRoles?.includes(userDoc?.role ?? '') ||
-                                                                r.creatorRoles?.includes(userDoc?.customRoleId ?? '')
-                                                            )
-                                                        );
+                                                        // Also filter by applicableTo: custom roles must support the selected workplace type
+                                                        const eligibleRoles = customRoles.filter(r => {
+                                                            if (r.isLocked) return false;
+                                                            const canCreate = r.creatorRoles?.includes(userDoc?.role ?? '') ||
+                                                                r.creatorRoles?.includes(userDoc?.customRoleId ?? '');
+                                                            if (!canCreate) return false;
+                                                            // If applicableTo is set, the role must support the selected workplaceType
+                                                            if (r.applicableTo && r.applicableTo.length > 0) {
+                                                                return r.applicableTo.includes(newWorkplaceType);
+                                                            }
+                                                            return true; // No restriction = applies to all locations
+                                                        });
                                                         // Determine current value: if customRoleId is set, use custom: prefix, otherwise use the system role
                                                         const selectValue = newCustomRoleId ? `custom:${newCustomRoleId}` : newRole;
                                                         const handleRoleChange = (val: string) => {
                                                             if (val.startsWith('custom:')) {
-                                                                // Non-system custom role
                                                                 setNewRole('employee');
                                                                 setNewCustomRoleId(val.slice(7));
                                                             } else {
-                                                                // System role (employee, manager, store_manager)
                                                                 setNewRole(val as UserRole);
                                                                 setNewCustomRoleId('');
                                                             }
                                                         };
                                                         return (
                                                             <>
+                                                                {/* Admin: workplace type first so role filter is correct */}
+                                                                {userDoc?.role === 'admin' && (
+                                                                    <>
+                                                                        <div className="space-y-1.5">
+                                                                            <label className="text-sm font-medium text-surface-700 flex items-center gap-1.5">
+                                                                                <Building2 className="w-3.5 h-3.5 text-accent-500" />
+                                                                                Loại địa điểm <span className="text-danger-500">*</span>
+                                                                            </label>
+                                                                            <div className="flex gap-2">
+                                                                                {(['STORE', 'OFFICE', 'CENTRAL'] as LocationType[]).map(wt => (
+                                                                                    <button
+                                                                                        key={wt}
+                                                                                        type="button"
+                                                                                        onClick={() => {
+                                                                                            setNewWorkplaceType(wt);
+                                                                                            setNewStoreId(''); setNewOfficeId(''); setNewWarehouseId('');
+                                                                                            // Reset customRoleId if no longer applicable
+                                                                                            setNewCustomRoleId('');
+                                                                                        }}
+                                                                                        className={cn(
+                                                                                            'flex-1 py-2 rounded-lg text-xs font-semibold border transition-all',
+                                                                                            newWorkplaceType === wt
+                                                                                                ? 'bg-accent-600 text-white border-accent-600 shadow-sm'
+                                                                                                : 'bg-surface-50 text-surface-600 border-surface-200 hover:bg-surface-100'
+                                                                                        )}
+                                                                                    >
+                                                                                        {wt === 'STORE' ? '🏪 Cửa hàng' : wt === 'OFFICE' ? '🏢 Văn phòng' : '🏭 Kho'}
+                                                                                    </button>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="space-y-1.5">
+                                                                            <label className="text-sm font-medium text-surface-700">
+                                                                                {newWorkplaceType === 'STORE' ? 'Cửa hàng' : newWorkplaceType === 'OFFICE' ? 'Văn phòng' : 'Kho'}
+                                                                            </label>
+                                                                            {newWorkplaceType === 'STORE' && (
+                                                                                <select value={newStoreId} onChange={e => setNewStoreId(e.target.value)} className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 cursor-pointer">
+                                                                                    <option value="">-- Chưa gán --</option>
+                                                                                    {stores.map(s => <option key={s.id} value={s.id}>🏪 {s.name}</option>)}
+                                                                                </select>
+                                                                            )}
+                                                                            {newWorkplaceType === 'OFFICE' && (
+                                                                                <select value={newOfficeId} onChange={e => setNewOfficeId(e.target.value)} className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 cursor-pointer">
+                                                                                    <option value="">-- Chưa gán --</option>
+                                                                                    {offices.map(o => <option key={o.id} value={o.id}>🏢 {o.name}</option>)}
+                                                                                </select>
+                                                                            )}
+                                                                            {newWorkplaceType === 'CENTRAL' && (
+                                                                                <select value={newWarehouseId} onChange={e => setNewWarehouseId(e.target.value)} className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 cursor-pointer">
+                                                                                    <option value="">-- Chưa gán --</option>
+                                                                                    {warehouses.map(w => <option key={w.id} value={w.id}>🏭 {w.name}</option>)}
+                                                                                </select>
+                                                                            )}
+                                                                        </div>
+                                                                    </>
+                                                                )}
                                                                 <div className="space-y-1.5">
                                                                     <label className="text-sm font-medium text-surface-700 flex items-center gap-1.5">
                                                                         <Shield className="w-3.5 h-3.5 text-accent-500" />
@@ -871,25 +953,9 @@ function ManagerUsersPageContent() {
                                                                         ))}
                                                                     </select>
                                                                     {eligibleRoles.length === 0 && (
-                                                                        <p className="text-[10px] text-warning-600">Không có vai trò nào khả dụng cho bạn.</p>
+                                                                        <p className="text-[10px] text-warning-600">Không có vai trò nào khả dụng cho loại địa điểm này.</p>
                                                                     )}
                                                                 </div>
-                                                                {userDoc?.role === 'admin' && (
-                                                                    <div className="space-y-1.5">
-                                                                        <label className="text-sm font-medium text-surface-700 flex items-center gap-1.5">
-                                                                            <Building2 className="w-3.5 h-3.5 text-accent-500" />
-                                                                            Cửa hàng
-                                                                        </label>
-                                                                        <select
-                                                                            value={newStoreId}
-                                                                            onChange={e => setNewStoreId(e.target.value)}
-                                                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 cursor-pointer"
-                                                                        >
-                                                                            <option value="">-- Chưa gán cửa hàng --</option>
-                                                                            {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
-                                                                        </select>
-                                                                    </div>
-                                                                )}
                                                             </>
                                                         );
                                                     })()}
@@ -1009,6 +1075,40 @@ function ManagerUsersPageContent() {
                                                 </button>
                                             </div>
                                         </form>
+                                    </div>
+                                </div>
+                            </Portal>
+                        )}
+
+                        {/* Edit Employee Modal — uses UserInfoEditor */}
+                        {editEmployee && (
+                            <Portal>
+                                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-surface-900/50 backdrop-blur-sm overflow-y-auto">
+                                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-8 max-h-[90vh] overflow-y-auto">
+                                        <div className="p-6 border-b border-surface-100 flex items-center justify-between bg-surface-50/50 sticky top-0 z-10">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center shrink-0">
+                                                    <Users className="w-5 h-5" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-lg font-bold text-surface-900">Cập nhật Nhân viên</h3>
+                                                    <p className="text-xs text-surface-500">{editEmployee.name} — {editEmployee.phone}</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => setEditEmployee(null)}
+                                                className="w-8 h-8 rounded-lg bg-surface-100 hover:bg-surface-200 flex items-center justify-center transition-colors"
+                                            >
+                                                <span className="text-surface-500 text-lg">×</span>
+                                            </button>
+                                        </div>
+                                        <div className="p-6">
+                                            <UserInfoEditor
+                                                employee={editEmployee}
+                                                onUpdated={() => setEditEmployee(null)}
+                                                variant="full"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </Portal>

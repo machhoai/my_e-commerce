@@ -7,12 +7,13 @@ import { doc, getDoc } from 'firebase/firestore';
 import { UserDoc } from '@/types';
 import {
     User, Mail, Phone, Calendar, Briefcase, CreditCard, GraduationCap,
-    ShieldCheck, Camera, Loader2, Shield, Smartphone, CheckCircle2,
+    ShieldCheck, Camera, Loader2, Shield, Smartphone, CheckCircle2, FileText,
 } from 'lucide-react';
 import SmartPortraitCamera from '@/components/shared/SmartPortraitCamera';
 import { convertBase64ToWebP } from '@/lib/utils/image';
 import { uploadImageBase64 } from '@/lib/utils/storage-upload';
 import TwoFactorSetupModal from '@/components/profile/TwoFactorSetupModal';
+import { showToast } from '@/lib/utils/toast';
 
 export default function ProfilePage() {
     const { user } = useAuth();
@@ -23,7 +24,7 @@ export default function ProfilePage() {
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState<Partial<UserDoc>>({});
     const [saving, setSaving] = useState(false);
-    const [message, setMessage] = useState({ type: '', text: '' });
+
 
     // Camera / Avatar
     const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -62,7 +63,7 @@ export default function ProfilePage() {
         if (!user || !profileData) return;
 
         setSaving(true);
-        setMessage({ type: '', text: '' });
+
 
         try {
             const token = await user.getIdToken();
@@ -78,12 +79,12 @@ export default function ProfilePage() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Không thể cập nhật hồ sơ');
 
-            setMessage({ type: 'success', text: 'Cập nhật hồ sơ thành công!' });
+            showToast.success('Cập nhật hồ sơ', 'Cập nhật hồ sơ thành công!');
             setProfileData(prev => prev ? { ...prev, ...editData } : null);
             setIsEditing(false);
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : 'Đã xảy ra lỗi';
-            setMessage({ type: 'error', text: msg });
+            showToast.error('Lỗi cập nhật', msg);
         } finally {
             setSaving(false);
         }
@@ -153,13 +154,7 @@ export default function ProfilePage() {
                 <p className="text-surface-500 mt-2 text-sm">Xem và quản lý thông tin cá nhân của bạn.</p>
             </div>
 
-            {/* Messages */}
-            {message.text && (
-                <div className={`p-4 rounded-xl text-sm border ${message.type === 'error' ? 'bg-danger-50 text-danger-600 border-danger-200' : 'bg-success-50 text-success-600 border-success-200'} flex items-start gap-3`}>
-                    <ShieldCheck className="w-5 h-5 shrink-0 mt-0.5" />
-                    <p>{message.text}</p>
-                </div>
-            )}
+
 
             <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
                 <div className="p-6 sm:p-8">
@@ -274,22 +269,30 @@ export default function ProfilePage() {
                             </div>
 
                             <div className="space-y-1.5 group">
-                                <label className={`text-sm font-semibold flex items-center gap-2 ${isEditing && ['admin', 'store_manager', 'manager'].includes(profileData.role) ? 'text-primary-600' : 'text-surface-500'}`}>
-                                    <CreditCard className={`w-4 h-4 ${isEditing && ['admin', 'store_manager', 'manager'].includes(profileData.role) ? 'text-primary-500' : 'text-surface-400'}`} /> Tài khoản ngân hàng
+                                <label className={`text-sm font-semibold flex items-center gap-2 ${isEditing ? 'text-primary-600' : 'text-surface-500'}`}>
+                                    <CreditCard className={`w-4 h-4 ${isEditing ? 'text-primary-500' : 'text-surface-400'}`} /> Tài khoản ngân hàng
                                 </label>
-                                {isEditing && ['admin', 'store_manager', 'manager'].includes(profileData.role) ? (
-                                    <input
-                                        type="text"
-                                        value={editData.bankAccount || ''}
-                                        onChange={e => handleEditChange('bankAccount', e.target.value)}
-                                        className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 transition-all"
-                                        placeholder="Tên Ngân hàng - Số tài khoản"
-                                    />
-                                ) : (
+                                {isEditing ? (
                                     <>
-                                        <div className="text-surface-900 font-medium px-1">{profileData.bankAccount || <span className="text-surface-400 italic">Chưa cung cấp</span>}</div>
-                                        {isEditing && <p className="text-[10px] text-surface-400 ml-1">Liên hệ quản lý để thay đổi.</p>}
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
+                                            value={editData.bankAccount || ''}
+                                            onChange={e => {
+                                                const val = e.target.value.replace(/\D/g, '');
+                                                handleEditChange('bankAccount', val);
+                                            }}
+                                            className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 transition-all"
+                                            placeholder="Nhập số tài khoản Techcombank"
+                                        />
+                                        <p className="text-xs text-amber-600 font-medium mt-1 flex items-center gap-1.5">
+                                            <CreditCard className="w-3.5 h-3.5 shrink-0" />
+                                            Chỉ chấp nhận số tài khoản ngân hàng Techcombank
+                                        </p>
                                     </>
+                                ) : (
+                                    <div className="text-surface-900 font-medium px-1">{profileData.bankAccount || <span className="text-surface-400 italic">Chưa cung cấp</span>}</div>
                                 )}
                             </div>
 

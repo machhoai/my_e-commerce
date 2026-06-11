@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { showToast } from '@/lib/utils/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     ClipboardCheck, CheckCircle2, XCircle, ExternalLink, Package,
@@ -97,8 +98,11 @@ export default function OfficeApprovalsPage() {
             setApprovingId(null);
             setExportSlipFile(null);
             fetchOrders();
-        } catch (err: any) {
-            alert(err.message);
+            showToast.success('Đã duyệt đơn hàng', 'Đơn hàng đã được phê duyệt và chuyển sang kho để xuất hàng.');
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Lỗi không xác định';
+            console.error('[Approvals] Lỗi duyệt đơn:', err);
+            showToast.error('Không thể duyệt đơn', message);
         } finally { setIsApproving(false); }
     };
 
@@ -116,8 +120,11 @@ export default function OfficeApprovalsPage() {
             setRejectingId(null);
             setRejectReason('');
             fetchOrders();
-        } catch (err: any) {
-            alert(err.message);
+            showToast.success('Đã từ chối đơn hàng', 'Đơn hàng đã bị từ chối. Cửa hàng sẽ nhận được thông báo.');
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Lỗi không xác định';
+            console.error('[Approvals] Lỗi từ chối đơn:', err);
+            showToast.error('Không thể từ chối đơn', message);
         } finally { setIsRejecting(false); }
     };
 

@@ -400,3 +400,83 @@ export async function fetchOrderGoodsAction(
         return { ...empty, error: e.message };
     }
 }
+
+// ── Product Catalog (master list from JoyWorld) ───────────────────────────────
+
+export interface ProductCatalogItem {
+    setMealId: string;
+    /** Tên gốc từ JoyWorld */
+    name: string;
+    /** Loại sản phẩm (typeName từ JoyWorld) */
+    typeName: string;
+    /** 'coin' = gói thẻ/nạp tiền, 'ticket' = vé trò chơi */
+    categoryType: 'coin' | 'ticket';
+    price: number;
+    isEnabled: boolean;
+    isOpenSales: boolean;
+}
+
+/**
+ * Lấy toàn bộ danh mục sản phẩm từ JoyWorld.
+ * Kết hợp gói thẻ (category=1) và vé (category=4).
+ */
+export async function fetchProductCatalog(): Promise<{ data: ProductCatalogItem[]; error?: string }> {
+    try {
+        const { getSetMealCatalog } = await import('@/lib/joyworld');
+        const token = await getJoyworldToken();
+        if (!token) return { data: [], error: 'Không thể xác thực với JoyWorld' };
+        const raw = await getSetMealCatalog(token);
+        const data: ProductCatalogItem[] = raw.map(i => ({
+            setMealId: i.setMealId,
+            name: i.setMealName,
+            typeName: i.typeName,
+            categoryType: i.category === 1 ? 'coin' : 'ticket',
+            price: i.afterTaxPrice,
+            isEnabled: i.isEnabled,
+            isOpenSales: i.isOpenSales,
+        }));
+        return { data };
+    } catch (e: unknown) {
+        return { data: [], error: e instanceof Error ? e.message : 'Lỗi không xác định' };
+    }
+}
+
+// ── Gift / Souvenir Catalog ───────────────────────────────────────────────────
+
+export interface GiftCatalogItem {
+    goodsId: string;
+    giftNo: string;
+    giftName: string;
+    /** 'HÀNG BÁN' | 'HÀNG TẶNG' | ... */
+    typeName: string;
+    price: number;
+    stockAmount: number;
+    isEnabled: boolean;
+    isOpenSales: boolean;
+}
+
+/**
+ * Lấy toàn bộ danh sách hàng hóa lưu niệm từ JoyWorld.
+ * GET /gift/manager/base/list
+ */
+export async function fetchGiftCatalog(): Promise<{ data: GiftCatalogItem[]; error?: string }> {
+    try {
+        const { getGiftCatalog } = await import('@/lib/joyworld');
+        const token = await getJoyworldToken();
+        if (!token) return { data: [], error: 'Không thể xác thực với JoyWorld' };
+        const raw = await getGiftCatalog(token);
+        const data: GiftCatalogItem[] = raw.map(i => ({
+            goodsId:     i.goodsId,
+            giftNo:      i.giftNo,
+            giftName:    i.giftName,
+            typeName:    i.typeName,
+            price:       i.afterTaxPrice,
+            stockAmount: i.stockAmount,
+            isEnabled:   i.isEnabled,
+            isOpenSales: i.isOpenSales,
+        }));
+        return { data };
+    } catch (e: unknown) {
+        return { data: [], error: e instanceof Error ? e.message : 'Lỗi không xác định' };
+    }
+}
