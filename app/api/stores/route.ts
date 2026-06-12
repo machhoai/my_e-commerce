@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
         const callerUid = await verifyAdmin(req);
         if (!callerUid) return NextResponse.json({ error: 'Bị từ chối truy cập' }, { status: 403 });
 
-        const body = await req.json() as { name: string; address?: string };
+        const body = await req.json() as { name: string; address?: string; wmsWarehouseId?: string };
         if (!body.name?.trim()) {
             return NextResponse.json({ error: 'Tên cửa hàng là bắt buộc' }, { status: 400 });
         }
@@ -65,6 +65,7 @@ export async function POST(req: NextRequest) {
             address: body.address?.trim() || '',
             isActive: true,
             createdAt: new Date().toISOString(),
+            wmsWarehouseId: body.wmsWarehouseId?.trim() || '',
         };
         await storeRef.set(storeDoc);
 
@@ -81,13 +82,14 @@ export async function PUT(req: NextRequest) {
         const callerUid = await verifyAdmin(req);
         if (!callerUid) return NextResponse.json({ error: 'Bị từ chối truy cập' }, { status: 403 });
 
-        const body = await req.json() as { id: string; name?: string; address?: string };
+        const body = await req.json() as { id: string; name?: string; address?: string; wmsWarehouseId?: string };
         if (!body.id) return NextResponse.json({ error: 'Thiếu storeId' }, { status: 400 });
 
         const adminDb = getAdminDb();
         const updateData: Partial<StoreDoc> = {};
         if (body.name !== undefined) updateData.name = body.name.trim();
         if (body.address !== undefined) updateData.address = body.address.trim();
+        if (body.wmsWarehouseId !== undefined) updateData.wmsWarehouseId = body.wmsWarehouseId.trim();
 
         await adminDb.collection('stores').doc(body.id).update(updateData);
         return NextResponse.json({ message: 'Cập nhật cửa hàng thành công' });

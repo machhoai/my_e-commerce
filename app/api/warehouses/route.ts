@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
         const uid = await requireAdmin(req);
         if (!uid) return NextResponse.json({ error: 'Bị từ chối truy cập' }, { status: 403 });
 
-        const body = await req.json() as { name: string; address?: string; capacitySqm?: number };
+        const body = await req.json() as { name: string; address?: string; capacitySqm?: number; wmsWarehouseId?: string };
         if (!body.name?.trim()) return NextResponse.json({ error: 'Tên kho là bắt buộc' }, { status: 400 });
 
         const adminDb = getAdminDb();
@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
             capacitySqm: body.capacitySqm || undefined,
             isActive: true,
             createdAt: new Date().toISOString(),
+            wmsWarehouseId: body.wmsWarehouseId?.trim() || '',
         };
         await ref.set(doc);
         return NextResponse.json({ id: ref.id, message: 'Tạo kho thành công' });
@@ -77,7 +78,7 @@ export async function PUT(req: NextRequest) {
         const uid = await requireAdmin(req);
         if (!uid) return NextResponse.json({ error: 'Bị từ chối truy cập' }, { status: 403 });
 
-        const body = await req.json() as { id: string; name?: string; address?: string; capacitySqm?: number };
+        const body = await req.json() as { id: string; name?: string; address?: string; capacitySqm?: number; wmsWarehouseId?: string };
         if (!body.id) return NextResponse.json({ error: 'Thiếu warehouseId' }, { status: 400 });
 
         const adminDb = getAdminDb();
@@ -85,6 +86,7 @@ export async function PUT(req: NextRequest) {
         if (body.name !== undefined) updateData.name = body.name.trim();
         if (body.address !== undefined) updateData.address = body.address.trim();
         if (body.capacitySqm !== undefined) updateData.capacitySqm = body.capacitySqm;
+        if (body.wmsWarehouseId !== undefined) updateData.wmsWarehouseId = body.wmsWarehouseId.trim();
 
         await adminDb.collection('warehouses').doc(body.id).update(updateData);
         return NextResponse.json({ message: 'Cập nhật kho thành công' });

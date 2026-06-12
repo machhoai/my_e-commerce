@@ -7,10 +7,42 @@ import { preloadScannerData, getWmsWarehouseMappingAction, getAvailableWmsWareho
 import type { PreloadedProduct } from '@/actions/scanner';
 import { useAuth } from '@/contexts/AuthContext';
 
+type WmsWarehouse = {
+    id: string;
+    name: string;
+    code: string;
+};
+
+type WmsLocation = {
+    id: string;
+    name: string;
+    code: string;
+};
+
+type QueueItem = {
+    id: string;
+    product_name?: string;
+    barcode?: string;
+    quantity?: number;
+};
+
+type Html5QrScanner = {
+    start: (...args: unknown[]) => Promise<void>;
+    stop: () => Promise<void>;
+    clear?: () => void;
+    getState?: () => number;
+};
+
+type WindowWithLegacyAudio = Window & typeof globalThis & {
+    webkitAudioContext?: typeof AudioContext;
+};
+
 // ── Beep via Web Audio API ───────────────────────────────────────
 function playBeep(frequency = 1200, duration = 80, volume = 0.4) {
     try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const AudioContextCtor = window.AudioContext || (window as WindowWithLegacyAudio).webkitAudioContext;
+        if (!AudioContextCtor) return;
+        const ctx = new AudioContextCtor();
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
@@ -26,8 +58,9 @@ function playBeep(frequency = 1200, duration = 80, volume = 0.4) {
 }
 
 export default function ProductScannerPage() {
-    const { user: authUser, userDoc } = useAuth();
+    const { user: authUser, userDoc, effectiveStoreId } = useAuth();
     const isAdmin = userDoc?.role === 'super_admin' || userDoc?.role === 'admin';
+    const hasStoreContext = !!(effectiveStoreId || userDoc?.storeId);
 
     // Scanner state
     const [view, setView] = useState<'list' | 'camera'>('list');
@@ -36,45 +69,49 @@ export default function ProductScannerPage() {
     const [torchSupported, setTorchSupported] = useState(false);
 
     const scannerRef = useRef<HTMLDivElement>(null);
-    const html5QrRef = useRef<any>(null);
+    const html5QrRef = useRef<Html5QrScanner | null>(null);
     const scanLock = useRef(false);
 
     // Preloaded data
     const [preloadedProducts, setPreloadedProducts] = useState<PreloadedProduct[]>([]);
     const [preloading, setPreloading] = useState(false);
-    const preloadAttempted = useRef(false);
 
     // Warehouse & Location
     const [wmsWarehouseId, setWmsWarehouseId] = useState<string | null>(null);
-    const [availableWarehouses, setAvailableWarehouses] = useState<any[]>([]);
-    const [locations, setLocations] = useState<any[]>([]);
+    const [availableWarehouses, setAvailableWarehouses] = useState<WmsWarehouse[]>([]);
+    const [locations, setLocations] = useState<WmsLocation[]>([]);
     const [selectedLocationId, setSelectedLocationId] = useState('');
     const [loadingLocs, setLoadingLocs] = useState(false);
 
-    const canSelectWarehouse = isAdmin || (!userDoc?.storeId);
+    const canSelectWarehouse = isAdmin && !hasStoreContext;
 
     // Queue
-    const [queue, setQueue] = useState<any[]>([]);
+    const [queue, setQueue] = useState<QueueItem[]>([]);
     const [loadingQueue, setLoadingQueue] = useState(false);
     const [cancellingId, setCancellingId] = useState<string | null>(null);
     const [submittingId, setSubmittingId] = useState<string | null>(null);
 
     // ── Preload data ──────────────────────────────────────────────
     useEffect(() => {
-        if (!authUser) return;
-        if (preloadAttempted.current) return;
+        if (!authUser || !userDoc) return;
+        if (!canSelectWarehouse && !hasStoreContext) return;
         let isMounted = true;
 
         const fetchPreloadData = async () => {
-            preloadAttempted.current = true;
             setPreloading(true);
+            if (isMounted) {
+                setPreloadedProducts([]);
+                setLocations([]);
+                setSelectedLocationId('');
+                setWmsWarehouseId(null);
+            }
             try {
                 let warehouseIdToUse: string | null = null;
 
-                if (!canSelectWarehouse && authUser?.uid && userDoc?.storeId) {
+                if (hasStoreContext) {
                     const mapRes = await getWmsWarehouseMappingAction(
-                        (userDoc.workplaceType as any) || 'STORE',
-                        userDoc.storeId
+                        'STORE',
+                        effectiveStoreId || userDoc.storeId || ''
                     );
                     if (mapRes.success && mapRes.wmsWarehouseId) {
                         warehouseIdToUse = mapRes.wmsWarehouseId;
@@ -85,9 +122,10 @@ export default function ProductScannerPage() {
                 if (canSelectWarehouse) {
                     const whRes = await getAvailableWmsWarehousesAction();
                     if (whRes.success && whRes.data) {
-                        if (isMounted) setAvailableWarehouses(whRes.data);
-                        if (!warehouseIdToUse && whRes.data.length > 0) {
-                            warehouseIdToUse = whRes.data[0].id;
+                        const warehouses = whRes.data as WmsWarehouse[];
+                        if (isMounted) setAvailableWarehouses(warehouses);
+                        if (!warehouseIdToUse && warehouses.length > 0) {
+                            warehouseIdToUse = warehouses[0].id;
                             if (isMounted) setWmsWarehouseId(warehouseIdToUse);
                         }
                     } else if (whRes.error) {
@@ -108,7 +146,7 @@ export default function ProductScannerPage() {
 
         fetchPreloadData();
         return () => { isMounted = false; };
-    }, [authUser, userDoc, canSelectWarehouse]);
+    }, [authUser, userDoc, canSelectWarehouse, hasStoreContext, effectiveStoreId]);
 
     // ── Handle warehouse change ──────────────────────────────────
     const handleWarehouseChange = async (newId: string) => {
@@ -132,8 +170,9 @@ export default function ProductScannerPage() {
             setSelectedLocationId('');
             getWmsLocationsAction(wmsWarehouseId).then(res => {
                 if (res.success && res.data) {
-                    setLocations(res.data);
-                    if (res.data.length > 0) setSelectedLocationId(res.data[0].id);
+                    const nextLocations = res.data as WmsLocation[];
+                    setLocations(nextLocations);
+                    if (nextLocations.length > 0) setSelectedLocationId(nextLocations[0].id);
                 } else if (res.error) {
                     console.error('[ProductScanner] Locations API failed:', res.error);
                 }
@@ -149,7 +188,7 @@ export default function ProductScannerPage() {
         try {
             const result = await getMyScansAction(authUser.uid);
             if (result.success) {
-                setQueue(result.data || []);
+                setQueue((result.data || []) as QueueItem[]);
             } else if (result.error) {
                 console.error('[ProductScanner] Queue API failed:', result.error);
             }
@@ -178,7 +217,7 @@ export default function ProductScannerPage() {
     };
 
     // ── Add product ─────────────────────────────────────────────
-    const handleSubmitProduct = async (product: PreloadedProduct) => {
+    const handleSubmitProduct = useCallback(async (product: PreloadedProduct) => {
         if (!wmsWarehouseId) return alert('Lỗi: Chưa liên kết với kho WMS nào.');
         if (!selectedLocationId) return alert('Lỗi: Vui lòng chọn vị trí/kệ hàng xuất kho.');
         if (!authUser) return;
@@ -208,7 +247,7 @@ export default function ProductScannerPage() {
             setSubmittingId(null);
             setTimeout(() => { scanLock.current = false; }, 1000);
         }
-    };
+    }, [authUser, loadQueue, selectedLocationId, wmsWarehouseId]);
 
     // ── Camera setup ────────────────────────────────────────────
     const startCamera = useCallback(async () => {
@@ -239,7 +278,7 @@ export default function ProductScannerPage() {
                         facingMode: { exact: 'environment' },
                         width: { min: 640, ideal: 1920 },
                         height: { min: 480, ideal: 1080 },
-                        advanced: [{ focusMode: "continuous" }] as any,
+                        advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet],
                     },
                 },
                 (text: string) => {
@@ -265,7 +304,7 @@ export default function ProductScannerPage() {
             alert('Không thể khởi động máy ảnh. Vui lòng kiểm tra quyền truy cập.');
             setView('list');
         }
-    }, [preloadedProducts, selectedLocationId, wmsWarehouseId]); // add deps
+    }, [handleSubmitProduct, preloadedProducts]);
 
     const stopCamera = useCallback(async () => {
         try {
@@ -287,7 +326,7 @@ export default function ProductScannerPage() {
                 ? (video.srcObject as MediaStream).getVideoTracks()[0] : null;
             if (!track) return;
             const newState = !torchOn;
-            await track.applyConstraints({ advanced: [{ torch: newState } as any] });
+            await track.applyConstraints({ advanced: [{ torch: newState } as MediaTrackConstraintSet] });
             setTorchOn(newState);
         } catch { /* torch not supported */ }
     }, [torchOn]);
@@ -297,7 +336,7 @@ export default function ProductScannerPage() {
         const track = video?.srcObject instanceof MediaStream
             ? (video.srcObject as MediaStream).getVideoTracks()[0] : null;
         if (!track) return;
-        const caps = track.getCapabilities?.() as any;
+        const caps = track.getCapabilities?.() as (MediaTrackCapabilities & { torch?: boolean }) | undefined;
         setTorchSupported(!!caps?.torch);
     }, []);
 
@@ -433,7 +472,7 @@ export default function ProductScannerPage() {
                                                     className="flex items-center gap-3 p-3 rounded-xl border border-surface-100 hover:border-accent-300 hover:bg-accent-50 active:scale-[0.98] transition-all text-left group"
                                                 >
                                                     <div className="w-12 h-12 bg-white rounded-lg border border-surface-100 overflow-hidden flex items-center justify-center shrink-0">
-                                                        {p.image ? <img src={p.image} className="w-full h-full object-contain p-1" /> : <Package className="w-6 h-6 text-surface-300" />}
+                                                        {p.image ? <img src={p.image} alt={p.name} className="w-full h-full object-contain p-1" /> : <Package className="w-6 h-6 text-surface-300" />}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <h3 className="text-xs font-bold text-surface-800 line-clamp-2 group-hover:text-accent-700 transition-colors">{p.name}</h3>
