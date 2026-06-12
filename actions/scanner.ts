@@ -275,9 +275,25 @@ export async function getLocationScansAction(warehouseId: string, locationId: st
                 signal: controller.signal
             });
             clearTimeout(timeout);
+            const text = await res.text();
+            const contentType = res.headers.get('content-type') || '';
+            const isJson = contentType.includes('application/json');
+            if (!isJson) {
+                return {
+                    status: res.status,
+                    isJson: false,
+                    body: {
+                        success: false,
+                        data: null,
+                        error: `WMS returned non-JSON response (${res.status}): ${text.slice(0, 120)}`,
+                    },
+                };
+            }
+
             return {
                 status: res.status,
-                body: await res.json(),
+                isJson: true,
+                body: JSON.parse(text),
             };
         } catch (err: unknown) {
             clearTimeout(timeout);
@@ -292,7 +308,7 @@ export async function getLocationScansAction(warehouseId: string, locationId: st
         });
 
         const primary = await fetchLocationQueue(`/api/external/v1/location-queue?${params.toString()}`);
-        if (primary.status !== 404) return primary.body;
+        if (primary.isJson && primary.status !== 404) return primary.body;
 
         const fallback = await fetchLocationQueue(`/api/external/v1/scan?${params.toString()}`);
         return fallback.body;
