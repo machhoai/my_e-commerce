@@ -203,22 +203,29 @@ export default function ProductScannerPage() {
                     }
                 }
 
-                if (canSelectWarehouse) {
-                    const cachedWarehouses = readCache<WmsWarehouse[]>(makeStorageKey('warehouses'));
-                    const savedWarehouseId = readStorageJson<string>(selectedWarehouseStorageKey);
-                    if (cachedWarehouses?.length && isMounted) {
-                        setAvailableWarehouses(cachedWarehouses);
+                const cachedWarehouses = readCache<WmsWarehouse[]>(makeStorageKey('warehouses'));
+                const savedWarehouseId = readStorageJson<string>(selectedWarehouseStorageKey);
+                if (cachedWarehouses?.length && isMounted) {
+                    setAvailableWarehouses(cachedWarehouses);
+                    if (canSelectWarehouse) {
                         const cachedSelection = cachedWarehouses.some(wh => wh.id === savedWarehouseId)
                             ? savedWarehouseId!
                             : cachedWarehouses[0].id;
                         warehouseIdToUse = cachedSelection;
                         setWmsWarehouseId(cachedSelection);
                     }
+                }
 
-                    const whRes = await getAvailableWmsWarehousesAction();
-                    if (whRes.success && whRes.data) {
-                        const warehouses = whRes.data as WmsWarehouse[];
-                        writeCache(makeStorageKey('warehouses'), warehouses);
+                const whRes = await getAvailableWmsWarehousesAction();
+                if (whRes.success && whRes.data) {
+                    const warehouses = whRes.data as WmsWarehouse[];
+                    writeCache(makeStorageKey('warehouses'), warehouses);
+                    
+                    if (isMounted) {
+                        setAvailableWarehouses(warehouses);
+                    }
+
+                    if (canSelectWarehouse) {
                         if (!warehouseIdToUse && warehouses.length > 0) {
                             warehouseIdToUse = warehouses.some(wh => wh.id === savedWarehouseId)
                                 ? savedWarehouseId!
@@ -226,13 +233,12 @@ export default function ProductScannerPage() {
                         } else if (warehouseIdToUse && !warehouses.some(wh => wh.id === warehouseIdToUse)) {
                             warehouseIdToUse = warehouses[0]?.id ?? null;
                         }
-                        if (isMounted) {
-                            setAvailableWarehouses(warehouses);
-                            if (isMounted) setWmsWarehouseId(warehouseIdToUse);
+                        if (isMounted && warehouseIdToUse) {
+                            setWmsWarehouseId(warehouseIdToUse);
                         }
-                    } else if (whRes.error) {
-                        console.error('[ProductScanner] Warehouse API failed:', whRes.error, whRes.apiUrl);
                     }
+                } else if (whRes.error) {
+                    console.error('[ProductScanner] Warehouse API failed:', whRes.error, whRes.apiUrl);
                 }
             } catch (err) {
                 console.error('[ProductScanner] Preload failed:', err);
@@ -622,7 +628,9 @@ export default function ProductScannerPage() {
                                 <div>
                                     <label className="block text-[11px] font-bold text-surface-500 uppercase mb-1">Kho liên kết</label>
                                     <div className="bg-surface-50 border border-surface-200 text-surface-800 text-sm rounded-xl px-3 py-2.5 font-medium truncate">
-                                        ID: {wmsWarehouseId}
+                                        {availableWarehouses.find(wh => wh.id === wmsWarehouseId) 
+                                            ? `${availableWarehouses.find(wh => wh.id === wmsWarehouseId)?.name} (${availableWarehouses.find(wh => wh.id === wmsWarehouseId)?.code})`
+                                            : `ID: ${wmsWarehouseId}`}
                                     </div>
                                 </div>
                             )

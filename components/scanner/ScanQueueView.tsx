@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 
 export default function ScanQueueView() {
-    const { user } = useAuth();
+    const { user, userDoc } = useAuth();
     const router = useRouter();
     const [scans, setScans] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -69,7 +69,7 @@ export default function ScanQueueView() {
                     warehouse_id: group.warehouse_id,
                     warehouse_location_id: group.warehouse_location_id,
                     shift_date: shiftDate,
-                    operator_name: user.displayName || user.email || 'Unknown',
+                    operator_name: userDoc?.name || user.email || 'Unknown',
                     operator_id_external: user.uid,
                     notes: notes || null
                 });
@@ -112,7 +112,7 @@ export default function ScanQueueView() {
                 <p className="text-sm text-surface-500 text-center mb-6">
                     Hàng đợi của bạn đã được đóng gói thành phiếu kho và chuyển sang WMS chờ duyệt.
                 </p>
-                <button 
+                <button
                     onClick={() => router.push('/')}
                     className="px-6 py-3 rounded-xl bg-accent-500 text-white font-bold text-sm hover:bg-accent-600 transition-colors"
                 >
@@ -132,7 +132,7 @@ export default function ScanQueueView() {
                 <p className="text-sm text-surface-500 text-center mb-6">
                     Bạn chưa quét sản phẩm nào, hoặc tất cả sản phẩm đã được gửi lên WMS.
                 </p>
-                <button 
+                <button
                     onClick={() => router.push('/')}
                     className="px-6 py-3 rounded-xl bg-surface-100 text-surface-600 font-bold text-sm hover:bg-surface-200 transition-colors"
                 >
@@ -170,7 +170,7 @@ export default function ScanQueueView() {
                         </div>
                         <div className="flex flex-col items-end gap-2 shrink-0">
                             <span className="text-sm font-black text-accent-600 px-2 py-1 bg-accent-50 rounded-lg">x{scan.quantity}</span>
-                            <button 
+                            <button
                                 onClick={() => handleRemove(scan.id)}
                                 className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             >
@@ -183,14 +183,14 @@ export default function ScanQueueView() {
 
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-surface-100 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
                 <div className="max-w-lg mx-auto">
-                    <input 
-                        type="text" 
-                        placeholder="Ghi chú thêm (tùy chọn)..." 
+                    <input
+                        type="text"
+                        placeholder="Ghi chú thêm (tùy chọn)..."
                         value={notes}
                         onChange={e => setNotes(e.target.value)}
                         className="w-full px-4 py-2.5 bg-surface-50 border border-surface-200 rounded-xl text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-accent-500"
                     />
-                    <button 
+                    <button
                         onClick={handleSubmitBatch}
                         disabled={submitting}
                         className={cn(

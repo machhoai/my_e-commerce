@@ -262,25 +262,41 @@ export async function getMyScansAction(operator_id_external: string) {
 
 export async function getLocationScansAction(warehouseId: string, locationId: string) {
     if (!warehouseId || !locationId) return { success: false, data: [] };
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    const fetchLocationQueue = async (path: string) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        try {
+            const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
+            const res = await fetch(`${apiUrl}${path}`, {
+                headers: {
+                    'x-api-key': process.env.WMS_API_KEY || ''
+                },
+                cache: 'no-store',
+                signal: controller.signal
+            });
+            clearTimeout(timeout);
+            return {
+                status: res.status,
+                body: await res.json(),
+            };
+        } catch (err: unknown) {
+            clearTimeout(timeout);
+            throw err;
+        }
+    };
+
     try {
-        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
         const params = new URLSearchParams({
             warehouse_id: warehouseId,
             warehouse_location_id: locationId,
         });
-        const res = await fetch(`${apiUrl}/api/external/v1/scan?${params.toString()}`, {
-            headers: {
-                'x-api-key': process.env.WMS_API_KEY || ''
-            },
-            cache: 'no-store',
-            signal: controller.signal
-        });
-        clearTimeout(timeout);
-        return res.json();
+
+        const primary = await fetchLocationQueue(`/api/external/v1/location-queue?${params.toString()}`);
+        if (primary.status !== 404) return primary.body;
+
+        const fallback = await fetchLocationQueue(`/api/external/v1/scan?${params.toString()}`);
+        return fallback.body;
     } catch (err: unknown) {
-        clearTimeout(timeout);
         return { success: false, data: null, error: getErrorMessage(err) };
     }
 }
