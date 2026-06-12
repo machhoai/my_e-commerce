@@ -196,6 +196,13 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         type: 'page',
     },
     {
+        key: 'page.product_scanner',
+        label: 'Quét SP Xuất Kho',
+        description: 'Quét sản phẩm xuất kho',
+        group: 'Kho Tổng',
+        type: 'page',
+    },
+    {
         key: 'action.warehouse.write',
         label: 'Thực Hiện Nhập / Xuất Kho',
         description: 'Ghi dữ liệu nhập kho, xuất kho, điều chỉnh tồn',

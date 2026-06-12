@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ScanLine, Search, Camera, RotateCcw, Zap, ZapOff, ChevronDown, Loader2, Package, Trash2, X, Plus } from 'lucide-react';
+import { ScanLine, Search, Camera, RotateCcw, Zap, ZapOff, ChevronDown, Loader2, Package, X, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { preloadScannerData, getWmsWarehouseMappingAction, getAvailableWmsWarehousesAction, getMyScansAction, cancelExternalScanAction, submitExternalScanAction, getWmsLocationsAction } from '@/actions/scanner';
+import { preloadScannerData, getWmsWarehouseMappingAction, getAvailableWmsWarehousesAction, getLocationScansAction, submitExternalScanAction, getWmsLocationsAction } from '@/actions/scanner';
 import type { PreloadedProduct } from '@/actions/scanner';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Html5Qrcode } from 'html5-qrcode';
@@ -95,6 +95,18 @@ const formatVnd = (value: number) =>
         maximumFractionDigits: 0,
     }).format(value);
 
+const getOperatorDisplayName = (
+    userDocName?: string | null,
+    authDisplayName?: string | null,
+    email?: string | null,
+) => {
+    const firstAvailable = [userDocName, authDisplayName]
+        .map(value => value?.trim())
+        .find(Boolean);
+    if (firstAvailable) return firstAvailable;
+    return email?.trim() || 'Unknown';
+};
+
 // ── Beep via Web Audio API ───────────────────────────────────────
 function playBeep(frequency = 1200, duration = 80, volume = 0.4) {
     try {
@@ -154,7 +166,6 @@ export default function ProductScannerPage() {
     // Queue
     const [queue, setQueue] = useState<QueueItem[]>([]);
     const [loadingQueue, setLoadingQueue] = useState(false);
-    const [cancellingId, setCancellingId] = useState<string | null>(null);
     const [submittingId, setSubmittingId] = useState<string | null>(null);
 
     // ── Preload data ──────────────────────────────────────────────
@@ -342,10 +353,10 @@ export default function ProductScannerPage() {
 
     // ── Load queue ──────────────────────────────────────────────
     const loadQueue = useCallback(async () => {
-        if (!authUser?.uid) return;
+        if (!wmsWarehouseId || !selectedLocationId) return;
         setLoadingQueue(true);
         try {
-            const result = await getMyScansAction(authUser.uid);
+            const result = await getLocationScansAction(wmsWarehouseId, selectedLocationId);
             if (result.success) {
                 setQueue((result.data || []) as QueueItem[]);
             } else if (result.error) {
@@ -356,29 +367,9 @@ export default function ProductScannerPage() {
         } finally {
             setLoadingQueue(false);
         }
-    }, [authUser?.uid]);
+    }, [selectedLocationId, wmsWarehouseId]);
 
     useEffect(() => { loadQueue(); }, [loadQueue]);
-
-    // ── Cancel a queued item ────────────────────────────────────
-    const handleCancelGroup = async (group: GroupedQueueItem) => {
-        setCancellingId(group.key);
-        try {
-            const results = await Promise.all(group.ids.map(scanId => cancelExternalScanAction(scanId)));
-            if (results.every(result => result.success)) {
-                setQueue(prev => prev.filter(item => !group.ids.includes(item.id)));
-                await loadQueue();
-            } else {
-                alert('Không thể hủy toàn bộ dòng sản phẩm này. Vui lòng tải lại hàng đợi.');
-                await loadQueue();
-            }
-        } catch (err) {
-            console.error('[ProductScanner] Cancel group failed:', err);
-            alert('Lỗi hệ thống khi hủy sản phẩm.');
-        } finally {
-            setCancellingId(null);
-        }
-    };
 
     // ── Add product ─────────────────────────────────────────────
     const handleSubmitProduct = useCallback(async (product: PreloadedProduct) => {
@@ -395,7 +386,7 @@ export default function ProductScannerPage() {
                 product_id: product.id,
                 warehouse_location_id: selectedLocationId,
                 quantity: 1, // Add immediately 1 item
-                operator_name: authUser.displayName || authUser.email || 'Unknown',
+                operator_name: getOperatorDisplayName(userDoc?.name, authUser.displayName, authUser.email),
                 operator_id_external: authUser.uid,
                 device_id: null,
             });
@@ -420,7 +411,7 @@ export default function ProductScannerPage() {
             setSubmittingId(null);
             setTimeout(() => { scanLock.current = false; }, 1000);
         }
-    }, [authUser, loadQueue, selectedLocationId, wmsWarehouseId]);
+    }, [authUser, loadQueue, selectedLocationId, userDoc?.name, wmsWarehouseId]);
 
     // ── Camera setup ────────────────────────────────────────────
     const startCamera = useCallback(async () => {
@@ -845,17 +836,6 @@ export default function ProductScannerPage() {
                                             {item.barcode && <span className="truncate">{item.barcode}</span>}
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={() => handleCancelGroup(item)}
-                                        disabled={cancellingId === item.key}
-                                        className="p-2 rounded-lg text-surface-400 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
-                                    >
-                                        {cancellingId === item.key ? (
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                        ) : (
-                                            <Trash2 className="w-4 h-4" />
-                                        )}
-                                    </button>
                                 </div>
                             ))
                         )}
