@@ -479,10 +479,7 @@ export interface UserDoc {
     permanentAddress?: string; // Địa chỉ thường trú (from CCCD QR)
     idCardFrontPhoto?: string; // WebP base64 — front of CCCD
     idCardBackPhoto?: string;  // WebP base64 — back of CCCD
-    probationStartDate?: string;
-    officialStartDate?: string;
     resignationDate?: string;
-    contractNumber?: string;
 
     // Permissions
     canManageHR?: boolean;

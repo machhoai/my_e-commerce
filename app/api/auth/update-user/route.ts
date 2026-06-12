@@ -84,14 +84,6 @@ export async function POST(request: Request) {
         if (body.idCardFrontPhoto !== undefined) updateData.idCardFrontPhoto = body.idCardFrontPhoto;
         if (body.idCardBackPhoto !== undefined) updateData.idCardBackPhoto = body.idCardBackPhoto;
 
-        if (body.probationStartDate !== undefined) updateData.probationStartDate = body.probationStartDate;
-        if (body.officialStartDate !== undefined) updateData.officialStartDate = body.officialStartDate;
-        if (body.resignationDate !== undefined) updateData.resignationDate = body.resignationDate;
-        if (body.contractNumber !== undefined) updateData.contractNumber = body.contractNumber;
-
-
-
-
         if (body.bankAccount !== undefined) {
             updateData.bankAccount = body.bankAccount;
         }
@@ -104,6 +96,7 @@ export async function POST(request: Request) {
         if (body.contracts !== undefined) updateData.contracts = body.contracts;
         if (body.probationStartDate !== undefined) updateData.probationStartDate = body.probationStartDate;
         if (body.officialStartDate !== undefined) updateData.officialStartDate = body.officialStartDate;
+        if (body.resignationDate !== undefined) updateData.resignationDate = body.resignationDate;
         if (body.phone !== undefined) {
             const phoneCheck = await adminDb.collection('users')
                 .where('phone', '==', body.phone).limit(1).get();

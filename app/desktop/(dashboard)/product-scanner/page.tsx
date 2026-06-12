@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { preloadScannerData, getWmsWarehouseMappingAction, getAvailableWmsWarehousesAction, getMyScansAction, cancelExternalScanAction, submitExternalScanAction, getWmsLocationsAction } from '@/actions/scanner';
 import type { PreloadedProduct } from '@/actions/scanner';
 import { useAuth } from '@/contexts/AuthContext';
+import type { Html5Qrcode } from 'html5-qrcode';
 
 type WmsWarehouse = {
     id: string;
@@ -24,13 +25,6 @@ type QueueItem = {
     product_name?: string;
     barcode?: string;
     quantity?: number;
-};
-
-type Html5QrScanner = {
-    start: (...args: unknown[]) => Promise<void>;
-    stop: () => Promise<void>;
-    clear?: () => void;
-    getState?: () => number;
 };
 
 type WindowWithLegacyAudio = Window & typeof globalThis & {
@@ -69,7 +63,7 @@ export default function ProductScannerPage() {
     const [torchSupported, setTorchSupported] = useState(false);
 
     const scannerRef = useRef<HTMLDivElement>(null);
-    const html5QrRef = useRef<Html5QrScanner | null>(null);
+    const html5QrRef = useRef<Html5Qrcode | null>(null);
     const scanLock = useRef(false);
 
     // Preloaded data
