@@ -220,7 +220,7 @@ export default function ProductScannerPage() {
                 if (whRes.success && whRes.data) {
                     const warehouses = whRes.data as WmsWarehouse[];
                     writeCache(makeStorageKey('warehouses'), warehouses);
-                    
+
                     if (isMounted) {
                         setAvailableWarehouses(warehouses);
                     }
@@ -628,7 +628,7 @@ export default function ProductScannerPage() {
                                 <div>
                                     <label className="block text-[11px] font-bold text-surface-500 uppercase mb-1">Kho liên kết</label>
                                     <div className="bg-surface-50 border border-surface-200 text-surface-800 text-sm rounded-xl px-3 py-2.5 font-medium truncate">
-                                        {availableWarehouses.find(wh => wh.id === wmsWarehouseId) 
+                                        {availableWarehouses.find(wh => wh.id === wmsWarehouseId)
                                             ? `${availableWarehouses.find(wh => wh.id === wmsWarehouseId)?.name} (${availableWarehouses.find(wh => wh.id === wmsWarehouseId)?.code})`
                                             : `ID: ${wmsWarehouseId}`}
                                     </div>
@@ -830,11 +830,6 @@ export default function ProductScannerPage() {
                                             {item.atpQuantity !== undefined && (
                                                 <span className="text-[10px] font-bold text-success-700 bg-success-50 border border-success-100 px-1.5 py-0.5 rounded">
                                                     ATP: {item.atpQuantity}
-                                                </span>
-                                            )}
-                                            {item.unitPrice > 0 && (
-                                                <span className="text-[10px] text-surface-500 bg-white border border-surface-100 px-1.5 py-0.5 rounded">
-                                                    {formatVnd(item.unitPrice)}
                                                 </span>
                                             )}
                                         </div>
