@@ -22,14 +22,78 @@ type WmsLocation = {
 
 type QueueItem = {
     id: string;
+    product_id?: string;
     product_name?: string;
+    product_code?: string;
+    product_barcode?: string;
+    product_image_url?: string | null;
+    product_unit?: string | null;
+    product_type?: string | null;
+    barcode_scanned?: string;
     barcode?: string;
     quantity?: number;
+    unit_price?: number;
+    warehouse_location_id?: string;
+};
+
+type GroupedQueueItem = {
+    key: string;
+    ids: string[];
+    quantity: number;
+    productId?: string;
+    name: string;
+    code: string;
+    barcode: string;
+    image: string;
+    unit: string;
+    unitPrice: number;
+    atpQuantity?: number;
 };
 
 type WindowWithLegacyAudio = Window & typeof globalThis & {
     webkitAudioContext?: typeof AudioContext;
 };
+
+type CacheEnvelope<T> = {
+    savedAt: number;
+    data: T;
+};
+
+const STORAGE_PREFIX = 'product-scanner:v2';
+
+const makeStorageKey = (...parts: string[]) => `${STORAGE_PREFIX}:${parts.join(':')}`;
+
+const readStorageJson = <T,>(key: string): T | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+        const raw = window.localStorage.getItem(key);
+        return raw ? JSON.parse(raw) as T : null;
+    } catch {
+        return null;
+    }
+};
+
+const writeStorageJson = <T,>(key: string, value: T) => {
+    if (typeof window === 'undefined') return;
+    try {
+        window.localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+        // Storage can be unavailable in private mode or full quota.
+    }
+};
+
+const readCache = <T,>(key: string): T | null => readStorageJson<CacheEnvelope<T>>(key)?.data ?? null;
+
+const writeCache = <T,>(key: string, data: T) => {
+    writeStorageJson<CacheEnvelope<T>>(key, { savedAt: Date.now(), data });
+};
+
+const formatVnd = (value: number) =>
+    new Intl.NumberFormat('vi-VN', {
+        style: 'currency',
+        currency: 'VND',
+        maximumFractionDigits: 0,
+    }).format(value);
 
 // ── Beep via Web Audio API ───────────────────────────────────────
 function playBeep(frequency = 1200, duration = 80, volume = 0.4) {
@@ -78,6 +142,14 @@ export default function ProductScannerPage() {
     const [loadingLocs, setLoadingLocs] = useState(false);
 
     const canSelectWarehouse = isAdmin && !hasStoreContext;
+    const storageScope = useMemo(
+        () => authUser?.uid || effectiveStoreId || userDoc?.storeId || 'anonymous',
+        [authUser?.uid, effectiveStoreId, userDoc?.storeId],
+    );
+    const selectedWarehouseStorageKey = useMemo(
+        () => makeStorageKey(storageScope, 'selectedWarehouse'),
+        [storageScope],
+    );
 
     // Queue
     const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -92,9 +164,7 @@ export default function ProductScannerPage() {
         let isMounted = true;
 
         const fetchPreloadData = async () => {
-            setPreloading(true);
             if (isMounted) {
-                setPreloadedProducts([]);
                 setLocations([]);
                 setSelectedLocationId('');
                 setWmsWarehouseId(null);
@@ -103,77 +173,172 @@ export default function ProductScannerPage() {
                 let warehouseIdToUse: string | null = null;
 
                 if (hasStoreContext) {
+                    const storeContextId = effectiveStoreId || userDoc.storeId || '';
+                    const mappingCacheKey = makeStorageKey(storageScope, 'mappedWarehouse', storeContextId);
+                    const cachedWarehouseId = readCache<string>(mappingCacheKey);
+                    if (cachedWarehouseId && isMounted) {
+                        warehouseIdToUse = cachedWarehouseId;
+                        setWmsWarehouseId(cachedWarehouseId);
+                    }
+
                     const mapRes = await getWmsWarehouseMappingAction(
                         'STORE',
-                        effectiveStoreId || userDoc.storeId || ''
+                        storeContextId
                     );
                     if (mapRes.success && mapRes.wmsWarehouseId) {
                         warehouseIdToUse = mapRes.wmsWarehouseId;
+                        writeCache(mappingCacheKey, mapRes.wmsWarehouseId);
                         if (isMounted) setWmsWarehouseId(warehouseIdToUse);
                     }
                 }
 
                 if (canSelectWarehouse) {
+                    const cachedWarehouses = readCache<WmsWarehouse[]>(makeStorageKey('warehouses'));
+                    const savedWarehouseId = readStorageJson<string>(selectedWarehouseStorageKey);
+                    if (cachedWarehouses?.length && isMounted) {
+                        setAvailableWarehouses(cachedWarehouses);
+                        const cachedSelection = cachedWarehouses.some(wh => wh.id === savedWarehouseId)
+                            ? savedWarehouseId!
+                            : cachedWarehouses[0].id;
+                        warehouseIdToUse = cachedSelection;
+                        setWmsWarehouseId(cachedSelection);
+                    }
+
                     const whRes = await getAvailableWmsWarehousesAction();
                     if (whRes.success && whRes.data) {
                         const warehouses = whRes.data as WmsWarehouse[];
-                        if (isMounted) setAvailableWarehouses(warehouses);
+                        writeCache(makeStorageKey('warehouses'), warehouses);
                         if (!warehouseIdToUse && warehouses.length > 0) {
-                            warehouseIdToUse = warehouses[0].id;
+                            warehouseIdToUse = warehouses.some(wh => wh.id === savedWarehouseId)
+                                ? savedWarehouseId!
+                                : warehouses[0].id;
+                        } else if (warehouseIdToUse && !warehouses.some(wh => wh.id === warehouseIdToUse)) {
+                            warehouseIdToUse = warehouses[0]?.id ?? null;
+                        }
+                        if (isMounted) {
+                            setAvailableWarehouses(warehouses);
                             if (isMounted) setWmsWarehouseId(warehouseIdToUse);
                         }
                     } else if (whRes.error) {
                         console.error('[ProductScanner] Warehouse API failed:', whRes.error, whRes.apiUrl);
                     }
                 }
-
-                const data = await preloadScannerData(warehouseIdToUse || undefined);
-                if (isMounted) {
-                    setPreloadedProducts(data.products);
-                }
             } catch (err) {
                 console.error('[ProductScanner] Preload failed:', err);
-            } finally {
-                if (isMounted) setPreloading(false);
             }
         };
 
         fetchPreloadData();
         return () => { isMounted = false; };
-    }, [authUser, userDoc, canSelectWarehouse, hasStoreContext, effectiveStoreId]);
+    }, [authUser, userDoc, canSelectWarehouse, hasStoreContext, effectiveStoreId, selectedWarehouseStorageKey, storageScope]);
 
     // ── Handle warehouse change ──────────────────────────────────
     const handleWarehouseChange = async (newId: string) => {
+        writeStorageJson(selectedWarehouseStorageKey, newId);
+        setSelectedLocationId('');
         setWmsWarehouseId(newId);
-        setPreloading(true);
-        try {
-            const data = await preloadScannerData(newId);
-            setPreloadedProducts(data.products);
-        } catch (err) {
-            console.error('[ProductScanner] Reload failed:', err);
-        } finally {
-            setPreloading(false);
-        }
+        setPreloadedProducts([]);
         loadQueue();
     };
 
+    useEffect(() => {
+        if (canSelectWarehouse && wmsWarehouseId) {
+            writeStorageJson(selectedWarehouseStorageKey, wmsWarehouseId);
+        }
+    }, [canSelectWarehouse, selectedWarehouseStorageKey, wmsWarehouseId]);
+
     // ── Load locations ──────────────────────────────────────────
     useEffect(() => {
-        if (wmsWarehouseId) {
-            setLoadingLocs(true);
+        if (!wmsWarehouseId) return;
+
+        let isMounted = true;
+        const locationCacheKey = makeStorageKey('locations', wmsWarehouseId);
+        const selectedLocationStorageKey = makeStorageKey(storageScope, 'selectedLocation', wmsWarehouseId);
+        const savedLocationId = readStorageJson<string>(selectedLocationStorageKey);
+        const cachedLocations = readCache<WmsLocation[]>(locationCacheKey);
+
+        setLoadingLocs(!cachedLocations?.length);
+        setLocations(cachedLocations ?? []);
+        setPreloadedProducts([]);
+
+        if (cachedLocations?.length) {
+            const nextLocationId = cachedLocations.some(loc => loc.id === savedLocationId)
+                ? savedLocationId!
+                : cachedLocations[0].id;
+            setSelectedLocationId(nextLocationId);
+        } else {
             setSelectedLocationId('');
-            getWmsLocationsAction(wmsWarehouseId).then(res => {
-                if (res.success && res.data) {
-                    const nextLocations = res.data as WmsLocation[];
-                    setLocations(nextLocations);
-                    if (nextLocations.length > 0) setSelectedLocationId(nextLocations[0].id);
-                } else if (res.error) {
-                    console.error('[ProductScanner] Locations API failed:', res.error);
-                }
-                setLoadingLocs(false);
-            });
         }
-    }, [wmsWarehouseId]);
+
+        getWmsLocationsAction(wmsWarehouseId).then(res => {
+            if (!isMounted) return;
+            if (res.success && res.data) {
+                const nextLocations = res.data as WmsLocation[];
+                writeCache(locationCacheKey, nextLocations);
+                setLocations(nextLocations);
+
+                const storedLocationId = readStorageJson<string>(selectedLocationStorageKey);
+                const nextLocationId = storedLocationId && nextLocations.some(loc => loc.id === storedLocationId)
+                    ? storedLocationId
+                    : nextLocations[0]?.id ?? '';
+                setSelectedLocationId(nextLocationId);
+                if (nextLocationId) writeStorageJson(selectedLocationStorageKey, nextLocationId);
+            } else if (res.error) {
+                console.error('[ProductScanner] Locations API failed:', res.error);
+            }
+            setLoadingLocs(false);
+        });
+
+        return () => { isMounted = false; };
+    }, [wmsWarehouseId, storageScope]);
+
+    const handleLocationChange = (locationId: string) => {
+        if (wmsWarehouseId) {
+            writeStorageJson(makeStorageKey(storageScope, 'selectedLocation', wmsWarehouseId), locationId);
+        }
+        setSelectedLocationId(locationId);
+    };
+
+    useEffect(() => {
+        if (wmsWarehouseId && selectedLocationId) {
+            writeStorageJson(makeStorageKey(storageScope, 'selectedLocation', wmsWarehouseId), selectedLocationId);
+        }
+    }, [selectedLocationId, storageScope, wmsWarehouseId]);
+
+    // ── Load products by selected location ATP ─────────────────────
+    useEffect(() => {
+        if (!wmsWarehouseId || !selectedLocationId) {
+            setPreloadedProducts([]);
+            return;
+        }
+
+        let isMounted = true;
+        const productsCacheKey = makeStorageKey('products', wmsWarehouseId, selectedLocationId);
+        const cachedProducts = readCache<PreloadedProduct[]>(productsCacheKey);
+
+        if (cachedProducts?.length) {
+            setPreloadedProducts(cachedProducts);
+        } else {
+            setPreloadedProducts([]);
+        }
+
+        setPreloading(true);
+
+        preloadScannerData(wmsWarehouseId, selectedLocationId, { includeEmployees: false })
+            .then(data => {
+                writeCache(productsCacheKey, data.products);
+                if (isMounted) setPreloadedProducts(data.products);
+            })
+            .catch(err => {
+                console.error('[ProductScanner] Product reload failed:', err);
+                if (isMounted && !cachedProducts?.length) setPreloadedProducts([]);
+            })
+            .finally(() => {
+                if (isMounted) setPreloading(false);
+            });
+
+        return () => { isMounted = false; };
+    }, [wmsWarehouseId, selectedLocationId]);
 
     // ── Load queue ──────────────────────────────────────────────
     const loadQueue = useCallback(async () => {
@@ -196,15 +361,20 @@ export default function ProductScannerPage() {
     useEffect(() => { loadQueue(); }, [loadQueue]);
 
     // ── Cancel a queued item ────────────────────────────────────
-    const handleCancel = async (scanId: string) => {
-        setCancellingId(scanId);
+    const handleCancelGroup = async (group: GroupedQueueItem) => {
+        setCancellingId(group.key);
         try {
-            const result = await cancelExternalScanAction(scanId);
-            if (result.success) {
-                setQueue(prev => prev.filter(item => item.id !== scanId));
+            const results = await Promise.all(group.ids.map(scanId => cancelExternalScanAction(scanId)));
+            if (results.every(result => result.success)) {
+                setQueue(prev => prev.filter(item => !group.ids.includes(item.id)));
+                await loadQueue();
+            } else {
+                alert('Không thể hủy toàn bộ dòng sản phẩm này. Vui lòng tải lại hàng đợi.');
+                await loadQueue();
             }
         } catch (err) {
-            console.error('[ProductScanner] Cancel failed:', err);
+            console.error('[ProductScanner] Cancel group failed:', err);
+            alert('Lỗi hệ thống khi hủy sản phẩm.');
         } finally {
             setCancellingId(null);
         }
@@ -231,6 +401,15 @@ export default function ProductScannerPage() {
             });
             if (result.success) {
                 playBeep(1800, 100);
+                setPreloadedProducts(prev => {
+                    const nextProducts = prev
+                        .map(item => item.id === product.id
+                            ? { ...item, atpQuantity: Math.max(0, item.atpQuantity - 1) }
+                            : item)
+                        .filter(item => item.atpQuantity > 0);
+                    writeCache(makeStorageKey('products', wmsWarehouseId, selectedLocationId), nextProducts);
+                    return nextProducts;
+                });
                 await loadQueue();
             } else {
                 alert('Lỗi: ' + (result.messages?.vi || 'Không thể thêm vào WMS'));
@@ -354,6 +533,61 @@ export default function ProductScannerPage() {
             (p.companyCode && p.companyCode.toLowerCase().includes(q))
         );
     }, [preloadedProducts, searchQuery]);
+    const productLookup = useMemo(() => {
+        const byId = new Map<string, PreloadedProduct>();
+        const byCode = new Map<string, PreloadedProduct>();
+        for (const product of preloadedProducts) {
+            byId.set(product.id, product);
+            if (product.barcode) byCode.set(product.barcode, product);
+            if (product.companyCode) byCode.set(product.companyCode, product);
+        }
+        return { byId, byCode };
+    }, [preloadedProducts]);
+    const groupedQueue = useMemo(() => {
+        const groups = new Map<string, GroupedQueueItem>();
+
+        for (const item of queue) {
+            const product =
+                (item.product_id ? productLookup.byId.get(item.product_id) : undefined) ||
+                (item.product_barcode ? productLookup.byCode.get(item.product_barcode) : undefined) ||
+                (item.barcode_scanned ? productLookup.byCode.get(item.barcode_scanned) : undefined) ||
+                (item.barcode ? productLookup.byCode.get(item.barcode) : undefined);
+            const productId = item.product_id || product?.id;
+            const barcode = product?.barcode || item.product_barcode || item.barcode_scanned || item.barcode || '';
+            const code = product?.companyCode || item.product_code || '';
+            const key = `${item.warehouse_location_id || selectedLocationId || 'location'}:${productId || barcode || item.id}`;
+            const quantity = Number(item.quantity ?? 0);
+            const existing = groups.get(key);
+
+            if (existing) {
+                existing.ids.push(item.id);
+                existing.quantity += quantity;
+                if (!existing.atpQuantity && product?.atpQuantity) existing.atpQuantity = product.atpQuantity;
+                continue;
+            }
+
+            groups.set(key, {
+                key,
+                ids: [item.id],
+                quantity,
+                productId,
+                name: product?.name || item.product_name || barcode || 'Sản phẩm chưa xác định',
+                code,
+                barcode,
+                image: product?.image || item.product_image_url || '',
+                unit: product?.unit || item.product_unit || '',
+                unitPrice: Number(item.unit_price ?? product?.actualPrice ?? 0),
+                atpQuantity: product?.atpQuantity,
+            });
+        }
+
+        return [...groups.values()];
+    }, [productLookup, queue, selectedLocationId]);
+    const totalQueuedQuantity = useMemo(
+        () => groupedQueue.reduce((sum, item) => sum + item.quantity, 0),
+        [groupedQueue],
+    );
+    const showInitialProductLoading = preloading && preloadedProducts.length === 0;
 
     return (
         <div className="flex flex-col h-full gap-4">
@@ -408,7 +642,7 @@ export default function ProductScannerPage() {
                             <div className="relative">
                                 <select
                                     value={selectedLocationId}
-                                    onChange={e => setSelectedLocationId(e.target.value)}
+                                    onChange={e => handleLocationChange(e.target.value)}
                                     disabled={loadingLocs || locations.length === 0}
                                     className="w-full appearance-none bg-surface-50 border border-surface-200 text-surface-800 text-sm rounded-xl px-3 py-2.5 focus:ring-accent-500 focus:border-accent-400 outline-none pr-8 font-medium disabled:opacity-60"
                                 >
@@ -443,6 +677,12 @@ export default function ProductScannerPage() {
                                             </button>
                                         )}
                                     </div>
+                                    {preloading && preloadedProducts.length > 0 && (
+                                        <div className="hidden md:flex items-center gap-1.5 px-2.5 rounded-xl bg-surface-50 border border-surface-200 text-[11px] font-semibold text-surface-500">
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin text-accent-500" />
+                                            ATP
+                                        </div>
+                                    )}
                                     <button
                                         onClick={() => setView('camera')}
                                         className="px-4 rounded-xl bg-surface-800 text-white flex items-center justify-center gap-2 hover:bg-surface-900 active:scale-95 transition-transform text-sm font-bold"
@@ -452,10 +692,12 @@ export default function ProductScannerPage() {
                                     </button>
                                 </div>
                                 <div className="flex-1 overflow-y-auto p-2 bg-surface-50 min-h-0">
-                                    {preloading ? (
+                                    {showInitialProductLoading ? (
                                         <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-accent-500" /></div>
                                     ) : filteredProducts.length === 0 ? (
-                                        <div className="text-center py-8 text-surface-400 text-sm">Không tìm thấy sản phẩm.</div>
+                                        <div className="text-center py-8 text-surface-400 text-sm">
+                                            {selectedLocationId ? 'Không có sản phẩm còn ATP tại vị trí này.' : 'Vui lòng chọn vị trí để xem sản phẩm.'}
+                                        </div>
                                     ) : (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pb-16">
                                             {filteredProducts.map(p => (
@@ -470,7 +712,12 @@ export default function ProductScannerPage() {
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <h3 className="text-xs font-bold text-surface-800 line-clamp-2 group-hover:text-accent-700 transition-colors">{p.name}</h3>
-                                                        <p className="text-[10px] text-surface-400 mt-0.5 truncate">{p.barcode || p.companyCode}</p>
+                                                        <div className="mt-1 flex items-center gap-1.5 min-w-0">
+                                                            <p className="text-[10px] text-surface-400 truncate">{p.barcode || p.companyCode}</p>
+                                                            <span className="shrink-0 text-[10px] font-bold text-success-700 bg-success-50 border border-success-100 rounded-md px-1.5 py-0.5">
+                                                                ATP: {p.atpQuantity}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                     {submittingId === p.id ? (
                                                         <Loader2 className="w-5 h-5 animate-spin text-accent-500 shrink-0" />
@@ -541,7 +788,9 @@ export default function ProductScannerPage() {
                         <div className="flex items-center gap-2">
                             <Package className="w-4 h-4 text-accent-500" />
                             <h2 className="text-sm font-bold text-surface-800">Hàng đợi</h2>
-                            <span className="text-xs font-bold text-white bg-accent-500 rounded-full px-2 py-0.5">{queue.length}</span>
+                            <span className="text-xs font-bold text-white bg-accent-500 rounded-full px-2 py-0.5">
+                                {groupedQueue.length} dòng · SL {totalQueuedQuantity}
+                            </span>
                         </div>
                         <button
                             onClick={loadQueue}
@@ -558,31 +807,50 @@ export default function ProductScannerPage() {
                             <div className="flex items-center justify-center py-10">
                                 <Loader2 className="w-6 h-6 animate-spin text-accent-500" />
                             </div>
-                        ) : queue.length === 0 ? (
+                        ) : groupedQueue.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-10 text-surface-400">
                                 <Package className="w-10 h-10 mb-2 opacity-30" />
                                 <p className="text-sm font-medium">Chưa có sản phẩm nào</p>
                                 <p className="text-xs mt-1">Chọn hoặc quét mã để thêm</p>
                             </div>
                         ) : (
-                            queue.map((item, index) => (
-                                <div key={item.id || index} className="flex items-center gap-3 bg-surface-50 rounded-xl border border-surface-100 p-3">
-                                    <div className="w-10 h-10 rounded-lg bg-white border border-surface-100 flex items-center justify-center shrink-0">
-                                        <Package className="w-5 h-5 text-surface-400" />
+                            groupedQueue.map((item) => (
+                                <div key={item.key} className="flex items-center gap-3 bg-surface-50 rounded-xl border border-surface-100 p-3">
+                                    <div className="w-12 h-12 rounded-lg bg-white border border-surface-100 overflow-hidden flex items-center justify-center shrink-0">
+                                        {item.image ? (
+                                            <img src={item.image} alt={item.name} className="w-full h-full object-contain p-1" />
+                                        ) : (
+                                            <Package className="w-5 h-5 text-surface-400" />
+                                        )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-bold text-surface-800 line-clamp-2">{item.product_name || item.barcode}</p>
-                                        <div className="flex items-center gap-2 mt-1">
+                                        <p className="text-xs font-bold text-surface-800 line-clamp-2">{item.name}</p>
+                                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                             <span className="text-[10px] font-bold text-accent-600 bg-accent-50 px-1.5 py-0.5 rounded">SL: {item.quantity}</span>
-                                            <span className="text-[10px] text-surface-400 truncate">{item.barcode}</span>
+                                            {item.unit && <span className="text-[10px] text-surface-500 bg-white border border-surface-100 px-1.5 py-0.5 rounded">{item.unit}</span>}
+                                            {item.atpQuantity !== undefined && (
+                                                <span className="text-[10px] font-bold text-success-700 bg-success-50 border border-success-100 px-1.5 py-0.5 rounded">
+                                                    ATP: {item.atpQuantity}
+                                                </span>
+                                            )}
+                                            {item.unitPrice > 0 && (
+                                                <span className="text-[10px] text-surface-500 bg-white border border-surface-100 px-1.5 py-0.5 rounded">
+                                                    {formatVnd(item.unitPrice)}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="mt-1 flex items-center gap-1.5 min-w-0 text-[10px] text-surface-400">
+                                            {item.code && <span className="shrink-0 font-medium">{item.code}</span>}
+                                            {item.code && item.barcode && <span className="shrink-0">·</span>}
+                                            {item.barcode && <span className="truncate">{item.barcode}</span>}
                                         </div>
                                     </div>
                                     <button
-                                        onClick={() => handleCancel(item.id)}
-                                        disabled={cancellingId === item.id}
+                                        onClick={() => handleCancelGroup(item)}
+                                        disabled={cancellingId === item.key}
                                         className="p-2 rounded-lg text-surface-400 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
                                     >
-                                        {cancellingId === item.id ? (
+                                        {cancellingId === item.key ? (
                                             <Loader2 className="w-4 h-4 animate-spin" />
                                         ) : (
                                             <Trash2 className="w-4 h-4" />

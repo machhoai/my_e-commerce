@@ -13,9 +13,43 @@
 
 import { getAdminDb } from '@/lib/firebase-admin';
 import type { VoucherCode, ScanResult } from '@/types';
-import type { ProductDoc } from '@/types/inventory';
 
 const PHONE_REGEX = /^(03|05|07|08|09)\d{8}$/;
+
+type WmsProduct = {
+    id: string;
+    name?: string;
+    barcode?: string;
+    code?: string;
+    image_url?: string | null;
+    unit_price?: number;
+    unit?: string;
+    product_type?: string;
+    atp_quantity?: number | null;
+};
+
+type WmsResponse<T> = {
+    success: boolean;
+    data: T;
+    error?: string;
+    messages?: { vi?: string; zh?: string };
+    apiUrl?: string;
+};
+
+type ExternalScanPayload = {
+    warehouse_id: string;
+    barcode: string;
+    product_id: string;
+    warehouse_location_id: string;
+    quantity: number;
+    operator_name: string;
+    operator_id_external: string;
+    device_id: string | null;
+};
+
+function getErrorMessage(err: unknown) {
+    return err instanceof Error ? err.message : String(err);
+}
 
 // ── Lightweight types for preloaded data ──────────────────────
 export type PreloadedEmployee = {
@@ -38,15 +72,17 @@ export type PreloadedProduct = {
     origin: string;
     invoicePrice: number;
     minStock: number;
+    atpQuantity: number;
     isActive: boolean;
     createdAt: string;
 };
 
-export async function preloadScannerData(wmsWarehouseId?: string): Promise<{
+export async function preloadScannerData(wmsWarehouseId?: string, wmsLocationId?: string, options?: { includeEmployees?: boolean }): Promise<{
     employees: PreloadedEmployee[];
     products: PreloadedProduct[];
 }> {
     const db = getAdminDb();
+    const includeEmployees = options?.includeEmployees !== false;
 
     const fetchProducts = async () => {
         if (!wmsWarehouseId) return { success: false, data: [] };
@@ -54,7 +90,9 @@ export async function preloadScannerData(wmsWarehouseId?: string): Promise<{
         const timeout = setTimeout(() => controller.abort(), 8000);
         try {
             const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
-            const res = await fetch(`${apiUrl}/api/external/v1/products?warehouse_id=${wmsWarehouseId}`, {
+            const params = new URLSearchParams({ warehouse_id: wmsWarehouseId });
+            if (wmsLocationId) params.set('warehouse_location_id', wmsLocationId);
+            const res = await fetch(`${apiUrl}/api/external/v1/products?${params.toString()}`, {
                 headers: {
                     'x-api-key': process.env.WMS_API_KEY || ''
                 },
@@ -62,19 +100,20 @@ export async function preloadScannerData(wmsWarehouseId?: string): Promise<{
                 signal: controller.signal
             });
             clearTimeout(timeout);
-            return await res.json();
-        } catch (err: any) {
-            console.error('fetchProducts error:', err.message);
-            return { success: false, data: [], error: err.message };
+            return await res.json() as WmsResponse<WmsProduct[]>;
+        } catch (err: unknown) {
+            const message = getErrorMessage(err);
+            console.error('fetchProducts error:', message);
+            return { success: false, data: [], error: message };
         }
     };
 
     const [empSnap, productsResponse] = await Promise.all([
-        db.collection('users').where('isActive', '==', true).get(),
-        fetchProducts()
+        includeEmployees ? db.collection('users').where('isActive', '==', true).get() : Promise.resolve(null),
+        fetchProducts(),
     ]);
 
-    const employees: PreloadedEmployee[] = empSnap.docs.map(d => {
+    const employees: PreloadedEmployee[] = empSnap?.docs.map(d => {
         const data = d.data();
         return {
             uid: d.id,
@@ -83,9 +122,14 @@ export async function preloadScannerData(wmsWarehouseId?: string): Promise<{
             storeId: data.storeId || '',
             referralPoints: data.referralPoints ?? 0,
         };
-    });
+    }) ?? [];
 
-    const products: PreloadedProduct[] = (productsResponse.data || []).map((p: any) => ({
+    const rawProducts: WmsProduct[] = Array.isArray(productsResponse.data) ? productsResponse.data : [];
+    const visibleProducts = wmsLocationId
+        ? rawProducts.filter(p => Number(p.atp_quantity ?? 0) > 0)
+        : rawProducts;
+
+    const products: PreloadedProduct[] = visibleProducts.map(p => ({
         id: p.id,
         name: p.name || '',
         barcode: p.barcode || '',
@@ -97,6 +141,7 @@ export async function preloadScannerData(wmsWarehouseId?: string): Promise<{
         origin: '',
         invoicePrice: 0,
         minStock: 0,
+        atpQuantity: Number(p.atp_quantity ?? 0),
         isActive: true,
         createdAt: '',
     }));
@@ -169,7 +214,7 @@ export async function lookupEmployeeByUid(uid: string): Promise<PreloadedEmploye
 
 // ── WMS API Actions ──────────────────────────────────────────
 
-export async function submitExternalScanAction(data: any) {
+export async function submitExternalScanAction(data: ExternalScanPayload) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     try {
@@ -188,9 +233,9 @@ export async function submitExternalScanAction(data: any) {
         });
         clearTimeout(timeout);
         return res.json();
-    } catch (err: any) {
+    } catch (err: unknown) {
         clearTimeout(timeout);
-        return { success: false, data: null, messages: { vi: `Network Error: ${err.message}` } };
+        return { success: false, data: null, messages: { vi: `Network Error: ${getErrorMessage(err)}` } };
     }
 }
 
@@ -209,9 +254,9 @@ export async function getMyScansAction(operator_id_external: string) {
         });
         clearTimeout(timeout);
         return res.json();
-    } catch (err: any) {
+    } catch (err: unknown) {
         clearTimeout(timeout);
-        return { success: false, data: null, error: err.message };
+        return { success: false, data: null, error: getErrorMessage(err) };
     }
 }
 
@@ -229,13 +274,13 @@ export async function cancelExternalScanAction(scanId: string) {
         });
         clearTimeout(timeout);
         return res.json();
-    } catch (err: any) {
+    } catch (err: unknown) {
         clearTimeout(timeout);
-        return { success: false, error: err.message };
+        return { success: false, error: getErrorMessage(err) };
     }
 }
 
-export async function submitBatchAction(data: any) {
+export async function submitBatchAction(data: Record<string, unknown>) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     try {
@@ -251,9 +296,9 @@ export async function submitBatchAction(data: any) {
         });
         clearTimeout(timeout);
         return res.json();
-    } catch (err: any) {
+    } catch (err: unknown) {
         clearTimeout(timeout);
-        return { success: false, error: err.message };
+        return { success: false, error: getErrorMessage(err) };
     }
 }
 
@@ -272,9 +317,9 @@ export async function getAvailableWmsWarehousesAction() {
         clearTimeout(timeout);
         const data = await res.json();
         return data;
-    } catch (err: any) {
+    } catch (err: unknown) {
         clearTimeout(timeout);
-        return { success: false, data: [], error: err.message, apiUrl: process.env.WMS_API_URL };
+        return { success: false, data: [], error: getErrorMessage(err), apiUrl: process.env.WMS_API_URL };
     }
 }
 
@@ -293,9 +338,9 @@ export async function getWmsLocationsAction(warehouseId: string) {
         });
         clearTimeout(timeout);
         return await res.json();
-    } catch (err: any) {
+    } catch (err: unknown) {
         clearTimeout(timeout);
-        return { success: false, data: [], error: err.message };
+        return { success: false, data: [], error: getErrorMessage(err) };
     }
 }
 
