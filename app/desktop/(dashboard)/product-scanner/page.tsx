@@ -757,7 +757,7 @@ export default function ProductScannerPage() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="flex flex-col h-full bg-black relative">
+                            <div className="flex flex-col h-full max-h-96 bg-black relative">
                                 <div className="absolute top-4 left-4 z-30">
                                     <button onClick={() => setView('list')} className="w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center backdrop-blur-md">
                                         <X className="w-5 h-5" />
