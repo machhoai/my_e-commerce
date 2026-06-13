@@ -22,6 +22,7 @@ import {
     // Extra icons for new routes
     FileText, Repeat, LayoutDashboard, Star, Ticket, Link2, ScanBarcode,
     Gift,
+    Barcode,
 } from 'lucide-react';
 import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -1754,10 +1755,10 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
             route: '/employee/kpi-stats',
         },
         {
-            icon: Repeat,
-            label: t('qa_handover'),
+            icon: Barcode,
+            label: t('nav_scanProduct'),
             colorClass: 'bg-violet-300 text-violet-900',
-            route: '/employee/inventory/handover',
+            route: '/product-scanner',
         },
     ];
 

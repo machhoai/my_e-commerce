@@ -29,7 +29,7 @@ const dictionaries: Record<MobileLang, Record<string, string>> = {
 
         // Quick access items
         qa_mySchedule: 'Lịch của tôi',
-        qa_registerShift: 'Danh sách đăng ký',
+        qa_registerShift: 'Đăng ký ca',
         qa_myKpi: 'KPI của tôi',
         qa_handover: 'Bàn giao hàng',
         qa_scheduling: 'Lịch làm',
@@ -54,6 +54,7 @@ const dictionaries: Record<MobileLang, Record<string, string>> = {
         nav_myKpi: 'KPI của tôi',
         nav_referralPoints: 'Điểm giới thiệu',
         nav_handover: 'Bàn giao hàng',
+        nav_scanProduct: 'Quét sản phẩm',
         nav_usageReport: 'Tiêu hao hàng',
         nav_scheduling: 'Lịch làm việc',
         nav_shiftRegister: 'Đăng ký ca',
