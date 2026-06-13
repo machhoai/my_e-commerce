@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ScanLine, Search, Camera, RotateCcw, Zap, ZapOff, ChevronDown, Loader2, Package, X, Plus } from 'lucide-react';
+import { ScanLine, Search, Camera, RotateCcw, Zap, ZapOff, ChevronDown, Loader2, Package, X, Plus, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { showToast } from '@/lib/utils/toast';
 import { preloadScannerData, getWmsWarehouseMappingAction, getAvailableWmsWarehousesAction, getLocationScansAction, submitExternalScanAction, getWmsLocationsAction } from '@/actions/scanner';
 import type { PreloadedProduct } from '@/actions/scanner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -53,6 +54,8 @@ type GroupedQueueItem = {
 type WindowWithLegacyAudio = Window & typeof globalThis & {
     webkitAudioContext?: typeof AudioContext;
 };
+
+type SubmitSource = 'manual' | 'camera';
 
 type CacheEnvelope<T> = {
     savedAt: number;
@@ -167,6 +170,7 @@ export default function ProductScannerPage() {
     const [queue, setQueue] = useState<QueueItem[]>([]);
     const [loadingQueue, setLoadingQueue] = useState(false);
     const [submittingId, setSubmittingId] = useState<string | null>(null);
+    const [cameraQueuedProduct, setCameraQueuedProduct] = useState<PreloadedProduct | null>(null);
 
     // ── Preload data ──────────────────────────────────────────────
     useEffect(() => {
@@ -378,12 +382,14 @@ export default function ProductScannerPage() {
     useEffect(() => { loadQueue(); }, [loadQueue]);
 
     // ── Add product ─────────────────────────────────────────────
-    const handleSubmitProduct = useCallback(async (product: PreloadedProduct) => {
+    const handleSubmitProduct = useCallback(async (product: PreloadedProduct, source: SubmitSource = 'manual') => {
         if (!wmsWarehouseId) return alert('Lỗi: Chưa liên kết với kho WMS nào.');
         if (!selectedLocationId) return alert('Lỗi: Vui lòng chọn vị trí/kệ hàng xuất kho.');
         if (!authUser) return;
 
         setSubmittingId(product.id);
+        if (source === 'camera') setCameraQueuedProduct(null);
+        let queuedSuccessfully = false;
 
         try {
             const result = await submitExternalScanAction({
@@ -398,6 +404,10 @@ export default function ProductScannerPage() {
             });
             if (result.success) {
                 playBeep(1800, 100);
+                showToast.success(
+                    'Đã thêm vào hàng chờ',
+                    `+1 ${product.companyCode || product.barcode || product.name}`,
+                );
                 setPreloadedProducts(prev => {
                     const nextProducts = prev
                         .map(item => item.id === product.id
@@ -408,6 +418,8 @@ export default function ProductScannerPage() {
                     return nextProducts;
                 });
                 await loadQueue();
+                queuedSuccessfully = true;
+                if (source === 'camera') setCameraQueuedProduct(product);
             } else {
                 alert('Lỗi: ' + (result.messages?.vi || 'Không thể thêm vào WMS'));
             }
@@ -415,14 +427,15 @@ export default function ProductScannerPage() {
             alert('Lỗi hệ thống khi lưu');
         } finally {
             setSubmittingId(null);
-            setTimeout(() => { scanLock.current = false; }, 1000);
+            if (source === 'manual' || !queuedSuccessfully) {
+                setTimeout(() => { scanLock.current = false; }, 1000);
+            }
         }
     }, [authUser, loadQueue, selectedLocationId, userDoc?.name, wmsWarehouseId]);
 
     // ── Camera setup ────────────────────────────────────────────
     const startCamera = useCallback(async () => {
         if (!scannerRef.current) return;
-        scanLock.current = false;
         try {
             const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
             const scanner = new Html5Qrcode('product-scanner-container', {
@@ -460,7 +473,7 @@ export default function ProductScannerPage() {
                     );
 
                     if (product) {
-                        handleSubmitProduct(product);
+                        handleSubmitProduct(product, 'camera');
                     } else {
                         playBeep(300, 300); // error beep
                         alert('Không tìm thấy sản phẩm với mã: ' + text);
@@ -489,6 +502,11 @@ export default function ProductScannerPage() {
         }
     }, []);
 
+    const resumeCameraScan = useCallback(() => {
+        setCameraQueuedProduct(null);
+        scanLock.current = false;
+    }, []);
+
     const toggleTorch = useCallback(async () => {
         try {
             const video = document.querySelector<HTMLVideoElement>('#product-scanner-container video');
@@ -512,6 +530,8 @@ export default function ProductScannerPage() {
 
     useEffect(() => {
         if (view === 'camera') {
+            setCameraQueuedProduct(null);
+            scanLock.current = false;
             const timer = setTimeout(() => {
                 startCamera();
                 setTimeout(checkTorchSupport, 1200);
@@ -700,11 +720,9 @@ export default function ProductScannerPage() {
                                     ) : (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pb-16">
                                             {filteredProducts.map(p => (
-                                                <button
+                                                <div
                                                     key={p.id}
-                                                    onClick={() => handleSubmitProduct(p)}
-                                                    disabled={submittingId === p.id}
-                                                    className="flex items-center gap-3 p-3 rounded-xl border border-surface-100 hover:border-accent-300 hover:bg-accent-50 active:scale-[0.98] transition-all text-left group"
+                                                    className="flex items-center gap-3 p-3 rounded-xl border border-surface-100 hover:border-accent-300 hover:bg-accent-50 transition-all text-left group"
                                                 >
                                                     <div className="w-12 h-12 bg-white rounded-lg border border-surface-100 overflow-hidden flex items-center justify-center shrink-0">
                                                         {p.image ? <img src={p.image} alt={p.name} className="w-full h-full object-contain p-1" /> : <Package className="w-6 h-6 text-surface-300" />}
@@ -718,14 +736,21 @@ export default function ProductScannerPage() {
                                                             </span>
                                                         </div>
                                                     </div>
-                                                    {submittingId === p.id ? (
-                                                        <Loader2 className="w-5 h-5 animate-spin text-accent-500 shrink-0" />
-                                                    ) : (
-                                                        <div className="w-7 h-7 rounded-full bg-surface-50 border border-surface-200 group-hover:bg-accent-500 group-hover:border-accent-500 flex items-center justify-center shrink-0 transition-colors">
-                                                            <Plus className="w-4 h-4 text-surface-400 group-hover:text-white" />
-                                                        </div>
-                                                    )}
-                                                </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleSubmitProduct(p)}
+                                                        disabled={submittingId === p.id}
+                                                        title="Thêm vào hàng chờ"
+                                                        aria-label={`Thêm ${p.name} vào hàng chờ`}
+                                                        className="group/add w-8 h-8 rounded-full bg-surface-50 border border-surface-200 hover:bg-accent-500 hover:border-accent-500 disabled:hover:bg-surface-50 disabled:hover:border-surface-200 flex items-center justify-center shrink-0 transition-colors"
+                                                    >
+                                                        {submittingId === p.id ? (
+                                                            <Loader2 className="w-4 h-4 animate-spin text-accent-500" />
+                                                        ) : (
+                                                            <Plus className="w-4 h-4 text-surface-400 group-hover/add:text-white" />
+                                                        )}
+                                                    </button>
+                                                </div>
                                             ))}
                                         </div>
                                     )}
@@ -754,6 +779,44 @@ export default function ProductScannerPage() {
                                 )}
                                 <div id="product-scanner-container" ref={scannerRef} className="w-full h-full flex-1" />
 
+                                {cameraQueuedProduct && (
+                                    <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 z-30 rounded-2xl bg-white/95 border border-white/70 shadow-2xl p-4 backdrop-blur-md">
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-success-50 text-success-600 flex items-center justify-center shrink-0">
+                                                <CheckCircle2 className="w-6 h-6" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-sm font-bold text-surface-900">Đã thêm vào hàng chờ</p>
+                                                <p className="mt-1 text-xs text-surface-500 line-clamp-2">{cameraQueuedProduct.name}</p>
+                                                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold">
+                                                    <span className="rounded-md bg-accent-50 text-accent-700 border border-accent-100 px-1.5 py-0.5">+1</span>
+                                                    {(cameraQueuedProduct.companyCode || cameraQueuedProduct.barcode) && (
+                                                        <span className="rounded-md bg-surface-100 text-surface-600 px-1.5 py-0.5">
+                                                            {cameraQueuedProduct.companyCode || cameraQueuedProduct.barcode}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="mt-4 flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={resumeCameraScan}
+                                                className="flex-1 rounded-xl bg-accent-500 text-white text-sm font-bold py-2.5 hover:bg-accent-600 active:scale-[0.98] transition-all"
+                                            >
+                                                Quét tiếp
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setView('list')}
+                                                className="px-4 rounded-xl bg-surface-100 text-surface-700 text-sm font-bold hover:bg-surface-200 active:scale-[0.98] transition-all"
+                                            >
+                                                Xem hàng chờ
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Overlay styling (mask) */}
                                 <div className="absolute inset-0 pointer-events-none z-10">
                                     <div className="absolute top-0 left-0 right-0 bg-black/40" style={{ height: '35%' }} />
@@ -767,7 +830,9 @@ export default function ProductScannerPage() {
                                         <div className="absolute -top-px -right-px w-6 h-6 border-t-[3px] border-r-[3px] border-accent-400 rounded-tr-xl" />
                                         <div className="absolute -bottom-px -left-px w-6 h-6 border-b-[3px] border-l-[3px] border-accent-400 rounded-bl-xl" />
                                         <div className="absolute -bottom-px -right-px w-6 h-6 border-b-[3px] border-r-[3px] border-accent-400 rounded-br-xl" />
-                                        <div className="absolute left-3 right-3 h-0.5 bg-gradient-to-r from-transparent via-accent-400 to-transparent animate-scan" />
+                                        {!cameraQueuedProduct && (
+                                            <div className="absolute left-3 right-3 h-0.5 bg-gradient-to-r from-transparent via-accent-400 to-transparent animate-scan" />
+                                        )}
                                     </div>
                                 </div>
                                 <div className="absolute bottom-6 left-0 right-0 text-center z-20">
