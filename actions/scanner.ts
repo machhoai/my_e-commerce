@@ -132,8 +132,8 @@ export async function preloadScannerData(wmsWarehouseId?: string, wmsLocationId?
     const products: PreloadedProduct[] = visibleProducts.map(p => ({
         id: p.id,
         name: p.name || '',
-        barcode: p.barcode || '',
-        companyCode: p.code || '',
+        barcode: (p.barcode || '').trim(),
+        companyCode: (p.code || '').trim(),
         image: p.image_url || '',
         actualPrice: p.unit_price || 0,
         unit: p.unit || '',

@@ -65,6 +65,7 @@ type CacheEnvelope<T> = {
 const STORAGE_PREFIX = 'product-scanner:v2';
 
 const makeStorageKey = (...parts: string[]) => `${STORAGE_PREFIX}:${parts.join(':')}`;
+const normalizeScanCode = (value?: string | null) => (value || '').trim().replace(/\s+/g, '').toLowerCase();
 
 const readStorageJson = <T,>(key: string): T | null => {
     if (typeof window === 'undefined') return null;
@@ -467,16 +468,20 @@ export default function ProductScannerPage() {
                 (text: string) => {
                     if (scanLock.current) return;
                     scanLock.current = true;
+                    const scannedCode = normalizeScanCode(text);
 
                     const product = preloadedProducts.find(
-                        p => p.barcode === text || p.companyCode === text
+                        p => normalizeScanCode(p.barcode) === scannedCode || normalizeScanCode(p.companyCode) === scannedCode
                     );
 
                     if (product) {
                         handleSubmitProduct(product, 'camera');
                     } else {
                         playBeep(300, 300); // error beep
-                        alert('Không tìm thấy sản phẩm với mã: ' + text);
+                        showToast.warning(
+                            'Không tìm thấy sản phẩm',
+                            `Mã ${text.trim()} không có trong danh sách ATP của kho/kệ đang chọn.`,
+                        );
                         setTimeout(() => { scanLock.current = false; }, 2000);
                     }
                 },
