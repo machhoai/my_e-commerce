@@ -95,6 +95,17 @@ const formatVnd = (value: number) =>
         maximumFractionDigits: 0,
     }).format(value);
 
+const compareByBarcode = <T extends { barcode?: string; companyCode?: string; code?: string; name?: string }>(a: T, b: T) => {
+    const codeA = (a.barcode || a.companyCode || a.code || '').trim();
+    const codeB = (b.barcode || b.companyCode || b.code || '').trim();
+
+    if (!codeA && codeB) return 1;
+    if (codeA && !codeB) return -1;
+
+    return codeA.localeCompare(codeB, 'vi', { numeric: true, sensitivity: 'base' }) ||
+        (a.name || '').localeCompare(b.name || '', 'vi', { numeric: true, sensitivity: 'base' });
+};
+
 const getOperatorDisplayName = (
     userDocName?: string | null,
     authDisplayName?: string | null,
@@ -516,13 +527,13 @@ export default function ProductScannerPage() {
 
     // ── Filter products ─────────────────────────────────────────
     const filteredProducts = useMemo(() => {
-        if (!searchQuery.trim()) return preloadedProducts;
+        if (!searchQuery.trim()) return [...preloadedProducts].sort(compareByBarcode);
         const q = searchQuery.toLowerCase();
         return preloadedProducts.filter(p =>
             p.name.toLowerCase().includes(q) ||
             (p.barcode && p.barcode.toLowerCase().includes(q)) ||
             (p.companyCode && p.companyCode.toLowerCase().includes(q))
-        );
+        ).sort(compareByBarcode);
     }, [preloadedProducts, searchQuery]);
     const productLookup = useMemo(() => {
         const byId = new Map<string, PreloadedProduct>();
@@ -572,7 +583,7 @@ export default function ProductScannerPage() {
             });
         }
 
-        return [...groups.values()];
+        return [...groups.values()].sort(compareByBarcode);
     }, [productLookup, queue, selectedLocationId]);
     const totalQueuedQuantity = useMemo(
         () => groupedQueue.reduce((sum, item) => sum + item.quantity, 0),
