@@ -258,7 +258,8 @@ async function exportOrdersExcel(
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
                 cell.alignment = { vertical: 'middle', horizontal: LEFT_KEYS.has(colKey) ? 'left' : 'right' };
                 cell.border = { bottom: { style: 'thin', color: { argb: 'FFF1F5F9' } } };
-                if (MONEY_KEYS.has(colKey) || QTY_KEYS.has(colKey)) cell.numFmt = '#,##0';
+                if (MONEY_KEYS.has(colKey)) cell.numFmt = roundMoney ? '#,##0' : '#,##0.##';
+                else if (QTY_KEYS.has(colKey)) cell.numFmt = '#,##0';
             });
             if (o.status === 3 && activeCols.some(c => c.key === 'realMoney'))
                 r.getCell('realMoney').font = { bold: true, color: { argb: 'FF059669' } };
@@ -272,10 +273,10 @@ async function exportOrdersExcel(
             switch (col.key) {
                 case 'orderNumber':   totalData[col.key] = 'TỔNG CỘNG'; break;
                 case 'totalQty':      totalData[col.key] = orders.reduce((s, o) => s + o.totalQty, 0); break;
-                case 'realMoney':     totalData[col.key] = roundMoney ? Math.round(orders.reduce((s, o) => s + o.realMoney, 0)) : orders.reduce((s, o) => s + o.realMoney, 0); break;
-                case 'discountMoney': totalData[col.key] = roundMoney ? Math.round(orders.reduce((s, o) => s + o.discountMoney, 0)) : orders.reduce((s, o) => s + o.discountMoney, 0); break;
-                case 'cancelMoney':   totalData[col.key] = roundMoney ? Math.round(orders.reduce((s, o) => s + o.cancelMoney, 0)) : orders.reduce((s, o) => s + o.cancelMoney, 0); break;
-                case 'taxMoney':      totalData[col.key] = roundMoney ? Math.round(orders.reduce((s, o) => s + o.taxMoney, 0)) : orders.reduce((s, o) => s + o.taxMoney, 0); break;
+                case 'realMoney':     totalData[col.key] = roundMoney ? orders.reduce((s, o) => s + Math.round(o.realMoney), 0) : orders.reduce((s, o) => s + o.realMoney, 0); break;
+                case 'discountMoney': totalData[col.key] = roundMoney ? orders.reduce((s, o) => s + Math.round(o.discountMoney), 0) : orders.reduce((s, o) => s + o.discountMoney, 0); break;
+                case 'cancelMoney':   totalData[col.key] = roundMoney ? orders.reduce((s, o) => s + Math.round(o.cancelMoney), 0) : orders.reduce((s, o) => s + o.cancelMoney, 0); break;
+                case 'taxMoney':      totalData[col.key] = roundMoney ? orders.reduce((s, o) => s + Math.round(o.taxMoney), 0) : orders.reduce((s, o) => s + o.taxMoney, 0); break;
             }
         }
         if (!totalData['orderNumber'] && activeCols.length > 0)
@@ -288,7 +289,8 @@ async function exportOrdersExcel(
             cell.font = { bold: true, color: { argb: 'FF3730A3' } };
             cell.alignment = { vertical: 'middle', horizontal: colNum === 1 ? 'left' : 'right' };
             cell.border = { top: { style: 'medium', color: { argb: 'FF6366F1' } } };
-            if (MONEY_KEYS.has(colKey) || QTY_KEYS.has(colKey)) cell.numFmt = '#,##0';
+            if (MONEY_KEYS.has(colKey)) cell.numFmt = roundMoney ? '#,##0' : '#,##0.##';
+            else if (QTY_KEYS.has(colKey)) cell.numFmt = '#,##0';
         });
 
     } else {
@@ -337,7 +339,8 @@ async function exportOrdersExcel(
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
                 cell.alignment = { vertical: 'middle', horizontal: LEFT_KEYS.has(colKey) ? 'left' : 'right' };
                 cell.border = { bottom: { style: 'thin', color: { argb: 'FFF1F5F9' } } };
-                if (MONEY_KEYS.has(colKey) || QTY_KEYS.has(colKey)) cell.numFmt = '#,##0';
+                if (MONEY_KEYS.has(colKey)) cell.numFmt = roundMoney ? '#,##0' : '#,##0.##';
+                else if (QTY_KEYS.has(colKey)) cell.numFmt = '#,##0';
             });
             if (activeCols.some(c => c.key === 'realMoney'))
                 r.getCell('realMoney').font = { bold: true, color: { argb: 'FF059669' } };
@@ -351,29 +354,31 @@ async function exportOrdersExcel(
                 case 'qty':            totalData[col.key] = goods.reduce((s, g) => s + g.qty, 0); break;
                 case 'totalBeforeTax': {
                     const rawVal = goods.reduce((s, g) => {
+                        let val = g.totalBeforeTax;
                         if (splitSurchargeTax && isSurchargeItem(g)) {
                             const unitPrice = Math.round(g.realMoney / 1.1);
-                            return s + unitPrice * g.qty;
+                            val = unitPrice * g.qty;
                         }
-                        return s + g.totalBeforeTax;
+                        return s + (roundMoney ? Math.round(val) : val);
                     }, 0);
-                    totalData[col.key] = roundMoney ? Math.round(rawVal) : rawVal;
+                    totalData[col.key] = rawVal;
                     break;
                 }
                 case 'taxMoney': {
                     const rawVal = goods.reduce((s, g) => {
+                        let val = g.taxMoney;
                         if (splitSurchargeTax && isSurchargeItem(g)) {
                             const unitPrice = Math.round(g.realMoney / 1.1);
-                            return s + Math.round(unitPrice * 0.1);
+                            val = Math.round(unitPrice * 0.1);
                         }
-                        return s + g.taxMoney;
+                        return s + (roundMoney ? Math.round(val) : val);
                     }, 0);
-                    totalData[col.key] = roundMoney ? Math.round(rawVal) : rawVal;
+                    totalData[col.key] = rawVal;
                     break;
                 }
                 case 'realMoney': {
-                    const rawVal = goods.reduce((s, g) => s + g.realMoney, 0);
-                    totalData[col.key] = roundMoney ? Math.round(rawVal) : rawVal;
+                    const rawVal = goods.reduce((s, g) => s + (roundMoney ? Math.round(g.realMoney) : g.realMoney), 0);
+                    totalData[col.key] = rawVal;
                     break;
                 }
             }
@@ -388,7 +393,8 @@ async function exportOrdersExcel(
             cell.font = { bold: true, color: { argb: 'FF065F46' } };
             cell.alignment = { vertical: 'middle', horizontal: colNum === 1 ? 'left' : 'right' };
             cell.border = { top: { style: 'medium', color: { argb: 'FF10B981' } } };
-            if (MONEY_KEYS.has(colKey) || QTY_KEYS.has(colKey)) cell.numFmt = '#,##0';
+            if (MONEY_KEYS.has(colKey)) cell.numFmt = roundMoney ? '#,##0' : '#,##0.##';
+            else if (QTY_KEYS.has(colKey)) cell.numFmt = '#,##0';
         });
 
         // ── Sheet 2: Tổng hợp theo sản phẩm ─────────────────────────────
@@ -417,14 +423,15 @@ async function exportOrdersExcel(
 
         let ri = 0;
         for (const [catName, items] of catMap) {
-            const catTotal = Array.from(items.values()).reduce((s, v) => ({ qty: s.qty + v.qty, realMoney: s.realMoney + v.realMoney }), { qty: 0, realMoney: 0 });
-            const catRow = ws2.addRow({ category: catName, goodsName: '', qty: catTotal.qty, realMoney: roundMoney ? Math.round(catTotal.realMoney) : catTotal.realMoney });
+            const catTotal = Array.from(items.values()).reduce((s, v) => ({ qty: s.qty + v.qty, realMoney: s.realMoney + (roundMoney ? Math.round(v.realMoney) : v.realMoney) }), { qty: 0, realMoney: 0 });
+            const catRow = ws2.addRow({ category: catName, goodsName: '', qty: catTotal.qty, realMoney: catTotal.realMoney });
             catRow.height = 24;
             catRow.eachCell((cell, col) => {
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEDE9FE' } };
                 cell.font = { bold: true, color: { argb: 'FF5B21B6' } };
                 cell.alignment = { vertical: 'middle', horizontal: col <= 2 ? 'left' : 'right' };
-                if (col >= 3) cell.numFmt = '#,##0';
+                if (col === 3) cell.numFmt = '#,##0';
+                if (col === 4) cell.numFmt = roundMoney ? '#,##0' : '#,##0.##';
             });
 
             const sorted = Array.from(items.entries()).sort((a, b) => b[1].realMoney - a[1].realMoney);
@@ -436,7 +443,8 @@ async function exportOrdersExcel(
                     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
                     cell.alignment = { vertical: 'middle', horizontal: col <= 2 ? 'left' : 'right', indent: col === 2 ? 2 : 0 };
                     cell.border = { bottom: { style: 'thin', color: { argb: 'FFF1F5F9' } } };
-                    if (col >= 3) cell.numFmt = '#,##0';
+                    if (col === 3) cell.numFmt = '#,##0';
+                    if (col === 4) cell.numFmt = roundMoney ? '#,##0' : '#,##0.##';
                 });
                 ri++;
             }
