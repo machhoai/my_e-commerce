@@ -891,7 +891,7 @@ export default function ProductScannerPage() {
                                 onClick={() => {
                                     const text = groupedQueue.map(item => `${item.code || item.barcode || 'SP'} ${item.quantity}`).join(', ');
                                     navigator.clipboard.writeText(text);
-                                    showToast('success', 'Đã copy tóm tắt');
+                                    showToast.success('Thành công', 'Đã copy tóm tắt');
                                 }}
                                 className="absolute top-2.5 right-2.5 p-1.5 rounded-md text-surface-400 hover:text-accent-600 hover:bg-accent-100/50 opacity-0 group-hover:opacity-100 transition-all active:scale-95"
                                 title="Copy tóm tắt"
