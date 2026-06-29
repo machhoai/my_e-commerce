@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ScanLine, Search, Camera, RotateCcw, Zap, ZapOff, ChevronDown, Loader2, Package, X, Plus, CheckCircle2 } from 'lucide-react';
+import { ScanLine, Search, Camera, RotateCcw, Zap, ZapOff, ChevronDown, Loader2, Package, X, Plus, CheckCircle2, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { showToast } from '@/lib/utils/toast';
 import { preloadScannerData, getWmsWarehouseMappingAction, getAvailableWmsWarehousesAction, getLocationScansAction, submitExternalScanAction, getWmsLocationsAction } from '@/actions/scanner';
@@ -881,8 +881,28 @@ export default function ProductScannerPage() {
                         </button>
                     </div>
 
+                    {/* Queue summary */}
+                    {groupedQueue.length > 0 && (
+                        <div className="bg-accent-50/30 border-b border-surface-100 p-2.5 shrink-0 group relative">
+                            <div className="text-[11px] font-medium text-surface-700 leading-relaxed max-h-[60px] overflow-y-auto custom-scrollbar pr-6 whitespace-pre-wrap break-words">
+                                {groupedQueue.map(item => `${item.code || item.barcode || 'SP'} ${item.quantity}`).join(', ')}
+                            </div>
+                            <button
+                                onClick={() => {
+                                    const text = groupedQueue.map(item => `${item.code || item.barcode || 'SP'} ${item.quantity}`).join(', ');
+                                    navigator.clipboard.writeText(text);
+                                    showToast('success', 'Đã copy tóm tắt');
+                                }}
+                                className="absolute top-2.5 right-2.5 p-1.5 rounded-md text-surface-400 hover:text-accent-600 hover:bg-accent-100/50 opacity-0 group-hover:opacity-100 transition-all active:scale-95"
+                                title="Copy tóm tắt"
+                            >
+                                <Copy className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    )}
+
                     {/* Queue list */}
-                    <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
                         {loadingQueue ? (
                             <div className="flex items-center justify-center py-10">
                                 <Loader2 className="w-6 h-6 animate-spin text-accent-500" />

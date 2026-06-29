@@ -203,6 +203,7 @@ async function exportOrdersExcel(
     ordersColConfig: ColConfig,
     goodsColConfig: ColConfig,
     splitSurchargeTax = false,
+    roundMoney = false,
 ) {
     const excelMod = await import('exceljs');
     const ExcelJS = excelMod.default || excelMod;
@@ -240,10 +241,10 @@ async function exportOrdersExcel(
                     case 'employeeName':  rowData[col.key] = o.employeeName; break;
                     case 'goodsNames':    rowData[col.key] = o.goodsNames; break;
                     case 'totalQty':      rowData[col.key] = o.totalQty; break;
-                    case 'realMoney':     rowData[col.key] = o.realMoney; break;
-                    case 'discountMoney': rowData[col.key] = o.discountMoney; break;
-                    case 'cancelMoney':   rowData[col.key] = o.cancelMoney; break;
-                    case 'taxMoney':      rowData[col.key] = o.taxMoney; break;
+                    case 'realMoney':     rowData[col.key] = roundMoney ? Math.round(o.realMoney) : o.realMoney; break;
+                    case 'discountMoney': rowData[col.key] = roundMoney ? Math.round(o.discountMoney) : o.discountMoney; break;
+                    case 'cancelMoney':   rowData[col.key] = roundMoney ? Math.round(o.cancelMoney) : o.cancelMoney; break;
+                    case 'taxMoney':      rowData[col.key] = roundMoney ? Math.round(o.taxMoney) : o.taxMoney; break;
                     case 'payModeNames':  rowData[col.key] = o.payModeNames; break;
                     case 'statusName':    rowData[col.key] = o.statusName; break;
                     case 'terminalName':  rowData[col.key] = o.terminalName; break;
@@ -271,10 +272,10 @@ async function exportOrdersExcel(
             switch (col.key) {
                 case 'orderNumber':   totalData[col.key] = 'TỔNG CỘNG'; break;
                 case 'totalQty':      totalData[col.key] = orders.reduce((s, o) => s + o.totalQty, 0); break;
-                case 'realMoney':     totalData[col.key] = orders.reduce((s, o) => s + o.realMoney, 0); break;
-                case 'discountMoney': totalData[col.key] = orders.reduce((s, o) => s + o.discountMoney, 0); break;
-                case 'cancelMoney':   totalData[col.key] = orders.reduce((s, o) => s + o.cancelMoney, 0); break;
-                case 'taxMoney':      totalData[col.key] = orders.reduce((s, o) => s + o.taxMoney, 0); break;
+                case 'realMoney':     totalData[col.key] = roundMoney ? Math.round(orders.reduce((s, o) => s + o.realMoney, 0)) : orders.reduce((s, o) => s + o.realMoney, 0); break;
+                case 'discountMoney': totalData[col.key] = roundMoney ? Math.round(orders.reduce((s, o) => s + o.discountMoney, 0)) : orders.reduce((s, o) => s + o.discountMoney, 0); break;
+                case 'cancelMoney':   totalData[col.key] = roundMoney ? Math.round(orders.reduce((s, o) => s + o.cancelMoney, 0)) : orders.reduce((s, o) => s + o.cancelMoney, 0); break;
+                case 'taxMoney':      totalData[col.key] = roundMoney ? Math.round(orders.reduce((s, o) => s + o.taxMoney, 0)) : orders.reduce((s, o) => s + o.taxMoney, 0); break;
             }
         }
         if (!totalData['orderNumber'] && activeCols.length > 0)
@@ -318,11 +319,11 @@ async function exportOrdersExcel(
                     case 'createTime':       rowData[col.key] = g.createTime.slice(0, 16); break;
                     case 'goodsName':        rowData[col.key] = goodsNameMap[g.goodsName] || g.goodsName; break;
                     case 'showCategoryName': rowData[col.key] = categoryNameMap[g.showCategoryName] || g.showCategoryName; break;
-                    case 'price':            rowData[col.key] = effectivePrice; break;
+                    case 'price':            rowData[col.key] = roundMoney ? Math.round(effectivePrice) : effectivePrice; break;
                     case 'qty':              rowData[col.key] = g.qty; break;
-                    case 'totalBeforeTax':   rowData[col.key] = effectiveTotalBeforeTax; break;
-                    case 'taxMoney':         rowData[col.key] = effectiveTax; break;
-                    case 'realMoney':        rowData[col.key] = g.realMoney; break;
+                    case 'totalBeforeTax':   rowData[col.key] = roundMoney ? Math.round(effectiveTotalBeforeTax) : effectiveTotalBeforeTax; break;
+                    case 'taxMoney':         rowData[col.key] = roundMoney ? Math.round(effectiveTax) : effectiveTax; break;
+                    case 'realMoney':        rowData[col.key] = roundMoney ? Math.round(g.realMoney) : g.realMoney; break;
                     case 'payModeNames':     rowData[col.key] = g.payModeNames; break;
                     case 'employeeName':     rowData[col.key] = g.employeeName; break;
                     case 'statusName':       rowData[col.key] = g.statusName; break;
@@ -348,21 +349,33 @@ async function exportOrdersExcel(
             switch (col.key) {
                 case 'orderNumber':    totalData[col.key] = 'TỔNG CỘNG'; break;
                 case 'qty':            totalData[col.key] = goods.reduce((s, g) => s + g.qty, 0); break;
-                case 'totalBeforeTax': totalData[col.key] = goods.reduce((s, g) => {
-                    if (splitSurchargeTax && isSurchargeItem(g)) {
-                        const unitPrice = Math.round(g.realMoney / 1.1);
-                        return s + unitPrice * g.qty;
-                    }
-                    return s + g.totalBeforeTax;
-                }, 0); break;
-                case 'taxMoney':       totalData[col.key] = goods.reduce((s, g) => {
-                    if (splitSurchargeTax && isSurchargeItem(g)) {
-                        const unitPrice = Math.round(g.realMoney / 1.1);
-                        return s + Math.round(unitPrice * 0.1);
-                    }
-                    return s + g.taxMoney;
-                }, 0); break;
-                case 'realMoney':      totalData[col.key] = goods.reduce((s, g) => s + g.realMoney, 0); break;
+                case 'totalBeforeTax': {
+                    const rawVal = goods.reduce((s, g) => {
+                        if (splitSurchargeTax && isSurchargeItem(g)) {
+                            const unitPrice = Math.round(g.realMoney / 1.1);
+                            return s + unitPrice * g.qty;
+                        }
+                        return s + g.totalBeforeTax;
+                    }, 0);
+                    totalData[col.key] = roundMoney ? Math.round(rawVal) : rawVal;
+                    break;
+                }
+                case 'taxMoney': {
+                    const rawVal = goods.reduce((s, g) => {
+                        if (splitSurchargeTax && isSurchargeItem(g)) {
+                            const unitPrice = Math.round(g.realMoney / 1.1);
+                            return s + Math.round(unitPrice * 0.1);
+                        }
+                        return s + g.taxMoney;
+                    }, 0);
+                    totalData[col.key] = roundMoney ? Math.round(rawVal) : rawVal;
+                    break;
+                }
+                case 'realMoney': {
+                    const rawVal = goods.reduce((s, g) => s + g.realMoney, 0);
+                    totalData[col.key] = roundMoney ? Math.round(rawVal) : rawVal;
+                    break;
+                }
             }
         }
         if (!totalData['orderNumber'] && activeCols.length > 0)
@@ -405,7 +418,7 @@ async function exportOrdersExcel(
         let ri = 0;
         for (const [catName, items] of catMap) {
             const catTotal = Array.from(items.values()).reduce((s, v) => ({ qty: s.qty + v.qty, realMoney: s.realMoney + v.realMoney }), { qty: 0, realMoney: 0 });
-            const catRow = ws2.addRow({ category: catName, goodsName: '', qty: catTotal.qty, realMoney: catTotal.realMoney });
+            const catRow = ws2.addRow({ category: catName, goodsName: '', qty: catTotal.qty, realMoney: roundMoney ? Math.round(catTotal.realMoney) : catTotal.realMoney });
             catRow.height = 24;
             catRow.eachCell((cell, col) => {
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEDE9FE' } };
@@ -416,7 +429,7 @@ async function exportOrdersExcel(
 
             const sorted = Array.from(items.entries()).sort((a, b) => b[1].realMoney - a[1].realMoney);
             for (const [goodsName, { qty, realMoney }] of sorted) {
-                const r = ws2.addRow({ category: '', goodsName, qty, realMoney });
+                const r = ws2.addRow({ category: '', goodsName, qty, realMoney: roundMoney ? Math.round(realMoney) : realMoney });
                 r.height = 20;
                 const bg = ri % 2 === 0 ? 'FFFAFAFA' : 'FFFFFFFF';
                 r.eachCell((cell, col) => {
@@ -919,6 +932,11 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
     const [savedFlash, setSavedFlash] = useState(false);
     const [bypassCustom, setBypassCustom] = useState(false);
     const overlayRef = useRef<HTMLDivElement>(null);
+    const [exportType, setExportType] = useState<'statistics' | 'invoice'>('statistics');
+    const [roundMoney, setRoundMoney] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        try { return localStorage.getItem('orders_export_round_money') === 'true'; } catch { return false; }
+    });
     const [splitSurchargeTax, setSplitSurchargeTax] = useState(() => {
         if (typeof window === 'undefined') return false;
         try { return localStorage.getItem(LS_SURCHARGE_TAX_KEY) === 'true'; } catch { return false; }
@@ -941,6 +959,7 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
     useEffect(() => { saveColConfig(LS_GOODS_COLS_KEY, goodsColConfig); }, [goodsColConfig]);
     useEffect(() => { if (rowConfig.length > 0) saveRowConfig(rowConfig); }, [rowConfig]);
     useEffect(() => { try { localStorage.setItem(LS_SURCHARGE_TAX_KEY, String(splitSurchargeTax)); } catch { /* quota */ } }, [splitSurchargeTax]);
+    useEffect(() => { try { localStorage.setItem('orders_export_round_money', String(roundMoney)); } catch { /* quota */ } }, [roundMoney]);
 
     // Initialise / merge rowConfig whenever catalog is available
     useEffect(() => {
@@ -1026,6 +1045,7 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                 ordersColConfig,
                 goodsColConfig,
                 splitSurchargeTax,
+                roundMoney,
             );
         } finally {
             setIsExporting(false);
@@ -1111,6 +1131,30 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                     </div>
                 )}
 
+                {/* ── Export Type Tabs ───────────────────────────────── */}
+                <div className="flex items-center gap-4 px-6 pt-4">
+                    <button
+                        onClick={() => { setExportType('statistics'); if (columnTarget === 'cols') setColumnTarget('goods'); }}
+                        className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all ${
+                            exportType === 'statistics'
+                                ? 'bg-teal-50 text-teal-700 border-2 border-teal-500 shadow-sm'
+                                : 'bg-surface-50 text-surface-500 border-2 border-transparent hover:bg-surface-100'
+                        }`}
+                    >
+                        Tệp Thống Kê
+                    </button>
+                    <button
+                        onClick={() => { setExportType('invoice'); if (columnTarget === 'rows') setColumnTarget('goods'); }}
+                        className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all ${
+                            exportType === 'invoice'
+                                ? 'bg-indigo-50 text-indigo-700 border-2 border-indigo-500 shadow-sm'
+                                : 'bg-surface-50 text-surface-500 border-2 border-transparent hover:bg-surface-100'
+                        }`}
+                    >
+                        Tệp Hóa Đơn
+                    </button>
+                </div>
+
                 {/* ── Column Target Tabs ─────────────────────────────── */}
                 <div className="flex items-center gap-2 px-6 pt-4 pb-0 justify-between flex-wrap">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -1136,7 +1180,7 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                                 activeColor: 'bg-emerald-600 shadow-emerald-200',
                                 badgeColor: 'bg-emerald-100 text-emerald-700',
                             },
-                            {
+                            exportType === 'invoice' ? {
                                 key: 'cols' as ColumnTarget,
                                 label: 'Cột xuất',
                                 icon: <Columns className="size-3.5" />,
@@ -1145,8 +1189,8 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                                 badgeFmt: (n: number) => `${n}/${activeColDefs.length}`,
                                 activeColor: 'bg-indigo-600 shadow-indigo-200',
                                 badgeColor: 'bg-indigo-100 text-indigo-700',
-                            },
-                            {
+                            } : null,
+                            exportType === 'statistics' ? {
                                 key: 'rows' as ColumnTarget,
                                 label: 'Thứ tự hàng',
                                 icon: <AlignJustify className="size-3.5" />,
@@ -1155,8 +1199,8 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                                 badgeFmt: (n: number) => `${n}`,
                                 activeColor: 'bg-violet-600 shadow-violet-200',
                                 badgeColor: 'bg-violet-100 text-violet-700',
-                            },
-                        ]).map(tab => (
+                            } : null,
+                        ].filter((t): t is any => t !== null)).map(tab => (
                             <button
                                 key={tab.key}
                                 onClick={() => { setColumnTarget(tab.key); setSearch(''); setFilterMode('all'); }}
@@ -1395,6 +1439,27 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                 ) : columnTarget === 'cols' ? (
                     /* ── Column Manager ─────────────────────────────── */
                     <div className="flex-1 overflow-y-auto px-5 pb-4 scrollbar-thin" style={{ minHeight: 0 }}>
+                        {/* ── Invoice Settings ── */}
+                        <div className="mt-3 mb-1 flex flex-col gap-2 p-3 bg-surface-50 border border-surface-200 rounded-xl">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 text-indigo-600"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-bold text-surface-700">Làm tròn số tiền</p>
+                                        <p className="text-[10px] text-surface-500">Loại bỏ thập phân (round 0) ở các cột tiền</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setRoundMoney(prev => !prev)}
+                                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:ring-offset-1 ${roundMoney ? 'bg-indigo-500' : 'bg-surface-200 hover:bg-surface-300'}`}
+                                >
+                                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${roundMoney ? 'translate-x-5' : 'translate-x-0'}`} />
+                                </button>
+                            </div>
+                        </div>
+
                         {/* Controls */}
                         <div className="flex items-center justify-between py-3">
                             <p className="text-[11px] text-surface-500">
@@ -1614,7 +1679,7 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                             )}
                             {/* Qty summary export — always available when goods data exists */}
                             <div className="flex items-center gap-2">
-                                {goods.length > 0 && (
+                                {exportType === 'statistics' && goods.length > 0 && (
                                     <button
                                         onClick={handleExportQty}
                                         disabled={isExportingQty || isExporting || catalogLoading}
@@ -1649,8 +1714,9 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                                         )}
                                     </button>
                                 )}
-                                <button
-                                    onClick={handleExport}
+                                {exportType === 'invoice' && (
+                                    <button
+                                        onClick={handleExport}
                                     disabled={isExporting || dataCount === 0}
                                     className={`
     relative flex items-center justify-center gap-2 min-w-[170px] px-5 py-2.5 rounded-xl 
@@ -1685,6 +1751,7 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                                         </>
                                     )}
                                 </button>
+                                )}
                             </div>
                         </div>
                     </div>
