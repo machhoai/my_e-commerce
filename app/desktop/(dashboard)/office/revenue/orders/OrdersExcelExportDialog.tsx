@@ -164,6 +164,19 @@ const fmtShort = (v: number) => {
 };
 const moneyNumFmt = (roundMoney: boolean) => roundMoney ? EXCEL_VI_INTEGER_FMT : EXCEL_VI_DECIMAL_FMT;
 const roundVND = (v: number) => Math.round(v);
+type SaveAsFn = typeof import('file-saver').saveAs;
+type FileSaverInteropModule = typeof import('file-saver') & {
+    default?: SaveAsFn | { saveAs?: SaveAsFn };
+};
+
+function resolveSaveAs(fileSaverMod: typeof import('file-saver')): SaveAsFn {
+    const mod = fileSaverMod as FileSaverInteropModule;
+    const saveAs = mod.saveAs ?? (typeof mod.default === 'function' ? mod.default : mod.default?.saveAs);
+    if (typeof saveAs !== 'function') {
+        throw new Error('Không thể khởi tạo chức năng tải file Excel.');
+    }
+    return saveAs;
+}
 
 // ── Extract unique items ──────────────────────────────────────────────────────
 function extractGoodsFromOrders(goods: GoodsRecord[]): { name: string; category: string; revenue: number }[] {
@@ -211,7 +224,7 @@ async function exportOrdersExcel(
     const excelMod = await import('exceljs');
     const ExcelJS = excelMod.default || excelMod;
     const fileSaverMod = await import('file-saver');
-    const saveAs = fileSaverMod.saveAs;
+    const saveAs = resolveSaveAs(fileSaverMod);
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Orders Dashboard';
     wb.created = new Date();
@@ -517,7 +530,7 @@ async function exportQtySummary(
     const excelMod = await import('exceljs');
     const ExcelJS = excelMod.default || excelMod;
     const fileSaverMod = await import('file-saver');
-    const saveAs = fileSaverMod.saveAs;
+    const saveAs = resolveSaveAs(fileSaverMod);
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Orders Dashboard';
     wb.created = new Date();
@@ -1058,6 +1071,9 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                 splitSurchargeTax,
                 roundMoney,
             );
+        } catch (error) {
+            console.error('Failed to export orders Excel:', error);
+            alert(error instanceof Error ? error.message : 'Không thể xuất file Excel. Vui lòng thử lại.');
         } finally {
             setIsExporting(false);
         }
@@ -1075,6 +1091,9 @@ export default function OrdersExcelExportDialog({ open, onClose, orders, goods, 
                 activeRange,
                 rowConfig,
             );
+        } catch (error) {
+            console.error('Failed to export quantity summary Excel:', error);
+            alert(error instanceof Error ? error.message : 'Không thể xuất file Excel. Vui lòng thử lại.');
         } finally {
             setIsExportingQty(false);
         }
