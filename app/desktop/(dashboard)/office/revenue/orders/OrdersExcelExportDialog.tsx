@@ -169,7 +169,7 @@ type FileSaverInteropModule = typeof import('file-saver') & {
     default?: SaveAsFn | { saveAs?: SaveAsFn };
 };
 
-function resolveSaveAs(fileSaverMod: typeof import('file-saver')): SaveAsFn {
+function resolveSaveAs(fileSaverMod: unknown): SaveAsFn {
     const mod = fileSaverMod as FileSaverInteropModule;
     const saveAs = mod.saveAs ?? (typeof mod.default === 'function' ? mod.default : mod.default?.saveAs);
     if (typeof saveAs !== 'function') {
