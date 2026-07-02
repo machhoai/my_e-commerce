@@ -9,12 +9,12 @@ if (!fs.existsSync(outputDir)) {
 }
 
 // 2. Cấu hình tiền tố và khoảng số
-const prefix = "JWG";
+const prefix = "JWS";
 const start = 1;
-const end = 62;
+const end = 27;
 
 async function generateBulkQR() {
-    console.log("🚀 Đang tiến hành tạo 62 QR Code...");
+    console.log(`🚀 Đang tiến hành tạo ${end} QR Code...`);
 
     for (let i = start; i <= end; i++) {
         // Biến số 1 thành "0001", 62 thành "0062"
@@ -26,8 +26,8 @@ async function generateBulkQR() {
         try {
             await QRCode.toFile(filePath, codeString, {
                 type: 'png',
-                width: 400,          // Kích thước ảnh 400x400 (độ nét cao để in tem)
-                margin: 2,           // Độ dày viền trắng xung quanh QR
+                width: 200,          // Kích thước ảnh 400x400 (độ nét cao để in tem)
+                margin: 0,           // Độ dày viền trắng xung quanh QR
                 color: {
                     dark: '#000000', // Màu mã QR
                     light: '#FFFFFF' // Màu nền
@@ -41,7 +41,7 @@ async function generateBulkQR() {
         }
     }
 
-    console.log(`\n🎉 HOÀN TẤT! Hãy mở thư mục "qrcodes_output" để lấy 62 file PNG.`);
+    console.log(`\n🎉 HOÀN TẤT! Hãy mở thư mục "qrcodes_output" để lấy ${end} file PNG.`);
 }
 
 generateBulkQR();
