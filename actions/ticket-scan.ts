@@ -26,9 +26,15 @@ function getConfig() {
 // ── 1. Lookup pass or order by any code ──────────────────────
 export async function ticketLookupAction(
     code: string,
-): Promise<TicketScanResponse | null> {
+): Promise<TicketScanResponse> {
     const cfg = getConfig();
-    if (!cfg) return null;
+    if (!cfg) {
+        return {
+            success: false,
+            error: 'TICKET_API_NOT_CONFIGURED',
+            message: 'Chưa cấu hình TICKET_API_URL hoặc TICKET_API_KEY.',
+        };
+    }
 
     try {
         const res = await fetch(
@@ -42,11 +48,28 @@ export async function ticketLookupAction(
                 cache: 'no-store',
             },
         );
-        const data = await res.json();
+        let data: unknown;
+        try {
+            data = await res.json();
+        } catch {
+            return {
+                success: false,
+                error: 'TICKET_API_INVALID_RESPONSE',
+                message: `API vé trả về phản hồi không phải JSON. Kiểm tra TICKET_API_URL (${res.status}).`,
+                status: res.status,
+            };
+        }
+        if (!res.ok && data && typeof data === 'object') {
+            return { ...(data as Extract<TicketScanResponse, { success: false }>), status: res.status };
+        }
         return data as TicketScanResponse;
     } catch (err) {
         console.error('[TicketScan] Lookup failed:', err);
-        return null;
+        return {
+            success: false,
+            error: 'TICKET_API_NETWORK_ERROR',
+            message: err instanceof Error ? err.message : 'Không thể kết nối API vé.',
+        };
     }
 }
 

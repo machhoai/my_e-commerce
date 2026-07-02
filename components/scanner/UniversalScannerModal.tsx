@@ -18,12 +18,44 @@ import TicketPassCard from './TicketPassCard';
 import TicketOrderCard from './TicketOrderCard';
 import BottomSheet from '@/components/shared/BottomSheet';
 import dynamic from 'next/dynamic';
+import type { Html5Qrcode } from 'html5-qrcode';
 
 const AIQuickChat = dynamic(() => import('@/components/shared/AIQuickChat'), { ssr: false });
 
 // ── Normalize Vietnamese for diacritics-insensitive search ───
 const normalize = (s: string) =>
     s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+
+const looksLikeTicketCode = (value: string) => {
+    const code = value.trim();
+    const upper = code.toUpperCase();
+    return (
+        upper.startsWith('BDUCK-PASS-') ||
+        upper.startsWith('BDK-') ||
+        /^[A-Z0-9]{12}$/.test(upper) ||
+        /^[A-Za-z0-9_-]{20,32}$/.test(code)
+    );
+};
+
+const extractCodeFromScannedValue = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+
+    try {
+        const url = new URL(trimmed);
+        const parts = url.pathname.split('/').filter(Boolean);
+        const localeOffset = parts[0] === 'vi' || parts[0] === 'en' ? 1 : 0;
+        const section = parts[localeOffset];
+        const id = parts[localeOffset + 1];
+
+        if (section === 'p' && id) return id;
+        if ((section === 'tickets' || section === 'tickets-wallet') && id) return id;
+    } catch {
+        // Not a URL; keep the raw scanned value.
+    }
+
+    return trimmed;
+};
 
 type ModalView =
     | { kind: 'scanner' }
@@ -34,12 +66,23 @@ type ModalView =
     | { kind: 'referral'; employee: { uid: string; name: string; phone: string; storeId: string; referralPoints: number } }
     | { kind: 'ticket-pass'; pass: TicketPassData }
     | { kind: 'ticket-order'; order: TicketOrderData }
+    | { kind: 'scan-error'; title: string; message: string; query?: string }
     | { kind: 'not-found'; query: string };
 
 // ── Beep via Web Audio API ───────────────────────────────────────
+type WindowWithLegacyAudio = Window & typeof globalThis & {
+    webkitAudioContext?: typeof AudioContext;
+};
+
+type TorchMediaTrackCapabilities = MediaTrackCapabilities & { torch?: boolean };
+type TorchMediaTrackConstraintSet = MediaTrackConstraintSet & { torch?: boolean };
+type FocusMediaTrackConstraintSet = MediaTrackConstraintSet & { focusMode?: string };
+
 function playBeep(frequency = 1200, duration = 80, volume = 0.4) {
     try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const AudioCtor = window.AudioContext || (window as WindowWithLegacyAudio).webkitAudioContext;
+        if (!AudioCtor) return;
+        const ctx = new AudioCtor();
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
@@ -220,6 +263,14 @@ const FAB_MARGIN = 12; // distance from screen edge
 const IDLE_TIMEOUT = 5000;
 const DRAG_THRESHOLD = 12; // px moved to count as drag (not tap) — higher to avoid accidental drags on touchscreens
 
+const getInitialFabPosition = () => {
+    if (typeof window === 'undefined') return { x: 0, y: 0 };
+    return {
+        x: window.innerWidth - FAB_SIZE - FAB_MARGIN,
+        y: window.innerHeight - FAB_SIZE - FAB_MARGIN - 60,
+    };
+};
+
 function DraggableFAB({ onTapScan, onTapAI, hidden, hasAI }: {
     onTapScan: () => void;
     onTapAI: () => void;
@@ -227,25 +278,19 @@ function DraggableFAB({ onTapScan, onTapAI, hidden, hasAI }: {
     hasAI: boolean;
 }) {
     const btnRef = useRef<HTMLButtonElement>(null);
-    const posRef = useRef({ x: 0, y: 0 });
+    const posRef = useRef(getInitialFabPosition());
     const dragState = useRef({ dragging: false, startX: 0, startY: 0, startPosX: 0, startPosY: 0, moved: false });
     const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [idle, setIdle] = useState(true);
-    const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+    const [pos, setPos] = useState(getInitialFabPosition);
     const [snapping, setSnapping] = useState(false);
     const [expanded, setExpanded] = useState(false);
 
-    // Initialize position to bottom-right
-    useEffect(() => {
-        const x = window.innerWidth - FAB_SIZE - FAB_MARGIN;
-        const y = window.innerHeight - FAB_SIZE - FAB_MARGIN - 60;
-        posRef.current = { x, y };
-        setPos({ x, y });
-    }, []);
-
     // Close expanded when FAB is hidden
     useEffect(() => {
-        if (hidden) setExpanded(false);
+        if (!hidden) return;
+        const timer = setTimeout(() => setExpanded(false), 0);
+        return () => clearTimeout(timer);
     }, [hidden]);
 
     const resetIdleTimer = useCallback(() => {
@@ -335,8 +380,6 @@ function DraggableFAB({ onTapScan, onTapAI, hidden, hasAI }: {
         setExpanded(false);
         onTapAI();
     }, [onTapAI]);
-
-    if (!pos) return null;
 
     // Sub-button size & spacing
     const SUB_SIZE = 52;
@@ -461,7 +504,7 @@ export default function UniversalScannerModal() {
     const [torchOn, setTorchOn] = useState(false);
     const [torchSupported, setTorchSupported] = useState(false);
     const scannerRef = useRef<HTMLDivElement>(null);
-    const html5QrRef = useRef<any>(null);
+    const html5QrRef = useRef<Html5Qrcode | null>(null);
     const scanLock = useRef(false);
     const handleSearchRef = useRef<(input: string) => void>(() => { });
     const [showLabel, setShowLabel] = useState(false);
@@ -492,7 +535,7 @@ export default function UniversalScannerModal() {
             isMounted = false;
             clearTimeout(timer);
         };
-    }, [authUser]); // Chạy khi có authUser
+    }, [authUser, preloadedEmployees.length, preloading]); // Chạy khi có authUser
 
     // ── Start camera — QR + Code128 only, high-res, adaptive qrbox ──
     const startCamera = useCallback(async () => {
@@ -536,7 +579,7 @@ export default function UniversalScannerModal() {
                         width: { min: 640, ideal: 1920 },
                         height: { min: 480, ideal: 1080 },
                         // 4. BÍ QUYẾT: Ép ống kính lấy nét liên tục (Hoạt động cực tốt trên Safari iOS 15+ và Chrome)
-                        advanced: [{ focusMode: "continuous" }] as any,
+                        advanced: [{ focusMode: "continuous" } as FocusMediaTrackConstraintSet],
                     },
                 },
                 (text: string) => {
@@ -576,7 +619,7 @@ export default function UniversalScannerModal() {
                 : null;
             if (!track) return;
             const newState = !torchOn;
-            await track.applyConstraints({ advanced: [{ torch: newState } as any] });
+            await track.applyConstraints({ advanced: [{ torch: newState } as TorchMediaTrackConstraintSet] });
             setTorchOn(newState);
         } catch { /* torch not supported on this device */ }
     }, [torchOn]);
@@ -588,7 +631,7 @@ export default function UniversalScannerModal() {
             ? (video.srcObject as MediaStream).getVideoTracks()[0]
             : null;
         if (!track) return;
-        const caps = track.getCapabilities?.() as any;
+        const caps = track.getCapabilities?.() as TorchMediaTrackCapabilities | undefined;
         setTorchSupported(!!caps?.torch);
     }, []);
 
@@ -609,7 +652,7 @@ export default function UniversalScannerModal() {
                 const video = document.querySelector<HTMLVideoElement>('#scanner-container video');
                 const track = video?.srcObject instanceof MediaStream
                     ? (video.srcObject as MediaStream).getVideoTracks()[0] : null;
-                if (track) await track.applyConstraints({ advanced: [{ torch: false } as any] });
+                if (track) await track.applyConstraints({ advanced: [{ torch: false } as TorchMediaTrackConstraintSet] });
             } catch { }
         }
         await stopCamera();
@@ -631,7 +674,7 @@ export default function UniversalScannerModal() {
             }, 300);
             return () => { clearTimeout(timer); stopCamera(); };
         }
-    }, [isOpen, view.kind, startCamera, stopCamera]);
+    }, [isOpen, view.kind, startCamera, stopCamera, checkTorchSupport]);
 
     useEffect(() => {
         // Mỗi khi ticketMode thay đổi, hiện chữ lên
@@ -664,17 +707,7 @@ export default function UniversalScannerModal() {
     // ── Search handler ───────────────────────────────────────────
     const handleSearch = async (input: string) => {
         console.log('[Scanner] handleSearch called with:', JSON.stringify(input), '| ticketMode:', ticketMode);
-        let trimmed = input.trim();
-
-        // Extract slug if input is a Joyworld URL from printed labels
-        try {
-            if (trimmed.startsWith('http')) {
-                const url = new URL(trimmed);
-                if (url.pathname.startsWith('/p/')) {
-                    trimmed = url.pathname.replace('/p/', '');
-                }
-            }
-        } catch { /* ignore valid url check */ }
+        const trimmed = extractCodeFromScannedValue(input);
 
         if (!trimmed) return;
         await stopCamera();
@@ -705,11 +738,23 @@ export default function UniversalScannerModal() {
         }
 
         // 2. Ticket mode ON → call external Ticketing API
-        if (ticketMode && canScanTickets) {
+        const isTicketCode = looksLikeTicketCode(trimmed);
+        if (isTicketCode && !canScanTickets) {
+            setView({
+                kind: 'scan-error',
+                title: 'Không có quyền quét vé',
+                message: 'Tài khoản hiện tại chưa có quyền scan_tickets để tra cứu mã vé.',
+                query: trimmed,
+            });
+            return;
+        }
+
+        const shouldSearchTickets = canScanTickets && (ticketMode || isTicketCode);
+        if (shouldSearchTickets) {
             setView({ kind: 'searching' });
             try {
                 const ticketResult = await ticketLookupAction(trimmed);
-                if (ticketResult && ticketResult.success) {
+                if (ticketResult.success) {
                     if (ticketResult.type === 'pass') {
                         setView({ kind: 'ticket-pass', pass: ticketResult.pass });
                         return;
@@ -719,10 +764,25 @@ export default function UniversalScannerModal() {
                         return;
                     }
                 }
-                // API returned not_found or null (not configured)
-                setView({ kind: 'not-found', query: trimmed });
+                if (ticketResult.error === 'NOT_FOUND') {
+                    setView({ kind: 'not-found', query: trimmed });
+                    return;
+                }
+                setView({
+                    kind: 'scan-error',
+                    title: ticketResult.status === 401 || ticketResult.error === 'UNAUTHORIZED'
+                        ? 'Không xác thực được API vé'
+                        : 'Không thể tra cứu vé',
+                    message: ticketResult.message || ticketResult.error || 'API vé trả về lỗi không xác định.',
+                    query: trimmed,
+                });
             } catch {
-                setView({ kind: 'not-found', query: trimmed });
+                setView({
+                    kind: 'scan-error',
+                    title: 'Không thể tra cứu vé',
+                    message: 'Có lỗi khi gọi API vé. Vui lòng kiểm tra cấu hình kết nối.',
+                    query: trimmed,
+                });
             }
             return;
         }
@@ -980,6 +1040,28 @@ export default function UniversalScannerModal() {
 
             case 'referral':
                 return <ReferralView employee={view.employee} cashierId={authUser?.uid || ''} onDone={close} onRescan={resetToScanner} />;
+
+            case 'scan-error':
+                return (
+                    <div className="flex flex-col items-center py-12 px-6">
+                        <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-4">
+                            <SearchX className="w-8 h-8 text-red-500" />
+                        </div>
+                        <h3 className="text-base font-bold text-surface-800 mb-1">{view.title}</h3>
+                        <p className="text-sm text-surface-500 text-center mb-3">{view.message}</p>
+                        {view.query && (
+                            <p className="text-sm font-mono font-semibold text-surface-700 bg-surface-100 px-3 py-1 rounded-lg mb-6">{view.query}</p>
+                        )}
+                        <div className="w-full space-y-2">
+                            <button onClick={resetToScanner} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-accent-500 text-white font-bold text-sm hover:bg-accent-600 transition-colors">
+                                <RotateCcw className="w-4 h-4" /> Quét lại
+                            </button>
+                            <button onClick={close} className="w-full py-3 rounded-xl bg-surface-100 text-surface-600 font-semibold text-sm hover:bg-surface-200 transition-colors">
+                                Đóng
+                            </button>
+                        </div>
+                    </div>
+                );
 
             case 'not-found':
                 return (

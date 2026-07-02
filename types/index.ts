@@ -927,7 +927,7 @@ export interface TicketOrderData {
 export type TicketScanResponse =
     | { success: true; type: 'pass'; pass: TicketPassData }
     | { success: true; type: 'order'; order: TicketOrderData }
-    | { success: false; error: string; message: string };
+    | { success: false; error: string; message: string; status?: number };
 
 /** Response from POST /api/v1/scan/use-pass */
 export type TicketUsePassResponse =
