@@ -184,6 +184,10 @@ export default function ProductScannerPage() {
     const [submittingId, setSubmittingId] = useState<string | null>(null);
     const [cameraQueuedProduct, setCameraQueuedProduct] = useState<PreloadedProduct | null>(null);
 
+    // UI state for double-click manual add confirmation
+    const [confirmAddId, setConfirmAddId] = useState<string | null>(null);
+    const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     // ── Preload data ──────────────────────────────────────────────
     useEffect(() => {
         if (!authUser || !userDoc) return;
@@ -444,6 +448,20 @@ export default function ProductScannerPage() {
             }
         }
     }, [authUser, loadQueue, selectedLocationId, userDoc?.name, wmsWarehouseId]);
+
+    const handleAddClick = useCallback((product: PreloadedProduct) => {
+        if (confirmAddId === product.id) {
+            if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
+            setConfirmAddId(null);
+            handleSubmitProduct(product, 'manual');
+        } else {
+            setConfirmAddId(product.id);
+            if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
+            confirmTimeoutRef.current = setTimeout(() => {
+                setConfirmAddId(null);
+            }, 3000);
+        }
+    }, [confirmAddId, handleSubmitProduct]);
 
     // ── Camera setup ────────────────────────────────────────────
     const startCamera = useCallback(async () => {
@@ -754,16 +772,29 @@ export default function ProductScannerPage() {
                                                     </div>
                                                     <button
                                                         type="button"
-                                                        onClick={() => handleSubmitProduct(p)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleAddClick(p);
+                                                        }}
                                                         disabled={submittingId === p.id}
-                                                        title="Thêm vào hàng chờ"
+                                                        title={confirmAddId === p.id ? "Bấm lần nữa để xác nhận" : "Thêm vào hàng chờ"}
                                                         aria-label={`Thêm ${p.name} vào hàng chờ`}
-                                                        className="group/add w-8 h-8 rounded-full bg-surface-50 border border-surface-200 hover:bg-accent-500 hover:border-accent-500 disabled:hover:bg-surface-50 disabled:hover:border-surface-200 flex items-center justify-center shrink-0 transition-colors"
+                                                        className={cn(
+                                                            "group/add h-8 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 overflow-hidden outline-none",
+                                                            confirmAddId === p.id 
+                                                                ? "w-24 bg-accent-500 text-white border-none shadow-md ring-2 ring-accent-200 ring-offset-1"
+                                                                : "w-8 bg-surface-50 border border-surface-200 hover:bg-accent-100 hover:border-accent-300 disabled:hover:bg-surface-50 disabled:hover:border-surface-200"
+                                                        )}
                                                     >
                                                         {submittingId === p.id ? (
                                                             <Loader2 className="w-4 h-4 animate-spin text-accent-500" />
+                                                        ) : confirmAddId === p.id ? (
+                                                            <div className="flex items-center gap-1.5 whitespace-nowrap px-2 animate-in fade-in zoom-in duration-200">
+                                                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                                                <span className="text-[11px] font-bold">Xác nhận</span>
+                                                            </div>
                                                         ) : (
-                                                            <Plus className="w-4 h-4 text-surface-400 group-hover/add:text-white" />
+                                                            <Plus className="w-4 h-4 text-surface-400 group-hover/add:text-accent-600 transition-colors" />
                                                         )}
                                                     </button>
                                                 </div>
