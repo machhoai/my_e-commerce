@@ -152,8 +152,8 @@ const MONEY_KEYS = new Set(['realMoney', 'discountMoney', 'cancelMoney', 'taxMon
 const QTY_KEYS   = new Set(['totalQty', 'qty']);
 const LEFT_KEYS  = new Set(['orderNumber', 'createTime', 'employeeName', 'goodsNames', 'payModeNames',
     'statusName', 'terminalName', 'goodsName', 'showCategoryName']);
-const EXCEL_VI_INTEGER_FMT = '[$-042A]#,##0';
-const EXCEL_VI_DECIMAL_FMT = '[$-042A]#,##0.##';
+const EXCEL_VI_INTEGER_FMT = '#,##0';
+const EXCEL_VI_DECIMAL_FMT = '#,##0.##';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const fmtShort = (v: number) => {
