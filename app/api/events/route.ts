@@ -136,6 +136,8 @@ export async function GET(req: NextRequest) {
                     totalStock: stock,
                     available: counts.available,
                     distributed: counts.distributed,
+                    used: counts.used,
+                    revoked: counts.revoked,
                 };
             });
 

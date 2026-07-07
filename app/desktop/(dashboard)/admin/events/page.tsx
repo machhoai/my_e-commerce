@@ -69,6 +69,8 @@ interface CampaignStock {
     totalStock: number;
     available: number;
     distributed: number;
+    used: number;
+    revoked: number;
 }
 
 interface EventWithStats extends EventDoc {
@@ -274,21 +276,81 @@ export default function EventsPage() {
 // ═════════════════════════════════════════════════════════════════
 // SHARED: EVENT DETAIL PANEL
 // ═════════════════════════════════════════════════════════════════
+function ratio(value: number, total: number) {
+    if (total <= 0) return 0;
+    return Math.min(100, Math.max(0, Math.round((value / total) * 100)));
+}
+
+function fmtNumber(value: number) {
+    return value.toLocaleString('vi-VN');
+}
+
+function MetricRing({
+    label,
+    value,
+    total,
+    color,
+    caption,
+}: {
+    label: string;
+    value: number;
+    total: number;
+    color: string;
+    caption: string;
+}) {
+    const pct = ratio(value, total);
+
+    return (
+        <div className="flex items-center gap-3 rounded-xl border border-surface-100 bg-white px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+            <div
+                className="relative grid h-14 w-14 shrink-0 place-items-center rounded-full"
+                style={{ background: `conic-gradient(${color} ${pct * 3.6}deg, #e2e8f0 0deg)` }}
+            >
+                <div className="absolute inset-[6px] rounded-full bg-white" />
+                <span className="relative text-[11px] font-black text-surface-800">{pct}%</span>
+            </div>
+            <div className="min-w-0">
+                <p className="truncate text-[11px] font-bold text-surface-700">{label}</p>
+                <p className="mt-0.5 text-[10px] text-surface-400">{caption}</p>
+                <p className="mt-1 text-xs font-black text-surface-800">
+                    {fmtNumber(value)}
+                    <span className="font-semibold text-surface-400">/{fmtNumber(total)}</span>
+                </p>
+            </div>
+        </div>
+    );
+}
+
 function EventDetailPanel({ event }: { event: EventWithStats }) {
     const todayStr = new Date().toISOString().slice(0, 10);
-    const totalIssued = event.codesDistributed + event.codesUsed;
-    const isActive = event.status === 'active';
+    const campaignStocks = event.campaignStocks || [];
+    const campaignIssuedTotal = campaignStocks.reduce((sum, cs) => sum + (cs.distributed || 0) + (cs.used || 0), 0);
+    const totalIssued = event.codesDistributed || campaignIssuedTotal;
+    const todayIssued = campaignStocks.reduce((sum, cs) => sum + (event.dailyStats?.[todayStr]?.[cs.campaignId] || 0), 0);
+    const todayLimit = campaignStocks.reduce((sum, cs) => sum + (cs.dailyLimit || 0), 0);
+    const totalRevoked = campaignStocks.reduce((sum, cs) => sum + (cs.revoked || 0), 0);
+    const unusedIssued = Math.max(0, campaignIssuedTotal - event.codesUsed);
     const isClosed = event.status === 'closed' || event.status === 'ended';
+    const lowStockCount = campaignStocks.filter(cs => cs.totalStock > 0 && ratio(cs.available || 0, cs.totalStock) <= 20).length;
+
+    const startMs = new Date(event.startDate).getTime();
+    const endMs = new Date(event.endDate).getTime();
+    const todayMs = new Date(todayStr).getTime();
+    const totalDays = Number.isFinite(startMs) && Number.isFinite(endMs)
+        ? Math.max(1, Math.ceil((endMs - startMs) / 86400000) + 1)
+        : 0;
+    const remainingDays = Number.isFinite(endMs) && Number.isFinite(todayMs)
+        ? Math.max(0, Math.ceil((endMs - todayMs) / 86400000) + 1)
+        : 0;
 
     return (
         <div className="space-y-4">
-            {/* KPI row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                    { label: 'Tổng mã', value: event.totalStock, icon: Hash, gradient: 'from-primary-500 to-primary-600' },
-                    { label: 'Đã phát', value: totalIssued, icon: Gift, gradient: 'from-accent-500 to-accent-600' },
-                    { label: 'Còn lại', value: event.codesAvailable, icon: Ticket, gradient: 'from-warning-500 to-warning-600' },
-                    { label: 'Đã dùng', value: event.codesUsed, icon: CheckCircle2, gradient: 'from-success-500 to-success-600' },
+                    { label: 'Tổng mã', value: event.totalStock, icon: Hash, gradient: 'from-primary-500 to-primary-600', hint: `${campaignStocks.length} loại voucher` },
+                    { label: 'Đã phát', value: totalIssued, icon: Gift, gradient: 'from-accent-500 to-accent-600', hint: `${ratio(totalIssued, event.totalStock)}% kho` },
+                    { label: 'Còn lại', value: event.codesAvailable, icon: Ticket, gradient: 'from-warning-500 to-warning-600', hint: `${ratio(event.codesAvailable, event.totalStock)}% khả dụng` },
+                    { label: 'Đã dùng', value: event.codesUsed, icon: CheckCircle2, gradient: 'from-success-500 to-success-600', hint: `${ratio(event.codesUsed, totalIssued)}% sau phát` },
                 ].map(k => (
                     <div key={k.label} className={cn(
                         'rounded-xl border p-3.5 hover:shadow-sm transition-all duration-200',
@@ -300,41 +362,154 @@ function EventDetailPanel({ event }: { event: EventWithStats }) {
                             </div>
                             <span className="text-[11px] font-medium text-surface-500">{k.label}</span>
                         </div>
-                        <p className="text-xl font-black text-surface-800">{k.value.toLocaleString()}</p>
+                        <p className="text-xl font-black text-surface-800">{fmtNumber(k.value)}</p>
+                        <p className="mt-1 text-[10px] font-medium text-surface-400">{k.hint}</p>
                     </div>
                 ))}
             </div>
 
-            {/* Prize Pool */}
-            {(event.campaignStocks || []).length > 0 && (
-                <div className={cn('rounded-xl border overflow-hidden', isClosed ? 'border-surface-100' : 'border-surface-200')}>
-                    <div className="px-4 py-2.5 bg-surface-50 border-b border-surface-100 flex items-center gap-2">
-                        <Gift className="w-3.5 h-3.5 text-accent-500" />
-                        <span className="text-xs font-bold text-surface-700">Prize Pool</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                <MetricRing label="Tỉ lệ phát" value={totalIssued} total={event.totalStock} color="#22d3ee" caption="Đã phát trên tổng kho" />
+                <MetricRing label="Tỉ lệ sử dụng" value={event.codesUsed} total={totalIssued} color="#10b981" caption="Đã dùng sau khi phát" />
+                <MetricRing label="Tồn khả dụng" value={event.codesAvailable} total={event.totalStock} color="#f59e0b" caption="Còn có thể phát" />
+                <MetricRing label="Quota hôm nay" value={todayIssued} total={todayLimit} color="#6366f1" caption="Đã phát trong ngày" />
+            </div>
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                    { label: 'Đã phát chưa dùng', value: unusedIssued, accent: 'text-accent-700', bg: 'bg-accent-50' },
+                    { label: 'Bị thu hồi', value: totalRevoked, accent: 'text-danger-700', bg: 'bg-danger-50' },
+                    { label: 'Thời lượng sự kiện', value: totalDays, suffix: 'ngày', accent: 'text-primary-700', bg: 'bg-primary-50' },
+                    { label: 'Voucher sắp cạn', value: lowStockCount, suffix: 'loại', accent: 'text-warning-700', bg: 'bg-warning-50' },
+                ].map(item => (
+                    <div key={item.label} className={cn('rounded-xl border border-surface-100 px-3.5 py-3', item.bg)}>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-surface-500">{item.label}</p>
+                        <p className={cn('mt-1 text-lg font-black', item.accent)}>
+                            {fmtNumber(item.value)}
+                            {item.suffix && <span className="ml-1 text-xs font-bold opacity-70">{item.suffix}</span>}
+                        </p>
                     </div>
-                    <div className="divide-y divide-surface-50">
-                        {event.campaignStocks.map((cs, i) => {
-                            const used = isActive ? (event.dailyStats?.[todayStr]?.[cs.campaignId] || 0) : 0;
-                            const pct = cs.dailyLimit > 0 ? Math.min((used / cs.dailyLimit) * 100, 100) : 0;
-                            const colors = ['bg-accent-500', 'bg-primary-500', 'bg-warning-500', 'bg-success-500', 'bg-danger-400'];
+                ))}
+            </div>
+
+            {campaignStocks.length > 0 && (
+                <div className={cn('rounded-xl border overflow-hidden', isClosed ? 'border-surface-100' : 'border-surface-200')}>
+                    <div className="flex flex-col gap-3 border-b border-surface-100 bg-surface-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-2">
+                            <Gift className="w-3.5 h-3.5 text-accent-500" />
+                            <span className="text-xs font-bold text-surface-700">Prize Pool theo loại voucher</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold text-surface-500">
+                            <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-warning-400" />Còn lại</span>
+                            <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-accent-400" />Đã phát</span>
+                            <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-success-500" />Đã dùng</span>
+                            <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-danger-400" />Thu hồi</span>
+                        </div>
+                    </div>
+
+                    <div className="divide-y divide-surface-100">
+                        {campaignStocks.map((cs, i) => {
+                            const dailyUsed = event.dailyStats?.[todayStr]?.[cs.campaignId] || 0;
+                            const issued = (cs.distributed || 0) + (cs.used || 0);
+                            const availablePct = ratio(cs.available || 0, cs.totalStock);
+                            const issuedPct = ratio(issued, cs.totalStock);
+                            const usedAfterIssuePct = ratio(cs.used || 0, issued);
+                            const quotaPct = ratio(dailyUsed, cs.dailyLimit || 0);
+                            const availableWidth = ratio(cs.available || 0, cs.totalStock);
+                            const distributedWidth = ratio(cs.distributed || 0, cs.totalStock);
+                            const usedWidth = ratio(cs.used || 0, cs.totalStock);
+                            const revokedWidth = ratio(cs.revoked || 0, cs.totalStock);
+                            const coverageDays = cs.dailyLimit > 0 ? Math.floor((cs.available || 0) / cs.dailyLimit) : 0;
+                            const dotColors = ['bg-accent-500', 'bg-primary-500', 'bg-warning-500', 'bg-success-500', 'bg-danger-400'];
+                            const ringColors = ['#22d3ee', '#6366f1', '#f59e0b', '#10b981', '#ef4444'];
+
                             return (
-                                <div key={cs.campaignId} className="px-4 py-3">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <div className="flex items-center gap-2">
-                                            <div className={cn('w-2 h-2 rounded-full', colors[i % 5])} />
-                                            <span className="text-xs font-semibold text-surface-700">{cs.campaignName}</span>
-                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-100 text-surface-500">{REWARD_LABELS[cs.rewardType] || cs.rewardType} • {cs.rate}%</span>
-                                        </div>
-                                        <span className="text-xs text-surface-500">{cs.available}/{cs.totalStock}</span>
-                                    </div>
-                                    {isActive && (
-                                        <div className="ml-4">
-                                            <div className="h-1.5 bg-surface-100 rounded-full overflow-hidden">
-                                                <div className={cn('h-full rounded-full transition-all', pct >= 100 ? 'bg-danger-500' : pct >= 80 ? 'bg-warning-500' : colors[i % 5])} style={{ width: `${pct}%` }} />
+                                <div key={cs.campaignId} className="px-4 py-4">
+                                    <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <div className={cn('h-2.5 w-2.5 rounded-full', dotColors[i % dotColors.length])} />
+                                                <span className="text-sm font-extrabold text-surface-800">{cs.campaignName}</span>
+                                                <span className="rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-surface-500 ring-1 ring-surface-100">
+                                                    {REWARD_LABELS[cs.rewardType] || cs.rewardType} • Tỉ lệ trúng {cs.rate}%
+                                                </span>
                                             </div>
-                                            <p className="text-[10px] text-surface-400 mt-0.5">Hôm nay: {used}/{cs.dailyLimit}</p>
+
+                                            <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-surface-100">
+                                                <div className="flex h-full w-full">
+                                                    <div className="h-full bg-success-500" style={{ width: `${usedWidth}%` }} />
+                                                    <div className="h-full bg-accent-400" style={{ width: `${distributedWidth}%` }} />
+                                                    <div className="h-full bg-warning-400" style={{ width: `${availableWidth}%` }} />
+                                                    <div className="h-full bg-danger-400" style={{ width: `${revokedWidth}%` }} />
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                                                {[
+                                                    { label: 'Tổng', value: cs.totalStock, color: 'text-surface-800' },
+                                                    { label: 'Còn lại', value: cs.available || 0, color: 'text-warning-700' },
+                                                    { label: 'Đã phát', value: issued, color: 'text-accent-700' },
+                                                    { label: 'Đã dùng', value: cs.used || 0, color: 'text-success-700' },
+                                                    { label: 'Thu hồi', value: cs.revoked || 0, color: 'text-danger-700' },
+                                                ].map(stat => (
+                                                    <div key={stat.label} className="rounded-lg bg-surface-50 px-2.5 py-2">
+                                                        <p className="text-[10px] font-semibold text-surface-400">{stat.label}</p>
+                                                        <p className={cn('text-sm font-black', stat.color)}>{fmtNumber(stat.value)}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    )}
+
+                                        <div className="grid grid-cols-3 gap-2 sm:min-w-[330px]">
+                                            {[
+                                                { label: 'Phát', value: issued, total: cs.totalStock, pct: issuedPct, color: ringColors[0] },
+                                                { label: 'Dùng', value: cs.used || 0, total: issued, pct: usedAfterIssuePct, color: ringColors[3] },
+                                                { label: 'Tồn', value: cs.available || 0, total: cs.totalStock, pct: availablePct, color: ringColors[2] },
+                                            ].map(r => (
+                                                <div key={r.label} className="rounded-xl bg-white p-2 text-center ring-1 ring-surface-100">
+                                                    <div
+                                                        className="mx-auto grid h-12 w-12 place-items-center rounded-full"
+                                                        style={{ background: `conic-gradient(${r.color} ${r.pct * 3.6}deg, #e2e8f0 0deg)` }}
+                                                    >
+                                                        <div className="grid h-9 w-9 place-items-center rounded-full bg-white">
+                                                            <span className="text-[10px] font-black text-surface-800">{r.pct}%</span>
+                                                        </div>
+                                                    </div>
+                                                    <p className="mt-1 text-[10px] font-bold text-surface-500">{r.label}</p>
+                                                    <p className="text-[10px] font-semibold text-surface-400">{fmtNumber(r.value)}/{fmtNumber(r.total)}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+                                        <div className="rounded-lg bg-surface-50 px-3 py-2">
+                                            <div className="flex items-center justify-between text-[10px] font-bold text-surface-500">
+                                                <span>Quota hôm nay</span>
+                                                <span>{fmtNumber(dailyUsed)}/{fmtNumber(cs.dailyLimit || 0)}</span>
+                                            </div>
+                                            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white">
+                                                <div
+                                                    className={cn('h-full rounded-full transition-all', quotaPct >= 100 ? 'bg-danger-500' : quotaPct >= 80 ? 'bg-warning-500' : 'bg-primary-500')}
+                                                    style={{ width: `${quotaPct}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="rounded-lg bg-surface-50 px-3 py-2">
+                                            <p className="text-[10px] font-bold text-surface-500">Bao phủ quota</p>
+                                            <p className="mt-0.5 text-xs font-black text-surface-800">
+                                                {cs.dailyLimit > 0 ? `${fmtNumber(coverageDays)} ngày` : 'Không giới hạn/ngày'}
+                                                {remainingDays > 0 && cs.dailyLimit > 0 && <span className="ml-1 font-semibold text-surface-400">/ còn {remainingDays} ngày</span>}
+                                            </p>
+                                        </div>
+                                        <div className="rounded-lg bg-surface-50 px-3 py-2">
+                                            <p className="text-[10px] font-bold text-surface-500">Hiệu suất đổi thưởng</p>
+                                            <p className="mt-0.5 text-xs font-black text-surface-800">
+                                                {usedAfterIssuePct}%
+                                                <span className="ml-1 font-semibold text-surface-400">đã dùng sau phát</span>
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                             );
                         })}
@@ -599,9 +774,11 @@ function DashboardTab({ events, participations, recentPlays, getToken }: {
 
     const funnelData = useMemo(() => {
         if (!selected) return [];
+        const issued = selected.codesDistributed || (selected.campaignStocks || [])
+            .reduce((sum, cs) => sum + (cs.distributed || 0) + (cs.used || 0), 0);
         return [
             { name: 'Tổng mã voucher', value: selected.totalStock, color: '#6366f1' },
-            { name: 'Đã phát', value: selected.codesDistributed + selected.codesUsed, color: '#22d3ee' },
+            { name: 'Đã phát', value: issued, color: '#22d3ee' },
             { name: 'Khách tham gia', value: pStats.totalPlayers, color: '#f59e0b' },
             { name: 'Giải trúng', value: pStats.totalPrizesWon, color: '#10b981' },
             { name: 'Đã sử dụng', value: selected.codesUsed, color: '#ec4899' },
