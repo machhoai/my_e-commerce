@@ -561,6 +561,22 @@ export default function OrdersClient({ startDate, endDate }: Props) {
     const gActiveFilterCount = [gSelCategory, gSelEmployee, gSelStatus].filter(v => v !== 'ALL').length + (gSearch ? 1 : 0);
     const activeExportColumns = viewMode === 'orders' ? ORDER_EXPORT_COLUMNS : GOODS_EXPORT_COLUMNS;
     const activeExportData = viewMode === 'orders' ? filteredOrders : filteredGoods;
+    const exportOrders = useMemo(() => {
+        if (viewMode === 'orders') return filteredOrders;
+        const filteredGoodsOrderIds = new Set(filteredGoods.map(g => g.orderId).filter(Boolean));
+        const filteredGoodsOrderNumbers = new Set(filteredGoods.map(g => g.orderNumber).filter(Boolean));
+        return allOrders.filter(o =>
+            filteredGoodsOrderIds.has(o.orderId) || filteredGoodsOrderNumbers.has(o.orderNumber)
+        );
+    }, [viewMode, filteredOrders, filteredGoods, allOrders]);
+    const exportGoods = useMemo(() => {
+        if (viewMode === 'goods') return filteredGoods;
+        const filteredOrderIds = new Set(filteredOrders.map(o => o.orderId).filter(Boolean));
+        const filteredOrderNumbers = new Set(filteredOrders.map(o => o.orderNumber).filter(Boolean));
+        return allGoods.filter(g =>
+            filteredOrderIds.has(g.orderId) || filteredOrderNumbers.has(g.orderNumber)
+        );
+    }, [viewMode, filteredGoods, filteredOrders, allGoods]);
 
     // ── Render ─────────────────────────────────────────────────────────────────
     return (
@@ -1073,8 +1089,8 @@ export default function OrdersClient({ startDate, endDate }: Props) {
             <OrdersExcelExportDialog
                 open={showCustomExport}
                 onClose={() => setShowCustomExport(false)}
-                orders={viewMode === 'orders' ? filteredOrders : allOrders}
-                goods={allGoods}
+                orders={exportOrders}
+                goods={exportGoods}
                 viewMode={viewMode}
                 activeRange={`${effectiveStart}_${effectiveEnd}`}
             />
