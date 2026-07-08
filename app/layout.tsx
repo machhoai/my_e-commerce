@@ -79,6 +79,7 @@ export default function RootLayout({
             <head>
                 <Script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></Script>
                 <Script noModule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></Script>
+                <meta name="theme-color" content="#E6A800"></meta>
             </head>
             <body className={`${inter.className} min-h-dvh custom-scrollbar w-full relative overflow-x-hidden flex flex-col`} suppressHydrationWarning>
                 <AuthProvider>
