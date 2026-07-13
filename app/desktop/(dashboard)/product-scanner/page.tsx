@@ -804,7 +804,7 @@ export default function ProductScannerPage() {
                                             {loadingCountState || (openingCountSheet && countCheckpointType === 'BEFORE_SCAN') ? (
                                                 "Đang tải..."
                                             ) : beforeScanOpen ? (
-                                                "Xem lại"
+                                                "Đã kiểm"
                                             ) : (
                                                 "Kiểm kho"
                                             )}
@@ -829,7 +829,7 @@ export default function ProductScannerPage() {
                                     {!beforeScanOpen ? "🔒" : "2"}
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                    <span className="block font-bold text-surface-800 text-[11px] leading-tight">2. Quét hàng</span>
+                                    <span className="block font-bold text-surface-800 text-[11px] leading-tight">2. Quét</span>
                                     <span className="block text-[10px] text-surface-400 truncate mt-0.5">
                                         {!beforeScanOpen ? "Đang khóa" : "Sẵn sàng"}
                                     </span>
@@ -863,7 +863,7 @@ export default function ProductScannerPage() {
                                             {loadingCountState || (openingCountSheet && countCheckpointType === 'BEFORE_SUBMIT') ? (
                                                 "Đang tải..."
                                             ) : beforeSubmitOpen ? (
-                                                "Xem lại"
+                                                "Đã kiểm"
                                             ) : (
                                                 "Kiểm kho"
                                             )}
@@ -950,7 +950,7 @@ export default function ProductScannerPage() {
                                                         aria-label={`Thêm ${p.name} vào hàng chờ`}
                                                         className={cn(
                                                             "group/add h-8 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 overflow-hidden outline-none",
-                                                            confirmAddId === p.id 
+                                                            confirmAddId === p.id
                                                                 ? "w-24 bg-accent-500 text-white border-none shadow-md ring-2 ring-accent-200 ring-offset-1"
                                                                 : "w-8 bg-surface-50 border border-surface-200 hover:bg-accent-100 hover:border-accent-300 disabled:hover:bg-surface-50 disabled:hover:border-surface-200"
                                                         )}
