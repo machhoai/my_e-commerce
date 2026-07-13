@@ -10,7 +10,7 @@
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 
-export type ImageUploadType = 'avatar' | 'cccd_front' | 'cccd_back';
+export type ImageUploadType = 'avatar' | 'cccd_front' | 'cccd_back' | 'stock_count_evidence';
 
 /**
  * Upload a base64 image to Firebase Storage and return the download URL.

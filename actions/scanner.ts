@@ -13,6 +13,7 @@
 
 import { getAdminDb } from '@/lib/firebase-admin';
 import type { VoucherCode, ScanResult } from '@/types';
+import crypto from 'node:crypto';
 
 const PHONE_REGEX = /^(03|05|07|08|09)\d{8}$/;
 
@@ -47,8 +48,78 @@ type ExternalScanPayload = {
     device_id: string | null;
 };
 
+export type ExternalCountCheckpointType = 'BEFORE_SCAN' | 'BEFORE_SUBMIT';
+export type ExternalCountItemCondition = 'GOOD' | 'DAMAGED' | 'EXPIRED' | 'MISSING';
+
+export type ExternalCountItemPayload = {
+    barcode?: string | null;
+    product_id?: string | null;
+    counted_quantity: number;
+    base_atp?: number | null;
+    condition?: ExternalCountItemCondition;
+    evidence_urls?: string[];
+    notes?: string | null;
+};
+
+export type ExternalCountCheckpointPayload = {
+    warehouse_id: string;
+    warehouse_location_id: string;
+    checkpoint_type: ExternalCountCheckpointType;
+    business_date: string;
+    idempotency_key: string;
+    external_operator_name?: string | null;
+    external_operator_id?: string | null;
+    device_id?: string | null;
+    notes?: string | null;
+    action_time?: string;
+    items: ExternalCountItemPayload[];
+};
+
+export type ExternalCountState = {
+    config: {
+        id: string;
+        enabled: boolean;
+        require_before_scan: boolean;
+        require_before_submit: boolean;
+    };
+    gates: {
+        before_scan: boolean;
+        before_submit: boolean;
+    };
+    checkpoints: Array<{
+        id: string;
+        session_number: string;
+        checkpoint_type: ExternalCountCheckpointType;
+        status: string;
+        discrepancy_count?: number;
+    }>;
+};
+
 function getErrorMessage(err: unknown) {
     return err instanceof Error ? err.message : String(err);
+}
+
+function getWmsApiUrl() {
+    return (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
+}
+
+function buildWmsAuthHeaders(method: string, path: string, rawBody = '') {
+    const apiKey = process.env.WMS_API_KEY || '';
+    const apiSecret = process.env.WMS_API_SECRET || '';
+    const headers: Record<string, string> = { 'x-api-key': apiKey };
+
+    // Local WMS uses a development API-key bypass. Production clients must sign.
+    if (apiSecret) {
+        const timestamp = Date.now().toString();
+        const message = `${method.toUpperCase()}|${path}|${timestamp}|${rawBody}`;
+        headers['x-timestamp'] = timestamp;
+        headers['x-signature'] = crypto
+            .createHmac('sha256', apiSecret)
+            .update(message)
+            .digest('hex');
+    }
+
+    return headers;
 }
 
 // ── Lightweight types for preloaded data ──────────────────────
@@ -77,7 +148,7 @@ export type PreloadedProduct = {
     createdAt: string;
 };
 
-export async function preloadScannerData(wmsWarehouseId?: string, wmsLocationId?: string, options?: { includeEmployees?: boolean }): Promise<{
+export async function preloadScannerData(wmsWarehouseId?: string, wmsLocationId?: string, options?: { includeEmployees?: boolean; includeZeroAtp?: boolean }): Promise<{
     employees: PreloadedEmployee[];
     products: PreloadedProduct[];
 }> {
@@ -125,7 +196,7 @@ export async function preloadScannerData(wmsWarehouseId?: string, wmsLocationId?
     }) ?? [];
 
     const rawProducts: WmsProduct[] = Array.isArray(productsResponse.data) ? productsResponse.data : [];
-    const visibleProducts = wmsLocationId
+    const visibleProducts = wmsLocationId && !options?.includeZeroAtp
         ? rawProducts.filter(p => Number(p.atp_quantity ?? 0) > 0)
         : rawProducts;
 
@@ -420,5 +491,76 @@ export async function getWmsWarehouseMappingAction(type: 'STORE' | 'CENTRAL' | '
         return { success: true, wmsWarehouseId: data?.wmsWarehouseId || null };
     } catch {
         return { success: false, wmsWarehouseId: null };
+    }
+}
+
+export async function getExternalCountStateAction(
+    warehouseId: string,
+    warehouseLocationId: string,
+    businessDate: string,
+): Promise<WmsResponse<ExternalCountState>> {
+    if (!warehouseId || !warehouseLocationId || !businessDate) {
+        return {
+            success: false,
+            data: null as unknown as ExternalCountState,
+            messages: { vi: 'Thiếu kho, vị trí hoặc ngày kiểm đếm.' },
+        };
+    }
+
+    const params = new URLSearchParams({
+        warehouse_id: warehouseId,
+        warehouse_location_id: warehouseLocationId,
+        business_date: businessDate,
+    });
+    const path = `/api/external/v1/count/state?${params.toString()}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    try {
+        const response = await fetch(`${getWmsApiUrl()}${path}`, {
+            headers: buildWmsAuthHeaders('GET', path),
+            cache: 'no-store',
+            signal: controller.signal,
+        });
+        return await response.json() as WmsResponse<ExternalCountState>;
+    } catch (err: unknown) {
+        return {
+            success: false,
+            data: null as unknown as ExternalCountState,
+            messages: { vi: `Không thể tải trạng thái kiểm đếm: ${getErrorMessage(err)}` },
+        };
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+export async function submitExternalCountCheckpointAction(
+    payload: ExternalCountCheckpointPayload,
+): Promise<WmsResponse<Record<string, unknown>>> {
+    const path = '/api/external/v1/count';
+    const rawBody = JSON.stringify(payload);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
+    try {
+        const response = await fetch(`${getWmsApiUrl()}${path}`, {
+            method: 'POST',
+            headers: {
+                ...buildWmsAuthHeaders('POST', path, rawBody),
+                'Content-Type': 'application/json',
+            },
+            body: rawBody,
+            cache: 'no-store',
+            signal: controller.signal,
+        });
+        return await response.json() as WmsResponse<Record<string, unknown>>;
+    } catch (err: unknown) {
+        return {
+            success: false,
+            data: {},
+            messages: { vi: `Không thể gửi kiểm đếm: ${getErrorMessage(err)}` },
+        };
+    } finally {
+        clearTimeout(timeout);
     }
 }
