@@ -6,7 +6,6 @@
  */
 
 import { getAdminDb } from '@/lib/firebase-admin';
-import { FieldValue } from 'firebase-admin/firestore';
 import type {
     InventoryTransactionDoc,
     LocationType,
@@ -40,12 +39,13 @@ export async function verifyCounterAccess(
         };
     }
 
-    // Check if the user is in assignedByManagerUids for any of today's shifts
+    // employeeIds is the authoritative assignment list. assignedByManagerUids is
+    // only metadata identifying force-assigned employees (a subset of employeeIds).
     for (const doc of schedulesSnap.docs) {
         const schedule = doc.data();
-        const assignedByManager: string[] = schedule.assignedByManagerUids || [];
+        const employeeIds: string[] = schedule.employeeIds || [];
 
-        if (assignedByManager.includes(userId)) {
+        if (employeeIds.includes(userId)) {
             return { isAuthorized: true, shiftId: schedule.shiftId };
         }
     }

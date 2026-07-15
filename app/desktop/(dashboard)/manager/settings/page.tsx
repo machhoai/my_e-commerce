@@ -2,10 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Settings as SettingsIcon, Save, Plus, X, Clock, Users, Timer, ShieldAlert, Package, AlertCircle, Store } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Plus, X, Clock, Users, Timer, ShieldAlert, Package, AlertCircle, Store, Link2, Loader2 } from 'lucide-react';
 import { showToast } from '@/lib/utils/toast';
-import { SettingsDoc, CounterDoc, RegistrationSchedule } from '@/types';
+import { SettingsDoc, CounterDoc, RegistrationSchedule, StoreDoc } from '@/types';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
+import { getManageableWmsLocationsAction } from '@/actions/scanner';
+
+type WmsLocationOption = {
+    id: string;
+    name: string;
+    code: string;
+};
 
 const DAY_NAMES = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -16,6 +23,9 @@ export default function ManagerSettingsPage() {
     // Data State
     const [settings, setSettings] = useState<SettingsDoc | null>(null);
     const [counters, setCounters] = useState<CounterDoc[]>([]);
+    const [wmsLocations, setWmsLocations] = useState<WmsLocationOption[]>([]);
+    const [loadingWmsLocations, setLoadingWmsLocations] = useState(false);
+    const [wmsLocationsError, setWmsLocationsError] = useState('');
 
     // UI State
     const [loading, setLoading] = useState(true);
@@ -50,7 +60,7 @@ export default function ManagerSettingsPage() {
                 const token = await user.getIdToken();
                 const res = await fetch('/api/stores', { headers: { Authorization: `Bearer ${token}` } });
                 const data = await res.json();
-                const storeList = Array.isArray(data) ? data.map((s: any) => ({ id: s.id, name: s.name })) : [];
+                const storeList = Array.isArray(data) ? data.map((s: StoreDoc) => ({ id: s.id, name: s.name })) : [];
                 setAdminStores(storeList);
                 // Auto-select from localStorage if the stored ID is an actual store
                 const saved = typeof window !== 'undefined' ? localStorage.getItem('globalSelectedStoreId') : '';
@@ -102,11 +112,22 @@ export default function ManagerSettingsPage() {
                     setSchedule({ enabled: false, openDay: 1, openHour: 8, openMinute: 0, closeDay: 5, closeHour: 22, closeMinute: 0 });
                 }
                 setCounters(data.counters || []);
+
+                setLoadingWmsLocations(true);
+                setWmsLocationsError('');
+                const locationResult = await getManageableWmsLocationsAction(storeId);
+                if (locationResult.success && Array.isArray(locationResult.data)) {
+                    setWmsLocations(locationResult.data as WmsLocationOption[]);
+                } else {
+                    setWmsLocations([]);
+                    setWmsLocationsError(locationResult.error || locationResult.messages?.vi || 'Không tải được vị trí WMS.');
+                }
             } catch (err) {
                 console.error(err);
                 showToast.error('Lỗi tải cài đặt', 'Không thể tải cài đặt cửa hàng');
             } finally {
                 setLoading(false);
+                setLoadingWmsLocations(false);
             }
         }
 
@@ -120,6 +141,10 @@ export default function ManagerSettingsPage() {
         setSaving(true);
 
         try {
+            const mappedLocationIds = counters.map(counter => counter.wmsLocationId).filter(Boolean) as string[];
+            if (new Set(mappedLocationIds).size !== mappedLocationIds.length) {
+                throw new Error('Mỗi vị trí WMS chỉ được mapping với một quầy trong cùng cửa hàng.');
+            }
             const payload = { ...settings, counters, registrationSchedule: schedule };
             const token = await user.getIdToken();
 
@@ -170,7 +195,7 @@ export default function ManagerSettingsPage() {
 
         setCounters([
             ...counters,
-            { id: `counter_${generateId()}`, name: newCounter.trim(), storeId: '', isActive: true }
+            { id: `counter_${generateId()}`, name: newCounter.trim(), storeId, isActive: true }
         ]);
         setNewCounter('');
         showToast.info('Thêm quầy', 'Đã thêm quầy. Nhớ bấm Lưu.');
@@ -189,6 +214,28 @@ export default function ManagerSettingsPage() {
     const handleRenameCounter = (id: string, newName: string) => {
         if (!newName.trim()) return;
         setCounters(counters.map(c => c.id === id ? { ...c, name: newName.trim() } : c));
+    };
+
+    const handleMapCounter = (counterId: string, wmsLocationId: string) => {
+        if (wmsLocationId && counters.some(counter => counter.id !== counterId && counter.wmsLocationId === wmsLocationId)) {
+            showToast.warning('Vị trí đã được sử dụng', 'Vị trí WMS này đã được mapping với một quầy khác.');
+            return;
+        }
+
+        const location = wmsLocations.find(item => item.id === wmsLocationId);
+        setCounters(current => current.map(counter => counter.id === counterId
+            ? {
+                ...counter,
+                storeId,
+                wmsLocationId: location?.id || '',
+                wmsLocationCode: location?.code || '',
+                wmsLocationName: location?.name || '',
+                mappingUpdatedAt: new Date().toISOString(),
+                mappingUpdatedBy: user?.uid || '',
+            }
+            : counter
+        ));
+        showToast.info('Cập nhật mapping', 'Mapping quầy đã thay đổi. Nhớ bấm Lưu cài đặt.');
     };
 
     const handleAddSpecialDate = () => {
@@ -688,8 +735,20 @@ export default function ManagerSettingsPage() {
                         </h2>
                     </div>
                     <p className="text-sm text-surface-500 mb-6">
-                        Các quầy này dùng để kéo thả phân công trong giao diện quản lý.
+                        Các quầy này dùng để phân công nhân viên. Mapping mỗi quầy với đúng vị trí WMS để giới hạn quyền quét và kiểm kho.
                     </p>
+
+                    {loadingWmsLocations && (
+                        <div className="mb-4 flex items-center gap-2 rounded-xl border border-accent-100 bg-accent-50 p-3 text-xs font-medium text-accent-700">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Đang tải danh sách vị trí từ WMS...
+                        </div>
+                    )}
+                    {wmsLocationsError && (
+                        <div className="mb-4 rounded-xl border border-warning-200 bg-warning-50 p-3 text-xs text-warning-700">
+                            {wmsLocationsError}
+                        </div>
+                    )}
 
                     <div className="flex gap-2 mb-6">
                         <input type="text" value={newCounter} onChange={e => setNewCounter(e.target.value)}
@@ -707,10 +766,11 @@ export default function ManagerSettingsPage() {
                             <p className="text-sm text-surface-400 text-center py-4 bg-surface-50 rounded-lg border border-dashed">Chưa có quầy nào</p>
                         ) : (
                             counters.map(counter => (
-                                <div key={counter.id} className={`flex items-center justify-between p-3 border rounded-xl group transition-colors ${counter.isActive !== false
+                                <div key={counter.id} className={`p-3 border rounded-xl group transition-colors ${counter.isActive !== false
                                     ? 'bg-surface-50 border-surface-100 hover:border-warning-200'
                                     : 'bg-surface-100/50 border-surface-200 opacity-60'
                                     }`}>
+                                    <div className="flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-3 flex-1 min-w-0">
                                         {/* Active toggle */}
                                         <button
@@ -742,6 +802,30 @@ export default function ManagerSettingsPage() {
                                         className="text-surface-400 hover:text-danger-500 hover:bg-danger-50 p-1.5 rounded-lg transition-colors ml-2 shrink-0">
                                         <X className="w-4 h-4" />
                                     </button>
+                                    </div>
+
+                                    <div className="mt-3 border-t border-surface-200/70 pt-3">
+                                        <label className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-surface-500">
+                                            <Link2 className="h-3.5 w-3.5" />
+                                            Vị trí WMS được liên kết
+                                        </label>
+                                        <select
+                                            value={counter.wmsLocationId || ''}
+                                            onChange={event => handleMapCounter(counter.id, event.target.value)}
+                                            disabled={loadingWmsLocations || wmsLocations.length === 0}
+                                            className="w-full rounded-lg border border-surface-200 bg-white p-2 text-xs font-medium text-surface-700 outline-none focus:border-warning-400 focus:ring-2 focus:ring-warning-100 disabled:opacity-60"
+                                        >
+                                            <option value="">-- Chưa mapping WMS --</option>
+                                            {wmsLocations.map(location => {
+                                                const usedByOther = counters.some(item => item.id !== counter.id && item.wmsLocationId === location.id);
+                                                return (
+                                                    <option key={location.id} value={location.id} disabled={usedByOther}>
+                                                        {location.name} ({location.code}){usedByOther ? ' — đã dùng' : ''}
+                                                    </option>
+                                                );
+                                            })}
+                                        </select>
+                                    </div>
                                 </div>
                             ))
                         )}

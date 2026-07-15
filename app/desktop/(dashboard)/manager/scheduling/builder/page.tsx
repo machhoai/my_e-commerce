@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
-import { UserDoc, CounterDoc, SettingsDoc, WeeklyRegistration, ScheduleDoc, StoreDoc } from '@/types';
+import { UserDoc, CounterDoc, WeeklyRegistration, ScheduleDoc, StoreDoc } from '@/types';
 import { getWeekStart, getWeekDays, toLocalDateString, formatDate } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import DraggableSchedule from '@/components/manager/DraggableSchedule';
@@ -11,7 +11,7 @@ import ForceAssignModal from '@/components/manager/ForceAssignModal';
 import {
     Calendar, Clock, Save, AlertCircle, CheckCircle2,
     ChevronDown, ChevronLeft, ChevronRight, Building2,
-    UserPlus, Undo2, FileWarning, Trash2, Layers,
+    Undo2, FileWarning, Trash2, Layers,
 } from 'lucide-react';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
@@ -127,7 +127,8 @@ export default function ManagerSchedulePage() {
                     const storeSnap = await getDoc(doc(db, 'stores', effectiveStoreId));
                     if (storeSnap.exists()) {
                         const sData = storeSnap.data() as StoreDoc;
-                        const countersData = (sData.settings as any)?.counters || [];
+                        const countersData = (sData.settings?.counters || [])
+                            .filter((counter: { isActive?: boolean }) => counter.isActive !== false);
                         setCounters(countersData);
                         const shifts = sData.settings?.shiftTimes || [];
                         setShiftTimes(shifts);
@@ -145,7 +146,7 @@ export default function ManagerSchedulePage() {
             }
         }
         loadConfig();
-    }, [userDoc, user]);
+    }, [userDoc, user, effectiveStoreId]);
 
     // ── 2. When admin picks a store, load its counters ────────────────────────
     useEffect(() => {
@@ -154,7 +155,8 @@ export default function ManagerSchedulePage() {
             const storeSnap = await getDoc(doc(db, 'stores', selectedAdminStoreId));
             if (storeSnap.exists()) {
                 const sData = storeSnap.data() as StoreDoc;
-                const countersData = (sData.settings as any)?.counters || [];
+                const countersData = (sData.settings?.counters || [])
+                    .filter((counter: { isActive?: boolean }) => counter.isActive !== false);
                 setCounters(countersData);
                 const shifts = sData.settings?.shiftTimes || [];
                 setShiftTimes(shifts);
@@ -265,7 +267,6 @@ export default function ManagerSchedulePage() {
             }
         }
         loadData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedDate, selectedShiftId, counters, effectiveStoreId]);
 
     // ── 4. Persist draft slice when assignments change ────────────────────────
@@ -540,7 +541,10 @@ export default function ManagerSchedulePage() {
                         className="flex-1 border border-surface-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-accent-300 focus:border-accent-400 bg-surface-50 font-medium"
                     >
                         <option value="">-- Chọn cửa hàng để xem lịch --</option>
-                        {stores.map(s => <option key={s.id} value={s.id}>{(s as any).type === 'OFFICE' ? '🏢' : (s as any).type === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>)}
+                        {stores.map(s => {
+                            const storeType = (s as StoreDoc & { type?: string }).type;
+                            return <option key={s.id} value={s.id}>{storeType === 'OFFICE' ? '🏢' : storeType === 'CENTRAL' ? '🏭' : '🏪'} {s.name}</option>;
+                        })}
                     </select>
                     {!effectiveStoreId && (
                         <p className="text-xs text-warning-600 font-medium shrink-0">⚠️ Chọn cửa hàng để tiếp tục</p>

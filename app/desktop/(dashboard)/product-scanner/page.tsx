@@ -4,23 +4,12 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ScanLine, Search, Camera, RotateCcw, Zap, ZapOff, ChevronDown, ChevronRight, Loader2, Package, X, Plus, CheckCircle2, Copy, ClipboardCheck, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { showToast } from '@/lib/utils/toast';
-import { preloadScannerData, getWmsWarehouseMappingAction, getAvailableWmsWarehousesAction, getLocationScansAction, submitExternalScanAction, getWmsLocationsAction, getExternalCountStateAction } from '@/actions/scanner';
+import { preloadScannerData, getLocationScansAction, submitExternalScanAction, getExternalCountStateAction, getScannerAccessAction } from '@/actions/scanner';
 import type { ExternalCountCheckpointType, ExternalCountState, PreloadedProduct } from '@/actions/scanner';
+import type { ScannerPlacement } from '@/lib/scanner-access';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Html5Qrcode } from 'html5-qrcode';
 import ExternalCountSheet from '@/components/scanner/ExternalCountSheet';
-
-type WmsWarehouse = {
-    id: string;
-    name: string;
-    code: string;
-};
-
-type WmsLocation = {
-    id: string;
-    name: string;
-    code: string;
-};
 
 type QueueItem = {
     id: string;
@@ -99,13 +88,6 @@ const writeCache = <T,>(key: string, data: T) => {
     writeStorageJson<CacheEnvelope<T>>(key, { savedAt: Date.now(), data });
 };
 
-const formatVnd = (value: number) =>
-    new Intl.NumberFormat('vi-VN', {
-        style: 'currency',
-        currency: 'VND',
-        maximumFractionDigits: 0,
-    }).format(value);
-
 const compareByBarcode = <T extends { barcode?: string; companyCode?: string; code?: string; name?: string }>(a: T, b: T) => {
     const codeA = (a.barcode || a.companyCode || a.code || '').trim();
     const codeB = (b.barcode || b.companyCode || b.code || '').trim();
@@ -150,9 +132,7 @@ function playBeep(frequency = 1200, duration = 80, volume = 0.4) {
 }
 
 export default function ProductScannerPage() {
-    const { user: authUser, userDoc, effectiveStoreId } = useAuth();
-    const isAdmin = userDoc?.role === 'super_admin' || userDoc?.role === 'admin';
-    const hasStoreContext = !!(effectiveStoreId || userDoc?.storeId);
+    const { user: authUser, userDoc } = useAuth();
 
     // Scanner state
     const [view, setView] = useState<'list' | 'camera'>('list');
@@ -168,20 +148,23 @@ export default function ProductScannerPage() {
     const [preloadedProducts, setPreloadedProducts] = useState<PreloadedProduct[]>([]);
     const [preloading, setPreloading] = useState(false);
 
-    // Warehouse & Location
-    const [wmsWarehouseId, setWmsWarehouseId] = useState<string | null>(null);
-    const [availableWarehouses, setAvailableWarehouses] = useState<WmsWarehouse[]>([]);
-    const [locations, setLocations] = useState<WmsLocation[]>([]);
-    const [selectedLocationId, setSelectedLocationId] = useState('');
-    const [loadingLocs, setLoadingLocs] = useState(false);
-
-    const canSelectWarehouse = isAdmin && !hasStoreContext;
-    const storageScope = useMemo(
-        () => authUser?.uid || effectiveStoreId || userDoc?.storeId || 'anonymous',
-        [authUser?.uid, effectiveStoreId, userDoc?.storeId],
+    // Counters and WMS locations authorized by the server for this user.
+    const [placements, setPlacements] = useState<ScannerPlacement[]>([]);
+    const [selectedCounterId, setSelectedCounterId] = useState('');
+    const [loadingAccess, setLoadingAccess] = useState(true);
+    const [accessError, setAccessError] = useState('');
+    const selectedPlacement = useMemo(
+        () => placements.find(item => item.counterId === selectedCounterId) || null,
+        [placements, selectedCounterId],
     );
-    const selectedWarehouseStorageKey = useMemo(
-        () => makeStorageKey(storageScope, 'selectedWarehouse'),
+    const wmsWarehouseId = selectedPlacement?.wmsWarehouseId || null;
+    const selectedLocationId = selectedPlacement?.wmsLocationId || '';
+    const storageScope = useMemo(
+        () => authUser?.uid || 'anonymous',
+        [authUser?.uid],
+    );
+    const selectedCounterStorageKey = useMemo(
+        () => makeStorageKey(storageScope, 'selectedCounter'),
         [storageScope],
     );
 
@@ -206,156 +189,44 @@ export default function ProductScannerPage() {
     // ── Preload data ──────────────────────────────────────────────
     useEffect(() => {
         if (!authUser || !userDoc) return;
-        if (!canSelectWarehouse && !hasStoreContext) return;
         let isMounted = true;
 
-        const fetchPreloadData = async () => {
-            if (isMounted) {
-                setLocations([]);
-                setSelectedLocationId('');
-                setWmsWarehouseId(null);
-            }
+        const fetchAccess = async () => {
+            setLoadingAccess(true);
+            setAccessError('');
             try {
-                let warehouseIdToUse: string | null = null;
-
-                if (hasStoreContext) {
-                    const storeContextId = effectiveStoreId || userDoc.storeId || '';
-                    const mappingCacheKey = makeStorageKey(storageScope, 'mappedWarehouse', storeContextId);
-                    const cachedWarehouseId = readCache<string>(mappingCacheKey);
-                    if (cachedWarehouseId && isMounted) {
-                        warehouseIdToUse = cachedWarehouseId;
-                        setWmsWarehouseId(cachedWarehouseId);
-                    }
-
-                    const mapRes = await getWmsWarehouseMappingAction(
-                        'STORE',
-                        storeContextId
-                    );
-                    if (mapRes.success && mapRes.wmsWarehouseId) {
-                        warehouseIdToUse = mapRes.wmsWarehouseId;
-                        writeCache(mappingCacheKey, mapRes.wmsWarehouseId);
-                        if (isMounted) setWmsWarehouseId(warehouseIdToUse);
-                    }
+                const result = await getScannerAccessAction();
+                if (!isMounted) return;
+                setPlacements(result.placements);
+                if (!result.success || result.placements.length === 0) {
+                    setSelectedCounterId('');
+                    setAccessError(result.error || 'Bạn không có quầy được phân công hôm nay.');
+                    return;
                 }
 
-                const cachedWarehouses = readCache<WmsWarehouse[]>(makeStorageKey('warehouses'));
-                const savedWarehouseId = readStorageJson<string>(selectedWarehouseStorageKey);
-                if (cachedWarehouses?.length && isMounted) {
-                    setAvailableWarehouses(cachedWarehouses);
-                    if (canSelectWarehouse) {
-                        const cachedSelection = cachedWarehouses.some(wh => wh.id === savedWarehouseId)
-                            ? savedWarehouseId!
-                            : cachedWarehouses[0].id;
-                        warehouseIdToUse = cachedSelection;
-                        setWmsWarehouseId(cachedSelection);
-                    }
-                }
-
-                const whRes = await getAvailableWmsWarehousesAction();
-                if (whRes.success && whRes.data) {
-                    const warehouses = whRes.data as WmsWarehouse[];
-                    writeCache(makeStorageKey('warehouses'), warehouses);
-
-                    if (isMounted) {
-                        setAvailableWarehouses(warehouses);
-                    }
-
-                    if (canSelectWarehouse) {
-                        if (!warehouseIdToUse && warehouses.length > 0) {
-                            warehouseIdToUse = warehouses.some(wh => wh.id === savedWarehouseId)
-                                ? savedWarehouseId!
-                                : warehouses[0].id;
-                        } else if (warehouseIdToUse && !warehouses.some(wh => wh.id === warehouseIdToUse)) {
-                            warehouseIdToUse = warehouses[0]?.id ?? null;
-                        }
-                        if (isMounted && warehouseIdToUse) {
-                            setWmsWarehouseId(warehouseIdToUse);
-                        }
-                    }
-                } else if (whRes.error) {
-                    console.error('[ProductScanner] Warehouse API failed:', whRes.error, whRes.apiUrl);
-                }
+                const savedCounterId = readStorageJson<string>(selectedCounterStorageKey);
+                const nextCounterId = savedCounterId && result.placements.some(item => item.counterId === savedCounterId)
+                    ? savedCounterId
+                    : result.placements[0].counterId;
+                setSelectedCounterId(nextCounterId);
             } catch (err) {
-                console.error('[ProductScanner] Preload failed:', err);
+                console.error('[ProductScanner] Access check failed:', err);
+                if (isMounted) setAccessError('Không thể kiểm tra phân công quầy. Vui lòng thử lại.');
+            } finally {
+                if (isMounted) setLoadingAccess(false);
             }
         };
 
-        fetchPreloadData();
+        fetchAccess();
         return () => { isMounted = false; };
-    }, [authUser, userDoc, canSelectWarehouse, hasStoreContext, effectiveStoreId, selectedWarehouseStorageKey, storageScope]);
+    }, [authUser, userDoc, selectedCounterStorageKey]);
 
     // ── Handle warehouse change ──────────────────────────────────
-    const handleWarehouseChange = async (newId: string) => {
-        writeStorageJson(selectedWarehouseStorageKey, newId);
-        setSelectedLocationId('');
-        setWmsWarehouseId(newId);
-        setPreloadedProducts([]);
-        loadQueue();
-    };
-
     useEffect(() => {
-        if (canSelectWarehouse && wmsWarehouseId) {
-            writeStorageJson(selectedWarehouseStorageKey, wmsWarehouseId);
+        if (selectedCounterId) {
+            writeStorageJson(selectedCounterStorageKey, selectedCounterId);
         }
-    }, [canSelectWarehouse, selectedWarehouseStorageKey, wmsWarehouseId]);
-
-    // ── Load locations ──────────────────────────────────────────
-    useEffect(() => {
-        if (!wmsWarehouseId) return;
-
-        let isMounted = true;
-        const locationCacheKey = makeStorageKey('locations', wmsWarehouseId);
-        const selectedLocationStorageKey = makeStorageKey(storageScope, 'selectedLocation', wmsWarehouseId);
-        const savedLocationId = readStorageJson<string>(selectedLocationStorageKey);
-        const cachedLocations = readCache<WmsLocation[]>(locationCacheKey);
-
-        setLoadingLocs(!cachedLocations?.length);
-        setLocations(cachedLocations ?? []);
-        setPreloadedProducts([]);
-
-        if (cachedLocations?.length) {
-            const nextLocationId = cachedLocations.some(loc => loc.id === savedLocationId)
-                ? savedLocationId!
-                : cachedLocations[0].id;
-            setSelectedLocationId(nextLocationId);
-        } else {
-            setSelectedLocationId('');
-        }
-
-        getWmsLocationsAction(wmsWarehouseId).then(res => {
-            if (!isMounted) return;
-            if (res.success && res.data) {
-                const nextLocations = res.data as WmsLocation[];
-                writeCache(locationCacheKey, nextLocations);
-                setLocations(nextLocations);
-
-                const storedLocationId = readStorageJson<string>(selectedLocationStorageKey);
-                const nextLocationId = storedLocationId && nextLocations.some(loc => loc.id === storedLocationId)
-                    ? storedLocationId
-                    : nextLocations[0]?.id ?? '';
-                setSelectedLocationId(nextLocationId);
-                if (nextLocationId) writeStorageJson(selectedLocationStorageKey, nextLocationId);
-            } else if (res.error) {
-                console.error('[ProductScanner] Locations API failed:', res.error);
-            }
-            setLoadingLocs(false);
-        });
-
-        return () => { isMounted = false; };
-    }, [wmsWarehouseId, storageScope]);
-
-    const handleLocationChange = (locationId: string) => {
-        if (wmsWarehouseId) {
-            writeStorageJson(makeStorageKey(storageScope, 'selectedLocation', wmsWarehouseId), locationId);
-        }
-        setSelectedLocationId(locationId);
-    };
-
-    useEffect(() => {
-        if (wmsWarehouseId && selectedLocationId) {
-            writeStorageJson(makeStorageKey(storageScope, 'selectedLocation', wmsWarehouseId), selectedLocationId);
-        }
-    }, [selectedLocationId, storageScope, wmsWarehouseId]);
+    }, [selectedCounterId, selectedCounterStorageKey]);
 
     // ── Load products by selected location ATP ─────────────────────
     useEffect(() => {
@@ -702,10 +573,35 @@ export default function ProductScannerPage() {
         [groupedQueue],
     );
     const showInitialProductLoading = preloading && preloadedProducts.length === 0;
-    const selectedWarehouse = availableWarehouses.find(warehouse => warehouse.id === wmsWarehouseId);
-    const selectedLocation = locations.find(location => location.id === selectedLocationId);
     const beforeScanOpen = !countState?.config.enabled || countState.gates.before_scan;
     const beforeSubmitOpen = !countState?.config.enabled || countState.gates.before_submit;
+
+    if (loadingAccess) {
+        return (
+            <div className="flex h-full min-h-64 items-center justify-center">
+                <div className="flex items-center gap-3 rounded-2xl border border-surface-200 bg-white px-5 py-4 text-sm font-medium text-surface-600 shadow-sm">
+                    <Loader2 className="h-5 w-5 animate-spin text-accent-500" />
+                    Đang kiểm tra phân công quầy...
+                </div>
+            </div>
+        );
+    }
+
+    if (accessError || !selectedPlacement) {
+        return (
+            <div className="flex h-full min-h-64 items-center justify-center p-4">
+                <div className="max-w-lg rounded-2xl border border-danger-200 bg-white p-6 text-center shadow-sm">
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-danger-50">
+                        <ShieldCheck className="h-6 w-6 text-danger-500" />
+                    </div>
+                    <h2 className="font-bold text-surface-800">Không được phép sử dụng Product Scanner</h2>
+                    <p className="mt-2 text-sm leading-relaxed text-surface-500">
+                        {accessError || 'Bạn chưa được phân công vào quầy hợp lệ hôm nay.'}
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col h-full gap-4">
@@ -727,52 +623,34 @@ export default function ProductScannerPage() {
                 <div className="flex-1 flex flex-col gap-3 min-w-0">
                     {/* Settings Panel: Warehouse + Location */}
                     <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-3 grid grid-cols-1 md:grid-cols-2 gap-3 shrink-0">
-                        {canSelectWarehouse && availableWarehouses.length > 0 ? (
-                            <div>
-                                <label className="block text-[11px] font-bold text-surface-500 uppercase mb-1">Kho / Nơi thao tác</label>
-                                <div className="relative">
-                                    <select
-                                        value={wmsWarehouseId || ''}
-                                        onChange={(e) => handleWarehouseChange(e.target.value)}
-                                        className="w-full appearance-none bg-surface-50 border border-surface-200 text-surface-800 text-sm rounded-xl px-3 py-2.5 focus:ring-accent-500 focus:border-accent-400 outline-none pr-8 font-medium"
-                                    >
-                                        <option value="" disabled>-- Chọn kho WMS --</option>
-                                        {availableWarehouses.map(wh => (
-                                            <option key={wh.id} value={wh.id}>{wh.name} ({wh.code})</option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown className="w-4 h-4 text-surface-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                                </div>
-                            </div>
-                        ) : (
-                            wmsWarehouseId && (
-                                <div>
-                                    <label className="block text-[11px] font-bold text-surface-500 uppercase mb-1">Kho liên kết</label>
-                                    <div className="bg-surface-50 border border-surface-200 text-surface-800 text-sm rounded-xl px-3 py-2.5 font-medium truncate">
-                                        {availableWarehouses.find(wh => wh.id === wmsWarehouseId)
-                                            ? `${availableWarehouses.find(wh => wh.id === wmsWarehouseId)?.name} (${availableWarehouses.find(wh => wh.id === wmsWarehouseId)?.code})`
-                                            : `ID: ${wmsWarehouseId}`}
-                                    </div>
-                                </div>
-                            )
-                        )}
-
                         <div>
-                            <label className="block text-[11px] font-bold text-surface-500 uppercase mb-1">Vị trí lưu trữ (Kệ)</label>
+                            <label className="block text-[11px] font-bold text-surface-500 uppercase mb-1">Quầy được phân công</label>
                             <div className="relative">
                                 <select
-                                    value={selectedLocationId}
-                                    onChange={e => handleLocationChange(e.target.value)}
-                                    disabled={loadingLocs || locations.length === 0}
+                                    value={selectedCounterId}
+                                    onChange={event => {
+                                        setSelectedCounterId(event.target.value);
+                                        setPreloadedProducts([]);
+                                        setQueue([]);
+                                        setCountState(null);
+                                    }}
                                     className="w-full appearance-none bg-surface-50 border border-surface-200 text-surface-800 text-sm rounded-xl px-3 py-2.5 focus:ring-accent-500 focus:border-accent-400 outline-none pr-8 font-medium disabled:opacity-60"
                                 >
-                                    {loadingLocs ? <option value="">Đang tải...</option> : locations.length === 0 ? <option value="">Trống</option> : (
-                                        locations.map(loc => (
-                                            <option key={loc.id} value={loc.id}>{loc.name} ({loc.code})</option>
-                                        ))
-                                    )}
+                                    {placements.map(placement => (
+                                        <option key={`${placement.storeId}:${placement.counterId}`} value={placement.counterId}>
+                                            {placement.counterName} — {placement.shiftIds.join(', ')}
+                                        </option>
+                                    ))}
                                 </select>
                                 <ChevronDown className="w-4 h-4 text-surface-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-[11px] font-bold text-surface-500 uppercase mb-1">Vị trí WMS đã mapping</label>
+                            <div className="bg-surface-50 border border-surface-200 text-surface-800 text-sm rounded-xl px-3 py-2.5 font-medium truncate">
+                                {selectedPlacement.wmsLocationName}
+                                {selectedPlacement.wmsLocationCode ? ` (${selectedPlacement.wmsLocationCode})` : ''}
                             </div>
                         </div>
                     </div>
@@ -1171,9 +1049,9 @@ export default function ProductScannerPage() {
                     onClose={() => setCountSheetOpen(false)}
                     checkpointType={countCheckpointType}
                     warehouseId={wmsWarehouseId}
-                    warehouseName={selectedWarehouse ? `${selectedWarehouse.name} (${selectedWarehouse.code})` : wmsWarehouseId}
+                    warehouseName={selectedPlacement.storeName}
                     locationId={selectedLocationId}
-                    locationName={selectedLocation ? `${selectedLocation.name} (${selectedLocation.code})` : selectedLocationId}
+                    locationName={`${selectedPlacement.counterName}${selectedPlacement.wmsLocationCode ? ` (${selectedPlacement.wmsLocationCode})` : ''}`}
                     products={countProducts}
                     operatorId={authUser.uid}
                     operatorName={getOperatorDisplayName(userDoc?.name, authUser.displayName, authUser.email)}

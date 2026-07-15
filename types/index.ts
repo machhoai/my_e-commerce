@@ -405,6 +405,8 @@ export interface StoreSettings {
         ptMaxShifts: number;
     };
     registrationSchedule?: RegistrationSchedule;
+    /** Counters/booths configured for this store. The internal `id` remains stable. */
+    counters?: CounterDoc[];
     /**
      * Per-shift attendance rules, keyed by shift name from shiftTimes.
      * Example: { "Ca 1": { defaultWeekday: {...}, ... }, "Ca 2": {...} }
@@ -530,8 +532,15 @@ export interface NotificationTemplate {
 export interface CounterDoc {
     id: string;
     name: string;
-    storeId: string; // Each counter now belongs to a specific store
+    storeId?: string; // Optional when the counter is embedded in store.settings.counters
     isActive: boolean; // Whether this counter is active for inventory tracking
+    /** ID returned by WMS /locations and sent as warehouse_location_id. */
+    wmsLocationId?: string;
+    /** Optional WMS snapshots for display/audit; never use these as authorization keys. */
+    wmsLocationCode?: string;
+    wmsLocationName?: string;
+    mappingUpdatedAt?: string;
+    mappingUpdatedBy?: string;
 }
 
 export interface SettingsDoc {

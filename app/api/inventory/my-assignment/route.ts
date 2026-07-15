@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
         // Get today's date in Vietnam timezone
         const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
 
-        // Find any schedule for today where this user is in assignedByManagerUids
+        // Find schedules for today. employeeIds is the authoritative assignment
+        // list; assignedByManagerUids only marks force-assigned employees.
         const schedulesSnap = await db
             .collection('schedules')
             .where('date', '==', today)
@@ -28,29 +29,40 @@ export async function GET(req: NextRequest) {
             });
         }
 
-        // Look for a schedule where user is force-assigned
+        const assignments: Array<{
+            counterId: string;
+            counterName: string;
+            shiftId: string;
+            storeId: string;
+        }> = [];
         for (const doc of schedulesSnap.docs) {
             const schedule = doc.data();
-            const assignedByManager: string[] = schedule.assignedByManagerUids || [];
+            const employeeIds: string[] = schedule.employeeIds || [];
 
-            if (assignedByManager.includes(decoded.uid)) {
-                // Fetch counter name for display
+            if (employeeIds.includes(decoded.uid)) {
                 let counterName = 'Quầy (không xác định)';
-                try {
-                    const counterSnap = await db.collection('counters').doc(schedule.counterId).get();
-                    if (counterSnap.exists && counterSnap.data()?.name) {
-                        counterName = counterSnap.data()!.name;
-                    }
-                } catch { /* use friendly fallback */ }
+                const storeSnap = await db.collection('stores').doc(schedule.storeId).get();
+                const counters = Array.isArray(storeSnap.data()?.settings?.counters)
+                    ? storeSnap.data()!.settings.counters
+                    : [];
+                const counter = counters.find((item: { id?: string }) => item.id === schedule.counterId);
+                if (counter?.name) counterName = counter.name;
 
-                return NextResponse.json({
-                    isAuthorized: true,
+                assignments.push({
                     counterId: schedule.counterId,
                     counterName,
                     shiftId: schedule.shiftId,
                     storeId: schedule.storeId,
                 });
             }
+        }
+
+        if (assignments.length > 0) {
+            return NextResponse.json({
+                isAuthorized: true,
+                ...assignments[0],
+                assignments,
+            });
         }
 
         return NextResponse.json({

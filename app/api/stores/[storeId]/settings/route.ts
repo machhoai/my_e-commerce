@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { StoreSettings, RegistrationSchedule } from '@/types';
+import { StoreSettings, CounterDoc } from '@/types';
 
 import { isInOpenWindow } from '@/lib/utils/schedule';
 
@@ -94,6 +94,60 @@ export async function PUT(
         const storeSnap = await adminDb.collection('stores').doc(storeId).get();
         if (!storeSnap.exists) {
             return NextResponse.json({ error: 'Không tìm thấy cửa hàng' }, { status: 404 });
+        }
+
+        if (body.counters) {
+            const mappedIds = body.counters.map(counter => counter.wmsLocationId).filter(Boolean) as string[];
+            if (new Set(mappedIds).size !== mappedIds.length) {
+                return NextResponse.json({ error: 'Mỗi vị trí WMS chỉ được mapping với một quầy.' }, { status: 400 });
+            }
+
+            const existingCounters: CounterDoc[] = Array.isArray(storeSnap.data()?.settings?.counters)
+                ? storeSnap.data()!.settings.counters
+                : [];
+            const previousMappings = new Map(existingCounters.map(counter => [counter.id, counter.wmsLocationId || '']));
+            const mappingChanged = body.counters.some(counter =>
+                (previousMappings.get(counter.id) || '') !== (counter.wmsLocationId || '')
+            );
+
+            if (mappingChanged && mappedIds.length > 0) {
+                const wmsWarehouseId = storeSnap.data()?.wmsWarehouseId || '';
+                if (!wmsWarehouseId) {
+                    return NextResponse.json({ error: 'Cửa hàng chưa mapping với kho WMS.' }, { status: 400 });
+                }
+
+                try {
+                    const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
+                    const response = await fetch(`${apiUrl}/api/external/v1/locations?warehouse_id=${encodeURIComponent(wmsWarehouseId)}`, {
+                        headers: { 'x-api-key': process.env.WMS_API_KEY || '' },
+                        cache: 'no-store',
+                    });
+                    const result = await response.json();
+                    const locations: Array<{ id: string; code?: string; name?: string }> = Array.isArray(result.data) ? result.data : [];
+                    const locationMap = new Map(locations.map(location => [location.id, location]));
+                    const invalidId = mappedIds.find(id => !locationMap.has(id));
+                    if (invalidId) {
+                        return NextResponse.json({ error: `Vị trí WMS ${invalidId} không thuộc kho đã mapping của cửa hàng.` }, { status: 400 });
+                    }
+
+                    body.counters = body.counters.map(counter => {
+                        const location = counter.wmsLocationId ? locationMap.get(counter.wmsLocationId) : undefined;
+                        return {
+                            ...counter,
+                            storeId,
+                            wmsLocationCode: location?.code || '',
+                            wmsLocationName: location?.name || '',
+                            mappingUpdatedAt: new Date().toISOString(),
+                            mappingUpdatedBy: decoded.uid,
+                        };
+                    });
+                } catch (err) {
+                    console.error('[StoreSettings] WMS mapping validation failed:', err);
+                    return NextResponse.json({ error: 'Không thể xác thực mapping với WMS lúc này.' }, { status: 502 });
+                }
+            } else {
+                body.counters = body.counters.map(counter => ({ ...counter, storeId }));
+            }
         }
 
         await adminDb.collection('stores').doc(storeId).set(
