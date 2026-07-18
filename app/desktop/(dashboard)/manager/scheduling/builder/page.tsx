@@ -127,8 +127,7 @@ export default function ManagerSchedulePage() {
                     const storeSnap = await getDoc(doc(db, 'stores', effectiveStoreId));
                     if (storeSnap.exists()) {
                         const sData = storeSnap.data() as StoreDoc;
-                        const countersData = (sData.settings?.counters || [])
-                            .filter((counter: { isActive?: boolean }) => counter.isActive !== false);
+                        const countersData = (sData.settings?.counters || []);
                         setCounters(countersData);
                         const shifts = sData.settings?.shiftTimes || [];
                         setShiftTimes(shifts);
@@ -155,8 +154,7 @@ export default function ManagerSchedulePage() {
             const storeSnap = await getDoc(doc(db, 'stores', selectedAdminStoreId));
             if (storeSnap.exists()) {
                 const sData = storeSnap.data() as StoreDoc;
-                const countersData = (sData.settings?.counters || [])
-                    .filter((counter: { isActive?: boolean }) => counter.isActive !== false);
+                const countersData = (sData.settings?.counters || []);
                 setCounters(countersData);
                 const shifts = sData.settings?.shiftTimes || [];
                 setShiftTimes(shifts);
