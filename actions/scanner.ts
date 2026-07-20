@@ -509,7 +509,7 @@ export async function getScannerAccessAction(): Promise<{
             placements,
             error: placements.length > 0
                 ? undefined
-                : 'Bạn chưa được phân công vào quầy đang hoạt động và đã mapping với WMS hôm nay.',
+                : 'Bạn chưa được phân công vào quầy đang hoạt động.',
         };
     } catch (err: unknown) {
         return { success: false, placements: [], error: getErrorMessage(err) };
@@ -569,7 +569,7 @@ export async function getManageableWmsLocationsAction(storeId: string) {
         const storeSnap = await getAdminDb().collection('stores').doc(storeId).get();
         if (!storeSnap.exists) return { success: false, data: [], error: 'Không tìm thấy cửa hàng.' };
         const warehouseId = storeSnap.data()?.wmsWarehouseId || '';
-        if (!warehouseId) return { success: false, data: [], error: 'Cửa hàng chưa mapping với kho WMS.' };
+        if (!warehouseId) return { success: false, data: [], error: 'Cửa hàng chưa liên kết với hệ thống ERP.' };
 
         const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
         const response = await fetch(`${apiUrl}/api/external/v1/locations?warehouse_id=${encodeURIComponent(warehouseId)}`, {
@@ -590,7 +590,7 @@ export async function getWmsWarehouseMappingAction(type: 'STORE' | 'CENTRAL' | '
         const user = await requireSessionUser();
         const isAdmin = user.role === 'admin' || user.role === 'super_admin';
         if (!isAdmin && type === 'STORE' && user.storeId !== locationId) {
-            throw new ScannerAccessError('Bạn không có quyền xem mapping kho này.', 403);
+            throw new ScannerAccessError('Bạn không có quyền xem liên kết kho này.', 403);
         }
         let docRef;
         if (type === 'STORE' || type === 'OFFICE') {

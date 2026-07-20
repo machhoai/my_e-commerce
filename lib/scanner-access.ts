@@ -5,6 +5,7 @@ import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import type { CounterDoc } from '@/types';
 
 const SCANNER_PAGE_PERMISSION = 'page.product_scanner';
+const SCANNER_ANY_COUNTER_PERMISSION = 'action.product_scanner.scan_any_counter';
 
 export class ScannerAccessError extends Error {
     constructor(message: string, public readonly status = 403) {
@@ -103,23 +104,26 @@ function mappedActiveCounters(storeData: FirebaseFirestore.DocumentData): Counte
 export async function getScannerPlacementsForUser(user: ScannerSessionUser): Promise<ScannerPlacement[]> {
     const db = getAdminDb();
     const isAdmin = user.role === 'admin' || user.role === 'super_admin';
-    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+    const canScanAnyCounter = isAdmin || await userHasPermission(user, SCANNER_ANY_COUNTER_PERMISSION);
 
     const assignments = new Map<string, { storeId: string; counterId: string; shiftIds: Set<string> }>();
+    const storeMap = new Map<string, FirebaseFirestore.DocumentData>();
 
-    if (isAdmin) {
+    if (canScanAnyCounter) {
         const storesSnap = await db.collection('stores').get();
         for (const storeDoc of storesSnap.docs) {
             const storeData = storeDoc.data();
+            storeMap.set(storeDoc.id, storeData);
             for (const counter of mappedActiveCounters(storeData)) {
                 assignments.set(`${storeDoc.id}:${counter.id}`, {
                     storeId: storeDoc.id,
                     counterId: counter.id,
-                    shiftIds: new Set<string>(['Quản trị']),
+                    shiftIds: new Set<string>([isAdmin ? 'Quản trị' : 'Mọi lúc']),
                 });
             }
         }
     } else {
+        const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
         const schedulesSnap = await db.collection('schedules').where('date', '==', today).get();
         for (const scheduleDoc of schedulesSnap.docs) {
             const schedule = scheduleDoc.data();
@@ -137,11 +141,13 @@ export async function getScannerPlacementsForUser(user: ScannerSessionUser): Pro
             if (schedule.shiftId) current.shiftIds.add(schedule.shiftId);
             assignments.set(key, current);
         }
-    }
 
-    const storeIds = [...new Set([...assignments.values()].map(item => item.storeId))];
-    const storeDocs = await Promise.all(storeIds.map(storeId => db.collection('stores').doc(storeId).get()));
-    const storeMap = new Map(storeDocs.filter(doc => doc.exists).map(doc => [doc.id, doc.data()!]));
+        const storeIds = [...new Set([...assignments.values()].map(item => item.storeId))];
+        const storeDocs = await Promise.all(storeIds.map(storeId => db.collection('stores').doc(storeId).get()));
+        for (const storeDoc of storeDocs) {
+            if (storeDoc.exists) storeMap.set(storeDoc.id, storeDoc.data()!);
+        }
+    }
 
     const placements: ScannerPlacement[] = [];
     for (const assignment of assignments.values()) {

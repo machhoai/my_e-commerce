@@ -203,6 +203,13 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         type: 'page',
     },
     {
+        key: 'action.product_scanner.scan_any_counter',
+        label: 'Quét Mọi Quầy Không Cần Phân Công',
+        description: 'Quét xuất kho tại bất kỳ quầy nào, vào bất kỳ ca nào mà không cần có lịch phân công',
+        group: 'Kho Tổng',
+        type: 'action',
+    },
+    {
         key: 'action.warehouse.write',
         label: 'Thực Hiện Nhập / Xuất Kho',
         description: 'Ghi dữ liệu nhập kho, xuất kho, điều chỉnh tồn',

@@ -54,6 +54,10 @@ type CacheEnvelope<T> = {
 
 const STORAGE_PREFIX = 'product-scanner:v2';
 
+function getPlacementKey(placement: Pick<ScannerPlacement, 'storeId' | 'counterId'>) {
+    return `${placement.storeId}:${placement.counterId}`;
+}
+
 const makeStorageKey = (...parts: string[]) => `${STORAGE_PREFIX}:${parts.join(':')}`;
 const normalizeScanCode = (value?: string | null) => (value || '').trim().replace(/\s+/g, '').toLowerCase();
 const getVietnamBusinessDate = () => new Intl.DateTimeFormat('en-CA', {
@@ -150,12 +154,12 @@ export default function ProductScannerPage() {
 
     // Counters and WMS locations authorized by the server for this user.
     const [placements, setPlacements] = useState<ScannerPlacement[]>([]);
-    const [selectedCounterId, setSelectedCounterId] = useState('');
+    const [selectedPlacementKey, setSelectedPlacementKey] = useState('');
     const [loadingAccess, setLoadingAccess] = useState(true);
     const [accessError, setAccessError] = useState('');
     const selectedPlacement = useMemo(
-        () => placements.find(item => item.counterId === selectedCounterId) || null,
-        [placements, selectedCounterId],
+        () => placements.find(item => getPlacementKey(item) === selectedPlacementKey) || null,
+        [placements, selectedPlacementKey],
     );
     const wmsWarehouseId = selectedPlacement?.wmsWarehouseId || null;
     const selectedLocationId = selectedPlacement?.wmsLocationId || '';
@@ -199,16 +203,16 @@ export default function ProductScannerPage() {
                 if (!isMounted) return;
                 setPlacements(result.placements);
                 if (!result.success || result.placements.length === 0) {
-                    setSelectedCounterId('');
+                    setSelectedPlacementKey('');
                     setAccessError(result.error || 'Bạn không có quầy được phân công hôm nay.');
                     return;
                 }
 
-                const savedCounterId = readStorageJson<string>(selectedCounterStorageKey);
-                const nextCounterId = savedCounterId && result.placements.some(item => item.counterId === savedCounterId)
-                    ? savedCounterId
-                    : result.placements[0].counterId;
-                setSelectedCounterId(nextCounterId);
+                const savedPlacementKey = readStorageJson<string>(selectedCounterStorageKey);
+                const nextPlacementKey = savedPlacementKey && result.placements.some(item => getPlacementKey(item) === savedPlacementKey)
+                    ? savedPlacementKey
+                    : getPlacementKey(result.placements[0]);
+                setSelectedPlacementKey(nextPlacementKey);
             } catch (err) {
                 console.error('[ProductScanner] Access check failed:', err);
                 if (isMounted) setAccessError('Không thể kiểm tra phân công quầy. Vui lòng thử lại.');
@@ -223,10 +227,10 @@ export default function ProductScannerPage() {
 
     // ── Handle warehouse change ──────────────────────────────────
     useEffect(() => {
-        if (selectedCounterId) {
-            writeStorageJson(selectedCounterStorageKey, selectedCounterId);
+        if (selectedPlacementKey) {
+            writeStorageJson(selectedCounterStorageKey, selectedPlacementKey);
         }
-    }, [selectedCounterId, selectedCounterStorageKey]);
+    }, [selectedPlacementKey, selectedCounterStorageKey]);
 
     // ── Load products by selected location ATP ─────────────────────
     useEffect(() => {
@@ -328,11 +332,11 @@ export default function ProductScannerPage() {
 
     // ── Add product ─────────────────────────────────────────────
     const handleSubmitProduct = useCallback(async (product: PreloadedProduct, source: SubmitSource = 'manual') => {
-        if (!wmsWarehouseId) return alert('Lỗi: Chưa liên kết với kho WMS nào.');
+        if (!wmsWarehouseId) return alert('Lỗi: Chưa liên kết với hệ thống ERP nào.');
         if (!selectedLocationId) return alert('Lỗi: Vui lòng chọn vị trí/kệ hàng xuất kho.');
         if (!authUser) return;
         if (countState?.config.enabled && !countState.gates.before_scan) {
-            showToast.warning('Cần kiểm đếm trước khi quét', 'Hoàn tất checkpoint đầu ca để mở quyền quét sản phẩm.');
+            showToast.warning('Cần kiểm đếm trước khi quét', 'Hoàn tất kiểm đếm đầu ca để mở quyền quét sản phẩm.');
             openCountSheet('BEFORE_SCAN');
             return;
         }
@@ -594,7 +598,7 @@ export default function ProductScannerPage() {
                     <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-danger-50">
                         <ShieldCheck className="h-6 w-6 text-danger-500" />
                     </div>
-                    <h2 className="font-bold text-surface-800">Không được phép sử dụng Product Scanner</h2>
+                    <h2 className="font-bold text-surface-800">Không được phép sử dụng chức năng này</h2>
                     <p className="mt-2 text-sm leading-relaxed text-surface-500">
                         {accessError || 'Bạn chưa được phân công vào quầy hợp lệ hôm nay.'}
                     </p>
@@ -624,12 +628,12 @@ export default function ProductScannerPage() {
                     {/* Settings Panel: Warehouse + Location */}
                     <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-3 grid grid-cols-1 md:grid-cols-2 gap-3 shrink-0">
                         <div>
-                            <label className="block text-[11px] font-bold text-surface-500 uppercase mb-1">Quầy được phân công</label>
+                            <label className="block text-[11px] font-bold text-surface-500 uppercase mb-1">Quầy xuất kho</label>
                             <div className="relative">
                                 <select
-                                    value={selectedCounterId}
+                                    value={selectedPlacementKey}
                                     onChange={event => {
-                                        setSelectedCounterId(event.target.value);
+                                        setSelectedPlacementKey(event.target.value);
                                         setPreloadedProducts([]);
                                         setQueue([]);
                                         setCountState(null);
@@ -637,8 +641,8 @@ export default function ProductScannerPage() {
                                     className="w-full appearance-none bg-surface-50 border border-surface-200 text-surface-800 text-sm rounded-xl px-3 py-2.5 focus:ring-accent-500 focus:border-accent-400 outline-none pr-8 font-medium disabled:opacity-60"
                                 >
                                     {placements.map(placement => (
-                                        <option key={`${placement.storeId}:${placement.counterId}`} value={placement.counterId}>
-                                            {placement.counterName} — {placement.shiftIds.join(', ')}
+                                        <option key={getPlacementKey(placement)} value={getPlacementKey(placement)}>
+                                            {placement.storeName} — {placement.counterName} — {placement.shiftIds.join(', ')}
                                         </option>
                                     ))}
                                 </select>
@@ -647,7 +651,7 @@ export default function ProductScannerPage() {
                         </div>
 
                         <div>
-                            <label className="block text-[11px] font-bold text-surface-500 uppercase mb-1">Vị trí WMS đã mapping</label>
+                            <label className="block text-[11px] font-bold text-surface-500 uppercase mb-1">Vị trí xuất kho</label>
                             <div className="bg-surface-50 border border-surface-200 text-surface-800 text-sm rounded-xl px-3 py-2.5 font-medium truncate">
                                 {selectedPlacement.wmsLocationName}
                                 {selectedPlacement.wmsLocationCode ? ` (${selectedPlacement.wmsLocationCode})` : ''}
