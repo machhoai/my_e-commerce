@@ -13,7 +13,7 @@
 
 import { getAdminDb } from '@/lib/firebase-admin';
 import type { VoucherCode, ScanResult } from '@/types';
-import crypto from 'node:crypto';
+import { fetchWmsApi } from '@/lib/wms-api';
 import {
     getScannerPlacementsForUser,
     requireScannerPlacementByWms,
@@ -113,29 +113,6 @@ function accessDenied(err: unknown) {
     return { success: false, data: null, error: message, messages: { vi: message } };
 }
 
-function getWmsApiUrl() {
-    return (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
-}
-
-function buildWmsAuthHeaders(method: string, path: string, rawBody = '') {
-    const apiKey = process.env.WMS_API_KEY || '';
-    const apiSecret = process.env.WMS_API_SECRET || '';
-    const headers: Record<string, string> = { 'x-api-key': apiKey };
-
-    // Local WMS uses a development API-key bypass. Production clients must sign.
-    if (apiSecret) {
-        const timestamp = Date.now().toString();
-        const message = `${method.toUpperCase()}|${path}|${timestamp}|${rawBody}`;
-        headers['x-timestamp'] = timestamp;
-        headers['x-signature'] = crypto
-            .createHmac('sha256', apiSecret)
-            .update(message)
-            .digest('hex');
-    }
-
-    return headers;
-}
-
 // ── Lightweight types for preloaded data ──────────────────────
 export type PreloadedEmployee = {
     uid: string;
@@ -182,13 +159,10 @@ export async function preloadScannerData(wmsWarehouseId?: string, wmsLocationId?
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 8000);
         try {
-            const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
             const params = new URLSearchParams({ warehouse_id: wmsWarehouseId });
             if (wmsLocationId) params.set('warehouse_location_id', wmsLocationId);
-            const res = await fetch(`${apiUrl}/api/external/v1/products?${params.toString()}`, {
-                headers: {
-                    'x-api-key': process.env.WMS_API_KEY || ''
-                },
+            const path = `/api/external/v1/products?${params.toString()}`;
+            const res = await fetchWmsApi(path, {
                 cache: 'no-store',
                 signal: controller.signal
             });
@@ -314,19 +288,17 @@ export async function submitExternalScanAction(data: ExternalScanPayload) {
     const timeout = setTimeout(() => controller.abort(), 5000);
     try {
         const { user } = await requireScannerPlacementByWms(data.warehouse_id, data.warehouse_location_id);
-        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
-        const res = await fetch(`${apiUrl}/api/external/v1/scan`, {
+        const path = '/api/external/v1/scan';
+        const rawBody = JSON.stringify({
+            ...data,
+            operator_name: user.name || user.email || 'Unknown',
+            operator_id_external: user.uid,
+            scan_time: new Date().toISOString(),
+        });
+        const res = await fetchWmsApi(path, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': process.env.WMS_API_KEY || ''
-            },
-            body: JSON.stringify({
-                ...data,
-                operator_name: user.name || user.email || 'Unknown',
-                operator_id_external: user.uid,
-                scan_time: new Date().toISOString(),
-            }),
+            headers: { 'Content-Type': 'application/json' },
+            body: rawBody,
             signal: controller.signal
         });
         clearTimeout(timeout);
@@ -346,11 +318,8 @@ export async function getMyScansAction(_operator_id_external?: string) {
         const user = await requireScannerUser();
         const placements = await getScannerPlacementsForUser(user);
         const allowedPairs = new Set(placements.map(item => `${item.wmsWarehouseId}:${item.wmsLocationId}`));
-        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
-        const res = await fetch(`${apiUrl}/api/external/v1/scan?operator_id_external=${encodeURIComponent(user.uid)}`, {
-            headers: {
-                'x-api-key': process.env.WMS_API_KEY || ''
-            },
+        const path = `/api/external/v1/scan?operator_id_external=${encodeURIComponent(user.uid)}`;
+        const res = await fetchWmsApi(path, {
             cache: 'no-store',
             signal: controller.signal
         });
@@ -375,11 +344,7 @@ export async function getLocationScansAction(warehouseId: string, locationId: st
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 5000);
         try {
-            const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
-            const res = await fetch(`${apiUrl}${path}`, {
-                headers: {
-                    'x-api-key': process.env.WMS_API_KEY || ''
-                },
+            const res = await fetchWmsApi(path, {
                 cache: 'no-store',
                 signal: controller.signal
             });
@@ -435,10 +400,9 @@ export async function cancelExternalScanAction(scanId: string) {
         const user = await requireScannerUser();
         const placements = await getScannerPlacementsForUser(user);
         const allowedPairs = new Set(placements.map(item => `${item.wmsWarehouseId}:${item.wmsLocationId}`));
-        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
 
-        const ownScansResponse = await fetch(`${apiUrl}/api/external/v1/scan?operator_id_external=${encodeURIComponent(user.uid)}`, {
-            headers: { 'x-api-key': process.env.WMS_API_KEY || '' },
+        const ownScansPath = `/api/external/v1/scan?operator_id_external=${encodeURIComponent(user.uid)}`;
+        const ownScansResponse = await fetchWmsApi(ownScansPath, {
             cache: 'no-store',
             signal: controller.signal,
         });
@@ -450,11 +414,9 @@ export async function cancelExternalScanAction(scanId: string) {
             throw new ScannerAccessError('Bạn không có quyền xóa lượt quét này.', 403);
         }
 
-        const res = await fetch(`${apiUrl}/api/external/v1/scan/${scanId}`, {
+        const deletePath = `/api/external/v1/scan/${encodeURIComponent(scanId)}`;
+        const res = await fetchWmsApi(deletePath, {
             method: 'DELETE',
-            headers: {
-                'x-api-key': process.env.WMS_API_KEY || ''
-            },
             signal: controller.signal
         });
         clearTimeout(timeout);
@@ -473,18 +435,16 @@ export async function submitBatchAction(data: Record<string, unknown>) {
         const warehouseId = typeof data.warehouse_id === 'string' ? data.warehouse_id : '';
         const locationId = typeof data.warehouse_location_id === 'string' ? data.warehouse_location_id : '';
         const { user } = await requireScannerPlacementByWms(warehouseId, locationId);
-        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
-        const res = await fetch(`${apiUrl}/api/external/v1/batch-submit`, {
+        const path = '/api/external/v1/batch-submit';
+        const rawBody = JSON.stringify({
+            ...data,
+            operator_name: user.name || user.email || 'Unknown',
+            operator_id_external: user.uid,
+        });
+        const res = await fetchWmsApi(path, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': process.env.WMS_API_KEY || ''
-            },
-            body: JSON.stringify({
-                ...data,
-                operator_name: user.name || user.email || 'Unknown',
-                operator_id_external: user.uid,
-            }),
+            headers: { 'Content-Type': 'application/json' },
+            body: rawBody,
             signal: controller.signal
         });
         clearTimeout(timeout);
@@ -521,11 +481,7 @@ export async function getAvailableWmsWarehousesAction() {
     const timeout = setTimeout(() => controller.abort(), 8000);
     try {
         await requireSessionUser();
-        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
-        const res = await fetch(`${apiUrl}/api/external/v1/warehouses`, {
-            headers: {
-                'x-api-key': process.env.WMS_API_KEY || ''
-            },
+        const res = await fetchWmsApi('/api/external/v1/warehouses', {
             cache: 'no-store',
             signal: controller.signal
         });
@@ -545,11 +501,8 @@ export async function getWmsLocationsAction(warehouseId: string) {
     const timeout = setTimeout(() => controller.abort(), 8000);
     try {
         await requireSessionUser();
-        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
-        const res = await fetch(`${apiUrl}/api/external/v1/locations?warehouse_id=${warehouseId}`, {
-            headers: {
-                'x-api-key': process.env.WMS_API_KEY || ''
-            },
+        const path = `/api/external/v1/locations?warehouse_id=${encodeURIComponent(warehouseId)}`;
+        const res = await fetchWmsApi(path, {
             cache: 'no-store',
             signal: controller.signal
         });
@@ -571,12 +524,19 @@ export async function getManageableWmsLocationsAction(storeId: string) {
         const warehouseId = storeSnap.data()?.wmsWarehouseId || '';
         if (!warehouseId) return { success: false, data: [], error: 'Cửa hàng chưa liên kết với hệ thống ERP.' };
 
-        const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
-        const response = await fetch(`${apiUrl}/api/external/v1/locations?warehouse_id=${encodeURIComponent(warehouseId)}`, {
-            headers: { 'x-api-key': process.env.WMS_API_KEY || '' },
+        const path = `/api/external/v1/locations?warehouse_id=${encodeURIComponent(warehouseId)}`;
+        const response = await fetchWmsApi(path, {
             cache: 'no-store',
         });
         const result = await response.json();
+        if (result.success && (!Array.isArray(result.data) || result.data.length === 0)) {
+            return {
+                success: false,
+                data: [],
+                error: 'Kho ERP đang liên kết không tồn tại hoặc chưa có vị trí đang hoạt động.',
+                warehouseId,
+            };
+        }
         return { ...result, warehouseId };
     } catch (err: unknown) {
         return { success: false, data: [], error: getErrorMessage(err) };
@@ -634,8 +594,7 @@ export async function getExternalCountStateAction(
 
     try {
         await requireScannerPlacementByWms(warehouseId, warehouseLocationId);
-        const response = await fetch(`${getWmsApiUrl()}${path}`, {
-            headers: buildWmsAuthHeaders('GET', path),
+        const response = await fetchWmsApi(path, {
             cache: 'no-store',
             signal: controller.signal,
         });
@@ -666,12 +625,9 @@ export async function submitExternalCountCheckpointAction(
             external_operator_id: user.uid,
         };
         const securedRawBody = JSON.stringify(securedPayload);
-        const response = await fetch(`${getWmsApiUrl()}${path}`, {
+        const response = await fetchWmsApi(path, {
             method: 'POST',
-            headers: {
-                ...buildWmsAuthHeaders('POST', path, securedRawBody),
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: securedRawBody,
             cache: 'no-store',
             signal: controller.signal,

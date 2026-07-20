@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { fetchWmsApi } from '@/lib/wms-api';
 import { StoreSettings, CounterDoc } from '@/types';
 
 import { isInOpenWindow } from '@/lib/utils/schedule';
@@ -117,9 +118,8 @@ export async function PUT(
                 }
 
                 try {
-                    const apiUrl = (process.env.WMS_API_URL || '').replace('localhost', '127.0.0.1');
-                    const response = await fetch(`${apiUrl}/api/external/v1/locations?warehouse_id=${encodeURIComponent(wmsWarehouseId)}`, {
-                        headers: { 'x-api-key': process.env.WMS_API_KEY || '' },
+                    const path = `/api/external/v1/locations?warehouse_id=${encodeURIComponent(wmsWarehouseId)}`;
+                    const response = await fetchWmsApi(path, {
                         cache: 'no-store',
                     });
                     const result = await response.json();

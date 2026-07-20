@@ -204,7 +204,7 @@ export default function ProductScannerPage() {
                 setPlacements(result.placements);
                 if (!result.success || result.placements.length === 0) {
                     setSelectedPlacementKey('');
-                    setAccessError(result.error || 'Bạn không có quầy được phân công hôm nay.');
+                    setAccessError(result.error || 'Không tìm thấy quầy hoặc vị trí xuất kho phù hợp với quyền của bạn.');
                     return;
                 }
 
@@ -215,7 +215,7 @@ export default function ProductScannerPage() {
                 setSelectedPlacementKey(nextPlacementKey);
             } catch (err) {
                 console.error('[ProductScanner] Access check failed:', err);
-                if (isMounted) setAccessError('Không thể kiểm tra phân công quầy. Vui lòng thử lại.');
+                if (isMounted) setAccessError('Không thể kiểm tra quyền quét và danh sách quầy. Vui lòng thử lại.');
             } finally {
                 if (isMounted) setLoadingAccess(false);
             }
@@ -585,7 +585,7 @@ export default function ProductScannerPage() {
             <div className="flex h-full min-h-64 items-center justify-center">
                 <div className="flex items-center gap-3 rounded-2xl border border-surface-200 bg-white px-5 py-4 text-sm font-medium text-surface-600 shadow-sm">
                     <Loader2 className="h-5 w-5 animate-spin text-accent-500" />
-                    Đang kiểm tra phân công quầy...
+                    Đang kiểm tra quyền quét và danh sách quầy...
                 </div>
             </div>
         );
@@ -600,7 +600,7 @@ export default function ProductScannerPage() {
                     </div>
                     <h2 className="font-bold text-surface-800">Không được phép sử dụng chức năng này</h2>
                     <p className="mt-2 text-sm leading-relaxed text-surface-500">
-                        {accessError || 'Bạn chưa được phân công vào quầy hợp lệ hôm nay.'}
+                        {accessError || 'Không tìm thấy quầy hoặc vị trí xuất kho phù hợp với quyền của bạn.'}
                     </p>
                 </div>
             </div>
