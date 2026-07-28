@@ -54,8 +54,10 @@ type CacheEnvelope<T> = {
 
 const STORAGE_PREFIX = 'product-scanner:v2';
 
-function getPlacementKey(placement: Pick<ScannerPlacement, 'storeId' | 'counterId'>) {
-    return `${placement.storeId}:${placement.counterId}`;
+function getPlacementKey(
+    placement: Pick<ScannerPlacement, 'storeId' | 'counterId' | 'shiftDate' | 'shiftId'>,
+) {
+    return `${placement.storeId}:${placement.counterId}:${placement.shiftDate}:${placement.shiftId}`;
 }
 
 const makeStorageKey = (...parts: string[]) => `${STORAGE_PREFIX}:${parts.join(':')}`;
@@ -184,7 +186,7 @@ export default function ProductScannerPage() {
     const [countSheetOpen, setCountSheetOpen] = useState(false);
     const [countProducts, setCountProducts] = useState<PreloadedProduct[]>([]);
     const [openingCountSheet, setOpeningCountSheet] = useState(false);
-    const [countCheckpointType, setCountCheckpointType] = useState<ExternalCountCheckpointType>('BEFORE_SCAN');
+    const [countCheckpointType, setCountCheckpointType] = useState<ExternalCountCheckpointType>('SHIFT_OPENING');
 
     // UI state for double-click manual add confirmation
     const [confirmAddId, setConfirmAddId] = useState<string | null>(null);
@@ -297,14 +299,16 @@ export default function ProductScannerPage() {
             const result = await getExternalCountStateAction(
                 wmsWarehouseId,
                 selectedLocationId,
-                getVietnamBusinessDate(),
+                selectedPlacement?.shiftDate || getVietnamBusinessDate(),
+                selectedPlacement?.shiftId,
+                selectedPlacement?.shiftDate,
             );
             if (result.success) setCountState(result.data);
             else console.error('[ProductScanner] Count state failed:', result.messages?.vi);
         } finally {
             setLoadingCountState(false);
         }
-    }, [selectedLocationId, wmsWarehouseId]);
+    }, [selectedLocationId, selectedPlacement?.shiftDate, selectedPlacement?.shiftId, wmsWarehouseId]);
 
     useEffect(() => { refreshCountState(); }, [refreshCountState]);
 
@@ -337,7 +341,7 @@ export default function ProductScannerPage() {
         if (!authUser) return;
         if (countState?.config.enabled && !countState.gates.before_scan) {
             showToast.warning('Cần kiểm đếm trước khi quét', 'Hoàn tất kiểm đếm đầu ca để mở quyền quét sản phẩm.');
-            openCountSheet('BEFORE_SCAN');
+            openCountSheet('SHIFT_OPENING');
             return;
         }
 
@@ -355,6 +359,8 @@ export default function ProductScannerPage() {
                 operator_name: getOperatorDisplayName(userDoc?.name, authUser.displayName, authUser.email),
                 operator_id_external: authUser.uid,
                 device_id: null,
+                shift_id: selectedPlacement?.shiftId,
+                shift_date: selectedPlacement?.shiftDate,
             });
             if (result.success) {
                 playBeep(1800, 100);
@@ -385,7 +391,7 @@ export default function ProductScannerPage() {
                 setTimeout(() => { scanLock.current = false; }, 1000);
             }
         }
-    }, [authUser, countState, loadQueue, openCountSheet, selectedLocationId, userDoc?.name, wmsWarehouseId]);
+    }, [authUser, countState, loadQueue, openCountSheet, selectedLocationId, selectedPlacement?.shiftDate, selectedPlacement?.shiftId, userDoc?.name, wmsWarehouseId]);
 
     const handleAddClick = useCallback((product: PreloadedProduct) => {
         if (confirmAddId === product.id) {
@@ -578,7 +584,12 @@ export default function ProductScannerPage() {
     );
     const showInitialProductLoading = preloading && preloadedProducts.length === 0;
     const beforeScanOpen = !countState?.config.enabled || countState.gates.before_scan;
-    const beforeSubmitOpen = !countState?.config.enabled || countState.gates.before_submit;
+    const hasOptionalClosingEvidence = countState?.checkpoints.some(
+        checkpoint =>
+            checkpoint.checkpoint_type === 'OPTIONAL_CLOSING' &&
+            (!checkpoint.shift_id || checkpoint.shift_id === selectedPlacement?.shiftId) &&
+            (!checkpoint.external_operator_id || checkpoint.external_operator_id === authUser?.uid),
+    ) ?? false;
 
     if (loadingAccess) {
         return (
@@ -679,12 +690,14 @@ export default function ProductScannerPage() {
                                     {countState?.config.enabled ? (
                                         <button
                                             type="button"
-                                            onClick={() => openCountSheet('BEFORE_SCAN')}
-                                            disabled={!selectedLocationId || loadingCountState || openingCountSheet}
+                                            onClick={() => openCountSheet('SHIFT_OPENING')}
+                                            disabled={!selectedLocationId || loadingCountState || openingCountSheet || !selectedPlacement.canStartOpeningCount || countState.access.current_shift_active}
                                             className="mt-0.5 text-[10px] font-bold text-accent-600 hover:text-accent-700 active:scale-95 transition-transform block truncate text-left disabled:opacity-50"
                                         >
-                                            {loadingCountState || (openingCountSheet && countCheckpointType === 'BEFORE_SCAN') ? (
+                                            {loadingCountState || (openingCountSheet && countCheckpointType === 'SHIFT_OPENING') ? (
                                                 "Đang tải..."
+                                            ) : !selectedPlacement.canStartOpeningCount ? (
+                                                "Ca ngày trước"
                                             ) : beforeScanOpen ? (
                                                 "Đã kiểm"
                                             ) : (
@@ -725,34 +738,32 @@ export default function ProductScannerPage() {
                             <div className="flex-1 flex items-center gap-2 min-w-0">
                                 <div className={cn(
                                     "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold transition-all",
-                                    !beforeScanOpen
-                                        ? "bg-surface-50 border-surface-200 text-surface-400"
-                                        : beforeSubmitOpen
-                                            ? "bg-success-500 border-success-500 text-white"
-                                            : "bg-surface-800 border-surface-800 text-white"
+                                    hasOptionalClosingEvidence
+                                        ? "bg-success-500 border-success-500 text-white"
+                                        : "bg-surface-800 border-surface-800 text-white"
                                 )}>
-                                    {!beforeScanOpen ? "🔒" : beforeSubmitOpen ? "✓" : "3"}
+                                    {hasOptionalClosingEvidence ? "✓" : "3"}
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                    <span className="block font-bold text-surface-800 text-[11px] leading-tight">3. Cuối ca</span>
-                                    {beforeScanOpen && countState?.config.enabled ? (
+                                    <span className="block font-bold text-surface-800 text-[11px] leading-tight">3. Cuối ngày</span>
+                                    {countState?.config.enabled ? (
                                         <button
                                             type="button"
-                                            onClick={() => openCountSheet('BEFORE_SUBMIT')}
+                                            onClick={() => openCountSheet('OPTIONAL_CLOSING')}
                                             disabled={!selectedLocationId || loadingCountState || openingCountSheet}
                                             className="mt-0.5 text-[10px] font-bold text-accent-600 hover:text-accent-700 active:scale-95 transition-transform block truncate text-left disabled:opacity-50"
                                         >
-                                            {loadingCountState || (openingCountSheet && countCheckpointType === 'BEFORE_SUBMIT') ? (
+                                            {loadingCountState || (openingCountSheet && countCheckpointType === 'OPTIONAL_CLOSING') ? (
                                                 "Đang tải..."
-                                            ) : beforeSubmitOpen ? (
-                                                "Đã kiểm"
+                                            ) : hasOptionalClosingEvidence ? (
+                                                "Đã có minh chứng"
                                             ) : (
-                                                "Kiểm kho"
+                                                "Tùy chọn"
                                             )}
                                         </button>
                                     ) : (
                                         <span className="block text-[10px] text-surface-400 truncate mt-0.5">
-                                            {!beforeScanOpen ? "Đang khóa" : "Tự chọn"}
+                                            Tự chọn
                                         </span>
                                     )}
                                 </div>
@@ -1031,16 +1042,16 @@ export default function ProductScannerPage() {
                         <div className="shrink-0 border-t border-surface-100 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                             <button
                                 type="button"
-                                onClick={() => openCountSheet('BEFORE_SUBMIT')}
+                                onClick={() => openCountSheet('OPTIONAL_CLOSING')}
                                 className={cn(
                                     'flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-bold transition active:scale-[0.98]',
-                                    beforeSubmitOpen
+                                    hasOptionalClosingEvidence
                                         ? 'bg-success-50 text-success-700 ring-1 ring-success-100'
                                         : 'bg-accent-500 text-white shadow-lg shadow-accent-500/20',
                                 )}
                             >
-                                {beforeSubmitOpen ? <CheckCircle2 className="h-5 w-5" /> : <ClipboardCheck className="h-5 w-5" />}
-                                {beforeSubmitOpen ? 'Đã kiểm kho' : 'Kiểm kho trước khi kết ca'}
+                                {hasOptionalClosingEvidence ? <CheckCircle2 className="h-5 w-5" /> : <ClipboardCheck className="h-5 w-5" />}
+                                {hasOptionalClosingEvidence ? 'Đã có minh chứng cuối ngày' : 'Kiểm kho cuối ngày (tùy chọn)'}
                             </button>
                         </div>
                     )}
@@ -1059,6 +1070,8 @@ export default function ProductScannerPage() {
                     products={countProducts}
                     operatorId={authUser.uid}
                     operatorName={getOperatorDisplayName(userDoc?.name, authUser.displayName, authUser.email)}
+                    shiftId={selectedPlacement.shiftId}
+                    shiftDate={selectedPlacement.shiftDate}
                     onSubmitted={refreshCountState}
                 />
             )}

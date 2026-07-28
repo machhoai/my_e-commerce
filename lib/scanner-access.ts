@@ -31,6 +31,10 @@ export type ScannerPlacement = {
     storeId: string;
     storeName: string;
     shiftIds: string[];
+    shiftId: string;
+    shiftDate: string;
+    operatorIds: string[];
+    canStartOpeningCount: boolean;
     wmsWarehouseId: string;
     wmsLocationId: string;
     wmsLocationCode: string;
@@ -112,7 +116,7 @@ async function getActiveWmsLocations(warehouseId: string, warehouseName?: string
     return Array.isArray(result.data) ? result.data : [];
 }
 
-async function getUnrestrictedScannerPlacements(isAdmin: boolean): Promise<ScannerPlacement[]> {
+async function getUnrestrictedScannerPlacements(isAdmin: boolean, userId: string): Promise<ScannerPlacement[]> {
     const warehousesPath = '/api/external/v1/warehouses';
     const warehousesResponse = await fetchWmsApi(warehousesPath, { cache: 'no-store' });
     const warehousesResult = await warehousesResponse.json() as WmsApiResponse<WmsWarehouse[]>;
@@ -135,6 +139,10 @@ async function getUnrestrictedScannerPlacements(isAdmin: boolean): Promise<Scann
         storeId: warehouse.id,
         storeName: warehouse.name || warehouse.code || warehouse.id,
         shiftIds: [isAdmin ? 'Quản trị' : 'Mọi lúc'],
+        shiftId: `${isAdmin ? 'ADMIN' : 'ANY'}:${userId}`,
+        shiftDate: new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }),
+        operatorIds: [userId],
+        canStartOpeningCount: true,
         wmsWarehouseId: warehouse.id,
         wmsLocationId: location.id,
         wmsLocationCode: location.code || '',
@@ -156,14 +164,23 @@ export async function getScannerPlacementsForUser(user: ScannerSessionUser): Pro
     const canScanAnyCounter = isAdmin || await userHasPermission(user, SCANNER_ANY_COUNTER_PERMISSION);
 
     if (canScanAnyCounter) {
-        return getUnrestrictedScannerPlacements(isAdmin);
+        return getUnrestrictedScannerPlacements(isAdmin, user.uid);
     }
 
-    const assignments = new Map<string, { storeId: string; counterId: string; shiftIds: Set<string> }>();
+    const assignments = new Map<string, {
+        storeId: string;
+        counterId: string;
+        shiftId: string;
+        shiftDate: string;
+        operatorIds: string[];
+    }>();
     const storeMap = new Map<string, FirebaseFirestore.DocumentData>();
 
     const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
-    const schedulesSnap = await db.collection('schedules').where('date', '==', today).get();
+    const yesterdayDate = new Date(`${today}T00:00:00+07:00`);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterday = yesterdayDate.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+    const schedulesSnap = await db.collection('schedules').where('date', 'in', [yesterday, today]).get();
     for (const scheduleDoc of schedulesSnap.docs) {
         const schedule = scheduleDoc.data();
         const employeeIds: string[] = Array.isArray(schedule.employeeIds) ? schedule.employeeIds : [];
@@ -171,14 +188,15 @@ export async function getScannerPlacementsForUser(user: ScannerSessionUser): Pro
         if (!schedule.storeId || !schedule.counterId) continue;
         if (user.storeId && schedule.storeId !== user.storeId) continue;
 
-        const key = `${schedule.storeId}:${schedule.counterId}`;
-        const current = assignments.get(key) || {
+        if (!schedule.shiftId) continue;
+        const key = `${schedule.storeId}:${schedule.counterId}:${schedule.date}:${schedule.shiftId}`;
+        assignments.set(key, {
             storeId: schedule.storeId,
             counterId: schedule.counterId,
-            shiftIds: new Set<string>(),
-        };
-        if (schedule.shiftId) current.shiftIds.add(schedule.shiftId);
-        assignments.set(key, current);
+            shiftId: schedule.shiftId,
+            shiftDate: schedule.date || today,
+            operatorIds: employeeIds,
+        });
     }
 
     const storeIds = [...new Set([...assignments.values()].map(item => item.storeId))];
@@ -190,13 +208,6 @@ export async function getScannerPlacementsForUser(user: ScannerSessionUser): Pro
     const placements: ScannerPlacement[] = [];
     const locationRequests = new Map<string, Promise<WmsLocation[]>>();
     const fallbackStores = new Set<string>();
-    const shiftIdsByStore = new Map<string, Set<string>>();
-    for (const assignment of assignments.values()) {
-        const shiftIds = shiftIdsByStore.get(assignment.storeId) || new Set<string>();
-        assignment.shiftIds.forEach(shiftId => shiftIds.add(shiftId));
-        shiftIdsByStore.set(assignment.storeId, shiftIds);
-    }
-
     for (const assignment of assignments.values()) {
         const storeData = storeMap.get(assignment.storeId);
         if (!storeData || storeData.isActive === false || !storeData.wmsWarehouseId) continue;
@@ -208,8 +219,9 @@ export async function getScannerPlacementsForUser(user: ScannerSessionUser): Pro
         if (!counter || counter.isActive === false) continue;
 
         if (!counter.wmsLocationId) {
-            if (fallbackStores.has(assignment.storeId)) continue;
-            fallbackStores.add(assignment.storeId);
+            const fallbackKey = `${assignment.storeId}:${assignment.shiftDate}:${assignment.shiftId}`;
+            if (fallbackStores.has(fallbackKey)) continue;
+            fallbackStores.add(fallbackKey);
             const warehouseId = storeData.wmsWarehouseId as string;
             let locationsRequest = locationRequests.get(warehouseId);
             if (!locationsRequest) {
@@ -223,7 +235,11 @@ export async function getScannerPlacementsForUser(user: ScannerSessionUser): Pro
                     counterName: location.name || location.code || location.id,
                     storeId: assignment.storeId,
                     storeName: storeData.name || assignment.storeId,
-                    shiftIds: [...(shiftIdsByStore.get(assignment.storeId) || [])].sort(),
+                    shiftIds: [assignment.shiftId],
+                    shiftId: assignment.shiftId,
+                    shiftDate: assignment.shiftDate,
+                    operatorIds: assignment.operatorIds,
+                    canStartOpeningCount: assignment.shiftDate === today,
                     wmsWarehouseId: warehouseId,
                     wmsLocationId: location.id,
                     wmsLocationCode: location.code || '',
@@ -238,7 +254,11 @@ export async function getScannerPlacementsForUser(user: ScannerSessionUser): Pro
             counterName: counter.name,
             storeId: assignment.storeId,
             storeName: storeData.name || assignment.storeId,
-            shiftIds: [...assignment.shiftIds].sort(),
+            shiftIds: [assignment.shiftId],
+            shiftId: assignment.shiftId,
+            shiftDate: assignment.shiftDate,
+            operatorIds: assignment.operatorIds,
+            canStartOpeningCount: assignment.shiftDate === today,
             wmsWarehouseId: storeData.wmsWarehouseId,
             wmsLocationId: counter.wmsLocationId,
             wmsLocationCode: counter.wmsLocationCode || '',
@@ -248,13 +268,14 @@ export async function getScannerPlacementsForUser(user: ScannerSessionUser): Pro
 
     const uniquePlacements = new Map<string, ScannerPlacement>();
     for (const placement of placements) {
-        const key = `${placement.wmsWarehouseId}:${placement.wmsLocationId}`;
+        const key = `${placement.wmsWarehouseId}:${placement.wmsLocationId}:${placement.shiftDate}:${placement.shiftId}`;
         const existing = uniquePlacements.get(key);
         if (!existing) {
             uniquePlacements.set(key, placement);
             continue;
         }
         existing.shiftIds = [...new Set([...existing.shiftIds, ...placement.shiftIds])].sort();
+        existing.operatorIds = [...new Set([...existing.operatorIds, ...placement.operatorIds])];
     }
 
     if (uniquePlacements.size === 0 && assignments.size > 0) {
@@ -275,11 +296,19 @@ export async function getScannerPlacementsForUser(user: ScannerSessionUser): Pro
     );
 }
 
-export async function requireScannerPlacementByWms(warehouseId: string, locationId: string) {
+export async function requireScannerPlacementByWms(
+    warehouseId: string,
+    locationId: string,
+    shiftId?: string,
+    shiftDate?: string,
+) {
     const user = await requireScannerUser();
     const placements = await getScannerPlacementsForUser(user);
     const placement = placements.find(item =>
-        item.wmsWarehouseId === warehouseId && item.wmsLocationId === locationId
+        item.wmsWarehouseId === warehouseId &&
+        item.wmsLocationId === locationId &&
+        (!shiftId || item.shiftId === shiftId) &&
+        (!shiftDate || item.shiftDate === shiftDate)
     );
     if (!placement) {
         throw new ScannerAccessError('Bạn không được phân công tại quầy/vị trí WMS này.', 403);

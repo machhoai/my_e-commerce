@@ -55,9 +55,11 @@ type ExternalScanPayload = {
     operator_name: string;
     operator_id_external: string;
     device_id: string | null;
+    shift_id?: string;
+    shift_date?: string;
 };
 
-export type ExternalCountCheckpointType = 'BEFORE_SCAN' | 'BEFORE_SUBMIT';
+export type ExternalCountCheckpointType = 'SHIFT_OPENING' | 'OPTIONAL_CLOSING';
 export type ExternalCountItemCondition = 'GOOD' | 'DAMAGED' | 'EXPIRED' | 'MISSING';
 
 export type ExternalCountItemPayload = {
@@ -78,6 +80,9 @@ export type ExternalCountCheckpointPayload = {
     idempotency_key: string;
     external_operator_name?: string | null;
     external_operator_id?: string | null;
+    shift_id: string;
+    shift_date: string;
+    authorized_operator_ids?: string[];
     device_id?: string | null;
     notes?: string | null;
     action_time?: string;
@@ -95,12 +100,23 @@ export type ExternalCountState = {
         before_scan: boolean;
         before_submit: boolean;
     };
+    access: {
+        can_scan: boolean;
+        current_shift_active: boolean;
+        active_count_session_id: string | null;
+        active_shift_id: string | null;
+        active_shift_date: string | null;
+        activated_at?: unknown;
+    };
     checkpoints: Array<{
         id: string;
         session_number: string;
-        checkpoint_type: ExternalCountCheckpointType;
+        checkpoint_type: ExternalCountCheckpointType | 'BEFORE_SCAN' | 'BEFORE_SUBMIT';
         status: string;
         discrepancy_count?: number;
+        shift_id?: string | null;
+        shift_date?: string | null;
+        external_operator_id?: string | null;
     }>;
 };
 
@@ -287,12 +303,19 @@ export async function submitExternalScanAction(data: ExternalScanPayload) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     try {
-        const { user } = await requireScannerPlacementByWms(data.warehouse_id, data.warehouse_location_id);
+        const { user, placement } = await requireScannerPlacementByWms(
+            data.warehouse_id,
+            data.warehouse_location_id,
+            data.shift_id,
+            data.shift_date,
+        );
         const path = '/api/external/v1/scan';
         const rawBody = JSON.stringify({
             ...data,
             operator_name: user.name || user.email || 'Unknown',
             operator_id_external: user.uid,
+            shift_id: placement.shiftId,
+            shift_date: placement.shiftDate,
             scan_time: new Date().toISOString(),
         });
         const res = await fetchWmsApi(path, {
@@ -428,34 +451,6 @@ export async function cancelExternalScanAction(scanId: string) {
     }
 }
 
-export async function submitBatchAction(data: Record<string, unknown>) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    try {
-        const warehouseId = typeof data.warehouse_id === 'string' ? data.warehouse_id : '';
-        const locationId = typeof data.warehouse_location_id === 'string' ? data.warehouse_location_id : '';
-        const { user } = await requireScannerPlacementByWms(warehouseId, locationId);
-        const path = '/api/external/v1/batch-submit';
-        const rawBody = JSON.stringify({
-            ...data,
-            operator_name: user.name || user.email || 'Unknown',
-            operator_id_external: user.uid,
-        });
-        const res = await fetchWmsApi(path, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: rawBody,
-            signal: controller.signal
-        });
-        clearTimeout(timeout);
-        return res.json();
-    } catch (err: unknown) {
-        clearTimeout(timeout);
-        if (err instanceof ScannerAccessError) return accessDenied(err);
-        return { success: false, error: getErrorMessage(err) };
-    }
-}
-
 export async function getScannerAccessAction(): Promise<{
     success: boolean;
     placements: ScannerPlacement[];
@@ -574,6 +569,8 @@ export async function getExternalCountStateAction(
     warehouseId: string,
     warehouseLocationId: string,
     businessDate: string,
+    shiftId?: string,
+    shiftDate?: string,
 ): Promise<WmsResponse<ExternalCountState>> {
     if (!warehouseId || !warehouseLocationId || !businessDate) {
         return {
@@ -583,17 +580,25 @@ export async function getExternalCountStateAction(
         };
     }
 
-    const params = new URLSearchParams({
-        warehouse_id: warehouseId,
-        warehouse_location_id: warehouseLocationId,
-        business_date: businessDate,
-    });
-    const path = `/api/external/v1/count/state?${params.toString()}`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
 
     try {
-        await requireScannerPlacementByWms(warehouseId, warehouseLocationId);
+        const { user, placement } = await requireScannerPlacementByWms(
+            warehouseId,
+            warehouseLocationId,
+            shiftId,
+            shiftDate,
+        );
+        const params = new URLSearchParams({
+            warehouse_id: warehouseId,
+            warehouse_location_id: warehouseLocationId,
+            business_date: businessDate,
+            operator_id_external: user.uid,
+            shift_id: placement.shiftId,
+            shift_date: placement.shiftDate,
+        });
+        const path = `/api/external/v1/count/state?${params.toString()}`;
         const response = await fetchWmsApi(path, {
             cache: 'no-store',
             signal: controller.signal,
@@ -618,11 +623,26 @@ export async function submitExternalCountCheckpointAction(
     const timeout = setTimeout(() => controller.abort(), 15000);
 
     try {
-        const { user } = await requireScannerPlacementByWms(payload.warehouse_id, payload.warehouse_location_id);
+        const { user, placement } = await requireScannerPlacementByWms(
+            payload.warehouse_id,
+            payload.warehouse_location_id,
+            payload.shift_id,
+            payload.shift_date,
+        );
+        if (payload.checkpoint_type === 'SHIFT_OPENING' && !placement.canStartOpeningCount) {
+            throw new ScannerAccessError(
+                'Ca này thuộc ngày trước và chỉ được giữ quyền quét đến lúc ca mới bàn giao; không thể mở lại kiểm kê đầu ca.',
+                409,
+            );
+        }
         const securedPayload = {
             ...payload,
             external_operator_name: user.name || user.email || 'Unknown',
             external_operator_id: user.uid,
+            shift_id: placement.shiftId,
+            shift_date: placement.shiftDate,
+            business_date: placement.shiftDate,
+            authorized_operator_ids: placement.operatorIds,
         };
         const securedRawBody = JSON.stringify(securedPayload);
         const response = await fetchWmsApi(path, {

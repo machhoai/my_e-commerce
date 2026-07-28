@@ -46,17 +46,19 @@ type ExternalCountSheetProps = {
     products: PreloadedProduct[];
     operatorId: string;
     operatorName: string;
+    shiftId: string;
+    shiftDate: string;
     onSubmitted: () => Promise<void> | void;
 };
 
 const checkpointLabels: Record<ExternalCountCheckpointType, { title: string; description: string }> = {
-    BEFORE_SCAN: {
-        title: 'Kiểm đếm trước khi quét',
-        description: 'Kiểm kho khi bắt đầu ca',
+    SHIFT_OPENING: {
+        title: 'Kiểm kê đầu ca',
+        description: 'Hoàn tất để nhận quyền quét và bàn giao từ ca trước',
     },
-    BEFORE_SUBMIT: {
-        title: 'Kiểm đếm trước khi chốt',
-        description: 'Kiểm kho khi kết thúc ca',
+    OPTIONAL_CLOSING: {
+        title: 'Kiểm kho cuối ngày (tùy chọn)',
+        description: 'Lưu minh chứng đối soát; không khóa quét hoặc chuyển quyền',
     },
 };
 
@@ -105,6 +107,8 @@ export default function ExternalCountSheet({
     products,
     operatorId,
     operatorName,
+    shiftId,
+    shiftDate,
     onSubmitted,
 }: ExternalCountSheetProps) {
     const [drafts, setDrafts] = useState<Record<string, CountDraft>>({});
@@ -113,6 +117,7 @@ export default function ExternalCountSheet({
     const [submitting, setSubmitting] = useState(false);
     const [uploadingEvidence, setUploadingEvidence] = useState<Record<string, boolean>>({});
     const [confirmedAt, setConfirmedAt] = useState('');
+    const [snapshotAt, setSnapshotAt] = useState('');
     const labels = checkpointLabels[checkpointType];
     const countableProducts = useMemo(() => products.slice(0, 500), [products]);
 
@@ -123,6 +128,7 @@ export default function ExternalCountSheet({
         setStep('edit');
         setUploadingEvidence({});
         setConfirmedAt('');
+        setSnapshotAt(new Date().toISOString());
     }, [countableProducts, isOpen, checkpointType]);
 
     const updateDraft = (productId: string, patch: Partial<CountDraft>) => {
@@ -239,12 +245,14 @@ export default function ExternalCountSheet({
                 warehouse_id: warehouseId,
                 warehouse_location_id: locationId,
                 checkpoint_type: checkpointType,
-                business_date: todayInVietnam(),
+                business_date: shiftDate || todayInVietnam(),
+                shift_id: shiftId,
+                shift_date: shiftDate || todayInVietnam(),
                 idempotency_key: `${operatorId}-${checkpointType}-${locationId}-${now.getTime()}`,
                 external_operator_name: operatorName,
                 external_operator_id: operatorId,
                 device_id: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 120) : null,
-                action_time: now.toISOString(),
+                action_time: snapshotAt || now.toISOString(),
                 items: rows.map(({ product, draft, counted }) => ({
                     product_id: product.id,
                     barcode: product.barcode || null,

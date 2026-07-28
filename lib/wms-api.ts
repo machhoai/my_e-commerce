@@ -16,6 +16,21 @@ export function getWmsApiUrl() {
 export function buildWmsAuthHeaders(method: string, path: string, rawBody = '') {
     const apiKey = process.env.WMS_API_KEY || '';
     const apiSecret = process.env.WMS_API_SECRET || '';
+    const configuredUrl = process.env.WMS_API_URL || '';
+    const isLocalDevelopmentTarget = process.env.NODE_ENV !== 'production'
+        && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(?:\/|$)/i.test(configuredUrl);
+
+    if (!apiKey) {
+        throw new Error(
+            'Thiếu WMS_API_KEY cho Product Scanner. INTERNAL_API_KEY không được dùng để xác thực /api/external/v1/*.',
+        );
+    }
+    if (!apiSecret && !isLocalDevelopmentTarget) {
+        throw new Error(
+            'Thiếu WMS_API_SECRET để ký request ERP. Cần cấu hình cả WMS_API_KEY và WMS_API_SECRET rồi khởi động lại ứng dụng.',
+        );
+    }
+
     const headers: Record<string, string> = { 'x-api-key': apiKey };
 
     if (apiSecret) {
