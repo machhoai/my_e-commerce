@@ -22,6 +22,7 @@ interface SendResult {
 }
 
 const PAGE_SIZE = 50;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // ── Ticket color presets ────────────────────────────────────
 const TICKET_COLOR_PRESETS = [
@@ -135,7 +136,8 @@ export default function BulkEmailModal({
     // ── Select helpers ────────────────────────────────────────
     const toggleOne = (id: string) => setSelected(prev => {
         const next = new Set(prev);
-        next.has(id) ? next.delete(id) : next.add(id);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
         return next;
     });
     const togglePage = () => {
@@ -149,15 +151,14 @@ export default function BulkEmailModal({
     };
 
     // ── Validate step 2 emails ────────────────────────────────
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const parsedEmails = useMemo(() => {
         if (emailMode === 'single') return singleEmail ? [singleEmail] : [];
         return multiEmails.split('\n').map(e => e.trim()).filter(Boolean);
     }, [emailMode, singleEmail, multiEmails]);
 
     const emailsValid = useMemo(() => {
-        if (emailMode === 'single') return emailRegex.test(singleEmail);
-        return parsedEmails.length > 0 && parsedEmails.every(e => emailRegex.test(e));
+        if (emailMode === 'single') return EMAIL_REGEX.test(singleEmail);
+        return parsedEmails.length > 0 && parsedEmails.every(e => EMAIL_REGEX.test(e));
     }, [emailMode, singleEmail, parsedEmails]);
 
     const emailCountMismatch = emailMode === 'multi' && parsedEmails.length > 0 && parsedEmails.length !== activeIds.length;
@@ -167,6 +168,7 @@ export default function BulkEmailModal({
         setSending(true);
         setSendDone(false);
         setResults([]);
+        setEmailsSent(0);
         try {
             const token = await getToken();
             const body: Record<string, unknown> = {
@@ -188,11 +190,20 @@ export default function BulkEmailModal({
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify(body),
             });
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.error || `Gửi email thất bại (HTTP ${res.status})`);
+            }
             setResults(data.results || []);
             setEmailsSent(data.emailsSent ?? 0);
-        } catch {
-            setResults([{ id: '?', email: '?', success: false, error: 'Lỗi kết nối' }]);
+        } catch (err) {
+            const error = err instanceof Error ? err.message : 'Lỗi kết nối';
+            setResults(activeIds.map((id, index) => ({
+                id,
+                email: emailMode === 'single' ? singleEmail : (parsedEmails[index] || '?'),
+                success: false,
+                error,
+            })));
         } finally {
             setSending(false);
             setSendDone(true);
@@ -697,6 +708,17 @@ export default function BulkEmailModal({
                                             <p className="text-xs text-danger-600 font-medium">Voucher thất bại</p>
                                         </div>
                                     </div>
+
+                                    {(() => {
+                                        const errors = Array.from(new Set(results.filter(r => !r.success).map(r => r.error).filter(Boolean)));
+                                        if (errors.length === 0) return null;
+                                        return (
+                                            <div className="bg-danger-50 border border-danger-200 rounded-xl px-4 py-3 text-sm text-danger-700">
+                                                <p className="font-semibold mb-1">Lý do gửi thất bại</p>
+                                                {errors.map(error => <p key={error}>• {error}</p>)}
+                                            </div>
+                                        );
+                                    })()}
 
                                     {/* Result table */}
                                     {results.length > 0 && (

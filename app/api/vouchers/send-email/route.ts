@@ -25,20 +25,45 @@ interface CodeWithQr {
     qrBuffer: Buffer;
 }
 
-// ── Email transporter (Brevo SMTP) ────────────────────────────────
-function getTransporter(): nodemailer.Transporter {
-    return nodemailer.createTransport({
-        host: process.env.BREVO_SMTP_SERVER ?? 'smtp-relay.brevo.com',
-        port: Number(process.env.BREVO_SMTP_PORT ?? 587),
-        secure: false, // STARTTLS on port 587
-        auth: {
-            user: process.env.BREVO_SMTP_LOGIN,
-            pass: process.env.BREVO_API_KEY,
-        },
-    });
+// ── Email transporter (Brevo preferred, Gmail fallback) ───────────
+interface MailerConfig {
+    transporter: nodemailer.Transporter;
+    senderEmail: string;
 }
 
-const BREVO_FROM = `B.Duck Cityfuns <${process.env.BREVO_SENDER_EMAIL ?? process.env.BREVO_SMTP_LOGIN ?? 'noreply@bduck.vn'}>`;
+function getMailerConfig(): MailerConfig | null {
+    const brevoUser = process.env.BREVO_SMTP_LOGIN?.trim();
+    const brevoPassword = process.env.BREVO_API_KEY?.trim();
+
+    if (brevoUser && brevoPassword) {
+        return {
+            transporter: nodemailer.createTransport({
+                host: process.env.BREVO_SMTP_SERVER?.trim() || 'smtp-relay.brevo.com',
+                port: Number(process.env.BREVO_SMTP_PORT || 587),
+                secure: false, // STARTTLS on port 587
+                auth: { user: brevoUser, pass: brevoPassword },
+            }),
+            senderEmail: process.env.BREVO_SENDER_EMAIL?.trim() || 'no-reply@bduckcityfuns.com.vn',
+        };
+    }
+
+    const gmailUser = process.env.GMAIL_USER?.trim();
+    const gmailPassword = process.env.GMAIL_APP_PASSWORD?.trim();
+
+    if (gmailUser && gmailPassword) {
+        return {
+            transporter: nodemailer.createTransport({
+                host: 'smtp.gmail.com',
+                port: 465,
+                secure: true,
+                auth: { user: gmailUser, pass: gmailPassword },
+            }),
+            senderEmail: gmailUser,
+        };
+    }
+
+    return null;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────
 function formatRewardValue(type: VoucherRewardType, value: number): string {
@@ -424,7 +449,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ error: 'Khong tim thay ma voucher hop le' }, { status: 404 });
     }
 
-    const transporter = getTransporter();
+    const mailer = getMailerConfig();
+    if (!mailer) {
+        return NextResponse.json(
+            {
+                error: 'Máy chủ chưa cấu hình tài khoản gửi email. Cần cấu hình Brevo SMTP hoặc Gmail App Password.',
+            },
+            { status: 503 },
+        );
+    }
+
+    const { transporter, senderEmail } = mailer;
     const now = new Date().toISOString();
     const results: SendResult[] = [];
     const emailGroups = Array.from(emailToCodesMap.entries());
@@ -467,7 +502,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                     if (logoAttachment) attachments.push(logoAttachment);
 
                     await transporter.sendMail({
-                        from: `"${fromName}" <${process.env.BREVO_SENDER_EMAIL ?? 'no-reply@bduckcityfuns.com.vn'}>`,
+                        from: { name: fromName, address: senderEmail },
                         to: recipientEmail,
                         subject,
                         html,
@@ -502,6 +537,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         failed: results.filter(r => !r.success).length,
         errors: results.filter(r => !r.success).map(r => `${r.id}: ${r.error}`),
         results,
-        emailsSent: emailToCodesMap.size,
+        emailsSent: new Set(successResults.map(r => r.email)).size,
     });
 }
