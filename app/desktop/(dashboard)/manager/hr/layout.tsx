@@ -7,7 +7,7 @@ const tabs: TabItem[] = [
     { label: 'Nhân viên', href: '/manager/hr/users', icon: Users },
     { label: 'Chấm điểm', href: '/manager/hr/kpi-scoring', icon: ClipboardCheck },
     { label: 'Thống kê KPI', href: '/manager/hr/kpi-stats', icon: BarChart3 },
-    { label: 'Chấm Công', href: '/manager/hr/attendance', icon: Clock },
+    { label: 'Quản lý Chấm Công', href: '/manager/hr/attendance', icon: Clock },
     { label: 'Mapping ZK', href: '/manager/hr/mapping', icon: Link2 },
 ];
 

@@ -10,9 +10,8 @@
  *               coloring the check-in cell by EARLY/ON_TIME/LATE status.
  *   Month mode: Grid with status-colored check-in times per cell.
  *
- * Inner Tab 2 — "Lịch sử chạm" (Raw Punch History)
- *   Day mode only: Lists all raw timestamps per employee chronologically.
- *   Pure device output — no calculation, no status.
+ * Inner Tab 2 — "Lịch sử sự kiện"
+ *   Day mode only: Lists machine, GPS and IP events per employee chronologically.
  *
  * Export (Calculated View):
  *   exceljs workbook with multi-level headers, merged date cells,
@@ -27,9 +26,17 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, doc, setDoc } from 'firebase/firestore';
-import { UserDoc, DailyAttendance, ZkUserDoc, SettingsDoc, AttendanceRule, AttendanceRuleSet } from '@/types';
+import type {
+    AttendanceHistoryGroup,
+    AttendanceManagerResponse,
+    DailyAttendance,
+    SettingsDoc,
+    StoreAttendancePolicy,
+    UserDoc,
+    AttendanceRule,
+    AttendanceRuleSet,
+    ZkUserDoc,
+} from '@/types';
 import {
     Clock, RefreshCw, Download, CalendarDays, CalendarRange,
     ChevronLeft, ChevronRight, Search, ListOrdered, BarChart3,
@@ -43,9 +50,9 @@ import {
     PunchOutStatus,
     BLANK_RULE_SET,
 } from '@/lib/attendance-rules';
-import type { RawPunchGroup } from '@/app/api/hr/raw-punches/route';
 import ExcelJS from 'exceljs';
 import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
+import AttendancePolicyPanel from '@/components/attendance/AttendancePolicyPanel';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Date / formatting helpers
@@ -102,12 +109,13 @@ type DateMode = 'day' | 'month';
 type InnerTab = 'calculated' | 'raw';
 
 export default function AttendancePage() {
-    const { user, userDoc, hasPermission } = useAuth();
+    const { user, userDoc, hasPermission, effectiveStoreId } = useAuth();
 
     // ── RBAC guard ─────────────────────────────────────────────────────────────
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
     const canView = isAdmin || hasPermission('page.hr.attendance');
     const canConfigure = isAdmin || hasPermission('hr.attendance.configure');
+    const canExport = isAdmin || hasPermission('action.attendance.export');
 
     const [dateMode, setDateMode] = useState<DateMode>('day');
     const [innerTab, setInnerTab] = useState<InnerTab>('calculated');
@@ -117,10 +125,12 @@ export default function AttendancePage() {
 
     // Data
     const [attendance, setAttendance] = useState<DailyAttendance[]>([]);
-    const [rawPunches, setRawPunches] = useState<RawPunchGroup[]>([]);
-    const [zkUsers, setZkUsers] = useState<ZkUserDoc[]>([]);
+    const [eventHistory, setEventHistory] = useState<AttendanceHistoryGroup[]>([]);
     const [allEmployees, setAllEmployees] = useState<UserDoc[]>([]);
     const [settings, setSettings] = useState<SettingsDoc | null>(null);
+    const [policy, setPolicy] = useState<StoreAttendancePolicy | null>(null);
+    const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
+    const [selectedStoreId, setSelectedStoreId] = useState('');
 
     // Loading states
     const [fetchingCalc, setFetchingCalc] = useState(false);
@@ -146,6 +156,10 @@ export default function AttendancePage() {
     };
 
     const [showRulesPanel, setShowRulesPanel] = useState(false);
+    const [showPolicyPanel, setShowPolicyPanel] = useState(() =>
+        typeof window !== 'undefined'
+        && new URLSearchParams(window.location.search).get('panel') === 'policy',
+    );
     const [savingRules, setSavingRules] = useState(false);
     const [rulesSaved, setRulesSaved] = useState(false);
     const [expandedShift, setExpandedShift] = useState<string | null>(null);
@@ -194,19 +208,28 @@ export default function AttendancePage() {
                     specialDates: specialDatesRecord,
                 };
             }
-            await setDoc(
-                doc(db, 'settings', 'global'),
-                { attendanceRules: { byShift } },
-                { merge: true }
-            );
+            if (!selectedStoreId) throw new Error('Vui lòng chọn cửa hàng.');
+            const token = await getToken();
+            const res = await fetch(`/api/hr/attendance/rules/${selectedStoreId}`, {
+                method: 'PUT',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ byShift }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error ?? 'Không thể lưu quy tắc tính công.');
+            setSettings((current) => current ? { ...current, attendanceRules: { byShift } } : current);
             setRulesSaved(true);
             setTimeout(() => setRulesSaved(false), 2500);
         } catch (e) {
             console.error('Save rules error:', e);
+            setError(e instanceof Error ? e.message : 'Không thể lưu quy tắc tính công.');
         } finally {
             setSavingRules(false);
         }
-    }, [shiftRules]);
+    }, [getToken, selectedStoreId, shiftRules]);
 
     /** Patch a single rule field inside a shift's weekday or weekend rule */
     function patchShiftRule(
@@ -273,87 +296,95 @@ export default function AttendancePage() {
         });
     }
 
-    // ── Real-time listeners ────────────────────────────────────────────────────
+    // ── Accessible stores ──────────────────────────────────────────────────────
 
     useEffect(() => {
-        const q = query(collection(db, 'users'), where('isActive', '!=', false));
-        return onSnapshot(q, (snap) => {
-            const docs = snap.docs
-                .map((d) => d.data() as UserDoc)
-                .filter((u) => u.role !== 'admin' && u.role !== 'super_admin');
-            docs.sort((a, b) => a.name.localeCompare(b.name));
-            setAllEmployees(docs);
-        });
-    }, []);
-
-    useEffect(() => {
-        return onSnapshot(collection(db, 'zkteco_users'), (snap) => {
-            setZkUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ZkUserDoc)));
-        });
-    }, []);
-
-    // Load global settings for attendance rules
-    useEffect(() => {
-        const unsub = onSnapshot(
-            collection(db, 'settings'),
-            (snap) => {
-                const globalDoc = snap.docs.find((d) => d.id === 'global');
-                setSettings(globalDoc ? (globalDoc.data() as SettingsDoc) : null);
+        if (!user || !canView) return;
+        const controller = new AbortController();
+        void (async () => {
+            try {
+                const token = await getToken();
+                const res = await fetch('/api/hr/attendance/stores', {
+                    headers: { Authorization: `Bearer ${token}` },
+                    cache: 'no-store',
+                    signal: controller.signal,
+                });
+                const data = await res.json().catch(() => []);
+                if (!res.ok) throw new Error(data.error ?? 'Không thể tải danh sách cửa hàng.');
+                const nextStores = data as Array<{ id: string; name: string }>;
+                setStores(nextStores);
+                setSelectedStoreId((current) => {
+                    if (nextStores.some((store) => store.id === current)) return current;
+                    const preferred = effectiveStoreId || userDoc?.storeId || '';
+                    return nextStores.some((store) => store.id === preferred)
+                        ? preferred
+                        : nextStores[0]?.id ?? '';
+                });
+            } catch (storeError) {
+                if (storeError instanceof Error && storeError.name === 'AbortError') return;
+                setError(storeError instanceof Error ? storeError.message : 'Không thể tải danh sách cửa hàng.');
             }
-        );
-        return unsub;
-    }, []);
+        })();
+        return () => controller.abort();
+    }, [canView, effectiveStoreId, getToken, user, userDoc?.storeId]);
 
     // ── Fetch calculated attendance ────────────────────────────────────────────
 
     const fetchAttendance = useCallback(async () => {
+        if (!selectedStoreId) return;
         setFetchingCalc(true);
         setError(null);
         try {
             const token = await getToken();
             const param = dateMode === 'day' ? `date=${selectedDate}` : `month=${selectedMonth}`;
-            const res = await fetch(`/api/hr/attendance?${param}`, {
+            const res = await fetch(`/api/hr/attendance?storeId=${encodeURIComponent(selectedStoreId)}&${param}`, {
                 headers: { Authorization: `Bearer ${token}` },
+                cache: 'no-store',
             });
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
                 throw new Error(data.error ?? 'Lỗi tải dữ liệu');
             }
-            setAttendance(await res.json());
+            const data = await res.json() as AttendanceManagerResponse;
+            setAttendance(data.attendance);
+            setAllEmployees(data.employees as UserDoc[]);
+            setSettings(data.settings);
+            setPolicy(data.policy);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Lỗi không xác định');
         } finally {
             setFetchingCalc(false);
         }
-    }, [getToken, dateMode, selectedDate, selectedMonth]);
+    }, [getToken, dateMode, selectedDate, selectedMonth, selectedStoreId]);
 
     // ── Fetch raw punches (day mode + raw tab only) ────────────────────────────
 
-    const fetchRawPunches = useCallback(async () => {
-        if (dateMode !== 'day') return;
+    const fetchEventHistory = useCallback(async () => {
+        if (dateMode !== 'day' || !selectedStoreId) return;
         setFetchingRaw(true);
         setError(null);
         try {
             const token = await getToken();
-            const res = await fetch(`/api/hr/raw-punches?date=${selectedDate}`, {
+            const res = await fetch(`/api/hr/attendance/events?storeId=${encodeURIComponent(selectedStoreId)}&date=${selectedDate}`, {
                 headers: { Authorization: `Bearer ${token}` },
+                cache: 'no-store',
             });
             if (!res.ok) {
                 const d = await res.json().catch(() => ({}));
-                throw new Error(d.error ?? 'Lỗi tải lịch sử chạm');
+                throw new Error(d.error ?? 'Lỗi tải lịch sử sự kiện');
             }
-            setRawPunches(await res.json());
+            setEventHistory(await res.json());
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Lỗi không xác định');
         } finally {
             setFetchingRaw(false);
         }
-    }, [getToken, dateMode, selectedDate]);
+    }, [getToken, dateMode, selectedDate, selectedStoreId]);
 
     useEffect(() => { fetchAttendance(); }, [fetchAttendance]);
     useEffect(() => {
-        if (innerTab === 'raw') fetchRawPunches();
-    }, [innerTab, fetchRawPunches]);
+        if (innerTab === 'raw') fetchEventHistory();
+    }, [innerTab, fetchEventHistory]);
 
     // ── Sync from device ───────────────────────────────────────────────────────
 
@@ -361,19 +392,19 @@ export default function AttendancePage() {
         setSyncing(true);
         try {
             const token = await getToken();
-            const res = await fetch('/api/hr/sync-attendance', {
+            const res = await fetch(`/api/hr/sync-attendance?storeId=${encodeURIComponent(selectedStoreId)}`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
-            await Promise.all([fetchAttendance(), fetchRawPunches()]);
+            await Promise.all([fetchAttendance(), fetchEventHistory()]);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Lỗi đồng bộ');
         } finally {
             setSyncing(false);
         }
-    }, [getToken, fetchAttendance, fetchRawPunches]);
+    }, [getToken, fetchAttendance, fetchEventHistory, selectedStoreId]);
 
     // ── Lookup maps ────────────────────────────────────────────────────────────
 
@@ -387,16 +418,25 @@ export default function AttendancePage() {
 
     const mappedZkByUid = useMemo(() => {
         const map = new Map<string, ZkUserDoc>();
-        for (const z of zkUsers) {
-            if (z.status === 'mapped' && z.mapped_system_uid) map.set(z.mapped_system_uid, z);
+        for (const record of attendance) {
+            if (!record.mapped_system_uid || !record.zk_user_id || map.has(record.mapped_system_uid)) continue;
+            map.set(record.mapped_system_uid, {
+                id: record.zk_user_id,
+                deviceId: 'legacy-device',
+                storeId: record.storeId ?? selectedStoreId,
+                zk_uid: 0,
+                zk_name: record.zk_name,
+                zk_user_id: record.zk_user_id,
+                status: 'mapped',
+                mapped_system_uid: record.mapped_system_uid,
+                mapped_system_name: record.mapped_system_name,
+                lastSyncedAt: '',
+            });
         }
         return map;
-    }, [zkUsers]);
+    }, [attendance, selectedStoreId]);
 
-    const mappedEmployees = useMemo(
-        () => allEmployees.filter((e) => mappedZkByUid.has(e.uid)),
-        [allEmployees, mappedZkByUid]
-    );
+    const mappedEmployees = allEmployees;
 
     const filteredEmployees = useMemo(() => {
         const q = search.toLowerCase().trim();
@@ -421,9 +461,14 @@ export default function AttendancePage() {
 
     // ── Status helper (memoized per cell) ─────────────────────────────────────
 
-    function getStatus(checkIn?: string | null, checkOut?: string | null, date?: string) {
+    function getStatus(
+        checkIn?: string | null,
+        checkOut?: string | null,
+        date?: string,
+        assignedShift?: string | null,
+    ) {
         if (!checkIn || !date) return 'UNKNOWN' as PunchStatus;
-        return calculateAttendanceStatus(checkIn, checkOut, date, settings).status;
+        return calculateAttendanceStatus(checkIn, checkOut, date, settings, assignedShift).status;
     }
 
     // ── exceljs Export ────────────────────────────────────────────────────────
@@ -451,13 +496,16 @@ export default function AttendancePage() {
             ws.columns = [
                 { key: 'id', width: 10 },
                 { key: 'name', width: 24 },
-                { key: 'in', width: 9 },
-                { key: 'out', width: 9 },
+                { key: 'shift', width: 16 },
+                { key: 'status', width: 14 },
+                { key: 'in', width: 10 },
+                { key: 'out', width: 10 },
                 { key: 'hours', width: 11 },
+                { key: 'source', width: 14 },
             ];
 
-            const titleRow = ws.addRow(['Mã ZK', 'Họ Tên', dayLabel, '', '']);
-            ws.mergeCells(`C1:E1`);
+            const titleRow = ws.addRow(['Mã ZK', 'Họ Tên', 'Ca', 'Trạng thái', dayLabel, '', '', 'Nguồn']);
+            ws.mergeCells('E1:G1');
             titleRow.eachCell((cell) => {
                 cell.font = { bold: true, size: 11 };
                 cell.fill = headerFill;
@@ -465,7 +513,7 @@ export default function AttendancePage() {
                 cell.alignment = { horizontal: 'center', vertical: 'middle' };
             });
 
-            const subRow = ws.addRow(['', '', 'Vào', 'Ra', 'Giờ làm']);
+            const subRow = ws.addRow(['', '', '', '', 'Vào', 'Ra', 'Giờ làm', '']);
             subRow.eachCell((cell) => {
                 cell.font = { bold: true, size: 10 };
                 cell.fill = headerFill;
@@ -478,34 +526,43 @@ export default function AttendancePage() {
             // Data rows
             for (const emp of dayFilteredEmployees) {
                 const rec = attendanceByUidAndDate.get(`${emp.uid}|${selectedDate}`)!;
-                const statusResult = calculateAttendanceStatus(
-                    rec.checkIn!, rec.checkOut, selectedDate, settings
-                );
+                const statusResult = rec.checkIn
+                    ? calculateAttendanceStatus(
+                        rec.checkIn, rec.checkOut, selectedDate, settings, rec.scheduledShiftId,
+                    )
+                    : null;
                 const inTime = formatTime(rec.checkIn);
                 const outTime = formatTime(rec.checkOut);
+                const sourceLabel = rec.methods?.map((method) => method === 'BIOMETRIC' ? 'Máy' : method).join(', ') ?? '';
 
                 const row = ws.addRow([
                     mappedZkByUid.get(emp.uid)?.zk_user_id ?? '',
                     emp.name,
+                    rec.scheduledShiftIds?.join(', ') ?? '',
+                    rec.absence ? 'Vắng mặt' : statusResult ? STATUS_COLORS[statusResult.status].label : 'Chưa chấm',
                     inTime !== '—' ? inTime : '',
                     outTime !== '—' ? outTime : '',
-                    statusResult.workHours ?? '',
+                    statusResult?.workHours ?? '',
+                    sourceLabel,
                 ]);
                 row.eachCell((cell) => { cell.border = allBorders; cell.alignment = { vertical: 'middle' }; });
 
                 // Color the check-in cell
-                const token = STATUS_COLORS[statusResult.status];
-                row.getCell('C').font = { color: { argb: 'FF' + token.hex.slice(1) }, bold: true };
-                row.getCell('C').alignment = { horizontal: 'center' };
+                const token = rec.absence
+                    ? { hex: '#EF4444' }
+                    : STATUS_COLORS[statusResult?.status ?? 'UNKNOWN'];
+                row.getCell('D').font = { color: { argb: 'FF' + token.hex.slice(1) }, bold: true };
+                row.getCell('E').font = { color: { argb: 'FF' + token.hex.slice(1) }, bold: true };
+                row.getCell('E').alignment = { horizontal: 'center' };
 
                 // Color the check-out cell
                 if (rec.checkOut) {
-                    const outToken = CHECKOUT_STATUS_COLORS[statusResult.checkOutStatus];
-                    row.getCell('D').font = { color: { argb: 'FF' + outToken.hex.slice(1) }, bold: true };
+                    const outToken = CHECKOUT_STATUS_COLORS[statusResult!.checkOutStatus];
+                    row.getCell('F').font = { color: { argb: 'FF' + outToken.hex.slice(1) }, bold: true };
                 }
-                row.getCell('D').alignment = { horizontal: 'center' };
-                row.getCell('E').numFmt = '0.00';
-                row.getCell('E').alignment = { horizontal: 'center' };
+                row.getCell('F').alignment = { horizontal: 'center' };
+                row.getCell('G').numFmt = '0.00';
+                row.getCell('G').alignment = { horizontal: 'center' };
             }
 
             ws.getRow(1).height = 20;
@@ -570,12 +627,17 @@ export default function AttendancePage() {
                 for (const d of monthDays) {
                     const dateStr = `${selectedMonth}-${String(d).padStart(2, '0')}`;
                     const rec = attendanceByUidAndDate.get(`${emp.uid}|${dateStr}`);
-                    const inTime = formatTime(rec?.checkIn);
+                    const methodLabel = rec?.methods?.map((method) => method === 'BIOMETRIC' ? 'Máy' : method).join('/') ?? '';
+                    const inTime = rec?.absence
+                        ? `VẮNG${rec.scheduledShiftId ? ` (${rec.scheduledShiftId})` : ''}`
+                        : rec?.checkIn
+                            ? `${formatTime(rec.checkIn)}${methodLabel ? ` [${methodLabel}]` : ''}`
+                            : '—';
                     const outTime = formatTime(rec?.checkOut);
 
                     if (rec?.checkIn) {
                         const statusResult = calculateAttendanceStatus(
-                            rec.checkIn, rec.checkOut, dateStr, settings
+                            rec.checkIn, rec.checkOut, dateStr, settings, rec.scheduledShiftId
                         );
                         cellValues.push(
                             inTime !== '—' ? inTime : '',
@@ -583,6 +645,9 @@ export default function AttendancePage() {
                             statusResult.workHours ?? '',
                         );
                         cellMeta.push({ colIndex: colOffset, hex: STATUS_COLORS[statusResult.status].hex });
+                    } else if (rec?.absence) {
+                        cellValues.push(inTime, '', '');
+                        cellMeta.push({ colIndex: colOffset, hex: '#EF4444' });
                     } else {
                         cellValues.push('', '', '');
                     }
@@ -755,12 +820,13 @@ export default function AttendancePage() {
 
                     if (rec?.checkIn) {
                         const statusResult = calculateAttendanceStatus(
-                            rec.checkIn, rec.checkOut, dateStr, settings
+                            rec.checkIn, rec.checkOut, dateStr, settings, rec.scheduledShiftId
                         );
                         inTime = formatTime(rec.checkIn);
                         outTime = rec.checkOut ? formatTime(rec.checkOut) : '';
                         hours = statusResult.workHours ?? '';
-                        statusInLabel = STATUS_COLORS[statusResult.status].label;
+                        const sourceLabel = rec.methods?.map((method) => method === 'BIOMETRIC' ? 'Máy' : method).join('/') ?? '';
+                        statusInLabel = [STATUS_COLORS[statusResult.status].label, rec.scheduledShiftId, sourceLabel].filter(Boolean).join(' · ');
                         statusInColor = STATUS_COLORS[statusResult.status].hex;
                         statusOutLabel = rec.checkOut ? CHECKOUT_STATUS_COLORS[statusResult.checkOutStatus].label : '';
                         statusOutColor = rec.checkOut ? CHECKOUT_STATUS_COLORS[statusResult.checkOutStatus].hex : '';
@@ -770,6 +836,9 @@ export default function AttendancePage() {
                         workDays++;
                         if (statusResult.status === 'LATE') lateDays++;
                         if (statusResult.checkOutStatus === 'EARLY_OUT') earlyOutDays++;
+                    } else if (rec?.absence) {
+                        statusInLabel = `Vắng mặt${rec.scheduledShiftId ? ` · ${rec.scheduledShiftId}` : ''}`;
+                        statusInColor = '#EF4444';
                     }
 
                     const row = ws.addRow([
@@ -995,12 +1064,13 @@ export default function AttendancePage() {
 
                     if (rec?.checkIn) {
                         const statusResult = calculateAttendanceStatus(
-                            rec.checkIn, rec.checkOut, dateStr, settings
+                            rec.checkIn, rec.checkOut, dateStr, settings, rec.scheduledShiftId
                         );
                         inTime = formatTime(rec.checkIn);
                         outTime = rec.checkOut ? formatTime(rec.checkOut) : '';
                         hours = statusResult.workHours ?? '';
-                        statusInLabel = STATUS_COLORS[statusResult.status].label;
+                        const sourceLabel = rec.methods?.map((method) => method === 'BIOMETRIC' ? 'Máy' : method).join('/') ?? '';
+                        statusInLabel = [STATUS_COLORS[statusResult.status].label, rec.scheduledShiftId, sourceLabel].filter(Boolean).join(' · ');
                         statusInColor = STATUS_COLORS[statusResult.status].hex;
                         statusOutLabel = rec.checkOut ? CHECKOUT_STATUS_COLORS[statusResult.checkOutStatus].label : '';
                         statusOutColor = rec.checkOut ? CHECKOUT_STATUS_COLORS[statusResult.checkOutStatus].hex : '';
@@ -1009,6 +1079,9 @@ export default function AttendancePage() {
                         cWorkDays++;
                         if (statusResult.status === 'LATE') cLateDays++;
                         if (statusResult.checkOutStatus === 'EARLY_OUT') cEarlyOutDays++;
+                    } else if (rec?.absence) {
+                        statusInLabel = `Vắng mặt${rec.scheduledShiftId ? ` · ${rec.scheduledShiftId}` : ''}`;
+                        statusInColor = '#EF4444';
                     }
 
                     const row = wsCombined.addRow([
@@ -1075,7 +1148,7 @@ export default function AttendancePage() {
             sheets.length = 0;
             reordered.forEach((s, i) => {
                 sheets.push(s);
-                (s as any).orderNo = i;
+                Object.assign(s, { orderNo: i });
             });
 
             // Trigger download
@@ -1146,14 +1219,28 @@ export default function AttendancePage() {
                     <div>
                         <h1 className="text-xl font-bold bg-gradient-to-r from-primary-600 to-accent-600 bg-clip-text text-transparent flex items-center gap-2">
                             <Clock className="w-5 h-5 text-primary-600" />
-                            Chấm Công Máy ZKTeco
+                            Quản lý Chấm Công
                         </h1>
                         <p className="text-surface-500 text-sm mt-0.5">
-                            {mappedEmployees.length} nhân viên đã ghép · FILO logic · Phân loại sớm/đúng/trễ
+                            {mappedEmployees.length} nhân viên · {!policy
+                                ? 'Chưa cấu hình chính sách'
+                                : policy.sourceMode === 'SOFTWARE'
+                                    ? `Phần mềm/${policy.verificationMethod ?? 'chưa cấu hình'}`
+                                    : 'Máy chấm công'} · FILO
                         </p>
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
+                        <select
+                            value={selectedStoreId}
+                            onChange={(event) => setSelectedStoreId(event.target.value)}
+                            aria-label="Chọn cửa hàng xem chấm công"
+                            className="min-w-44 rounded-xl border border-surface-200 bg-white px-3 py-2 text-sm font-semibold text-surface-700 focus:outline-none focus:ring-2 focus:ring-primary-300"
+                        >
+                            {stores.length === 0 ? <option value="">Chưa có cửa hàng</option> : null}
+                            {stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}
+                        </select>
+
                         {/* Date mode toggle */}
                         <div className="flex bg-surface-100 rounded-xl p-1 gap-1">
                             {(['day', 'month'] as DateMode[]).map((m) => (
@@ -1198,7 +1285,8 @@ export default function AttendancePage() {
                         <div className="relative" ref={exportMenuRef}>
                             <button
                                 onClick={() => setShowExportMenu(!showExportMenu)}
-                                disabled={filteredEmployees.length === 0}
+                                disabled={!canExport || filteredEmployees.length === 0}
+                                title={canExport ? 'Xuất Excel' : 'Bạn chưa được cấp quyền xuất bảng công'}
                                 className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium border bg-surface-50 text-surface-700 border-surface-200 hover:bg-surface-100 disabled:opacity-40 transition-all"
                             >
                                 {exportingDetailed
@@ -1239,6 +1327,17 @@ export default function AttendancePage() {
 
                         {canConfigure && (
                             <button
+                                onClick={() => setShowPolicyPanel(true)}
+                                disabled={!selectedStoreId}
+                                className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium border bg-primary-50 text-primary-700 border-primary-200 hover:bg-primary-100 transition-all disabled:opacity-50"
+                            >
+                                <Settings2 className="w-4 h-4" />
+                                Chính sách
+                            </button>
+                        )}
+
+                        {canConfigure && (
+                            <button
                                 onClick={() => setShowRulesPanel(true)}
                                 className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium border bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 transition-all"
                                 title="Cài đặt quy tắc chấm công"
@@ -1249,12 +1348,18 @@ export default function AttendancePage() {
                         )}
 
                         <button
-                            onClick={handleSync}
+                            onClick={() => void (policy?.sourceMode === 'MACHINE' ? handleSync() : fetchAttendance())}
                             disabled={isBusy}
                             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-gradient-to-r from-primary-600 to-accent-600 text-white hover:from-primary-700 hover:to-accent-700 shadow-md shadow-primary-500/20 transition-all disabled:opacity-60"
                         >
                             <RefreshCw className={cn('w-4 h-4', isBusy && 'animate-spin')} />
-                            {syncing ? 'Đang đồng bộ…' : fetchingCalc ? 'Đang tải…' : 'Đồng bộ & Làm mới'}
+                            {syncing
+                                ? 'Đang đồng bộ…'
+                                : fetchingCalc
+                                    ? 'Đang tải…'
+                                    : policy?.sourceMode === 'MACHINE'
+                                        ? 'Đồng bộ & Làm mới'
+                                        : 'Làm mới'}
                         </button>
                     </div>
                 </div>
@@ -1326,10 +1431,10 @@ export default function AttendancePage() {
                         )}
                     >
                         <ListOrdered className="w-4 h-4" />
-                        Lịch sử chạm
-                        {rawPunches.length > 0 && (
+                        Lịch sử sự kiện
+                        {eventHistory.length > 0 && (
                             <span className="bg-primary-100 text-primary-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                                {rawPunches.reduce((s, g) => s + g.timestamps.length, 0)}
+                                {eventHistory.reduce((sum, group) => sum + group.events.length, 0)}
                             </span>
                         )}
                     </button>
@@ -1351,7 +1456,8 @@ export default function AttendancePage() {
                                     })}
                                 </p>
                                 <p className="text-xs text-surface-400">
-                                    {dayFilteredEmployees.length} người có dữ liệu chấm công
+                                    {dayFilteredEmployees.filter((employee) => attendanceByUidAndDate.get(`${employee.uid}|${selectedDate}`)?.checkIn).length} đã chấm ·{' '}
+                                    {dayFilteredEmployees.filter((employee) => attendanceByUidAndDate.get(`${employee.uid}|${selectedDate}`)?.absence).length} vắng
                                 </p>
                             </div>
 
@@ -1360,30 +1466,36 @@ export default function AttendancePage() {
                                     <thead className="bg-surface-50 border-b border-surface-200 text-xs uppercase tracking-wider text-surface-500">
                                         <tr>
                                             <th className="px-5 py-3.5 text-left font-bold">Nhân viên</th>
+                                            <th className="px-4 py-3.5 text-center font-bold">Ca</th>
                                             <th className="px-4 py-3.5 text-center font-bold">Trạng thái</th>
                                             <th className="px-4 py-3.5 text-center font-bold">Giờ vào (thực)</th>
                                             <th className="px-4 py-3.5 text-center font-bold">Tính từ</th>
                                             <th className="px-4 py-3.5 text-center font-bold">Giờ ra</th>
                                             <th className="px-4 py-3.5 text-center font-bold">Giờ làm</th>
-                                            <th className="px-4 py-3.5 text-center font-bold">Số lần quét</th>
+                                            <th className="px-4 py-3.5 text-center font-bold">Nguồn</th>
+                                            <th className="px-4 py-3.5 text-center font-bold">Sự kiện</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-surface-100">
                                         {fetchingCalc ? (
-                                            <tr><td colSpan={7} className="py-16 text-center">
+                                            <tr><td colSpan={9} className="py-16 text-center">
                                                 <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto" />
                                             </td></tr>
                                         ) : dayFilteredEmployees.length === 0 ? (
-                                            <tr><td colSpan={7} className="py-16 text-center text-surface-400 text-sm">
-                                                Không có dữ liệu chấm công nào trong ngày này.
+                                            <tr><td colSpan={9} className="py-16 text-center text-surface-400 text-sm">
+                                                Không có nhân viên trong danh sách chấm công ngày này.
                                             </td></tr>
                                         ) : (
                                             dayFilteredEmployees.map((emp) => {
                                                 const rec = attendanceByUidAndDate.get(`${emp.uid}|${selectedDate}`)!;
-                                                const statusResult = calculateAttendanceStatus(
-                                                    rec.checkIn!, rec.checkOut, selectedDate, settings
-                                                );
-                                                const token = STATUS_COLORS[statusResult.status];
+                                                const statusResult = rec.checkIn
+                                                    ? calculateAttendanceStatus(
+                                                        rec.checkIn, rec.checkOut, selectedDate, settings, rec.scheduledShiftId,
+                                                    )
+                                                    : null;
+                                                const token = rec.absence
+                                                    ? { bg: 'bg-red-50', text: 'text-red-700', hex: '#EF4444', label: 'Vắng mặt' }
+                                                    : STATUS_COLORS[statusResult?.status ?? 'UNKNOWN'];
 
                                                 return (
                                                     <tr key={emp.uid} className="hover:bg-surface-50 transition-colors">
@@ -1410,6 +1522,12 @@ export default function AttendancePage() {
                                                             </div>
                                                         </td>
 
+                                                        <td className="px-4 py-3 text-center">
+                                                            <span className="text-xs font-semibold text-surface-600">
+                                                                {rec.scheduledShiftIds?.length ? rec.scheduledShiftIds.join(', ') : 'Chưa xếp ca'}
+                                                            </span>
+                                                        </td>
+
                                                         {/* Status badge */}
                                                         <td className="px-4 py-3 text-center">
                                                             <span className={cn(
@@ -1431,7 +1549,7 @@ export default function AttendancePage() {
                                                         {/* Effective check-in (capped) */}
                                                         <td className="px-4 py-3 text-center">
                                                             <span className="text-surface-600 text-sm font-mono">
-                                                                {statusResult.status === 'EARLY'
+                                                                {statusResult?.status === 'EARLY'
                                                                     ? formatTime(statusResult.effectiveCheckIn)
                                                                     : formatTime(rec.checkIn)}
                                                             </span>
@@ -1444,26 +1562,41 @@ export default function AttendancePage() {
                                                                     {formatTime(rec.checkOut)}
                                                                 </span>
                                                             ) : (
-                                                                <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">1 lần quét</span>
+                                                                <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">
+                                                                    {rec.checkIn ? 'Thiếu giờ ra' : rec.absence ? 'Vắng mặt' : 'Chưa chấm'}
+                                                                </span>
                                                             )}
                                                         </td>
 
                                                         {/* Working hours */}
                                                         <td className="px-4 py-3 text-center">
                                                             <span className="text-sm font-bold text-surface-700">
-                                                                {statusResult.workHours != null
+                                                                {statusResult?.workHours != null
                                                                     ? `${statusResult.workHours}h`
                                                                     : '—'}
                                                             </span>
                                                         </td>
 
-                                                        {/* Punch count */}
+                                                        {/* Source */}
+                                                        <td className="px-4 py-3 text-center">
+                                                            <div className="flex justify-center gap-1">
+                                                                {rec.methods?.length
+                                                                    ? rec.methods.map((method) => (
+                                                                        <span key={method} className="rounded-lg bg-primary-50 px-2 py-1 text-[10px] font-bold text-primary-700">
+                                                                            {method === 'BIOMETRIC' ? 'Máy' : method}
+                                                                        </span>
+                                                                    ))
+                                                                    : <span className="text-surface-300">—</span>}
+                                                            </div>
+                                                        </td>
+
+                                                        {/* Event count */}
                                                         <td className="px-4 py-3 text-center">
                                                             <span className={cn(
                                                                 'px-2 py-1 rounded-lg text-xs font-bold',
                                                                 rec.punchCount > 2 ? 'bg-amber-50 text-amber-700' : 'bg-surface-100 text-surface-600'
                                                             )}>
-                                                                {rec.punchCount} lần
+                                                                {rec.punchCount} sự kiện
                                                             </span>
                                                         </td>
                                                     </tr>
@@ -1477,13 +1610,13 @@ export default function AttendancePage() {
                             {/* Footer summary */}
                             {!fetchingCalc && dayFilteredEmployees.length > 0 && (
                                 <div className="px-5 py-3 bg-surface-50 border-t border-surface-100 flex items-center gap-6 text-xs text-surface-500">
-                                    <span><strong className="text-success-600">{dayFilteredEmployees.length}</strong> nhân viên có chấm công</span>
-                                    <span><strong className="text-surface-500">{mappedEmployees.length - dayFilteredEmployees.length}</strong> không có dữ liệu hôm nay</span>
+                                    <span><strong className="text-success-600">{dayFilteredEmployees.filter((employee) => attendanceByUidAndDate.get(`${employee.uid}|${selectedDate}`)?.checkIn).length}</strong> nhân viên đã chấm</span>
+                                    <span><strong className="text-red-600">{dayFilteredEmployees.filter((employee) => attendanceByUidAndDate.get(`${employee.uid}|${selectedDate}`)?.absence).length}</strong> vắng theo lịch</span>
                                     <span className="ml-auto">
                                         {['EARLY', 'ON_TIME', 'LATE'].map((s) => {
                                             const count = dayFilteredEmployees.filter((e) => {
                                                 const rec = attendanceByUidAndDate.get(`${e.uid}|${selectedDate}`);
-                                                return rec && getStatus(rec.checkIn, rec.checkOut, selectedDate) === s;
+                                                return rec && getStatus(rec.checkIn, rec.checkOut, selectedDate, rec.scheduledShiftId) === s;
                                             }).length;
                                             if (!count) return null;
                                             const t = STATUS_COLORS[s as PunchStatus];
@@ -1581,9 +1714,10 @@ export default function AttendancePage() {
                                                                     'px-1 py-1.5 text-center align-middle border-l border-surface-50',
                                                                     isWeekend && 'bg-primary-50/30',
                                                                     isToday && 'bg-accent-50/40',
-                                                                    rec && 'bg-green-50/30'
+                                                                    rec?.checkIn && 'bg-green-50/30',
+                                                                    rec?.absence && 'bg-red-50/60'
                                                                 )}>
-                                                                    {rec ? (
+                                                                    {rec?.checkIn ? (
                                                                         <div className="flex flex-col items-center gap-0.5">
                                                                             <span className={cn('font-semibold leading-tight', statusClass)}>
                                                                                 {formatTime(rec.checkIn)}
@@ -1594,6 +1728,10 @@ export default function AttendancePage() {
                                                                                 </span>
                                                                             )}
                                                                         </div>
+                                                                    ) : rec?.absence ? (
+                                                                        <span className="font-bold text-red-600" title={`Vắng mặt · ${rec.scheduledShiftIds?.join(', ') ?? ''}`}>V</span>
+                                                                    ) : rec?.scheduled ? (
+                                                                        <span className="font-semibold text-amber-500" title="Đã xếp ca nhưng chưa chấm công">CC</span>
                                                                     ) : (
                                                                         <span className="text-surface-200 select-none">—</span>
                                                                     )}
@@ -1613,18 +1751,18 @@ export default function AttendancePage() {
             )}
 
             {/* ════════════════════════════════════════════════════════════════
-                TAB 2 — RAW PUNCH HISTORY (Day mode only)
+                TAB 2 — UNIFIED EVENT HISTORY (Day mode only)
             ════════════════════════════════════════════════════════════════ */}
             {dateMode === 'day' && innerTab === 'raw' && (
                 <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
                     <div className="px-5 py-3.5 border-b border-surface-100 flex items-center justify-between">
                         <p className="text-sm font-semibold text-surface-700">
-                            Lịch sử chạm thẻ — {new Date(selectedDate + 'T00:00').toLocaleDateString('vi-VN', {
+                            Lịch sử sự kiện — {new Date(selectedDate + 'T00:00').toLocaleDateString('vi-VN', {
                                 weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
                             })}
                         </p>
                         <button
-                            onClick={fetchRawPunches}
+                            onClick={fetchEventHistory}
                             disabled={fetchingRaw}
                             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl border border-surface-200 text-surface-600 hover:bg-surface-100 transition-all"
                         >
@@ -1637,54 +1775,61 @@ export default function AttendancePage() {
                         <div className="py-20 flex justify-center">
                             <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
                         </div>
-                    ) : rawPunches.length === 0 ? (
+                    ) : eventHistory.length === 0 ? (
                         <div className="py-16 text-center text-surface-400 text-sm">
-                            Không có lần quét nào trong ngày này.
+                            Không có sự kiện chấm công nào trong ngày này.
                         </div>
                     ) : (
                         <div className="divide-y divide-surface-100">
-                            {rawPunches.map((group) => (
-                                <div key={group.zk_user_id} className="flex items-start gap-4 px-5 py-4 hover:bg-surface-50 transition-colors">
+                            {eventHistory.map((group) => (
+                                <div key={group.employeeUid} className="flex items-start gap-4 px-5 py-4 hover:bg-surface-50 transition-colors">
                                     {/* Avatar */}
                                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-surface-300 to-surface-500 text-white text-xs font-bold flex items-center justify-center shrink-0">
-                                        {group.zk_name.charAt(0).toUpperCase()}
+                                        {group.employeeName.charAt(0).toUpperCase()}
                                     </div>
 
                                     {/* Info */}
                                     <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <p className="font-semibold text-surface-800 text-sm">{group.zk_name}</p>
-                                            {group.mapped_system_name && (
-                                                <span className="text-[11px] bg-success-50 text-success-700 px-2 py-0.5 rounded-full font-medium">
-                                                    → {group.mapped_system_name}
-                                                </span>
-                                            )}
-                                            <code className="text-[10px] text-surface-400 bg-surface-100 px-1.5 py-0.5 rounded">
-                                                {group.zk_user_id}
-                                            </code>
+                                            <p className="font-semibold text-surface-800 text-sm">{group.employeeName}</p>
+                                            {group.zkUserId ? (
+                                                <code className="text-[10px] text-surface-400 bg-surface-100 px-1.5 py-0.5 rounded">
+                                                    ZK {group.zkUserId}
+                                                </code>
+                                            ) : null}
                                             <span className="ml-auto text-[11px] text-surface-400">
-                                                {group.timestamps.length} lần quét
+                                                {group.events.length} sự kiện
                                             </span>
                                         </div>
 
                                         {/* Punch timeline */}
                                         <div className="flex items-center gap-2 flex-wrap">
-                                            {group.timestamps.map((ts, idx) => {
-                                                const isFirst = idx === 0;
-                                                const isLast = idx === group.timestamps.length - 1 && group.timestamps.length > 1;
+                                            {group.events.map((event, idx) => {
+                                                const accepted = event.status === 'ACCEPTED';
                                                 return (
-                                                    <div key={ts} className="flex items-center gap-1">
-                                                        <span className={cn(
+                                                    <div key={event.id} className="flex items-center gap-1">
+                                                        <span title={event.rejectedReason} className={cn(
                                                             'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono font-medium border',
-                                                            isFirst && 'bg-green-50 text-green-700 border-green-200',
-                                                            isLast && 'bg-blue-50 text-blue-700 border-blue-200',
-                                                            !isFirst && !isLast && 'bg-surface-50 text-surface-600 border-surface-200'
+                                                            accepted
+                                                                ? event.eventType === 'CHECK_OUT'
+                                                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                                    : 'bg-green-50 text-green-700 border-green-200'
+                                                                : 'bg-red-50 text-red-700 border-red-200',
                                                         )}>
-                                                            {formatTime(ts)}
-                                                            {isFirst && <span className="text-[9px] opacity-60 ml-0.5">●IN</span>}
-                                                            {isLast && <span className="text-[9px] opacity-60 ml-0.5">●OUT</span>}
+                                                            {formatTime(event.occurredAt)}
+                                                            <span className="text-[9px] opacity-70 ml-0.5">
+                                                                {event.eventType === 'CHECK_IN'
+                                                                    ? '●IN'
+                                                                    : event.eventType === 'CHECK_OUT'
+                                                                        ? '●OUT'
+                                                                        : '●PUNCH'}
+                                                            </span>
+                                                            <span className="font-sans text-[9px] opacity-70">
+                                                                {event.method === 'BIOMETRIC' ? 'Máy' : event.method}
+                                                            </span>
+                                                            {!accepted ? <span className="font-sans text-[9px]">Bị từ chối</span> : null}
                                                         </span>
-                                                        {idx < group.timestamps.length - 1 && (
+                                                        {idx < group.events.length - 1 && (
                                                             <ChevronRight className="w-3 h-3 text-surface-300 shrink-0" />
                                                         )}
                                                     </div>
@@ -1734,7 +1879,7 @@ export default function AttendancePage() {
                         </div>
                         <div>
                             <h2 className="font-bold text-surface-800 text-base">Cài đặt Quy tắc Chấm công</h2>
-                            <p className="text-xs text-surface-500">Lưu vào Firestore · Áp dụng ngay lập tức</p>
+                            <p className="text-xs text-surface-500">Lưu riêng theo cửa hàng · Áp dụng ngay lập tức</p>
                         </div>
                     </div>
                     <button
@@ -1752,8 +1897,8 @@ export default function AttendancePage() {
                     <div className="px-6 pt-5 pb-4">
                         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800 leading-relaxed">
                             <strong>Cách hoạt động:</strong> Mỗi ca trong <code className="bg-amber-100 px-1 rounded">shiftTimes</code> có cài đặt riêng.
-                            Khi nhân viên quẹt thẻ, hệ thống tự gán ca dựa trên startTime gần nhất.
-                            Ư u tiên: ngày đặc biệt → cuối tuần → ngày thường.
+                            Hệ thống ưu tiên ca đã được xếp trong lịch; nếu không có lịch mới tự dò theo startTime gần nhất.
+                            Quy tắc ngày: ngày đặc biệt → cuối tuần → ngày thường.
                         </div>
                     </div>
 
@@ -1903,6 +2048,17 @@ export default function AttendancePage() {
                     </button>
                 </div>
             </div>
+
+            <AttendancePolicyPanel
+                open={showPolicyPanel && canConfigure}
+                storeId={selectedStoreId}
+                getToken={getToken}
+                onClose={() => setShowPolicyPanel(false)}
+                onSaved={(nextPolicy) => {
+                    setPolicy(nextPolicy);
+                    void fetchAttendance();
+                }}
+            />
         </div>
     );
 }

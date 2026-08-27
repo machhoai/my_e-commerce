@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
-import { UserDoc, KpiRecordDoc, ScheduleDoc, SettingsDoc, StoreDoc, CounterDoc, DailyAttendance, ZkUserDoc } from '@/types';
+import { UserDoc, KpiRecordDoc, ScheduleDoc, SettingsDoc, StoreDoc, CounterDoc, DailyAttendance, ZkUserDoc, AttendanceManagerResponse } from '@/types';
 
 import { cn, getWeekStart, toLocalDateString } from '@/lib/utils';
 import Popup from '@/components/ui/Popup';
@@ -105,30 +105,24 @@ function AttendanceTabContent({ employeeUid, storeId, user, month, onMonthChange
         (async () => {
             try {
                 const token = await user.getIdToken();
-                const res = await fetch(`/api/hr/attendance?month=${month}`, {
+                const res = await fetch(`/api/hr/attendance?storeId=${encodeURIComponent(storeId)}&month=${month}`, {
                     headers: { Authorization: `Bearer ${token}` },
+                    cache: 'no-store',
                 });
-                if (!res.ok) throw new Error('Lỗi tải dữ liệu');
-                const all: DailyAttendance[] = await res.json();
-                setRecords(all.filter(r => r.mapped_system_uid === employeeUid));
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.error ?? 'Lỗi tải dữ liệu');
+                const response = data as AttendanceManagerResponse;
+                setRecords(response.attendance.filter((record) =>
+                    record.mapped_system_uid === employeeUid && (Boolean(record.checkIn) || record.scheduled === true)
+                ));
+                setSettings(response.settings);
             } catch (e) {
                 setError(e instanceof Error ? e.message : 'Lỗi');
             } finally {
                 setLoading(false);
             }
         })();
-    }, [month, employeeUid, user]);
-
-    // Load global settings for attendance rules
-    useEffect(() => {
-        if (!storeId) return;
-        (async () => {
-            try {
-                const snap = await getDoc(doc(db, 'settings', 'global'));
-                if (snap.exists()) setSettings(snap.data() as SettingsDoc);
-            } catch { /* silent */ }
-        })();
-    }, [storeId]);
+    }, [month, employeeUid, storeId, user]);
 
     const rows = useMemo(() => records.sort((a, b) => a.date.localeCompare(b.date)), [records]);
 
@@ -136,11 +130,11 @@ function AttendanceTabContent({ employeeUid, storeId, user, month, onMonthChange
         let hrs = 0;
         for (const r of rows) {
             if (r.checkIn) {
-                const s = calculateAttendanceStatus(r.checkIn, r.checkOut, r.date, settings);
+                const s = calculateAttendanceStatus(r.checkIn, r.checkOut, r.date, settings, r.scheduledShiftId);
                 if (s.workHours) hrs += s.workHours;
             }
         }
-        return { days: rows.length, hours: hrs };
+        return { days: rows.filter((record) => record.checkIn).length, hours: hrs };
     }, [rows, settings]);
 
     return (
@@ -365,7 +359,7 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose, in
                     const storeSettings = (sd.settings as SettingsDoc) || null;
                     setSettings(storeSettings);
                     // Counters are embedded in store.settings.counters (array), NOT a separate collection
-                    setCounters((storeSettings as any)?.counters || []);
+                    setCounters(sd.settings?.counters ?? []);
                 }
 
                 const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d; });

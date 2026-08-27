@@ -2,8 +2,8 @@
  * lib/zkteco-worker.ts
  *
  * Server-only thin client for the ZKTeco FastAPI bridge worker.
- * Every exported function reads ZKTECO_WORKER_URL and ZKTECO_API_KEY
- * from environment variables — never hardcoded.
+ * The bridge endpoint comes from attendance_devices. The shared API key remains
+ * server-only in ZKTECO_API_KEY and is never stored in Firestore.
  *
  * Usage (in a Next.js Route Handler):
  *   import { fetchZkUsers } from '@/lib/zkteco-worker';
@@ -31,15 +31,16 @@ export interface ZkRawLog {
 // Internal helper
 // ---------------------------------------------------------------------------
 
-function getWorkerConfig(): { baseUrl: string; apiKey: string } {
-    const baseUrl =
-        process.env.ZKTECO_WORKER_URL?.replace(/\/$/, '') ?? 'http://localhost:8001';
+function getWorkerConfig(baseUrlOverride?: string): { baseUrl: string; apiKey: string } {
+    const baseUrl = (baseUrlOverride
+        ?? process.env.ZKTECO_WORKER_URL
+        ?? 'http://localhost:8001').replace(/\/$/, '');
     const apiKey = process.env.ZKTECO_API_KEY ?? '';
     return { baseUrl, apiKey };
 }
 
-async function workerFetch<T>(path: string, init?: RequestInit): Promise<T> {
-    const { baseUrl, apiKey } = getWorkerConfig();
+async function workerFetch<T>(path: string, baseUrlOverride?: string, init?: RequestInit): Promise<T> {
+    const { baseUrl, apiKey } = getWorkerConfig(baseUrlOverride);
     const url = `${baseUrl}${path}`;
 
     const res = await fetch(url, {
@@ -66,11 +67,19 @@ async function workerFetch<T>(path: string, init?: RequestInit): Promise<T> {
 // ---------------------------------------------------------------------------
 
 /** Fetch all users enrolled on the ZKTeco device */
-export async function fetchZkUsers(): Promise<ZkRawUser[]> {
-    return workerFetch<ZkRawUser[]>('/api/zkteco/users');
+export async function fetchZkUsers(
+    bridgeEndpoint?: string,
+    deviceId?: string,
+): Promise<ZkRawUser[]> {
+    const query = deviceId ? `?device_id=${encodeURIComponent(deviceId)}` : '';
+    return workerFetch<ZkRawUser[]>(`/api/zkteco/users${query}`, bridgeEndpoint);
 }
 
 /** Fetch all attendance punch logs from the ZKTeco device */
-export async function fetchZkLogs(): Promise<ZkRawLog[]> {
-    return workerFetch<ZkRawLog[]>('/api/zkteco/logs');
+export async function fetchZkLogs(
+    bridgeEndpoint?: string,
+    deviceId?: string,
+): Promise<ZkRawLog[]> {
+    const query = deviceId ? `?device_id=${encodeURIComponent(deviceId)}` : '';
+    return workerFetch<ZkRawLog[]>(`/api/zkteco/logs${query}`, bridgeEndpoint);
 }

@@ -1,73 +1,69 @@
-/**
- * POST /api/hr/zkteco-users
- *
- * GET  — Returns all documents from the `zkteco_users` collection.
- *         Supports ?status=unmapped|mapped|ignored filter.
- *
- * PATCH — Updates the mapping status of a single ZK user.
- *          Body: { id: string; status: ZkUserStatus; mapped_system_uid?: string | null; mapped_system_name?: string | null }
- */
-
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { ZkUserDoc, ZkUserStatus } from '@/types';
+import { z } from 'zod';
+import { attendanceAccessErrorResponse, requireAttendanceAccess } from '@/lib/attendance/access';
+import { attendanceMappingId } from '@/lib/attendance/device-model';
+import { getAdminDb } from '@/lib/firebase-admin';
+import type { ZkUserDoc } from '@/types';
 
-async function verifyToken(req: NextRequest): Promise<string | null> {
-    const authHeader = req.headers.get('Authorization') ?? '';
-    const token = authHeader.replace('Bearer ', '');
-    if (!token) return null;
-    try {
-        const decoded = await getAdminAuth().verifyIdToken(token);
-        return decoded.uid;
-    } catch {
-        return null;
+const mappingInputSchema = z.object({
+    deviceId: z.string().trim().min(1),
+    zkUserId: z.string().trim().min(1),
+    status: z.enum(['unmapped', 'mapped', 'ignored']),
+    mapped_system_uid: z.string().trim().min(1).nullable().optional(),
+    mapped_system_name: z.string().trim().min(1).nullable().optional(),
+}).strict().superRefine((input, context) => {
+    if (input.status === 'mapped' && !input.mapped_system_uid) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ['mapped_system_uid'], message: 'Thiếu nhân viên cần ghép' });
     }
-}
+});
 
-// GET /api/hr/zkteco-users[?status=unmapped]
 export async function GET(req: NextRequest) {
-    const uid = await verifyToken(req);
-    if (!uid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const { searchParams } = new URL(req.url);
-    const statusFilter = searchParams.get('status') as ZkUserStatus | null;
-
-    const db = getAdminDb();
-    let query = db.collection('zkteco_users') as FirebaseFirestore.Query;
-    if (statusFilter) {
-        query = query.where('status', '==', statusFilter);
+    try {
+        const { searchParams } = new URL(req.url);
+        const storeId = searchParams.get('storeId')?.trim() ?? '';
+        const deviceId = searchParams.get('deviceId')?.trim() ?? '';
+        const status = searchParams.get('status');
+        await requireAttendanceAccess(req, { permission: 'hr.attendance.configure', storeId });
+        const snapshot = await getAdminDb().collection('zkteco_users').get();
+        const users = snapshot.docs
+            .map((document) => ({ id: document.id, ...document.data() } as ZkUserDoc))
+            .filter((user) => user.storeId === storeId)
+            .filter((user) => !deviceId || user.deviceId === deviceId)
+            .filter((user) => !status || user.status === status)
+            .sort((a, b) => a.zk_name.localeCompare(b.zk_name, 'vi'));
+        return NextResponse.json(users, { headers: { 'Cache-Control': 'no-store' } });
+    } catch (error) {
+        return attendanceAccessErrorResponse(error)
+            ?? NextResponse.json({ error: 'Không thể tải mapping máy chấm công.' }, { status: 500 });
     }
-
-    const snap = await query.orderBy('zk_name').get();
-    const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() } as ZkUserDoc));
-
-    return NextResponse.json(docs);
 }
 
-// PATCH /api/hr/zkteco-users — update a single user's mapping
 export async function PATCH(req: NextRequest) {
-    const uid = await verifyToken(req);
-    if (!uid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const body = await req.json();
-    const { id, status, mapped_system_uid, mapped_system_name } = body;
-
-    if (!id || !status) {
-        return NextResponse.json({ error: 'id and status are required' }, { status: 400 });
+    try {
+        const input = mappingInputSchema.parse(await req.json());
+        const db = getAdminDb();
+        const ref = db.collection('zkteco_users').doc(attendanceMappingId(input.deviceId, input.zkUserId));
+        const snapshot = await ref.get();
+        if (!snapshot.exists) {
+            return NextResponse.json({ error: 'Không tìm thấy người dùng trên thiết bị.' }, { status: 404 });
+        }
+        const mapping = { id: snapshot.id, ...snapshot.data() } as ZkUserDoc;
+        await requireAttendanceAccess(req, {
+            permission: 'hr.attendance.configure',
+            storeId: mapping.storeId,
+        });
+        await ref.update({
+            status: input.status,
+            mapped_system_uid: input.status === 'mapped' ? input.mapped_system_uid ?? null : null,
+            mapped_system_name: input.status === 'mapped' ? input.mapped_system_name ?? null : null,
+        });
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        const accessResponse = attendanceAccessErrorResponse(error);
+        if (accessResponse) return accessResponse;
+        if (error instanceof z.ZodError) {
+            return NextResponse.json({ error: 'Mapping không hợp lệ.', details: error.flatten() }, { status: 400 });
+        }
+        return NextResponse.json({ error: 'Không thể cập nhật mapping.' }, { status: 500 });
     }
-
-    const db = getAdminDb();
-    const ref = db.collection('zkteco_users').doc(id);
-    const snap = await ref.get();
-    if (!snap.exists) {
-        return NextResponse.json({ error: 'ZK user not found' }, { status: 404 });
-    }
-
-    await ref.update({
-        status,
-        mapped_system_uid: mapped_system_uid ?? null,
-        mapped_system_name: mapped_system_name ?? null,
-    });
-
-    return NextResponse.json({ success: true });
 }

@@ -13,9 +13,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/firebase';
-import { collection, onSnapshot, doc, getDoc } from 'firebase/firestore';
-import { UserDoc, DailyAttendance, ZkUserDoc, SettingsDoc } from '@/types';
+import type {
+    AttendanceManagerResponse,
+    DailyAttendance,
+    SettingsDoc,
+    StoreAttendancePolicy,
+    UserDoc,
+} from '@/types';
 import {
     ChevronLeft, ChevronRight, RefreshCw, Calendar, CalendarRange,
     LogIn, LogOut, Clock, AlertCircle, Loader2, ShieldOff,
@@ -93,7 +97,7 @@ interface DetailSheetProps {
 
 function DetailSheet({ employee, record, settings, date, onClose }: DetailSheetProps) {
     const st = record?.checkIn
-        ? calculateAttendanceStatus(record.checkIn, record.checkOut, date, settings)
+        ? calculateAttendanceStatus(record.checkIn, record.checkOut, date, settings, record.scheduledShiftId)
         : null;
     const inTok = st ? IN_TOKENS[st.status] : IN_TOKENS.UNKNOWN;
     const outTok = st ? OUT_TOKENS[st.checkOutStatus] : OUT_TOKENS.UNKNOWN;
@@ -180,14 +184,23 @@ function DetailSheet({ employee, record, settings, date, onClose }: DetailSheetP
                         </div>
 
                         {/* Detected shift */}
-                        {st?.detectedShift && (
+                        {(record.scheduledShiftId || st?.detectedShift) && (
                             <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 rounded-xl px-3 py-2">
                                 <Calendar className="w-3.5 h-3.5 shrink-0" />
-                                <span>Ca làm: <strong className="text-gray-700">{st.detectedShift}</strong></span>
-                                <span className="text-gray-300">·</span>
-                                <span>Quy tắc: {st.rule.startTime} → {st.rule.endTime}</span>
+                                <span>Ca làm: <strong className="text-gray-700">{record.scheduledShiftId || st?.detectedShift}</strong></span>
+                                {st ? (
+                                    <>
+                                        <span className="text-gray-300">·</span>
+                                        <span>Quy tắc: {st.rule.startTime} → {st.rule.endTime}</span>
+                                    </>
+                                ) : null}
                             </div>
                         )}
+                        {record.methods?.length ? (
+                            <div className="text-xs text-gray-500 bg-gray-50 rounded-xl px-3 py-2">
+                                Nguồn: <strong>{record.methods.map((method) => method === 'BIOMETRIC' ? 'Máy' : method).join(', ')}</strong>
+                            </div>
+                        ) : null}
                     </div>
                 )}
             </div>
@@ -209,7 +222,7 @@ interface EmpCardProps {
 
 function EmployeeCard({ employee, record, settings, date, onClick }: EmpCardProps) {
     const st = record?.checkIn
-        ? calculateAttendanceStatus(record.checkIn, record.checkOut, date, settings)
+        ? calculateAttendanceStatus(record.checkIn, record.checkOut, date, settings, record.scheduledShiftId)
         : null;
     const inTok = st ? IN_TOKENS[st.status] : IN_TOKENS.UNKNOWN;
     const outTok = st ? OUT_TOKENS[st.checkOutStatus] : OUT_TOKENS.UNKNOWN;
@@ -254,6 +267,10 @@ function EmployeeCard({ employee, record, settings, date, onClick }: EmpCardProp
                         </>
                     )}
                 </div>
+                <p className="mt-0.5 text-[10px] text-gray-400">
+                    {record?.scheduledShiftId ? `Ca ${record.scheduledShiftId}` : 'Chưa xếp ca'}
+                    {record?.methods?.length ? ` · ${record.methods.map((method) => method === 'BIOMETRIC' ? 'Máy' : method).join('/')}` : ''}
+                </p>
             </div>
 
             {/* Right badges */}
@@ -270,7 +287,10 @@ function EmployeeCard({ employee, record, settings, date, onClick }: EmpCardProp
                         )}
                     </>
                 ) : (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-gray-100 text-gray-400">Vắng</span>
+                    <span className={cn(
+                        'text-[10px] font-bold px-2 py-0.5 rounded-lg',
+                        record?.absence ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-400',
+                    )}>{record?.absence ? 'Vắng' : 'Chưa chấm'}</span>
                 )}
             </div>
         </button>
@@ -286,7 +306,7 @@ function MonthCell({ dayNum, month, record, settings }: {
 }) {
     const date = `${month}-${String(dayNum).padStart(2, '0')}`;
     const st = record?.checkIn
-        ? calculateAttendanceStatus(record.checkIn, record.checkOut, date, settings)
+        ? calculateAttendanceStatus(record.checkIn, record.checkOut, date, settings, record.scheduledShiftId)
         : null;
     const tok = st ? IN_TOKENS[st.status] : null;
     const isToday = date === todayISO();
@@ -297,7 +317,9 @@ function MonthCell({ dayNum, month, record, settings }: {
             isToday ? 'border-primary-300 bg-primary-50' : 'border-gray-100 bg-white',
         )}>
             <p className={cn('text-[10px] font-bold', isToday ? 'text-primary-600' : 'text-gray-400')}>{dayNum}</p>
-            {tok ? (
+            {record?.absence ? (
+                <span className="inline-block w-2 h-2 rounded-full mt-0.5 bg-red-500" title="Vắng theo lịch" />
+            ) : tok ? (
                 <span className={cn('inline-block w-2 h-2 rounded-full mt-0.5', tok.dot)} />
             ) : (
                 <span className="inline-block w-2 h-2 rounded-full mt-0.5 bg-gray-100" />
@@ -317,11 +339,10 @@ function MonthCell({ dayNum, month, record, settings }: {
 
 export default function MobileAttendancePage() {
     const router = useRouter();
-    const { user, userDoc, hasPermission } = useAuth();
+    const { user, userDoc, hasPermission, effectiveStoreId } = useAuth();
 
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
     const canView = isAdmin || hasPermission('page.hr.attendance');
-    const canConfigure = isAdmin || hasPermission('hr.attendance.configure');
 
     type Mode = 'day' | 'month';
     const [mode, setMode] = useState<Mode>('day');
@@ -331,9 +352,11 @@ export default function MobileAttendancePage() {
     const [showSearch, setShowSearch] = useState(false);
 
     const [attendance, setAttendance] = useState<DailyAttendance[]>([]);
-    const [zkUsers, setZkUsers] = useState<ZkUserDoc[]>([]);
     const [allEmployees, setAllEmployees] = useState<UserDoc[]>([]);
     const [settings, setSettings] = useState<SettingsDoc | null>(null);
+    const [policy, setPolicy] = useState<StoreAttendancePolicy | null>(null);
+    const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
+    const [selectedStoreId, setSelectedStoreId] = useState('');
 
     const [loading, setLoading] = useState(false);
     const [syncing, setSyncing] = useState(false);
@@ -345,42 +368,59 @@ export default function MobileAttendancePage() {
 
     const getToken = useCallback(async () => user?.getIdToken() ?? '', [user]);
 
-    // Real-time listeners
+    // Store choices are server-scoped to the caller's permissions.
     useEffect(() => {
-        const u1 = onSnapshot(collection(db, 'users'), snap => {
-            setAllEmployees(snap.docs.map(d => d.data() as UserDoc).filter(u => u.isActive !== false && u.role !== 'admin'));
-        });
-        const u2 = onSnapshot(collection(db, 'zkteco_users'), snap => {
-            setZkUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as ZkUserDoc)));
-        });
-        return () => { u1(); u2(); };
-    }, []);
-
-    // Load settings
-    useEffect(() => {
-        (async () => {
-            const snap = await getDoc(doc(db, 'settings', 'global'));
-            if (snap.exists()) setSettings(snap.data() as SettingsDoc);
+        if (!user || !canView) return;
+        const controller = new AbortController();
+        void (async () => {
+            try {
+                const token = await getToken();
+                const response = await fetch('/api/hr/attendance/stores', {
+                    headers: { Authorization: `Bearer ${token}` },
+                    cache: 'no-store',
+                    signal: controller.signal,
+                });
+                const data = await response.json().catch(() => []);
+                if (!response.ok) throw new Error(data.error ?? 'Không thể tải cửa hàng.');
+                const nextStores = data as Array<{ id: string; name: string }>;
+                setStores(nextStores);
+                setSelectedStoreId((current) => {
+                    if (nextStores.some((store) => store.id === current)) return current;
+                    const preferred = effectiveStoreId || userDoc?.storeId || '';
+                    return nextStores.some((store) => store.id === preferred) ? preferred : nextStores[0]?.id ?? '';
+                });
+            } catch (storeError) {
+                if (storeError instanceof Error && storeError.name === 'AbortError') return;
+                setError(storeError instanceof Error ? storeError.message : 'Không thể tải cửa hàng.');
+            }
         })();
-    }, []);
+        return () => controller.abort();
+    }, [canView, effectiveStoreId, getToken, user, userDoc?.storeId]);
 
     // Fetch attendance
     const fetchAttendance = useCallback(async () => {
+        if (!selectedStoreId) return;
         setLoading(true); setError(null);
         try {
             const token = await getToken();
             const param = mode === 'day' ? `date=${selectedDate}` : `month=${selectedMonth}`;
-            const res = await fetch(`/api/hr/attendance?${param}`, {
+            const res = await fetch(`/api/hr/attendance?storeId=${encodeURIComponent(selectedStoreId)}&${param}`, {
                 headers: { Authorization: `Bearer ${token}` },
+                cache: 'no-store',
             });
-            if (!res.ok) throw new Error('Lỗi tải dữ liệu');
-            setAttendance(await res.json());
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error ?? 'Lỗi tải dữ liệu');
+            const response = data as AttendanceManagerResponse;
+            setAttendance(response.attendance);
+            setAllEmployees(response.employees as UserDoc[]);
+            setSettings(response.settings);
+            setPolicy(response.policy);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Lỗi');
         } finally {
             setLoading(false);
         }
-    }, [getToken, mode, selectedDate, selectedMonth]);
+    }, [getToken, mode, selectedDate, selectedMonth, selectedStoreId]);
 
     useEffect(() => { fetchAttendance(); }, [fetchAttendance]);
 
@@ -388,26 +428,27 @@ export default function MobileAttendancePage() {
         setSyncing(true);
         try {
             const token = await getToken();
-            await fetch('/api/hr/sync-attendance', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+            if (policy?.sourceMode === 'MACHINE') {
+                const response = await fetch(`/api/hr/sync-attendance?storeId=${encodeURIComponent(selectedStoreId)}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+                if (!response.ok) {
+                    const data = await response.json().catch(() => ({}));
+                    throw new Error(data.error ?? 'Không thể đồng bộ máy chấm công.');
+                }
+            }
             await fetchAttendance();
+        } catch (syncError) {
+            setError(syncError instanceof Error ? syncError.message : 'Không thể làm mới dữ liệu.');
         } finally { setSyncing(false); }
     };
 
     // Maps
-    const mappedZkByUid = useMemo(() => {
-        const m = new Map<string, ZkUserDoc>();
-        for (const z of zkUsers) if (z.status === 'mapped' && z.mapped_system_uid) m.set(z.mapped_system_uid, z);
-        return m;
-    }, [zkUsers]);
-
     const attendanceByUidDate = useMemo(() => {
         const m = new Map<string, DailyAttendance>();
         for (const a of attendance) if (a.mapped_system_uid) m.set(`${a.mapped_system_uid}|${a.date}`, a);
         return m;
     }, [attendance]);
 
-    const mappedEmployees = useMemo(() =>
-        allEmployees.filter(e => mappedZkByUid.has(e.uid)), [allEmployees, mappedZkByUid]);
+    const mappedEmployees = allEmployees;
 
     // Day mode: only employees with punch record
     const dayEmployees = useMemo(() => {
@@ -431,12 +472,18 @@ export default function MobileAttendancePage() {
         for (const e of dayEmployees) {
             const r = attendanceByUidDate.get(`${e.uid}|${selectedDate}`);
             if (!r?.checkIn) continue;
-            const s = calculateAttendanceStatus(r.checkIn, r.checkOut, selectedDate, settings);
+            const s = calculateAttendanceStatus(r.checkIn, r.checkOut, selectedDate, settings, r.scheduledShiftId);
             if (s.status === 'EARLY') early++;
             else if (s.status === 'LATE') late++;
             else onTime++;
         }
-        return { present: dayEmployees.length, early, onTime, late };
+        return {
+            present: dayEmployees.filter((employee) => attendanceByUidDate.get(`${employee.uid}|${selectedDate}`)?.checkIn).length,
+            absent: dayEmployees.filter((employee) => attendanceByUidDate.get(`${employee.uid}|${selectedDate}`)?.absence).length,
+            early,
+            onTime,
+            late,
+        };
     }, [dayEmployees, attendanceByUidDate, selectedDate, settings]);
 
     // ── Access denied ─────────────────────────────────────────────────────────
@@ -492,6 +539,15 @@ export default function MobileAttendancePage() {
 
                 {/* Mode + date nav */}
                 <div className="px-4 pb-4 flex flex-col gap-3">
+                    <select
+                        value={selectedStoreId}
+                        onChange={(event) => setSelectedStoreId(event.target.value)}
+                        aria-label="Chọn cửa hàng xem chấm công"
+                        className="w-full rounded-2xl border border-white/20 bg-white/20 px-3 py-2 text-sm font-bold text-white outline-none [&>option]:text-gray-900"
+                    >
+                        {stores.length === 0 ? <option value="">Chưa có cửa hàng</option> : null}
+                        {stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}
+                    </select>
                     {/* Mode toggle */}
                     <div className="flex bg-white/20 rounded-2xl p-1 gap-1">
                         {(['day', 'month'] as Mode[]).map(m => (
@@ -571,9 +627,9 @@ export default function MobileAttendancePage() {
                 <div className="px-4 pt-3 pb-1 grid grid-cols-4 gap-2">
                     {[
                         { label: 'Có mặt', val: dayStats.present, color: 'text-primary-700 bg-primary-50 border-primary-100' },
-                        { label: 'Vào sớm', val: dayStats.early, color: 'text-blue-700 bg-blue-50 border-blue-100' },
+                        { label: 'Vắng', val: dayStats.absent, color: 'text-red-700 bg-red-50 border-red-100' },
                         { label: 'Đúng giờ', val: dayStats.onTime, color: 'text-emerald-700 bg-emerald-50 border-emerald-100' },
-                        { label: 'Vào trễ', val: dayStats.late, color: 'text-red-700 bg-red-50 border-red-100' },
+                        { label: 'Sớm / Trễ', val: `${dayStats.early}/${dayStats.late}`, color: 'text-blue-700 bg-blue-50 border-blue-100' },
                     ].map(s => (
                         <div key={s.label} className={cn('rounded-2xl border p-2 text-center', s.color)}>
                             <p className="text-lg font-black leading-none">{s.val}</p>
@@ -633,12 +689,12 @@ export default function MobileAttendancePage() {
                     ) : (
                         monthEmployees.map(emp => {
                             const empRecords = attendance.filter(a => a.mapped_system_uid === emp.uid);
-                            const daySet = new Set(empRecords.map(a => a.date));
+                            const daySet = new Set(empRecords.filter((record) => record.checkIn).map(a => a.date));
                             const totalDays = daySet.size;
                             let totalHours = 0;
                             for (const r of empRecords) {
                                 if (r.checkIn) {
-                                    const s = calculateAttendanceStatus(r.checkIn, r.checkOut, r.date, settings);
+                                    const s = calculateAttendanceStatus(r.checkIn, r.checkOut, r.date, settings, r.scheduledShiftId);
                                     if (s.workHours) totalHours += s.workHours;
                                 }
                             }

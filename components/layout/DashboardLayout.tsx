@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ShoppingCart, ClipboardList, Ticket, CalendarDays, LayoutGrid, Link2, Star, Gift } from 'lucide-react';
+import { Calendar, Clock, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ShoppingCart, ClipboardList, Ticket, CalendarDays, LayoutGrid, Link2, Star, Gift } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -151,6 +151,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             group: 'Cá Nhân',
         },
         {
+            label: 'Chấm Công',
+            href: '/employee/attendance',
+            icon: Clock,
+            show: isStoreContext && hasPermission('action.attendance.punch'),
+            group: 'Cá Nhân',
+        },
+        {
             label: 'KPI Của Tôi',
             href: '/employee/kpi-stats',
             icon: BarChart3,
@@ -213,6 +220,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 isOfficeContext ||
                 hasPermission('page.hr.users'),
             matchPrefix: '/manager/hr',
+            group: 'Nhân Sự',
+        },
+        {
+            label: 'Quản Lý Chấm Công',
+            href: '/manager/hr/attendance',
+            icon: Clock,
+            show: isAdmin || isSuperAdmin || hasPermission('page.hr.attendance'),
+            group: 'Nhân Sự',
+        },
+        {
+            label: 'Cấu Hình Chấm Công',
+            href: '/manager/hr/attendance?panel=policy',
+            icon: SettingsIcon,
+            show: isAdmin || isSuperAdmin || (
+                hasPermission('page.hr.attendance')
+                && hasPermission('hr.attendance.configure')
+            ),
             group: 'Nhân Sự',
         },
 

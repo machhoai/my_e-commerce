@@ -6,7 +6,8 @@
         "dev": "next dev --experimental-https",
         "build": "next build --webpack",
         "start": "next start",
-        "lint": "eslint"
+        "lint": "eslint",
+        "test:attendance": "node --test --experimental-strip-types tests/unit/attendance-policy.test.mts"
     },
     "dependencies": {
         "@ai-sdk/anthropic": "^1.2.12",

@@ -1,122 +1,42 @@
-/**
- * POST /api/hr/sync-attendance
- *
- * Delta-sync: pulls all punch logs from the ZKTeco worker and inserts
- * only NEW records into the `attendance_logs` Firestore collection.
- *
- * Deduplication strategy:
- *   Doc ID = "{zk_user_id}_{timestamp_epoch}"
- *   We use Firestore's `create` operation (which fails if the doc exists).
- *   This gives us natural idempotency — re-running the sync is always safe.
- *
- * Additionally, we look up the `zkteco_users` collection to populate
- * `mapped_system_uid` on each record at import time, so the attendance
- * query route never needs a secondary join.
- */
-
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { fetchZkLogs } from '@/lib/zkteco-worker';
-import { AttendanceLogDoc, ZkUserDoc } from '@/types';
+import {
+    attendanceAccessErrorResponse,
+    requireAttendanceAccess,
+} from '@/lib/attendance/access';
+import { getActiveAttendanceDevices, syncAttendanceDevice } from '@/lib/attendance/device-sync';
 
-async function verifyToken(req: NextRequest): Promise<boolean> {
-    const authHeader = req.headers.get('Authorization') ?? '';
-    const token = authHeader.replace('Bearer ', '');
-    if (!token) return false;
-    try {
-        await getAdminAuth().verifyIdToken(token);
-        return true;
-    } catch {
-        return false;
-    }
-}
-
+/** Manual fallback. Normal operation is handled by /api/cron/attendance-sync. */
 export async function POST(req: NextRequest) {
-    if (!(await verifyToken(req))) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // 1. Fetch all raw logs from device
-    let rawLogs;
+    const storeId = new URL(req.url).searchParams.get('storeId')?.trim() ?? '';
     try {
-        rawLogs = await fetchZkLogs();
-    } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        return NextResponse.json({ error: `Worker unreachable: ${msg}` }, { status: 502 });
-    }
-
-    const db = getAdminDb();
-
-    // 2. Pre-load zkteco_users mapping for uid enrichment
-    const zkUsersSnap = await db.collection('zkteco_users').get();
-    const zkUserMap = new Map<string, Pick<ZkUserDoc, 'mapped_system_uid' | 'status'>>();
-    zkUsersSnap.forEach((d) => {
-        const data = d.data() as ZkUserDoc;
-        zkUserMap.set(data.zk_user_id, {
-            mapped_system_uid: data.mapped_system_uid ?? null,
-            status: data.status,
-        });
-    });
-
-    const logsCol = db.collection('attendance_logs');
-    const now = new Date().toISOString();
-    const BATCH_LIMIT = 400; // safe under Firestore 500-op limit
-
-    let inserted = 0;
-    let skipped = 0;
-
-    // Process in chunks to respect Firestore batch limits
-    for (let i = 0; i < rawLogs.length; i += BATCH_LIMIT) {
-        const chunk = rawLogs.slice(i, i + BATCH_LIMIT);
-
-        // Parse timestamps and build candidate docs
-        const candidates = chunk.map((log) => {
-            // Normalize device timestamp: "YYYY-MM-DD HH:MM:SS" → ISO
-            const tsStr = log.timestamp.replace(' ', 'T');
-            const tsDate = new Date(tsStr);
-            const epoch = isNaN(tsDate.getTime()) ? 0 : tsDate.getTime();
-            const docId = `${log.user_id || log.uid}_${epoch}`;
-
-            const zkInfo = zkUserMap.get(log.user_id || String(log.uid));
-            const mappedUid = zkInfo?.status === 'mapped' ? (zkInfo.mapped_system_uid ?? null) : null;
-
-            const doc: Omit<AttendanceLogDoc, 'id'> = {
-                zk_user_id: log.user_id || String(log.uid),
-                zk_uid: log.uid,
-                timestamp: tsStr,
-                status: log.status,
-                punch: log.punch as AttendanceLogDoc['punch'],
-                mapped_system_uid: mappedUid,
-                syncedAt: now,
-            };
-
-            return { docId, doc };
-        });
-
-        // Check which docs already exist (batch get)
-        const refs = candidates.map((c) => logsCol.doc(c.docId));
-        const existingSnaps = await db.getAll(...refs);
-        const existingSet = new Set(
-            existingSnaps.filter((s) => s.exists).map((s) => s.id)
-        );
-
-        // Write only new docs
-        const batch = db.batch();
-        for (const { docId, doc } of candidates) {
-            if (existingSet.has(docId)) {
-                skipped++;
-            } else {
-                batch.set(logsCol.doc(docId), doc);
-                inserted++;
-            }
+        await requireAttendanceAccess(req, { permission: 'page.hr.attendance', storeId });
+        const devices = await getActiveAttendanceDevices(storeId);
+        if (devices.length === 0) {
+            return NextResponse.json(
+                { error: 'Cửa hàng chưa có máy chấm công đang hoạt động.' },
+                { status: 409 },
+            );
         }
-        await batch.commit();
+        const settled = await Promise.allSettled(devices.map(syncAttendanceDevice));
+        const results = settled.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
+        const errors = settled.flatMap((result, index) => result.status === 'rejected'
+            ? [{ deviceId: devices[index].deviceId, error: result.reason instanceof Error ? result.reason.message : String(result.reason) }]
+            : []);
+        const totals = results.reduce((sum, result) => ({
+            inserted: sum.inserted + result.inserted,
+            updated: sum.updated + result.updated,
+            normalized: sum.normalized + result.normalized,
+            unmapped: sum.unmapped + result.unmapped,
+            total: sum.total + result.total,
+        }), { inserted: 0, updated: 0, normalized: 0, unmapped: 0, total: 0 });
+        return NextResponse.json({
+            message: errors.length > 0 ? 'Đồng bộ hoàn tất một phần.' : 'Đồng bộ chấm công hoàn tất.',
+            ...totals,
+            devices: results,
+            errors,
+        }, { status: results.length > 0 ? 200 : 502 });
+    } catch (error) {
+        return attendanceAccessErrorResponse(error)
+            ?? NextResponse.json({ error: error instanceof Error ? error.message : 'Không thể đồng bộ chấm công.' }, { status: 500 });
     }
-
-    return NextResponse.json({
-        message: 'Attendance sync complete.',
-        inserted,
-        skipped,
-        total: rawLogs.length,
-    });
 }

@@ -10,7 +10,7 @@
  * (on that date) is closest to the actual punch time is selected.
  */
 
-import { AttendanceRule, AttendanceRuleSet } from '@/types';
+import type { AttendanceRule, AttendanceRuleSet } from '@/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -141,7 +141,8 @@ export function calculateAttendanceStatus(
     punchIn: string,
     punchOut: string | null | undefined,
     targetDate: string,
-    settings?: RuleContainer | null
+    settings?: RuleContainer | null,
+    assignedShift?: string | null,
 ): AttendanceStatusResult {
     const byShift = settings?.attendanceRules?.byShift;
 
@@ -150,7 +151,9 @@ export function calculateAttendanceStatus(
     let rule = DEFAULT_RULE;
 
     if (byShift && Object.keys(byShift).length > 0) {
-        detectedShift = detectShift(punchIn, targetDate, byShift);
+        detectedShift = assignedShift && byShift[assignedShift]
+            ? assignedShift
+            : detectShift(punchIn, targetDate, byShift);
         if (detectedShift) {
             rule = resolveRuleForShift(detectedShift, targetDate, byShift);
         }

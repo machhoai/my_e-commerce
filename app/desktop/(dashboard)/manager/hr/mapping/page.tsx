@@ -17,10 +17,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
-import { ZkUserDoc, UserDoc } from '@/types';
+import { AttendanceDeviceDoc, ZkUserDoc, UserDoc } from '@/types';
 import {
     Link2, RefreshCw, Zap, Eye, EyeOff, CheckCircle2,
-    XCircle, AlertCircle, Search, ChevronDown, UserCheck, X,
+    AlertCircle, Search, ChevronDown, UserCheck, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { showToast } from '@/lib/utils/toast';
@@ -86,27 +86,19 @@ export default function MappingPage() {
     // ── Admin-only RBAC guard ──────────────────────────────────────────────────
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
 
-    if (userDoc && !isAdmin) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-3">
-                <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center">
-                    <Link2 className="w-8 h-8 text-red-400" />
-                </div>
-                <h2 className="text-lg font-bold text-gray-800">Chỉ dành cho Admin</h2>
-                <p className="text-sm text-gray-500 max-w-xs">
-                    Trang mapping ZKTeco chỉ dành cho quản trị viên hệ thống.
-                </p>
-            </div>
-        );
-    }
-
-
     const [zkUsers, setZkUsers] = useState<ZkUserDoc[]>([]);
+    const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
+    const [devices, setDevices] = useState<AttendanceDeviceDoc[]>([]);
+    const [selectedStoreId, setSelectedStoreId] = useState('');
+    const [selectedDeviceId, setSelectedDeviceId] = useState('');
     const [systemUsers, setSystemUsers] = useState<UserDoc[]>([]);
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
     const [showIgnored, setShowIgnored] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [showDeviceForm, setShowDeviceForm] = useState(false);
+    const [savingDevice, setSavingDevice] = useState(false);
+    const [newDevice, setNewDevice] = useState({ deviceId: '', name: '', bridgeEndpoint: '' });
 
     // Auto-match preview modal state
     const [autoMatchProposals, setAutoMatchProposals] = useState<
@@ -124,17 +116,83 @@ export default function MappingPage() {
 
     const getToken = useCallback(async () => user?.getIdToken() ?? '', [user]);
 
-    // ── Real-time listeners ───────────────────────────────────────────────────
+    const loadMappings = useCallback(async (storeId: string, deviceId: string) => {
+        if (!storeId || !deviceId) {
+            setZkUsers([]);
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        try {
+            const token = await getToken();
+            const response = await fetch(
+                `/api/hr/zkteco-users?storeId=${encodeURIComponent(storeId)}&deviceId=${encodeURIComponent(deviceId)}`,
+                { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' },
+            );
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error ?? 'Không thể tải mapping');
+            setZkUsers(data);
+        } catch (error) {
+            showToast.error('Lỗi tải mapping', error instanceof Error ? error.message : 'Không thể tải dữ liệu máy.');
+            setZkUsers([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [getToken]);
 
     useEffect(() => {
-        const unsub = onSnapshot(collection(db, 'zkteco_users'), (snap) => {
-            const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() } as ZkUserDoc));
-            docs.sort((a, b) => a.zk_name.localeCompare(b.zk_name));
-            setZkUsers(docs);
-            setLoading(false);
-        });
-        return () => unsub();
-    }, []);
+        if (!user || !isAdmin) return;
+        let cancelled = false;
+        void (async () => {
+            try {
+                const token = await getToken();
+                const response = await fetch('/api/hr/attendance/stores', {
+                    headers: { Authorization: `Bearer ${token}` },
+                    cache: 'no-store',
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error ?? 'Không thể tải cửa hàng');
+                if (cancelled) return;
+                setStores(data);
+                setSelectedStoreId((current) => current || data[0]?.id || '');
+            } catch (error) {
+                if (!cancelled) showToast.error('Lỗi tải cửa hàng', error instanceof Error ? error.message : 'Không thể tải cửa hàng.');
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [getToken, isAdmin, user]);
+
+    useEffect(() => {
+        if (!selectedStoreId) {
+            setDevices([]);
+            setSelectedDeviceId('');
+            return;
+        }
+        let cancelled = false;
+        void (async () => {
+            try {
+                const token = await getToken();
+                const response = await fetch(
+                    `/api/hr/attendance/devices?storeId=${encodeURIComponent(selectedStoreId)}`,
+                    { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' },
+                );
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error ?? 'Không thể tải thiết bị');
+                if (cancelled) return;
+                setDevices(data);
+                setSelectedDeviceId((current) => data.some((device: AttendanceDeviceDoc) => device.deviceId === current)
+                    ? current
+                    : data[0]?.deviceId ?? '');
+            } catch (error) {
+                if (!cancelled) showToast.error('Lỗi tải thiết bị', error instanceof Error ? error.message : 'Không thể tải thiết bị.');
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [getToken, selectedStoreId]);
+
+    useEffect(() => {
+        void loadMappings(selectedStoreId, selectedDeviceId);
+    }, [loadMappings, selectedDeviceId, selectedStoreId]);
 
     useEffect(() => {
         const unsub = onSnapshot(collection(db, 'users'), (snap) => {
@@ -147,26 +205,58 @@ export default function MappingPage() {
         return () => unsub();
     }, []);
 
+    const eligibleSystemUsers = useMemo(
+        () => systemUsers.filter((employee) => employee.storeId === selectedStoreId),
+        [selectedStoreId, systemUsers],
+    );
+
     // ── Sync users ─────────────────────────────────────────────────────────────
 
     const handleSync = useCallback(async () => {
         setSyncing(true);
         try {
             const token = await getToken();
+            if (!selectedDeviceId) throw new Error('Hãy chọn máy chấm công trước.');
             const res = await fetch('/api/hr/sync-users', {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${token}` },
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ deviceId: selectedDeviceId }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
             showToast.success('Đồng bộ thành công', `+${data.inserted} người mới, cập nhật ${data.updated} người.`);
+            await loadMappings(selectedStoreId, selectedDeviceId);
         } catch (e: unknown) {
             console.error('[Mapping] Lỗi đồng bộ:', e);
             showToast.error('Lỗi đồng bộ', e instanceof Error ? e.message : 'Không thể đồng bộ dữ liệu từ máy chấm công.');
         } finally {
             setSyncing(false);
         }
-    }, [getToken]);
+    }, [getToken, loadMappings, selectedDeviceId, selectedStoreId]);
+
+    const handleCreateDevice = useCallback(async () => {
+        if (!selectedStoreId) return;
+        setSavingDevice(true);
+        try {
+            const token = await getToken();
+            const response = await fetch('/api/hr/attendance/devices', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ ...newDevice, storeId: selectedStoreId, isActive: true }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error ?? 'Không thể tạo thiết bị');
+            setDevices((current) => [...current, data.device].sort((a, b) => a.name.localeCompare(b.name, 'vi')));
+            setSelectedDeviceId(data.device.deviceId);
+            setNewDevice({ deviceId: '', name: '', bridgeEndpoint: '' });
+            setShowDeviceForm(false);
+            showToast.success('Đã thêm máy', 'Thiết bị đã được gán cho cửa hàng.');
+        } catch (error) {
+            showToast.error('Lỗi thêm máy', error instanceof Error ? error.message : 'Không thể thêm thiết bị.');
+        } finally {
+            setSavingDevice(false);
+        }
+    }, [getToken, newDevice, selectedStoreId]);
 
     // ── PATCH mapping ──────────────────────────────────────────────────────────
 
@@ -178,6 +268,8 @@ export default function MappingPage() {
             systemName: string | null
         ) => {
             const token = await getToken();
+            const mapping = zkUsers.find((item) => item.id === zkUserId);
+            if (!mapping) throw new Error('Không tìm thấy mapping cần cập nhật.');
             const res = await fetch('/api/hr/zkteco-users', {
                 method: 'PATCH',
                 headers: {
@@ -185,7 +277,8 @@ export default function MappingPage() {
                     Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
-                    id: zkUserId,
+                    deviceId: mapping.deviceId,
+                    zkUserId: mapping.zk_user_id,
                     status,
                     mapped_system_uid: systemUid,
                     mapped_system_name: systemName,
@@ -196,7 +289,7 @@ export default function MappingPage() {
                 throw new Error(data.error ?? 'Lỗi cập nhật');
             }
         },
-        [getToken]
+        [getToken, zkUsers]
     );
 
     // ── Manual map a row ───────────────────────────────────────────────────────
@@ -205,11 +298,12 @@ export default function MappingPage() {
         async (zkUserId: string) => {
             const selectedUid = pendingMap[zkUserId];
             if (!selectedUid) return;
-            const sysUser = systemUsers.find((u) => u.uid === selectedUid);
+            const sysUser = eligibleSystemUsers.find((u) => u.uid === selectedUid);
             if (!sysUser) return;
             setSavingRow(zkUserId);
             try {
                 await patchMapping(zkUserId, 'mapped', sysUser.uid, sysUser.name);
+                await loadMappings(selectedStoreId, selectedDeviceId);
                 setPendingMap((p) => { const n = { ...p }; delete n[zkUserId]; return n; });
                 showToast.success('Ghép thành công', `Đã map "${sysUser.name}" với người dùng ZKTeco.`);
             } catch (e: unknown) {
@@ -219,33 +313,35 @@ export default function MappingPage() {
                 setSavingRow(null);
             }
         },
-        [pendingMap, systemUsers, patchMapping]
+        [eligibleSystemUsers, loadMappings, pendingMap, patchMapping, selectedDeviceId, selectedStoreId]
     );
 
     const handleIgnore = useCallback(
         async (zkUserId: string) => {
             try {
                 await patchMapping(zkUserId, 'ignored', null, null);
+                await loadMappings(selectedStoreId, selectedDeviceId);
                 showToast.info('Đã ẩn người dùng', 'Người dùng ZKTeco đã được chuyển vào mục ẩn.');
             } catch (e: unknown) {
                 console.error('[Mapping] Lỗi ẩn:', e);
                 showToast.error('Lỗi ẩn người dùng', e instanceof Error ? e.message : 'Không thể ẩn người dùng này.');
             }
         },
-        [patchMapping]
+        [loadMappings, patchMapping, selectedDeviceId, selectedStoreId]
     );
 
     const handleUnmap = useCallback(
         async (zkUserId: string) => {
             try {
                 await patchMapping(zkUserId, 'unmapped', null, null);
+                await loadMappings(selectedStoreId, selectedDeviceId);
                 showToast.info('Bỏ mapping', 'Đã gỡ bỏ liên kết giữa người dùng ZK và hệ thống.');
             } catch (e: unknown) {
                 console.error('[Mapping] Lỗi bỏ map:', e);
                 showToast.error('Lỗi bỏ mapping', e instanceof Error ? e.message : 'Không thể bỏ mapping.');
             }
         },
-        [patchMapping]
+        [loadMappings, patchMapping, selectedDeviceId, selectedStoreId]
     );
 
     // ── Auto-Match ─────────────────────────────────────────────────────────────
@@ -257,7 +353,7 @@ export default function MappingPage() {
         for (const zk of unmapped) {
             let best: UserDoc | null = null;
             let bestScore = 0;
-            for (const su of systemUsers) {
+            for (const su of eligibleSystemUsers) {
                 const score = similarity(zk.zk_name, su.name);
                 if (score > bestScore) {
                     bestScore = score;
@@ -275,7 +371,7 @@ export default function MappingPage() {
         }
         setAutoMatchProposals(proposals);
         setShowAutoMatchModal(true);
-    }, [zkUsers, systemUsers]);
+    }, [eligibleSystemUsers, zkUsers]);
 
     const applyAutoMatch = useCallback(async () => {
         setApplyingAutoMatch(true);
@@ -286,10 +382,11 @@ export default function MappingPage() {
                 ok++;
             } catch { /* individual failures are silent */ }
         }
+        await loadMappings(selectedStoreId, selectedDeviceId);
         showToast.success('Tự động ghép xong', `Đã map thành công ${ok}/${autoMatchProposals.length} người.`);
         setShowAutoMatchModal(false);
         setApplyingAutoMatch(false);
-    }, [autoMatchProposals, patchMapping]);
+    }, [autoMatchProposals, loadMappings, patchMapping, selectedDeviceId, selectedStoreId]);
 
     // ── Filtered list ──────────────────────────────────────────────────────────
 
@@ -311,6 +408,20 @@ export default function MappingPage() {
         unmapped: zkUsers.filter((z) => z.status === 'unmapped').length,
         ignored: zkUsers.filter((z) => z.status === 'ignored').length,
     }), [zkUsers]);
+
+    if (userDoc && !isAdmin) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-3">
+                <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center">
+                    <Link2 className="w-8 h-8 text-red-400" />
+                </div>
+                <h2 className="text-lg font-bold text-gray-800">Chỉ dành cho Admin</h2>
+                <p className="text-sm text-gray-500 max-w-xs">
+                    Trang mapping ZKTeco chỉ dành cho quản trị viên hệ thống.
+                </p>
+            </div>
+        );
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Render
@@ -353,7 +464,7 @@ export default function MappingPage() {
                         </button>
                         <button
                             onClick={handleSync}
-                            disabled={syncing}
+                            disabled={syncing || !selectedDeviceId}
                             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-gradient-to-r from-primary-600 to-accent-600 text-white hover:from-primary-700 hover:to-accent-700 shadow-md shadow-primary-500/20 transition-all disabled:opacity-60"
                         >
                             <RefreshCw className={cn('w-4 h-4', syncing && 'animate-spin')} />
@@ -361,6 +472,83 @@ export default function MappingPage() {
                         </button>
                     </div>
                 </div>
+
+                <div className="grid gap-3 mt-5 pt-4 border-t border-surface-100 md:grid-cols-[1fr_1fr_auto]">
+                    <label className="text-xs font-semibold text-surface-600">
+                        Cửa hàng
+                        <select
+                            value={selectedStoreId}
+                            onChange={(event) => setSelectedStoreId(event.target.value)}
+                            className="mt-1 block w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-sm"
+                        >
+                            {stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}
+                        </select>
+                    </label>
+                    <label className="text-xs font-semibold text-surface-600">
+                        Máy chấm công
+                        <select
+                            value={selectedDeviceId}
+                            onChange={(event) => setSelectedDeviceId(event.target.value)}
+                            className="mt-1 block w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-sm"
+                        >
+                            {devices.length === 0 ? <option value="">Chưa có thiết bị</option> : null}
+                            {devices.map((device) => (
+                                <option key={device.deviceId} value={device.deviceId}>
+                                    {device.name}{device.isActive ? '' : ' (đã tắt)'}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                    <button
+                        type="button"
+                        onClick={() => setShowDeviceForm((current) => !current)}
+                        disabled={!selectedStoreId}
+                        className="self-end rounded-xl border border-primary-200 bg-primary-50 px-4 py-2 text-sm font-semibold text-primary-700 disabled:opacity-50"
+                    >
+                        {showDeviceForm ? 'Đóng' : 'Thêm máy'}
+                    </button>
+                </div>
+
+                {showDeviceForm ? (
+                    <div className="mt-3 grid gap-3 rounded-xl bg-surface-50 p-4 md:grid-cols-3">
+                        <label className="text-xs font-semibold text-surface-600">
+                            Mã thiết bị
+                            <input
+                                value={newDevice.deviceId}
+                                onChange={(event) => setNewDevice((current) => ({ ...current, deviceId: event.target.value }))}
+                                placeholder="store-01-zk"
+                                className="mt-1 block w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-sm"
+                            />
+                        </label>
+                        <label className="text-xs font-semibold text-surface-600">
+                            Tên hiển thị
+                            <input
+                                value={newDevice.name}
+                                onChange={(event) => setNewDevice((current) => ({ ...current, name: event.target.value }))}
+                                placeholder="Máy cửa hàng 01"
+                                className="mt-1 block w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-sm"
+                            />
+                        </label>
+                        <label className="text-xs font-semibold text-surface-600">
+                            Bridge endpoint
+                            <input
+                                type="url"
+                                value={newDevice.bridgeEndpoint}
+                                onChange={(event) => setNewDevice((current) => ({ ...current, bridgeEndpoint: event.target.value }))}
+                                placeholder="https://zk-bridge.example.com"
+                                className="mt-1 block w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-sm"
+                            />
+                        </label>
+                        <button
+                            type="button"
+                            onClick={() => void handleCreateDevice()}
+                            disabled={savingDevice || !newDevice.deviceId || !newDevice.name || !newDevice.bridgeEndpoint}
+                            className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 md:col-start-3"
+                        >
+                            {savingDevice ? 'Đang lưu…' : 'Lưu thiết bị'}
+                        </button>
+                    </div>
+                ) : null}
 
                 {/* Stats */}
                 <div className="grid grid-cols-4 gap-3 mt-5 pt-4 border-t border-surface-100">
@@ -424,7 +612,7 @@ export default function MappingPage() {
                                     const rowSearchVal = rowSearch[zk.id] ?? '';
 
                                     // Filtered system user options for this row
-                                    const sysOptions = systemUsers.filter((su) => {
+                                    const sysOptions = eligibleSystemUsers.filter((su) => {
                                         if (!rowSearchVal) return true;
                                         return normalize(su.name).includes(normalize(rowSearchVal));
                                     });

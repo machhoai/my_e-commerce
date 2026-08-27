@@ -50,10 +50,24 @@ If the socket is not released, the device **freezes** and requires a physical re
 
 ## Configuration
 
-Edit the constants at the top of `main.py`:
+The bridge no longer requires editing source code. For one device, configure:
 
-```python
-DEVICE_IP = "bduck.fortiddns.com"
-DEVICE_PORT = 4370
-DEVICE_TIMEOUT = 15
+```bash
+ZK_API_KEY=replace-with-a-strong-secret
+ZK_DEVICE_ID=store-01-zk
+ZK_DEVICE_HOST=192.0.2.10
+ZK_DEVICE_PORT=4370
+ZK_DEVICE_TIMEOUT=15
 ```
+
+One bridge can also serve multiple devices. `device_id` is supplied by the ERP
+as a query parameter and must match `attendance_devices/{deviceId}`:
+
+```bash
+ZK_DEVICES_JSON=[{"device_id":"store-01-zk","host":"192.0.2.10","port":4370,"password":0},{"device_id":"store-02-zk","host":"192.0.2.11","port":4370,"password":0}]
+```
+
+Keep `ZK_API_KEY` in the bridge and ERP server environments only. Do not store it
+in Firestore. The ERP uses `ZKTECO_API_KEY` for the same value. The scheduled
+sync route additionally requires `CRON_SECRET` and runs every five minutes on
+Vercel plans that support sub-daily cron schedules.

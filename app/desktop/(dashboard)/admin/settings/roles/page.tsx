@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { CustomRoleDoc, ALL_PERMISSIONS } from '@/types';
-import { Shield, Plus, Trash2, Pencil, Save, X, CheckCircle2, AlertCircle, RefreshCw, Lock, ChevronDown, ChevronUp, Users, Eye, Zap } from 'lucide-react';
+import { Shield, Plus, Trash2, Pencil, Save, X, CheckCircle2, AlertCircle, RefreshCw, Lock, ChevronDown, ChevronUp, Users, Eye, Zap, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
@@ -403,6 +403,26 @@ export default function AdminRolesPage() {
                 <div className="flex items-center gap-1.5">
                     <Zap className="w-3.5 h-3.5 text-warning-500" />
                     <span><strong className="text-surface-700">Ghi</strong> — cho phép thêm/sửa/xóa dữ liệu</span>
+                </div>
+            </div>
+
+            <div className="rounded-2xl border border-teal-200 bg-teal-50/60 p-4">
+                <div className="flex items-start gap-3">
+                    <Clock className="mt-0.5 size-5 shrink-0 text-teal-600" />
+                    <div>
+                        <h2 className="text-sm font-bold text-teal-900">Phân quyền chấm công mới</h2>
+                        <p className="mt-1 text-xs text-teal-700">
+                            Chọn chỉnh sửa một role bên dưới, sau đó mở nhóm “Chấm công” để cấp quyền phù hợp.
+                            Admin và Super Admin luôn có toàn quyền.
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                            {ALL_PERMISSIONS.filter((permission) => permission.group === 'Chấm công').map((permission) => (
+                                <span key={permission.key} className="rounded-full border border-teal-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-teal-800">
+                                    {permission.label}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             </div>
 

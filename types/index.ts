@@ -73,16 +73,37 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
     },
     {
         key: 'page.hr.attendance',
-        label: 'Xem Lịch Sử Chấm Công',
-        description: 'Truy cập trang xem lịch sử chấm công từ máy ZKTeco',
-        group: 'Nhân sự & Lịch',
+        label: 'Quản Lý Chấm Công',
+        description: 'Xem bảng công hợp nhất từ máy chấm công, GPS và IP',
+        group: 'Chấm công',
         type: 'page',
     },
     {
         key: 'hr.attendance.configure',
         label: 'Cấu Hình Chấm Công',
-        description: 'Cấu hình chấm công',
-        group: 'Nhân sự & Lịch',
+        description: 'Cấu hình nguồn máy/phần mềm, GPS hoặc IP theo cửa hàng',
+        group: 'Chấm công',
+        type: 'action',
+    },
+    {
+        key: 'action.attendance.punch',
+        label: 'Thực Hiện Chấm Công',
+        description: 'Chấm công vào/ra trên phần mềm',
+        group: 'Chấm công',
+        type: 'action',
+    },
+    {
+        key: 'action.attendance.export',
+        label: 'Xuất Bảng Chấm Công',
+        description: 'Xuất dữ liệu và báo cáo chấm công',
+        group: 'Chấm công',
+        type: 'action',
+    },
+    {
+        key: 'action.attendance.adjust',
+        label: 'Điều Chỉnh Chấm Công',
+        description: 'Điều chỉnh dữ liệu chấm công thủ công',
+        group: 'Chấm công',
         type: 'action',
     },
     {
@@ -428,6 +449,8 @@ export interface StoreDoc {
     id: string;
     name: string;
     address?: string;
+    /** Official store coordinate used as the attendance geofence target. */
+    coordinate?: AttendanceCoordinate;
     isActive: boolean;
     createdAt?: string;
     settings?: StoreSettings;  // Per-store registration & shift configuration
@@ -745,7 +768,17 @@ export interface VoucherCode {
 // ============================================================
 
 export type EventStatus = 'upcoming' | 'active' | 'ended' | 'closed';
-export type AuditAction = 'CREATE_EVENT' | 'UPDATE_EVENT' | 'GENERATE_VOUCHERS' | 'ISSUE_VOUCHER' | 'REVOKE_VOUCHER';
+export type AuditAction =
+    | 'CREATE_EVENT'
+    | 'UPDATE_EVENT'
+    | 'GENERATE_VOUCHERS'
+    | 'ISSUE_VOUCHER'
+    | 'REVOKE_VOUCHER'
+    | 'CREATE_ATTENDANCE_POLICY'
+    | 'UPDATE_ATTENDANCE_POLICY'
+    | 'UPDATE_ATTENDANCE_RULES'
+    | 'CREATE_ATTENDANCE_DEVICE'
+    | 'UPDATE_ATTENDANCE_DEVICE';
 
 export interface PrizePoolEntry {
     campaignId: string;
@@ -775,6 +808,10 @@ export interface AuditLogDoc {
     timestamp: string;        // ISO timestamp
     targetId: string;         // Event/Campaign ID
     details: string;          // Human-readable description
+    targetType?: string;
+    storeId?: string;
+    before?: Record<string, unknown> | null;
+    after?: Record<string, unknown> | null;
 }
 
 // ============================================================
@@ -1010,12 +1047,144 @@ export interface PointTransactionDoc {
 // ZKTeco Time Attendance
 // ============================================================
 
+export interface AttendanceCoordinate {
+    latitude: number;
+    longitude: number;
+}
+
+export type AttendanceSourceMode = 'MACHINE' | 'SOFTWARE';
+export type AttendanceVerificationMethod = 'GPS' | 'IP';
+export type AttendanceEventType = 'CHECK_IN' | 'CHECK_OUT';
+export type AttendanceEventSource = 'MACHINE' | 'SOFTWARE';
+export type AttendanceEventMethod = 'BIOMETRIC' | 'GPS' | 'IP';
+export type AttendanceEventStatus = 'ACCEPTED' | 'REJECTED';
+
+export type AttendanceDeviceSyncStatus = 'IDLE' | 'SUCCESS' | 'ERROR';
+
+/** A physical attendance device assigned to exactly one store. */
+export interface AttendanceDeviceDoc {
+    id: string;
+    deviceId: string;
+    storeId: string;
+    name: string;
+    /** Base URL of the private ZKTeco bridge. Credentials remain in server env. */
+    bridgeEndpoint: string;
+    isActive: boolean;
+    timezone: 'Asia/Ho_Chi_Minh';
+    lastSyncAt?: string | null;
+    lastSyncStatus?: AttendanceDeviceSyncStatus;
+    lastSyncError?: string | null;
+    createdAt: string;
+    createdBy: string;
+    updatedAt: string;
+    updatedBy: string;
+}
+
+export interface AttendanceGpsPolicy extends AttendanceCoordinate {
+    radiusM: number;
+    maxAccuracyM: number;
+    maxAgeSeconds: number;
+}
+
+/** Active attendance policy. Firestore document ID equals storeId. */
+export interface StoreAttendancePolicy {
+    storeId: string;
+    enabled: boolean;
+    sourceMode: AttendanceSourceMode;
+    /** Null for MACHINE stores; required for SOFTWARE stores. */
+    verificationMethod: AttendanceVerificationMethod | null;
+    allowedIpAddresses: string[];
+    gps: AttendanceGpsPolicy | null;
+    requireCheckOut: boolean;
+    timezone: 'Asia/Ho_Chi_Minh';
+    effectiveFrom: string;
+    effectiveTo: string | null;
+    updatedBy: string;
+    updatedAt: string;
+}
+
+export interface AttendanceEventVerification {
+    ipAddress?: string;
+    latitude?: number;
+    longitude?: number;
+    accuracyM?: number;
+    distanceM?: number;
+}
+
+export interface AttendanceEventDevice {
+    deviceId: string;
+    zkUserId: string;
+    zkUid?: number;
+}
+
+/** Canonical event shared by software attendance and normalized device punches. */
+export interface AttendanceEvent {
+    id: string;
+    storeId: string;
+    employeeUid: string;
+    eventType: AttendanceEventType;
+    source: AttendanceEventSource;
+    method: AttendanceEventMethod;
+    occurredAt: string;
+    clientCapturedAt?: string;
+    attendanceDate: string;
+    status: AttendanceEventStatus;
+    rejectedReason?: string;
+    verification?: AttendanceEventVerification;
+    device?: AttendanceEventDevice;
+    idempotencyKey: string;
+    createdAt: string;
+}
+
+export interface AttendanceDailyState {
+    id: string;
+    storeId: string;
+    employeeUid: string;
+    attendanceDate: string;
+    checkInEventId: string | null;
+    checkOutEventId: string | null;
+    updatedAt: string;
+}
+
+export type SoftwareAttendanceContextReason =
+    | 'READY'
+    | 'NO_STORE'
+    | 'POLICY_NOT_CONFIGURED'
+    | 'POLICY_DISABLED'
+    | 'MACHINE_ONLY'
+    | 'IP_NOT_ALLOWED'
+    | 'COMPLETED';
+
+export interface SoftwareAttendanceContext {
+    canPunch: boolean;
+    reason: SoftwareAttendanceContextReason;
+    message: string;
+    attendanceDate: string;
+    serverTime: string;
+    nextEventType: AttendanceEventType | null;
+    locationRequired: boolean;
+    currentIpAddress: string | null;
+    isIpAllowed: boolean | null;
+    store: Pick<StoreDoc, 'id' | 'name' | 'coordinate'> | null;
+    policy: Pick<
+        StoreAttendancePolicy,
+        | 'enabled'
+        | 'sourceMode'
+        | 'verificationMethod'
+        | 'requireCheckOut'
+        | 'gps'
+    > | null;
+    todayEvents: AttendanceEvent[];
+}
+
 /** Status of a ZKTeco device user relative to the ERP system */
 export type ZkUserStatus = 'unmapped' | 'mapped' | 'ignored';
 
 /** Mirrors a user enrolled on the ZKTeco device */
 export interface ZkUserDoc {
-    id: string;                      // Firestore doc ID = zk_user_id (card/employee number string)
+    id: string;                      // Composite Firestore ID = deviceId + zk_user_id
+    deviceId: string;
+    storeId: string;
     zk_uid: number;                  // Device's internal numeric slot (1-based)
     zk_name: string;                 // Display name as stored on the device
     zk_user_id: string;              // Employee/card number string from device
@@ -1035,19 +1204,27 @@ export type ZkPunchType = 0 | 1 | 2 | 3 | 4 | 5;
 
 /** A single raw punch event imported from the ZKTeco device */
 export interface AttendanceLogDoc {
-    id: string;               // "{zk_user_id}_{timestamp_epoch}" — natural dedup key
+    id: string;               // Composite key derived from deviceId + zk_user_id + timestamp
+    deviceId: string;
+    storeId: string;
     zk_user_id: string;       // Card/employee number
     zk_uid: number;           // Device's internal numeric uid
     timestamp: string;        // ISO string (local time as reported by device)
     status: number;           // Device status code (unused in MVP)
     punch: ZkPunchType;       // Raw hardware punch type
     mapped_system_uid?: string | null;  // Populated at sync time from zkteco_users mapping
+    idempotencyKey: string;
+    normalizedEventId?: string | null;
+    migrationVersion?: number;
+    migratedToLogId?: string | null;
     syncedAt: string;         // ISO timestamp of when this record was imported
 }
 
 /** Aggregated view for a single employee on a single day (FILO resolved) */
 export interface DailyAttendance {
     zk_user_id: string;
+    storeId?: string;
+    employeeUid?: string;
     mapped_system_uid?: string | null;
     mapped_system_name?: string | null;
     zk_name: string;
@@ -1055,5 +1232,54 @@ export interface DailyAttendance {
     checkIn?: string | null;  // ISO timestamp of first punch
     checkOut?: string | null; // ISO timestamp of last punch (only when >1 punch)
     punchCount: number;       // Total raw punch count for the day
+    /** True when the employee appears in at least one published schedule for this date. */
+    scheduled?: boolean;
+    scheduledShiftId?: string | null;
+    scheduledShiftIds?: string[];
+    /** A scheduled employee without an accepted attendance event. */
+    absence?: boolean;
+    sources?: AttendanceEventSource[];
+    methods?: AttendanceEventMethod[];
+}
+
+export interface AttendanceManagerEmployee {
+    uid: string;
+    name: string;
+    phone: string;
+    role: UserRole;
+    type: EmployeeType;
+    isActive: boolean;
+    storeId: string;
+    avatar?: string;
+    jobTitle?: string;
+}
+
+export interface AttendanceManagerResponse {
+    store: Pick<StoreDoc, 'id' | 'name' | 'coordinate'>;
+    policy: StoreAttendancePolicy | null;
+    settings: SettingsDoc;
+    employees: AttendanceManagerEmployee[];
+    attendance: DailyAttendance[];
+    range: { startDate: string; endDate: string };
+}
+
+export interface AttendanceHistoryEvent {
+    id: string;
+    employeeUid: string;
+    employeeName: string;
+    occurredAt: string;
+    eventType: AttendanceEventType | 'PUNCH';
+    source: AttendanceEventSource;
+    method: AttendanceEventMethod;
+    status: AttendanceEventStatus;
+    rejectedReason?: string;
+    zkUserId?: string;
+}
+
+export interface AttendanceHistoryGroup {
+    employeeUid: string;
+    employeeName: string;
+    zkUserId?: string;
+    events: AttendanceHistoryEvent[];
 }
 

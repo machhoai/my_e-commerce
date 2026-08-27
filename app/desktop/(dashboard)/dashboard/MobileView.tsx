@@ -1754,6 +1754,12 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
             colorClass: 'bg-amber-300 text-amber-900',
             route: '/employee/kpi-stats',
         },
+        ...(hasPermission('action.attendance.punch') ? [{
+            icon: Clock,
+            label: t('qa_attendance'),
+            colorClass: 'bg-teal-300 text-teal-900',
+            route: '/employee/attendance',
+        }] : []),
         {
             icon: Barcode,
             label: t('nav_scanProduct'),
@@ -1783,7 +1789,7 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
             label: t('qa_attendance'),
             route: '/manager/hr/attendance',
             colorClass: 'bg-teal-300 text-teal-900',
-            permKey: 'page.hr.attendance'
+            permKeys: ['page.hr.attendance'],
         },
 
         {
@@ -1820,6 +1826,7 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
             group: t('group_employee'),
             items: [
                 { icon: LayoutDashboard, label: t('nav_mySchedule'), route: '/employee/dashboard', color: 'bg-blue-50 text-blue-600' },
+                { icon: Clock, label: t('qa_attendance'), route: '/employee/attendance', color: 'bg-teal-50 text-teal-600', permKey: 'action.attendance.punch' },
                 { icon: PlusSquare, label: t('nav_registerShift'), route: '/employee/register', color: 'bg-blue-50 text-blue-600' },
                 { icon: TrendingUp, label: t('nav_myKpi'), route: '/employee/kpi-stats', color: 'bg-amber-50 text-amber-600' },
                 { icon: Star, label: t('nav_referralPoints'), route: '/employee/referral-history', color: 'bg-amber-50 text-amber-600' },
@@ -1848,6 +1855,7 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
                 { icon: Settings, label: t('nav_kpiTemplates'), route: '/manager/settings/kpi-templates', color: 'bg-violet-50 text-violet-600', permKey: 'page.hr.kpi_templates' },
                 { icon: Star, label: t('nav_referralHistory'), route: '/employee/referral-history', color: 'bg-amber-50 text-amber-600', permKey: 'page.referral.history' },
                 { icon: Clock, label: t('nav_attendanceCheck'), route: '/manager/hr/attendance', color: 'bg-teal-50 text-teal-600', permKey: 'page.hr.attendance' },
+                { icon: Settings, label: t('nav_attendanceConfig'), route: '/manager/hr/attendance?panel=policy', color: 'bg-teal-50 text-teal-600', permKey: 'hr.attendance.configure' },
             ],
         },
         // ── Store Inventory (manager+) ─────────────────────────────────

@@ -6,6 +6,7 @@ Security: All routes are protected by an X-API-Key header.
 Hardware: Every endpoint follows the connect → disable → operate → enable → disconnect lifecycle.
 """
 
+import json
 import os
 from datetime import datetime
 from typing import Optional
@@ -18,9 +19,10 @@ from zk import ZK
 # Configuration
 # ---------------------------------------------------------------------------
 
-DEVICE_HOST = "bduck.fortiddns.com"
-DEVICE_PORT = 4370
-DEVICE_TIMEOUT = 15
+LEGACY_DEVICE_ID = os.getenv("ZK_DEVICE_ID", "legacy-device")
+DEVICE_HOST = os.getenv("ZK_DEVICE_HOST", "bduck.fortiddns.com")
+DEVICE_PORT = int(os.getenv("ZK_DEVICE_PORT", "4370"))
+DEVICE_TIMEOUT = int(os.getenv("ZK_DEVICE_TIMEOUT", "15"))
 
 # Load API key from env; fall back to a safe default for local dev only.
 API_KEY = os.getenv("ZK_API_KEY", "change-me-in-production")
@@ -55,15 +57,43 @@ def verify_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _get_zk() -> ZK:
+def _device_configs() -> dict:
+    """Load a multi-device map, falling back to the legacy single-device env."""
+    raw = os.getenv("ZK_DEVICES_JSON", "").strip()
+    if raw:
+        try:
+            devices = json.loads(raw)
+            return {str(device["device_id"]): device for device in devices}
+        except (json.JSONDecodeError, KeyError, TypeError) as exc:
+            raise RuntimeError(f"Invalid ZK_DEVICES_JSON: {exc}") from exc
+    return {
+        LEGACY_DEVICE_ID: {
+            "device_id": LEGACY_DEVICE_ID,
+            "host": DEVICE_HOST,
+            "port": DEVICE_PORT,
+            "timeout": DEVICE_TIMEOUT,
+            "password": int(os.getenv("ZK_DEVICE_PASSWORD", "0")),
+        }
+    }
+
+
+def _get_zk(device_id: Optional[str] = None) -> ZK:
     """Return a configured (but not yet connected) ZK instance."""
+    devices = _device_configs()
+    selected_id = device_id or (next(iter(devices)) if len(devices) == 1 else None)
+    if not selected_id or selected_id not in devices:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown or missing device_id. Available: {', '.join(devices.keys())}",
+        )
+    config = devices[selected_id]
     return ZK(
-        DEVICE_HOST,
-        port=DEVICE_PORT,
-        timeout=DEVICE_TIMEOUT,
-        password=0,
-        force_udp=False,
-        ommit_ping=True,  # MANDATORY for cloud/NAT deployments
+        str(config["host"]),
+        port=int(config.get("port", 4370)),
+        timeout=int(config.get("timeout", DEVICE_TIMEOUT)),
+        password=int(config.get("password", 0)),
+        force_udp=bool(config.get("force_udp", False)),
+        ommit_ping=bool(config.get("ommit_ping", True)),
     )
 
 
@@ -102,8 +132,8 @@ class VoiceRequest(BaseModel):
     tags=["Device Info"],
     summary="Get device firmware, serial, time, and capacity info",
 )
-def get_device_info(_: str = Depends(verify_api_key)):
-    zk = _get_zk()
+def get_device_info(device_id: Optional[str] = None, _: str = Depends(verify_api_key)):
+    zk = _get_zk(device_id)
     conn = None
     try:
         conn = zk.connect()
@@ -159,8 +189,8 @@ def get_device_info(_: str = Depends(verify_api_key)):
     tags=["Users"],
     summary="Retrieve all enrolled users from the device",
 )
-def get_users(_: str = Depends(verify_api_key)):
-    zk = _get_zk()
+def get_users(device_id: Optional[str] = None, _: str = Depends(verify_api_key)):
+    zk = _get_zk(device_id)
     conn = None
     try:
         conn = zk.connect()
@@ -197,9 +227,10 @@ def get_users(_: str = Depends(verify_api_key)):
 )
 def create_or_update_user(
     body: UserCreateRequest,
+    device_id: Optional[str] = None,
     _: str = Depends(verify_api_key),
 ):
-    zk = _get_zk()
+    zk = _get_zk(device_id)
     conn = None
     try:
         conn = zk.connect()
@@ -229,8 +260,8 @@ def create_or_update_user(
     tags=["Users"],
     summary="Delete a user by their internal UID",
 )
-def delete_user(uid: int, _: str = Depends(verify_api_key)):
-    zk = _get_zk()
+def delete_user(uid: int, device_id: Optional[str] = None, _: str = Depends(verify_api_key)):
+    zk = _get_zk(device_id)
     conn = None
     try:
         conn = zk.connect()
@@ -258,8 +289,8 @@ def delete_user(uid: int, _: str = Depends(verify_api_key)):
     tags=["Attendance"],
     summary="Retrieve all attendance/punch records from the device",
 )
-def get_attendance_logs(_: str = Depends(verify_api_key)):
-    zk = _get_zk()
+def get_attendance_logs(device_id: Optional[str] = None, _: str = Depends(verify_api_key)):
+    zk = _get_zk(device_id)
     conn = None
     try:
         conn = zk.connect()
@@ -292,8 +323,8 @@ def get_attendance_logs(_: str = Depends(verify_api_key)):
     tags=["Attendance"],
     summary="⚠️ Clear ALL attendance records from the device",
 )
-def clear_attendance_logs(_: str = Depends(verify_api_key)):
-    zk = _get_zk()
+def clear_attendance_logs(device_id: Optional[str] = None, _: str = Depends(verify_api_key)):
+    zk = _get_zk(device_id)
     conn = None
     try:
         conn = zk.connect()
@@ -321,8 +352,8 @@ def clear_attendance_logs(_: str = Depends(verify_api_key)):
     tags=["Device Control"],
     summary="⚠️ Restart the biometric device",
 )
-def restart_device(_: str = Depends(verify_api_key)):
-    zk = _get_zk()
+def restart_device(device_id: Optional[str] = None, _: str = Depends(verify_api_key)):
+    zk = _get_zk(device_id)
     conn = None
     try:
         conn = zk.connect()
@@ -348,8 +379,12 @@ def restart_device(_: str = Depends(verify_api_key)):
     tags=["Device Control"],
     summary="Trigger a voice test on the device",
 )
-def test_voice(body: VoiceRequest = VoiceRequest(), _: str = Depends(verify_api_key)):
-    zk = _get_zk()
+def test_voice(
+    body: VoiceRequest = VoiceRequest(),
+    device_id: Optional[str] = None,
+    _: str = Depends(verify_api_key),
+):
+    zk = _get_zk(device_id)
     conn = None
     try:
         conn = zk.connect()
@@ -372,8 +407,12 @@ def test_voice(body: VoiceRequest = VoiceRequest(), _: str = Depends(verify_api_
     tags=["Device Control"],
     summary="Sync device clock to server time (or a provided datetime)",
 )
-def set_device_time(body: SetTimeRequest = SetTimeRequest(), _: str = Depends(verify_api_key)):
-    zk = _get_zk()
+def set_device_time(
+    body: SetTimeRequest = SetTimeRequest(),
+    device_id: Optional[str] = None,
+    _: str = Depends(verify_api_key),
+):
+    zk = _get_zk(device_id)
     conn = None
     try:
         conn = zk.connect()
