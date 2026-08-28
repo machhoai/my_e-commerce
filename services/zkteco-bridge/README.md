@@ -55,7 +55,7 @@ The bridge no longer requires editing source code. For one device, configure:
 ```bash
 ZK_API_KEY=replace-with-a-strong-secret
 ZK_DEVICE_ID=store-01-zk
-ZK_DEVICE_HOST=192.0.2.10
+ZK_DEVICE_HOST=113.171.86.171
 ZK_DEVICE_PORT=4370
 ZK_DEVICE_TIMEOUT=15
 ```

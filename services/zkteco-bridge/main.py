@@ -20,7 +20,7 @@ from zk import ZK
 # ---------------------------------------------------------------------------
 
 LEGACY_DEVICE_ID = os.getenv("ZK_DEVICE_ID", "legacy-device")
-DEVICE_HOST = os.getenv("ZK_DEVICE_HOST", "bduck.fortiddns.com")
+DEVICE_HOST = os.getenv("ZK_DEVICE_HOST", "113.171.86.171")
 DEVICE_PORT = int(os.getenv("ZK_DEVICE_PORT", "4370"))
 DEVICE_TIMEOUT = int(os.getenv("ZK_DEVICE_TIMEOUT", "15"))
 
