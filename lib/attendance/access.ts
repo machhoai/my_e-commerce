@@ -3,14 +3,13 @@ import 'server-only';
 import type { DecodedIdToken } from 'firebase-admin/auth';
 import type { NextRequest } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import {
+    grantsAttendancePermission,
+    type AttendancePermission,
+} from '@/lib/attendance/permission';
 import type { UserDoc } from '@/types';
 
-export type AttendancePermission =
-    | 'page.hr.attendance'
-    | 'hr.attendance.configure'
-    | 'action.attendance.punch'
-    | 'action.attendance.export'
-    | 'action.attendance.adjust';
+export type { AttendancePermission } from '@/lib/attendance/permission';
 
 export class AttendanceAccessError extends Error {
     constructor(message: string, public readonly status: number) {
@@ -100,7 +99,7 @@ export function assertAttendancePermission(
     caller: AttendanceCaller,
     permission: AttendancePermission,
 ): void {
-    if (!caller.isAdmin && !caller.permissions.has(permission)) {
+    if (!caller.isAdmin && !grantsAttendancePermission(caller.permissions, permission)) {
         throw new AttendanceAccessError('Bạn không có quyền thực hiện thao tác chấm công này.', 403);
     }
 }

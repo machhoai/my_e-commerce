@@ -91,7 +91,8 @@ function AttendanceEventCard({ event }: { event: AttendanceEvent }) {
 
 export default function EmployeeAttendancePanel() {
     const { user, loading: authLoading, hasPermission, getToken } = useAuth();
-    const canUseAttendance = hasPermission('action.attendance.punch');
+    const canUseAttendance = hasPermission('action.attendance.punch')
+        || hasPermission('page.hr.attendance');
     const [context, setContext] = useState<SoftwareAttendanceContext | null>(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);

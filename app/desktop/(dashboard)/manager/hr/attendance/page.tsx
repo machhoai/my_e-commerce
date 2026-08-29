@@ -53,6 +53,7 @@ import {
 import ExcelJS from 'exceljs';
 import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 import AttendancePolicyPanel from '@/components/attendance/AttendancePolicyPanel';
+import AttendancePunchDialog from '@/components/attendance/AttendancePunchDialog';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Date / formatting helpers
@@ -1231,6 +1232,8 @@ export default function AttendancePage() {
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
+                        <AttendancePunchDialog />
+
                         <select
                             value={selectedStoreId}
                             onChange={(event) => setSelectedStoreId(event.target.value)}

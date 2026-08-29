@@ -28,6 +28,7 @@ import {
 import { cn } from '@/lib/utils';
 import { calculateAttendanceStatus, PunchStatus, PunchOutStatus } from '@/lib/attendance-rules';
 import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
+import AttendancePunchDialog from '@/components/attendance/AttendancePunchDialog';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Colour tokens
@@ -539,6 +540,8 @@ export default function MobileAttendancePage() {
 
                 {/* Mode + date nav */}
                 <div className="px-4 pb-4 flex flex-col gap-3">
+                    <AttendancePunchDialog className="w-full bg-emerald-500 hover:bg-emerald-600" />
+
                     <select
                         value={selectedStoreId}
                         onChange={(event) => setSelectedStoreId(event.target.value)}

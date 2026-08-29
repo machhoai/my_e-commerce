@@ -12,6 +12,8 @@ import { parseAttendanceRange, resolveAcceptedAttendanceTimes, selectAttendanceR
 import { calculateAttendanceStatus } from '../../lib/attendance-rules.ts';
 // @ts-expect-error Node's strip-types test runner requires the explicit .ts extension.
 import { attendanceDeviceEventId, attendanceDeviceIdempotencyKey, attendanceMappingId, normalizeDeviceTimestamp } from '../../lib/attendance/device-model.ts';
+// @ts-expect-error Node's strip-types test runner requires the explicit .ts extension.
+import { grantsAttendancePermission } from '../../lib/attendance/permission.ts';
 
 const target = {
     latitude: 10.7769,
@@ -21,6 +23,21 @@ const target = {
     maxAgeSeconds: 120,
 };
 const now = new Date('2026-08-21T03:00:00.000Z');
+
+test('attendance management permission includes personal punching', () => {
+    assert.equal(
+        grantsAttendancePermission(new Set(['page.hr.attendance']), 'action.attendance.punch'),
+        true,
+    );
+    assert.equal(
+        grantsAttendancePermission(new Set(['action.attendance.punch']), 'action.attendance.punch'),
+        true,
+    );
+    assert.equal(
+        grantsAttendancePermission(new Set(['page.hr.attendance']), 'hr.attendance.configure'),
+        false,
+    );
+});
 
 test('distanceInMeters returns zero for the same coordinate', () => {
     assert.equal(distanceInMeters(target, target), 0);
