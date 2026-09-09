@@ -38,7 +38,7 @@ const looksLikeTicketCode = (value: string) => {
 };
 
 const extractCodeFromScannedValue = (value: string) => {
-    const trimmed = value.trim();
+    const trimmed = value.split(';', 1)[0].trim();
     if (!trimmed) return '';
 
     try {
