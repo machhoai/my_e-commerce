@@ -116,7 +116,9 @@ export default function UserInfoEditor({
     // ── Permission check ─────────────────────────────────────
     const isSelf = user?.uid === employee.uid;
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
-    const isManager = userDoc?.role === 'store_manager' || userDoc?.canManageHR === true;
+    const isManager = userDoc?.role === 'store_manager' ||
+        userDoc?.canManageHR === true ||
+        hasPermission('action.hr.manage');
     const canEditRole = isAdmin || isManager;
 
     function canEditField(field: FieldDef): boolean {

@@ -22,6 +22,9 @@ import LocationPicker, { deriveLocationType, locationFieldName, locationIcon, lo
 
 function ManagerUsersPageContent() {
     const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId, managedStoreIds } = useAuth();
+    const canManageEmployees = userDoc?.role === 'admin' || userDoc?.role === 'super_admin' ||
+        userDoc?.role === 'store_manager' || userDoc?.canManageHR === true ||
+        hasPermission('action.hr.manage');
     const { params, setParam, setParams, clearAll, toggleSort, activeFilterCount, setPage, setPageSize } = useTableParams();
     const [employees, setEmployees] = useState<UserDoc[]>([]);
     const [loading, setLoading] = useState(true);
@@ -251,7 +254,7 @@ function ManagerUsersPageContent() {
 
             if (editUid) {
                 bodyPayload.targetUid = editUid;
-                if (userDoc?.role === 'store_manager' || userDoc?.role === 'admin') {
+                if (canManageEmployees) {
                     bodyPayload.role = newRole;
                     bodyPayload.customRoleId = newCustomRoleId || null;
                 }
@@ -262,8 +265,8 @@ function ManagerUsersPageContent() {
                     bodyPayload.warehouseId = newWorkplaceType === 'CENTRAL' ? (newWarehouseId || null) : null;
                 }
             } else {
-                bodyPayload.role = (userDoc?.role === 'store_manager' || userDoc?.role === 'admin') ? newRole : 'employee';
-                if (userDoc?.role === 'store_manager' || userDoc?.role === 'admin') {
+                bodyPayload.role = canManageEmployees ? newRole : 'employee';
+                if (canManageEmployees) {
                     bodyPayload.customRoleId = newCustomRoleId || null;
                 }
                 if (userDoc?.role === 'admin') {
@@ -564,7 +567,7 @@ function ManagerUsersPageContent() {
                                     <QrCode className="w-4 h-4" />
                                     <span className="hidden sm:inline">In QR hàng loạt</span>
                                 </button>
-                                <button
+                                {canManageEmployees && <button
                                     onClick={() => {
                                         resetForm();
                                         setEditUid(null);
@@ -574,7 +577,7 @@ function ManagerUsersPageContent() {
                                 >
                                     <Plus className="w-4 h-4" />
                                     Thêm Nhân viên
-                                </button>
+                                </button>}
                             </div>
                         </div>
 
@@ -741,6 +744,7 @@ function ManagerUsersPageContent() {
                                                         </td>
                                                         <td className="px-4 py-3.5 text-right">
                                                             <div className="flex items-center justify-end gap-1.5">
+                                                                {canManageEmployees && <>
                                                                 <button
                                                                     onClick={() => openEditModal(e)}
                                                                     disabled={actionLoading !== null}
@@ -782,6 +786,7 @@ function ManagerUsersPageContent() {
                                                                         )}
                                                                     </button>
                                                                 )}
+                                                                </>}
                                                             </div>
                                                         </td>
                                                     </tr>

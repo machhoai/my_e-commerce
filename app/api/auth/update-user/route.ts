@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { canManageHr } from '@/lib/hr-access';
+import type { UserDoc } from '@/types';
 
 // Allow large payloads for base64 ID card photos
 export const maxDuration = 30;
@@ -29,29 +31,28 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Không tìm thấy thông tin người dùng' }, { status: 403 });
         }
 
-        const requesterRole = requesterDoc.data()?.role;
-        const requesterStoreId = requesterDoc.data()?.storeId;
+        const requesterData = requesterDoc.data() as UserDoc;
+        const requesterRole = requesterData.role;
+        const requesterStoreId = requesterData.storeId;
+        const requesterCanManageHr = await canManageHr(adminDb, requesterData);
         const body = await request.json();
 
         const targetUid = body.targetUid || requestUid;
 
         // Authorization rules by role
         if (requestUid !== targetUid) {
-            if (requesterRole === 'employee') {
-                return NextResponse.json({ error: 'Nhân viên chỉ có thể cập nhật hồ sơ của chính mình' }, { status: 403 });
+            if (!requesterCanManageHr) {
+                return NextResponse.json({ error: 'Bạn không có quyền quản lý nhân sự' }, { status: 403 });
             }
-            if (requesterRole === 'manager') {
+            if (requesterRole !== 'admin' && requesterRole !== 'super_admin' && requesterRole !== 'store_manager') {
                 const targetDoc = await adminDb.collection('users').doc(targetUid).get();
                 if (!targetDoc.exists) return NextResponse.json({ error: 'Không tìm thấy người dùng' }, { status: 404 });
                 const targetData = targetDoc.data();
                 if (targetData?.role !== 'employee') {
                     return NextResponse.json({ error: 'Quản lý chỉ có thể chỉnh sửa nhân viên' }, { status: 403 });
                 }
-                if (requesterDoc.data()?.canManageHR !== true) {
-                    return NextResponse.json({ error: 'Bạn không có quyền quản lý nhân sự' }, { status: 403 });
-                }
                 // Store isolation check
-                if (targetData?.storeId && requesterStoreId && targetData.storeId !== requesterStoreId) {
+                if (!requesterStoreId || targetData?.storeId !== requesterStoreId) {
                     return NextResponse.json({ error: 'Không thể chỉnh sửa nhân viên từ cửa hàng khác' }, { status: 403 });
                 }
             }
@@ -110,12 +111,11 @@ export async function POST(request: Request) {
             updateData.phone = body.phone;
         }
 
-        // type: admin OR manager/store_manager with canManageHR editing someone else
+        // type: admin OR an HR manager editing someone else
         const isPrivilegedEdit = (requestUid !== targetUid) && (
-            requesterDoc.data()?.canManageHR === true ||
-            requesterRole === 'store_manager'
+            requesterCanManageHr
         );
-        if (requesterRole === 'admin' || isPrivilegedEdit) {
+        if (requesterRole === 'admin' || requesterRole === 'super_admin' || isPrivilegedEdit) {
             if (body.type !== undefined) updateData.type = body.type;
         }
 
@@ -150,10 +150,14 @@ export async function POST(request: Request) {
             if (body.customRoleId !== undefined) updateData.customRoleId = body.customRoleId || null;
         }
 
-        // store_manager can update canManageHR, role, and customRoleId within their store
-        if (requesterRole === 'store_manager' && requestUid !== targetUid) {
-            if (body.canManageHR !== undefined) updateData.canManageHR = Boolean(body.canManageHR);
-            if (body.role !== undefined && ['manager', 'employee'].includes(body.role)) {
+        // Store-scoped HR managers can assign permitted employee roles; only store managers
+        // may delegate the legacy canManageHR flag.
+        if (requesterCanManageHr && requesterRole !== 'admin' && requesterRole !== 'super_admin' && requestUid !== targetUid) {
+            if (requesterRole === 'store_manager' && body.canManageHR !== undefined) {
+                updateData.canManageHR = Boolean(body.canManageHR);
+            }
+            const assignableRoles = requesterRole === 'store_manager' ? ['manager', 'employee'] : ['employee'];
+            if (body.role !== undefined && assignableRoles.includes(body.role)) {
                 updateData.role = body.role;
             }
             if (body.customRoleId !== undefined) updateData.customRoleId = body.customRoleId || null;

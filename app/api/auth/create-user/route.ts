@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { phoneToEmail, defaultPassword } from '@/lib/utils';
 import { UserDoc } from '@/types';
+import { canManageHr } from '@/lib/hr-access';
 
 // Allow large payloads for base64 ID card photos
 export const maxDuration = 30;
@@ -19,15 +20,11 @@ export async function POST(req: NextRequest) {
         const callerDoc = await adminDb.collection('users').doc(decoded.uid).get();
         if (!callerDoc.exists) return NextResponse.json({ error: 'Không được phép' }, { status: 401 });
 
-        const callerRole = callerDoc.data()?.role;
-        const callerStoreId = callerDoc.data()?.storeId;
+        const callerData = callerDoc.data() as UserDoc;
+        const callerRole = callerData.role;
+        const callerStoreId = callerData.storeId;
 
-        // Who can create users?
-        const allowedCallers = ['admin', 'super_admin', 'store_manager', 'manager'];
-        if (!allowedCallers.includes(callerRole)) {
-            return NextResponse.json({ error: 'Bị từ chối truy cập' }, { status: 403 });
-        }
-        if (callerRole === 'manager' && callerDoc.data()?.canManageHR !== true) {
+        if (!(await canManageHr(adminDb, callerData))) {
             return NextResponse.json({ error: 'Bạn không có quyền tạo người dùng' }, { status: 403 });
         }
 
@@ -37,7 +34,7 @@ export async function POST(req: NextRequest) {
             email: realEmail, idCard, bankAccount, education, contractNumber,
             gender, permanentAddress, idCardFrontPhoto, idCardBackPhoto,
             probationStartDate, officialStartDate, resignationDate,
-            canManageHR,
+            canManageHR, customRoleId,
             // Workplace assignment
             workplaceType: bodyWorkplaceType,
             storeId: bodyStoreId,
@@ -52,6 +49,7 @@ export async function POST(req: NextRequest) {
             probationStartDate?: string; officialStartDate?: string;
             resignationDate?: string;
             canManageHR?: boolean;
+            customRoleId?: string | null;
             workplaceType?: 'STORE' | 'OFFICE' | 'CENTRAL';
             storeId?: string; officeId?: string; warehouseId?: string;
         };
@@ -61,7 +59,7 @@ export async function POST(req: NextRequest) {
         // Enforce role restrictions
         if (callerRole === 'store_manager') {
             if (!['manager', 'employee'].includes(role)) role = 'employee';
-        } else if (callerRole === 'manager') {
+        } else if (callerRole !== 'admin' && callerRole !== 'super_admin') {
             role = 'employee';
         }
 
@@ -121,6 +119,7 @@ export async function POST(req: NextRequest) {
             ...(officialStartDate && { officialStartDate }),
             ...(resignationDate && { resignationDate }),
             ...(isAdmin && canManageHR !== undefined && { canManageHR: Boolean(canManageHR) }),
+            ...(customRoleId && { customRoleId }),
         };
 
         await adminDb.collection('users').doc(newUser.uid).set(userDoc);

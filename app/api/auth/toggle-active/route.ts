@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { canManageHr } from '@/lib/hr-access';
+import type { UserDoc } from '@/types';
 
 export async function POST(req: NextRequest) {
     try {
@@ -13,18 +15,15 @@ export async function POST(req: NextRequest) {
         const callerDoc = await adminDb.collection('users').doc(decoded.uid).get();
         if (!callerDoc.exists) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 });
 
-        const callerRole = callerDoc.data()?.role;
-        const canManageHR = callerDoc.data()?.canManageHR;
-        const callerStoreId = callerDoc.data()?.storeId;
+        const callerData = callerDoc.data() as UserDoc;
+        const callerRole = callerData.role;
+        const callerStoreId = callerData.storeId;
 
         // Who can toggle?
         // admin: anyone
         // store_manager: manager and employee in their own store
-        // manager (with canManageHR): employee in their own store
-        const isAllowed =
-            callerRole === 'admin' ||
-            callerRole === 'store_manager' ||
-            (callerRole === 'manager' && canManageHR === true);
+        // other roles with action.hr.manage (or legacy canManageHR): employees in their store
+        const isAllowed = await canManageHr(adminDb, callerData);
 
         if (!isAllowed) {
             return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 403 });
@@ -50,11 +49,11 @@ export async function POST(req: NextRequest) {
             if (targetStoreId !== callerStoreId) {
                 return NextResponse.json({ error: 'Không thể thao tác với người dùng từ cửa hàng khác' }, { status: 403 });
             }
-        } else if (callerRole === 'manager') {
+        } else if (callerRole !== 'admin' && callerRole !== 'super_admin') {
             if (targetRole !== 'employee') {
                 return NextResponse.json({ error: 'Quản lý chỉ có thể thay đổi trạng thái nhân viên' }, { status: 403 });
             }
-            if (targetStoreId !== callerStoreId) {
+            if (!callerStoreId || targetStoreId !== callerStoreId) {
                 return NextResponse.json({ error: 'Không thể thao tác với người dùng từ cửa hàng khác' }, { status: 403 });
             }
         }

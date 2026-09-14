@@ -149,7 +149,7 @@ function SearchBar({
 
 /** Employee card */
 function EmployeeCard({
-    employee, kpiAvg, customRoles, storeMap, onPress, onEdit, onToggle, isLoading,
+    employee, kpiAvg, customRoles, storeMap, onPress, onEdit, onToggle, isLoading, canManage,
 }: {
     employee: UserDoc;
     kpiAvg?: { avgOfficial: number; count: number };
@@ -159,6 +159,7 @@ function EmployeeCard({
     onEdit: () => void;
     onToggle: () => void;
     isLoading: boolean;
+    canManage: boolean;
 }) {
     const isActive = employee.isActive !== false;
     const profileOk = isProfileComplete(employee);
@@ -274,7 +275,7 @@ function EmployeeCard({
             </button>
 
             {/* Action row */}
-            <div className="flex border-t border-gray-50">
+            {canManage && <div className="flex border-t border-gray-50">
                 <button
                     onClick={onEdit}
                     disabled={isLoading}
@@ -301,7 +302,7 @@ function EmployeeCard({
                         <><RotateCcw className="w-3.5 h-3.5" /> Kích hoạt lại</>
                     )}
                 </button>
-            </div>
+            </div>}
         </div>
     );
 }
@@ -834,6 +835,9 @@ function MobileHrUsersContent() {
         return m;
     }, [stores, offices, warehouses]);
     const isAdmin = userDoc?.role === 'admin';
+    const canManageEmployees = isAdmin || userDoc?.role === 'super_admin' ||
+        userDoc?.role === 'store_manager' || userDoc?.canManageHR === true ||
+        hasPermission('action.hr.manage');
     const activeCount = employees.filter(e => e.isActive !== false).length;
     const inactiveCount = employees.filter(e => e.isActive === false).length;
     const incompleteCount = employees.filter(e => e.isActive !== false && !isProfileComplete(e)).length;
@@ -865,7 +869,7 @@ function MobileHrUsersContent() {
             };
             if (editUid) {
                 body.targetUid = editUid;
-                if (userDoc?.role === 'store_manager' || isAdmin) {
+                if (canManageEmployees) {
                     body.role = form.role; body.customRoleId = form.customRoleId || null;
                 }
                 if (isAdmin) {
@@ -875,8 +879,8 @@ function MobileHrUsersContent() {
                     body.warehouseId = form.workplaceType === 'CENTRAL' ? (form.warehouseId || null) : null;
                 }
             } else {
-                body.role = (userDoc?.role === 'store_manager' || isAdmin) ? form.role : 'employee';
-                if (userDoc?.role === 'store_manager' || isAdmin) body.customRoleId = form.customRoleId || null;
+                body.role = canManageEmployees ? form.role : 'employee';
+                if (canManageEmployees) body.customRoleId = form.customRoleId || null;
                 if (isAdmin) {
                     body.workplaceType = form.workplaceType;
                     if (form.workplaceType === 'STORE' && form.storeId) body.storeId = form.storeId;
@@ -954,14 +958,14 @@ function MobileHrUsersContent() {
             <PageHeader
                 title="Quản lý Nhân viên"
                 onBack={() => router.back()}
-                headerRight={
+                headerRight={canManageEmployees ? (
                     <button
                         onClick={openCreate}
                         className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center active:scale-95 transition shadow-md shadow-primary-600/30"
                     >
                         <Plus className="w-5 h-5 text-white" />
                     </button>
-                }
+                ) : null}
             />
 
             {/* Admin location selector — grouped by type */}
@@ -1035,6 +1039,7 @@ function MobileHrUsersContent() {
                             onEdit={() => openEdit(emp)}
                             onToggle={() => handleToggleActive(emp.uid, emp.isActive !== false, emp.name)}
                             isLoading={actionLoading === emp.uid}
+                            canManage={Boolean(canManageEmployees)}
                         />
                     ))
                 )}
