@@ -4,6 +4,8 @@ import { attendanceAccessErrorResponse, requireAttendanceAccess } from '@/lib/at
 import { attendanceMappingId } from '@/lib/attendance/device-model';
 import { getAdminDb } from '@/lib/firebase-admin';
 import type { ZkUserDoc } from '@/types';
+import { assertEmployeeStoreMembership, getTargetUser } from '@/lib/scheduling/server';
+import { workplaceAccessResponse } from '@/lib/workplace/access';
 
 const mappingInputSchema = z.object({
     deviceId: z.string().trim().min(1),
@@ -52,6 +54,11 @@ export async function PATCH(req: NextRequest) {
             permission: 'hr.attendance.configure',
             storeId: mapping.storeId,
         });
+        if (input.status === 'mapped' && input.mapped_system_uid) {
+            const target = await getTargetUser(db, input.mapped_system_uid);
+            const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+            await assertEmployeeStoreMembership(db, target, mapping.storeId, today);
+        }
         await ref.update({
             status: input.status,
             mapped_system_uid: input.status === 'mapped' ? input.mapped_system_uid ?? null : null,
@@ -61,6 +68,8 @@ export async function PATCH(req: NextRequest) {
     } catch (error) {
         const accessResponse = attendanceAccessErrorResponse(error);
         if (accessResponse) return accessResponse;
+        const workplaceResponse = workplaceAccessResponse(error);
+        if (workplaceResponse) return workplaceResponse;
         if (error instanceof z.ZodError) {
             return NextResponse.json({ error: 'Mapping không hợp lệ.', details: error.flatten() }, { status: 400 });
         }

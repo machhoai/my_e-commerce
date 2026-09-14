@@ -10,6 +10,7 @@ import {
     ChevronLeft, ChevronRight, Users2, ClipboardList, Building2
 } from 'lucide-react';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
+import { fetchStoreMembers } from '@/lib/workplace/client';
 
 /** Shorten Vietnamese full name to middle + first name (e.g. "Nguyễn Văn An" → "Văn An") */
 function shortenName(fullName: string): string {
@@ -125,12 +126,9 @@ export default function ManagerRegistrationOverviewPage() {
                 setAllRegistrations(regs);
 
                 // 3. Build uid → user info map (active users only)
-                const usersQuery = query(collection(db, 'users'), where('storeId', '==', effectiveStoreId));
-                const usersSnap = await getDocs(usersQuery);
+                const usersData = await fetchStoreMembers(user, effectiveStoreId);
                 const infoMap = new Map<string, UserInfo>();
-                usersSnap.forEach(d => {
-                    const data = d.data();
-                    console.log(data);
+                usersData.forEach(data => {
                     if (data.uid && data.name && data.isActive !== false && data.role !== 'admin' && data.role !== 'super_admin') {
                         infoMap.set(data.uid, { name: data.name, role: data.role, type: data.type ?? 'PT' });
                     }

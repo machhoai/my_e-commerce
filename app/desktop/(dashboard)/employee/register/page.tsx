@@ -83,12 +83,17 @@ export default function EmployeeRegisterPage() {
             setLoading(true);
             try {
                 // 1. Get existing registration for this week
-                const regId = weeklyRegId(user.uid, currentWeekStart);
-                const regSnap = await getDoc(doc(db, 'weekly_registrations', regId));
+                const regId = weeklyRegId(user.uid, storeId, currentWeekStart);
+                const legacyRegId = `${user.uid}_${toLocalDateString(currentWeekStart)}`;
+                const [regSnap, legacyRegSnap] = await Promise.all([
+                    getDoc(doc(db, 'weekly_registrations', regId)),
+                    getDoc(doc(db, 'weekly_registrations', legacyRegId)),
+                ]);
+                const selectedRegSnap = regSnap.exists() ? regSnap : legacyRegSnap;
 
-                if (regSnap.exists()) {
-                    setExistingRegId(regId);
-                    const data = regSnap.data() as WeeklyRegistration;
+                if (selectedRegSnap.exists() && (!selectedRegSnap.data()?.storeId || selectedRegSnap.data()?.storeId === storeId)) {
+                    setExistingRegId(selectedRegSnap.id);
+                    const data = selectedRegSnap.data() as WeeklyRegistration;
                     const mappedSelections = weekDays.map(dateStr =>
                         data.shifts.filter(s => s.date === dateStr).map(s => s.shiftId)
                     );
@@ -327,11 +332,11 @@ export default function EmployeeRegisterPage() {
                 dayShifts.forEach(shiftId => shiftsToSave.push({ date: dateStr, shiftId }));
             });
 
-            const regId = weeklyRegId(user.uid, currentWeekStart);
+            const regId = weeklyRegId(user.uid, storeId, currentWeekStart);
             const payload: WeeklyRegistration = {
                 id: regId,
                 userId: user.uid,
-                storeId: userDoc.storeId ?? '',
+                storeId,
                 weekStartDate: toLocalDateString(currentWeekStart),
                 shifts: shiftsToSave,
                 submittedAt: new Date().toISOString(),

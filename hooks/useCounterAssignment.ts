@@ -11,6 +11,7 @@ interface CounterAssignmentResult {
     storeId: string;
     loading: boolean;
     error: string;
+    assignments: Array<{ counterId: string; counterName: string; shiftId: string; storeId: string }>;
 }
 
 /**
@@ -19,13 +20,14 @@ interface CounterAssignmentResult {
  * state on inventory usage and handover pages.
  */
 export function useCounterAssignment(): CounterAssignmentResult {
-    const { user } = useAuth();
+    const { user, activeWorkplace } = useAuth();
     const [state, setState] = useState<Omit<CounterAssignmentResult, 'loading' | 'error'>>({
         isAuthorized: false,
         counterId: '',
         counterName: '',
         shiftId: '',
         storeId: '',
+        assignments: [],
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -36,7 +38,9 @@ export function useCounterAssignment(): CounterAssignmentResult {
         setError('');
         try {
             const token = await user.getIdToken();
-            const res = await fetch('/api/inventory/my-assignment', {
+            const selectedStoreId = activeWorkplace?.workplace.type === 'STORE' ? activeWorkplace.workplace.id : '';
+            const query = selectedStoreId ? `?storeId=${encodeURIComponent(selectedStoreId)}` : '';
+            const res = await fetch(`/api/inventory/my-assignment${query}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = await res.json();
@@ -48,9 +52,10 @@ export function useCounterAssignment(): CounterAssignmentResult {
                     counterName: data.counterName || '',
                     shiftId: data.shiftId || '',
                     storeId: data.storeId || '',
+                    assignments: Array.isArray(data.assignments) ? data.assignments : [],
                 });
             } else {
-                setState(prev => ({ ...prev, isAuthorized: false }));
+                setState(prev => ({ ...prev, isAuthorized: false, assignments: [] }));
                 setError(data.message || 'Không có quyền truy cập');
             }
         } catch {
@@ -58,7 +63,7 @@ export function useCounterAssignment(): CounterAssignmentResult {
         } finally {
             setLoading(false);
         }
-    }, [user]);
+    }, [user, activeWorkplace]);
 
     useEffect(() => {
         fetchAssignment();

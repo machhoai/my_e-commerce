@@ -13,7 +13,9 @@ import {
     getOrderList,
 } from '@/lib/joyworld';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { calculateAttendanceStatus } from '@/lib/attendance-rules';
+import { calculateAttendanceStatus, type RuleContainer } from '@/lib/attendance-rules';
+import type { UserDoc } from '@/types';
+import { getUserMemberships } from '@/lib/workplace/server';
 
 // ── Format helpers ───────────────────────────────────────────
 function fmtVND(n: number): string {
@@ -142,6 +144,13 @@ async function fetchSlimHR(startDate: string, endDate: string): Promise<string> 
         const officesSnap = await db.collection('offices').get();
         const officeMap = new Map<string, string>();
         officesSnap.forEach(d => { const o = d.data(); officeMap.set(d.id, o.name || d.id); });
+        const warehousesSnap = await db.collection('warehouses').get();
+        const warehouseMap = new Map<string, string>();
+        warehousesSnap.forEach(d => { const w = d.data(); warehouseMap.set(d.id, w.name || d.id); });
+        const membershipsByUser = new Map<string, Awaited<ReturnType<typeof getUserMemberships>>>();
+        await Promise.all(users.map(async user => {
+            membershipsByUser.set(user.uid, await getUserMemberships(db, user as UserDoc));
+        }));
 
         // Group by type/role/workplace
         const ftCount = users.filter(u => u.type === 'FT').length;
@@ -155,12 +164,16 @@ async function fetchSlimHR(startDate: string, endDate: string): Promise<string> 
         // Employee list grouped by store/office
         const byWorkplace = new Map<string, string[]>();
         for (const u of users) {
-            let wp = 'Chưa phân công';
-            if (u.storeId && storeMap.has(u.storeId)) wp = storeMap.get(u.storeId)!;
-            else if (u.officeId && officeMap.has(u.officeId)) wp = officeMap.get(u.officeId)!;
-            else if (u.workplaceType === 'CENTRAL') wp = 'Kho Trung tâm';
-            if (!byWorkplace.has(wp)) byWorkplace.set(wp, []);
-            byWorkplace.get(wp)!.push(`${u.name} (${u.type || '?'}${u.jobTitle ? ' · ' + u.jobTitle : ''})`);
+            const memberships = membershipsByUser.get(u.uid) || [];
+            const workplaceNames = memberships.map(item => item.workplace.type === 'STORE'
+                ? storeMap.get(item.workplace.id) || item.workplace.id
+                : item.workplace.type === 'OFFICE'
+                    ? officeMap.get(item.workplace.id) || item.workplace.id
+                    : warehouseMap.get(item.workplace.id) || item.workplace.id);
+            for (const wp of workplaceNames.length ? workplaceNames : ['Chưa phân công']) {
+                if (!byWorkplace.has(wp)) byWorkplace.set(wp, []);
+                byWorkplace.get(wp)!.push(`${u.name} (${u.type || '?'}${u.jobTitle ? ' · ' + u.jobTitle : ''})`);
+            }
         }
 
         // Format workplace roster (compact)
@@ -171,7 +184,7 @@ async function fetchSlimHR(startDate: string, endDate: string): Promise<string> 
 
         // Fetch global settings for attendance rules
         const settingsDoc = await db.collection('settings').doc('global').get();
-        const settings = settingsDoc.exists ? settingsDoc.data() : null;
+        const settings = settingsDoc.exists ? settingsDoc.data() as RuleContainer : null;
         const byShift = settings?.attendanceRules?.byShift || {};
         const shiftNames = Object.keys(byShift);
         const ruleLines: string[] = [];
@@ -247,7 +260,7 @@ async function fetchSlimHR(startDate: string, endDate: string): Promise<string> 
             const dayLateNames: string[] = [];
             for (const [, rec] of dayMap) {
                 const inTime = rec.checkIn.slice(11, 16); // HH:MM
-                const statusRes = calculateAttendanceStatus(rec.checkIn, rec.checkOut, date, settings as any);
+                const statusRes = calculateAttendanceStatus(rec.checkIn, rec.checkOut, date, settings);
                 if (statusRes.status === 'LATE') {
                     dayLateCount++;
                     dayLateNames.push(`${rec.name} (${inTime})`);
@@ -261,7 +274,7 @@ async function fetchSlimHR(startDate: string, endDate: string): Promise<string> 
             // Compact daily line (only show per-day detail if <= 7 days)
             if (!isMultiDay || sortedDates.length <= 7) {
                 const empLines = [...dayMap.values()].map(r => {
-                    const statusRes = calculateAttendanceStatus(r.checkIn, r.checkOut, date, settings as any);
+                    const statusRes = calculateAttendanceStatus(r.checkIn, r.checkOut, date, settings);
                     const inTime = r.checkIn.slice(11, 16);
                     const outTime = r.checkOut ? r.checkOut.slice(11, 16) : '--:--';
                     const late = statusRes.status === 'LATE' ? ' ⚠️TRỄ' : '';
@@ -493,7 +506,6 @@ async function fetchSlimMultiDay(start: string, end: string): Promise<string> {
         // Filter valid day records — dùng ĐÚNG field như trang Revenue:
         //   sysMoney = "Thực thu" (hero card, chart), cashRealMoney = tiền mặt, transferRealMoney = chuyển khoản
         //   KHÔNG dùng realMoney vì nó khác con số hiển thị trên UI
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const days = items
             .filter((r: { forDate: string }) => /^\d{4}-\d{2}-\d{2}$/.test(r.forDate))
             // eslint-disable-next-line @typescript-eslint/no-explicit-any

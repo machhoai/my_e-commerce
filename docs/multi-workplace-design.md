@@ -1,6 +1,6 @@
 # Thiết kế tài khoản có nhiều nơi làm việc
 
-Ngày khảo sát: 14/09/2026. Trạng thái: đề xuất kiến trúc và kế hoạch triển khai; chưa thay đổi mã nghiệp vụ hoặc dữ liệu vận hành.
+Ngày khảo sát: 14/09/2026. Trạng thái: đã triển khai lớp quan hệ đa nơi, phạm vi quyền, chọn ngữ cảnh, đăng ký/xếp lịch/chấm công, HR roster, scanner, quota chung và công cụ migration trong mã nguồn. Dữ liệu vận hành chưa được migration bởi thay đổi mã này.
 
 ## 1. Yêu cầu đã xác nhận và quyết định đang chờ
 
@@ -22,7 +22,7 @@ Mục tiêu là giữ một danh tính đăng nhập và một hồ sơ nhân s�
 | Giá trị định mức chung lấy từ đâu khi cấu hình cũ khác nhau? | Tạo chính sách nhân sự chung theo FT/PT; trường hợp khác nhau cần bảng đối chiếu để chốt | Không tự lấy quota cửa hàng đang chọn hoặc lấy trung bình |
 | Được chấm công khi chưa được xếp lịch không? | Chỉ theo lịch; nếu cho ngoài lịch thì giữ cửa hàng/ngày bằng transaction và đánh dấu đối soát | Không tạo đường vòng để có công hợp lệ tại hai cửa hàng/ngày |
 
-Các dòng đề xuất chưa phải quy tắc đã được duyệt. Chúng không ngăn việc xây lớp quan hệ và định danh chung, nhưng phải được chốt trước khi mở các luồng phụ thuộc.
+Các điểm chưa được trả lời đang dùng hành vi an toàn/tương thích sau: giữ `maxShiftsPerDay` của từng cửa hàng; chấm công ngoài lịch vẫn được phép nhưng lần chấm đầu giữ cửa hàng cho ngày; `scan_any_counter` tiếp tục là quyền toàn hệ thống; ca qua đêm giữ cả ngày bắt đầu và ngày kế tiếp để không thể phát sinh ca giao nhau, còn check-out sau nửa đêm quay về phiên đang mở của ngày trước.
 
 ## 2. Kết quả khảo sát mã nguồn
 
@@ -297,4 +297,22 @@ B/C tạo nền cho D/E/F; D tạo ràng buộc ngày cho E và placement lịch
 
 Tạo unit tests cho resolver/quyền/ID/xung đột/hiệu lực/ghép phiên; integration tests bằng Firestore Emulator cho Rules, API và concurrency; Playwright cho các luồng desktop/mobile chính; test hợp đồng ERP bằng mock và staging riêng. Test hiện tại về lịch/đăng ký còn route và label cũ, có giả định tài khoản mẫu và phần lưu lịch bị comment, nên chưa thể dùng làm bằng chứng đủ cho nâng cấp này.
 
-Trong lần khảo sát này không chạy test ghi dữ liệu hoặc thử giao dịch ERP. Đây là tài liệu kế hoạch; bằng chứng triển khai sẽ được bổ sung theo từng giai đoạn khi thay đổi mã.
+## 9. Runbook migration đã triển khai
+
+Endpoint quản trị `POST /api/admin/migrate-workplaces` chỉ cho `admin/super_admin`, nhận payload:
+
+```json
+{ "phase": "USERS", "dryRun": true, "limit": 25, "cursor": "optional-last-document-id" }
+```
+
+Chạy từng phase theo thứ tự `USERS` → `REGISTRATIONS` → `SCHEDULES`. Trước hết chạy hết các trang với `dryRun: true` để kiểm kê số bản ghi, sau đó chạy trên bản sao dữ liệu với `dryRun: false` và cuối cùng mới chạy production. Dùng `nextCursor` cho trang tiếp theo; dừng rollout nếu `conflicts` hoặc `invalid` khác 0 và đối chiếu thủ công trước khi tiếp tục. Migration dùng ID xác định, có thể chạy lại; bản ghi nguồn chỉ bị xóa sau khi bản v2 và khóa ngày tương ứng được ghi trong cùng transaction.
+
+## 10. Bằng chứng kiểm tra mã
+
+- `npx tsc --noEmit`: đạt.
+- `npm run test:attendance`: 17/17 test đạt.
+- `node --test tests/unit/hr-access.test.mjs`: 4/4 test đạt.
+- `node --test --experimental-strip-types tests/unit/workplace-keys.test.mts`: 4/4 test đạt.
+- `npm run build`: build production đạt, gồm các route đa nơi và migration mới.
+
+Chưa chạy migration trên dữ liệu production hoặc giao dịch ERP thật. Việc cutover cần làm theo runbook trên và đối chiếu các tiêu chí ở mục 8 trước khi tắt reader legacy.

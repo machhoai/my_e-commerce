@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { StoreDoc } from '@/types';
+import type { UserDoc } from '@/types';
+import { getManagedStoreIds } from '@/lib/workplace/server';
 
 // Helper to verify caller is admin
 async function verifyAdmin(req: NextRequest) {
@@ -33,12 +35,11 @@ export async function GET(req: NextRequest) {
             const stores = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             return NextResponse.json(stores);
         } else {
-            // Non-admin users just get their own store
-            const callerStoreId = callerSnap.data()?.storeId;
-            if (!callerStoreId) return NextResponse.json([]);
-            const storeSnap = await adminDb.collection('stores').doc(callerStoreId).get();
-            if (!storeSnap.exists) return NextResponse.json([]);
-            return NextResponse.json([{ id: storeSnap.id, ...storeSnap.data() }]);
+            const user = { uid: decoded.uid, ...callerSnap.data() } as UserDoc;
+            const ids = [...await getManagedStoreIds(adminDb, user)];
+            if (!ids.length) return NextResponse.json([]);
+            const snapshots = await adminDb.getAll(...ids.map(id => adminDb.collection('stores').doc(id)));
+            return NextResponse.json(snapshots.filter(item => item.exists).map(item => ({ id: item.id, ...item.data() })));
         }
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Lỗi hệ thống';

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import type { UserDoc } from '@/types';
+import { userHasWorkplace } from '@/lib/workplace/server';
 
 // GET /api/inventory/my-assignment — Check if the current user has an active
 // counter assignment for today (assigned by manager).
@@ -11,6 +13,13 @@ export async function GET(req: NextRequest) {
         const auth = getAdminAuth();
         const decoded = await auth.verifyIdToken(token);
         const db = getAdminDb();
+        const requestedStoreId = req.nextUrl.searchParams.get('storeId')?.trim() || '';
+        if (requestedStoreId) {
+            const userSnapshot = await db.collection('users').doc(decoded.uid).get();
+            if (!userSnapshot.exists || !(await userHasWorkplace(db, { uid: decoded.uid, ...userSnapshot.data() } as UserDoc, 'STORE', requestedStoreId))) {
+                return NextResponse.json({ error: 'Bạn không có quan hệ làm việc tại cửa hàng này.' }, { status: 403 });
+            }
+        }
 
         // Get today's date in Vietnam timezone
         const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
@@ -37,6 +46,7 @@ export async function GET(req: NextRequest) {
         }> = [];
         for (const doc of schedulesSnap.docs) {
             const schedule = doc.data();
+            if (requestedStoreId && schedule.storeId !== requestedStoreId) continue;
             const employeeIds: string[] = schedule.employeeIds || [];
 
             if (employeeIds.includes(decoded.uid)) {

@@ -13,6 +13,7 @@ import DataTableToolbar, { SortableHeader } from '@/components/DataTableToolbar'
 import DataTablePagination from '@/components/DataTablePagination';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
+import { fetchStoreMembers } from '@/lib/workplace/client';
 
 interface EmployeeStats {
     uid: string;
@@ -148,8 +149,11 @@ function ManagerHistoryPageContent() {
                 }
                 setSettings(settingsData);
 
-                const ftDaysOff = settingsData?.monthlyQuotas?.ftDaysOff ?? 4;
-                const maxPT = settingsData?.monthlyQuotas?.ptMaxShifts ?? 25;
+                const token = await getToken();
+                const policyResponse = await fetch('/api/workforce-policy', { headers: { Authorization: `Bearer ${token}` } });
+                const policy = policyResponse.ok ? await policyResponse.json() : {};
+                const ftDaysOff = policy.ftDaysOff ?? 4;
+                const maxPT = policy.ptMaxShifts ?? 25;
 
                 const year = currentMonth.getFullYear();
                 const month = currentMonth.getMonth();
@@ -157,14 +161,9 @@ function ManagerHistoryPageContent() {
                 const maxFT = Math.max(0, daysInMonth - ftDaysOff);
 
                 // Fetch users filtered by storeId
-                let usersQuery = query(collection(db, 'users'));
-                if (effectiveStoreId) {
-                    usersQuery = query(collection(db, 'users'), where('storeId', '==', effectiveStoreId));
-                }
-                const usersSnap = await getDocs(usersQuery);
+                const usersData = effectiveStoreId && user ? await fetchStoreMembers(user, effectiveStoreId) : [];
                 const userMap = new Map<string, UserDoc>();
-                usersSnap.docs.forEach(d => {
-                    const u = d.data() as UserDoc;
+                usersData.forEach(u => {
                     userMap.set(u.uid, u);
                 });
                 const storeNameMap = new Map(stores.map(s => [s.id, s.name]));
@@ -187,8 +186,7 @@ function ManagerHistoryPageContent() {
                 schedulesSnap.docs.forEach(d => {
                     const schedule = d.data() as ScheduleDoc;
                     // Only count if the schedule belongs to the chosen store (or no filter)
-                    const belongsToStore = !effectiveStoreId || schedule.storeId === effectiveStoreId || schedule.storeId === undefined;
-                    if (schedule.date < todayStr && belongsToStore) {
+                    if (schedule.date < todayStr) {
                         const shiftKey = `${schedule.date}_${schedule.shiftId}`;
                         schedule.employeeIds.forEach(uid => {
                             if (!shiftSets.has(uid)) shiftSets.set(uid, new Set());
@@ -214,7 +212,7 @@ function ManagerHistoryPageContent() {
                         roleFilter: u.customRoleId ? `custom:${u.customRoleId}` : u.role,
                         totalShifts: shiftCounts.get(u.uid) || 0,
                         maxShifts: u.type === 'FT' ? maxFT : maxPT,
-                        storeName: u.storeId ? (storeNameMap.get(u.storeId) ?? u.storeId) : undefined,
+                        storeName: effectiveStoreId ? (storeNameMap.get(effectiveStoreId) ?? effectiveStoreId) : undefined,
                         isActive: u.isActive !== false,
                         statusFilter: u.isActive !== false ? 'active' : 'disabled',
                     });

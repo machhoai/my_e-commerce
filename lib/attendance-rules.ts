@@ -34,7 +34,7 @@ export interface AttendanceStatusResult {
     checkOutStatus: PunchOutStatus;
 }
 
-type RuleContainer = {
+export type RuleContainer = {
     attendanceRules?: { byShift: Record<string, AttendanceRuleSet> } | null;
 };
 

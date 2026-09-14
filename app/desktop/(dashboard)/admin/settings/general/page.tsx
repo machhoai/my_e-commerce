@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Settings as SettingsIcon, Save, Plus, X, AlertCircle, CheckCircle2, Store, Clock, Users, Timer, Building2, ShieldAlert, Package, Pencil, Star } from 'lucide-react';
 import { SettingsDoc, CounterDoc, RegistrationSchedule, StoreDoc } from '@/types';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
+import WorkforcePolicyPanel from '@/components/hr/WorkforcePolicyPanel';
 
 export default function AdminSettingsPage() {
     const { user } = useAuth();
@@ -280,6 +281,8 @@ export default function AdminSettingsPage() {
                     </div>
                 }
             />
+
+            <WorkforcePolicyPanel />
 
             {/* Store Selector — Admin can configure settings per-store */}
             <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
@@ -643,7 +646,7 @@ export default function AdminSettingsPage() {
                                 <div className="border-t border-surface-100 pt-6 mt-6">
                                     <h3 className="text-sm font-bold text-surface-700 mb-3 flex items-center gap-2">
                                         <AlertCircle className="w-4 h-4 text-accent-500" />
-                                        Định mức ca làm / Tháng
+                                        Định mức cũ theo cửa hàng (chỉ giữ để tương thích)
                                     </h3>
                                     <div className="bg-accent-50/50 p-4 rounded-xl border border-accent-100 space-y-4">
 

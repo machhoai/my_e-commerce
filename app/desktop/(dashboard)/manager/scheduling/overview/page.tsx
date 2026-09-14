@@ -15,6 +15,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { registerVietnameseFont } from '@/lib/pdf-font';
 import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
+import { fetchStoreMembers } from '@/lib/workplace/client';
 
 type ViewMode = 'employee' | 'shift';
 
@@ -87,14 +88,9 @@ export default function GlobalOverviewPage() {
             setLoading(true);
             try {
                 // 1. Load users filtered by storeId
-                let usersQuery = query(collection(db, 'users'));
-                if (effectiveStoreId) {
-                    usersQuery = query(collection(db, 'users'), where('storeId', '==', effectiveStoreId));
-                }
-                const usersSnap = await getDocs(usersQuery);
+                const usersData = effectiveStoreId && user ? await fetchStoreMembers(user, effectiveStoreId) : [];
                 const fullMap = new Map<string, UserDoc>();
-                usersSnap.docs.forEach(d => {
-                    const u = d.data() as UserDoc;
+                usersData.forEach(u => {
                     fullMap.set(u.uid, u);
                 });
                 setAllUsersMap(fullMap);

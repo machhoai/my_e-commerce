@@ -46,8 +46,8 @@ export function getWeekDays(weekStart: Date): string[] {
 /**
  * Returns a weekly_registrations document ID for a user+week.
  */
-export function weeklyRegId(userId: string, weekStart: Date): string {
-    return `${userId}_${toLocalDateString(weekStart)}`;
+export function weeklyRegId(userId: string, storeId: string, weekStart: Date): string {
+    return [userId, storeId, toLocalDateString(weekStart)].map(encodeURIComponent).join('__');
 }
 
 /**

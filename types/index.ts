@@ -6,6 +6,37 @@ export type UserRole = 'super_admin' | 'admin' | 'store_manager' | 'manager' | '
 
 export type EmployeeType = 'FT' | 'PT';
 
+export type WorkplaceType = 'STORE' | 'OFFICE' | 'CENTRAL';
+export type WorkplaceMembershipStatus = 'ACTIVE' | 'SUSPENDED' | 'ENDED';
+
+export interface WorkplaceRef {
+    type: WorkplaceType;
+    id: string;
+    key: string;
+}
+
+export interface WorkplaceMembership {
+    id: string;
+    userId: string;
+    workplace: WorkplaceRef;
+    status: WorkplaceMembershipStatus;
+    effectiveFrom: string;
+    effectiveTo: string | null;
+    version: number;
+    createdAt: string;
+    createdBy: string;
+    updatedAt: string;
+    updatedBy: string;
+}
+
+export interface UserWorkplace extends WorkplaceMembership {
+    name: string;
+    isActive: boolean;
+    isEffective: boolean;
+    isPrimary?: boolean;
+    address?: string;
+}
+
 // ── Permission System ─────────────────────────────────────────
 // Mỗi key theo quy ước:
 //   page.*   → kiểm soát truy cập vào trang (route guard)
@@ -83,6 +114,27 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         label: 'Cấu Hình Chấm Công',
         description: 'Cấu hình nguồn máy/phần mềm, GPS hoặc IP theo cửa hàng',
         group: 'Chấm công',
+        type: 'action',
+    },
+    {
+        key: 'action.hr.workplaces.assign',
+        label: 'Gán Thêm Nơi Làm Việc',
+        description: 'Gán tài khoản vào cửa hàng, văn phòng hoặc kho trong phạm vi quản lý',
+        group: 'Nhân sự & Lịch',
+        type: 'action',
+    },
+    {
+        key: 'action.hr.workplaces.end',
+        label: 'Ngừng Nơi Làm Việc',
+        description: 'Kết thúc quan hệ làm việc tại một địa điểm; lịch sử vẫn được giữ lại',
+        group: 'Nhân sự & Lịch',
+        type: 'action',
+    },
+    {
+        key: 'action.hr.workplaces.set_primary',
+        label: 'Đặt Nơi Làm Việc Chính',
+        description: 'Chọn địa điểm mặc định của tài khoản',
+        group: 'Nhân sự & Lịch',
         type: 'action',
     },
     {
@@ -498,10 +550,14 @@ export interface UserDoc {
     createdAt?: string;
 
     // Workplace assignment — workplaceType drives context-aware navigation
-    workplaceType?: 'STORE' | 'OFFICE' | 'CENTRAL';
+    workplaceType?: WorkplaceType;
     storeId?: string;      // Populated when workplaceType === 'STORE'
     officeId?: string;     // Populated when workplaceType === 'OFFICE'
     warehouseId?: string;  // Populated when workplaceType === 'CENTRAL'
+    /** Default workplace only. Authorization uses workplace_memberships in schema v2. */
+    primaryWorkplaceKey?: string;
+    /** Set to 2 after memberships have been materialized; disables legacy field fallback. */
+    workplaceSchemaVersion?: number;
 
     // Extended Profile Fields
     dob?: string;
@@ -621,6 +677,19 @@ export interface WeeklyRegistration {
     weekStartDate: string; // ISO date string for the Monday of the week
     shifts: ShiftEntry[];
     submittedAt?: string;
+    schemaVersion?: number;
+    revision?: number;
+}
+
+export interface EmployeeDayAllocation {
+    id: string;
+    userId: string;
+    date: string;
+    storeId: string;
+    registrationIds: string[];
+    scheduleIds: string[];
+    attendanceStateIds?: string[];
+    updatedAt: string;
 }
 
 export interface ScheduleDoc {

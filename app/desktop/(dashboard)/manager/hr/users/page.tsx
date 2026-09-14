@@ -18,10 +18,11 @@ import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader
 import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 import { LabelPrintConfigurator } from '@/components/admin/LabelPrintConfigurator';
 import UserInfoEditor from '@/components/shared/UserInfoEditor';
+import { fetchWorkplaceMembers } from '@/lib/workplace/client';
 import LocationPicker, { deriveLocationType, locationFieldName, locationIcon, locationLabel, type LocationType } from '@/components/hr/LocationPicker';
 
 function ManagerUsersPageContent() {
-    const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId, managedStoreIds } = useAuth();
+    const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId, managedStoreIds, activeWorkplace } = useAuth();
     const canManageEmployees = userDoc?.role === 'admin' || userDoc?.role === 'super_admin' ||
         userDoc?.role === 'store_manager' || userDoc?.canManageHR === true ||
         hasPermission('action.hr.manage');
@@ -186,48 +187,22 @@ function ManagerUsersPageContent() {
         // Non-admin: derive the correct store/location ID
         const effectiveStoreId = userDoc.role === 'admin'
             ? selectedAdminStoreId
-            : (contextStoreId || userDoc.storeId);
+            : (activeWorkplace?.workplace.id || contextStoreId || userDoc.storeId);
 
-        // Office-context user: contextStoreId is a managed storeId (from office's managedStoreIds)
-        // so we query employees by 'storeId' field, NOT by 'officeId'
-        const isOfficeUser = !!(userDoc.officeId && userDoc.role !== 'admin');
-
-        // Build constraints: use the correct field based on location type
-        const constraints: ReturnType<typeof where>[] = [];
-        if (effectiveStoreId) {
-            if (userDoc.role === 'admin' && selectedLocationType) {
-                const fieldName = locationFieldName(selectedLocationType);
-                constraints.push(where(fieldName, '==', effectiveStoreId));
-            } else if (isOfficeUser) {
-                // Office user viewing a managed store: query by storeId
-                constraints.push(where('storeId', '==', effectiveStoreId));
-            } else if (userDoc.warehouseId) {
-                constraints.push(where('warehouseId', '==', effectiveStoreId));
-            } else {
-                constraints.push(where('storeId', '==', effectiveStoreId));
-            }
-        } else if (isOfficeUser && userDoc.officeId) {
-            // No managed store selected — show office's own employees
-            constraints.push(where('officeId', '==', userDoc.officeId));
-        }
-
-        const q = userDoc.role === 'store_manager' || userDoc.role === 'admin' || isOfficeUser
-            ? query(collection(db, 'users'), ...constraints)
-            : query(collection(db, 'users'), where('role', '==', 'employee'), ...constraints);
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            let docs = snapshot.docs.map(d => d.data() as UserDoc);
-            docs = docs.filter(d => d.role !== 'admin' && d.uid !== userDoc.uid);
-            docs.sort((a, b) => a.name.localeCompare(b.name));
-            setEmployees(docs);
-            setLoading(false);
-        }, (err) => {
-            console.error('Error fetching employees:', err);
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, [authLoading, user, userDoc, selectedAdminStoreId, selectedLocationType, contextStoreId]);
+        if (!effectiveStoreId) { setEmployees([]); setLoading(false); return; }
+        let cancelled = false;
+        const type = userDoc.role === 'admin' && selectedLocationType
+            ? selectedLocationType
+            : (activeWorkplace?.workplace.type || 'STORE');
+        setLoading(true);
+        fetchWorkplaceMembers(user, type, effectiveStoreId).then(data => {
+            if (cancelled) return;
+            const docs = data.filter(item => item.role !== 'admin' && item.uid !== userDoc.uid)
+                .sort((a, b) => a.name.localeCompare(b.name));
+            setEmployees(docs); setLoading(false);
+        }).catch(err => { if (!cancelled) { console.error('Error fetching employees:', err); setLoading(false); } });
+        return () => { cancelled = true; };
+    }, [authLoading, user, userDoc, selectedAdminStoreId, selectedLocationType, contextStoreId, activeWorkplace]);
 
     const handleCreateOrUpdateUser = async (e: React.FormEvent) => {
         e.preventDefault();

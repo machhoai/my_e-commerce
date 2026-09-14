@@ -544,7 +544,7 @@ export async function getWmsWarehouseMappingAction(type: 'STORE' | 'CENTRAL' | '
     try {
         const user = await requireSessionUser();
         const isAdmin = user.role === 'admin' || user.role === 'super_admin';
-        if (!isAdmin && type === 'STORE' && user.storeId !== locationId) {
+        if (!isAdmin && type === 'STORE' && !user.storeIds.includes(locationId)) {
             throw new ScannerAccessError('Bạn không có quyền xem liên kết kho này.', 403);
         }
         let docRef;

@@ -90,7 +90,7 @@ function AttendanceEventCard({ event }: { event: AttendanceEvent }) {
 }
 
 export default function EmployeeAttendancePanel() {
-    const { user, loading: authLoading, hasPermission, getToken } = useAuth();
+    const { user, loading: authLoading, hasPermission, getToken, effectiveStoreId } = useAuth();
     const canUseAttendance = hasPermission('action.attendance.punch')
         || hasPermission('page.hr.attendance');
     const [context, setContext] = useState<SoftwareAttendanceContext | null>(null);
@@ -107,7 +107,8 @@ export default function EmployeeAttendancePanel() {
         setLoading(true);
         try {
             const token = await getToken();
-            const response = await fetch('/api/hr/attendance/context', {
+            const params = effectiveStoreId ? `?storeId=${encodeURIComponent(effectiveStoreId)}` : '';
+            const response = await fetch(`/api/hr/attendance/context${params}`, {
                 headers: { Authorization: `Bearer ${token}` },
                 cache: 'no-store',
                 signal,
@@ -124,7 +125,7 @@ export default function EmployeeAttendancePanel() {
         } finally {
             if (!signal?.aborted) setLoading(false);
         }
-    }, [canUseAttendance, getToken, user]);
+    }, [canUseAttendance, effectiveStoreId, getToken, user]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -153,6 +154,7 @@ export default function EmployeeAttendancePanel() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
+                    storeId: effectiveStoreId || undefined,
                     eventType: context.nextEventType,
                     idempotencyKey: crypto.randomUUID(),
                     location,

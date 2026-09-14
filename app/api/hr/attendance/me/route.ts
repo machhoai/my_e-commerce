@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     try {
         const date = req.nextUrl.searchParams.get('date');
         const parsedDate = date ? dateSchema.parse(date) : undefined;
-        const result = await getPersonalAttendanceEvents(req, parsedDate);
+        const result = await getPersonalAttendanceEvents(req, parsedDate, req.nextUrl.searchParams.get('storeId') || undefined);
         return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } });
     } catch (error) {
         if (error instanceof z.ZodError) {

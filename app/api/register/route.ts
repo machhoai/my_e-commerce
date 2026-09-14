@@ -1,263 +1,150 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { WeeklyRegistration } from '@/types';
+import { z } from 'zod';
+import type { ShiftEntry, StoreDoc, WeeklyRegistration } from '@/types';
 import { isInOpenWindow } from '@/lib/utils/schedule';
+import { requireWorkplaceCaller, workplaceAccessResponse, WorkplaceAccessError } from '@/lib/workplace/access';
+import { legacyWeeklyRegistrationId, weeklyRegistrationId } from '@/lib/workplace/keys';
+import { allocationFromSnapshot, allocationRef, assertEmployeeStoreMembership, assertNoOverlappingShifts, shiftTouchesDates, writeAllocation } from '@/lib/scheduling/server';
 
-// POST /api/register — Submit weekly shift registration with server-side validation
-export async function POST(req: NextRequest) {
-    try {
-        // 1. Verify the caller is authenticated
-        const token = req.headers.get('Authorization')?.split('Bearer ')[1];
-        if (!token) return NextResponse.json({ error: 'Không được phép' }, { status: 401 });
+const schema = z.object({
+    id: z.string().optional(), userId: z.string().min(1), storeId: z.string().trim().min(1),
+    weekStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    shifts: z.array(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), shiftId: z.string().trim().min(1), isAssignedByManager: z.boolean().optional() }).strict()).min(1),
+}).strict();
 
-        const adminAuth = getAdminAuth();
-        const decoded = await adminAuth.verifyIdToken(token);
+function assertEditableWeek(value: string) {
+    const monday = new Date(); const day = monday.getDay();
+    monday.setDate(monday.getDate() - day + (day === 0 ? -6 : 1) + 7); monday.setHours(0, 0, 0, 0);
+    if (new Date(`${value}T00:00:00`).getTime() !== monday.getTime()) throw new WorkplaceAccessError('Chỉ được thay đổi lịch cho đúng tuần đang mở đăng ký.', 403);
+}
 
-        const adminDb = getAdminDb();
-
-        // 2. Get the caller's user doc to find their storeId
-        const callerDoc = await adminDb.collection('users').doc(decoded.uid).get();
-        if (!callerDoc.exists) {
-            return NextResponse.json({ error: 'Không tìm thấy người dùng' }, { status: 403 });
-        }
-        const callerData = callerDoc.data()!;
-        const storeId: string = callerData.storeId ?? '';
-
-        if (!storeId) {
-            return NextResponse.json({ error: 'Tài khoản chưa được gán vào cửa hàng' }, { status: 400 });
-        }
-
-        // 3. *** SERVER-SIDE SECURITY CHECK ***
-        // Fetch the LATEST store settings — cannot be spoofed by client
-        const storeSnap = await adminDb.collection('stores').doc(storeId).get();
-        const storeData = storeSnap.data();
-        let registrationOpen: boolean = storeData?.settings?.registrationOpen ?? false;
-
-        const schedule = storeData?.settings?.registrationSchedule;
-        if (schedule?.enabled) {
-            registrationOpen = isInOpenWindow(schedule);
-            if (registrationOpen !== (storeData?.settings?.registrationOpen ?? false)) {
-                // Background update — don't await to keep response fast
-                adminDb.collection('stores').doc(storeId).set(
-                    { settings: { ...storeData?.settings, registrationOpen } },
-                    { merge: true }
-                ).catch(console.error);
-            }
-        }
-
-        if (!registrationOpen) {
-            return NextResponse.json(
-                { error: 'Đăng ký thất bại do cổng đăng ký đã đóng' },
-                { status: 403 }
-            );
-        }
-
-        // 4. Parse and validate the request body
-        const body = await req.json() as WeeklyRegistration;
-
-        if (!body.id || !body.userId || !body.storeId || !body.weekStartDate) {
-            return NextResponse.json({ error: 'Dữ liệu đăng ký không hợp lệ' }, { status: 400 });
-        }
-
-        // 4b. *** SERVER-SIDE SECURITY CHECK *** Check if week is editable (must be next week or later)
-        const currentWeekStartOfToday = new Date();
-        const day = currentWeekStartOfToday.getDay();
-        const diff = currentWeekStartOfToday.getDate() - day + (day === 0 ? -6 : 1);
-        currentWeekStartOfToday.setDate(diff);
-        currentWeekStartOfToday.setHours(0, 0, 0, 0);
-
-        const minEditableWeekStart = new Date(currentWeekStartOfToday);
-        minEditableWeekStart.setDate(minEditableWeekStart.getDate() + 7);
-
-        const targetWeekStart = new Date(body.weekStartDate + 'T00:00:00');
-
-        if (targetWeekStart.getTime() !== minEditableWeekStart.getTime()) {
-            return NextResponse.json({ error: 'Chỉ được phép đăng ký và thay đổi lịch cho báo đúng tuần đang mở đăng ký (Tuần tiếp theo)' }, { status: 403 });
-        }
-
-        // 5. Ensure the user can only submit for themselves
-        if (body.userId !== decoded.uid) {
-            return NextResponse.json({ error: 'Không được phép thay đổi đăng ký của người khác' }, { status: 403 });
-        }
-
-        // 6. Ensure the storeId in the payload matches the user's actual store
-        if (body.storeId !== storeId) {
-            return NextResponse.json({ error: 'Cửa hàng không khớp' }, { status: 400 });
-        }
-
-        // 7. PRE-FETCH USERS for counting logic
-        const usersSnap = await adminDb.collection('users').where('storeId', '==', storeId).get();
-        const validEmployeeUids = new Set<string>();
-        usersSnap.forEach(d => {
-            const data = d.data();
-            if (data.role !== 'manager' && data.role !== 'store_manager' && data.active !== false) {
-                validEmployeeUids.add(data.uid);
-            }
-        });
-
-        // 8. TRANSACTION TO PREVENT RACE CONDITIONS
-        const registrationRef = adminDb.collection('weekly_registrations').doc(body.id);
-        const weekRegsQuery = adminDb.collection('weekly_registrations')
-            .where('weekStartDate', '==', body.weekStartDate)
-            .where('storeId', '==', storeId);
-
-        await adminDb.runTransaction(async (transaction) => {
-            // Read all registrations for this week
-            const allRegsSnap = await transaction.get(weekRegsQuery);
-            const allRegs: WeeklyRegistration[] = [];
-            allRegsSnap.forEach(d => {
-                // exclude the current user's OLD registration from the count so we don't double count
-                if (d.id !== body.id) {
-                    allRegs.push(d.data() as WeeklyRegistration);
-                }
-            });
-
-            // If the user making the request is a valid employee, add their NEW requested shifts to the tally
-            const isCallerValidEmployee = validEmployeeUids.has(body.userId);
-
-            // Calculate current counts per shift + caller's requested shifts
-            const shiftCounts: Record<string, number> = {};
-
-            // Count existing
-            for (const reg of allRegs) {
-                if (validEmployeeUids.has(reg.userId)) {
-                    for (const shift of reg.shifts) {
-                        const key = `${shift.date}_${shift.shiftId}`;
-                        shiftCounts[key] = (shiftCounts[key] || 0) + 1;
-                    }
-                }
-            }
-
-            // Check caller's requested shifts against quotas
-            if (isCallerValidEmployee) {
-                const quotas = storeData?.settings?.quotas;
-                const strictShiftLimit: boolean = storeData?.settings?.strictShiftLimit ?? true;
-
-                for (const shift of body.shifts) {
-                    const key = `${shift.date}_${shift.shiftId}`;
-                    const currentCount = shiftCounts[key] || 0;
-
-                    // Determine max quota
-                    let maxCount = 5; // fallback
-                    if (quotas) {
-                        if (quotas.specialDates?.[shift.date]?.[shift.shiftId] !== undefined) {
-                            maxCount = quotas.specialDates[shift.date][shift.shiftId];
-                        } else {
-                            const day = new Date(shift.date + 'T00:00:00').getDay();
-                            const isWeekend = day === 0 || day === 6;
-                            maxCount = isWeekend
-                                ? (quotas.defaultWeekend?.[shift.shiftId] ?? 5)
-                                : (quotas.defaultWeekday?.[shift.shiftId] ?? 5);
-                        }
-                    }
-
-                    // Only block if strictShiftLimit is enabled (default: true)
-                    if (strictShiftLimit && currentCount >= maxCount) {
-                        throw new Error(`Ca ${shift.shiftId} ngày ${shift.date} đã đầy (${currentCount}/${maxCount}). Vui lòng chọn ca hoặc ngày khác để tránh vượt quá số lượng cho phép.`);
-                    }
-
-                    // Increment conceptually for the rest of the loop (though body only has 1 instance of each shift usually)
-                    shiftCounts[key] = currentCount + 1;
-                }
-            }
-
-            // If all checks passed, write the document
-            transaction.set(registrationRef, {
-                ...body,
-                submittedAt: new Date().toISOString(),
-            });
-        });
-
-        return NextResponse.json({ message: 'Đăng ký ca làm thành công' });
-    } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Lỗi hệ thống';
-        // If it's our custom quota error, send a 400
-        const status = message.includes('tránh vượt quá') ? 400 : 500;
-        return NextResponse.json({ error: message }, { status });
+function assertShiftDates(week: string, shifts: ShiftEntry[]) {
+    const start = new Date(`${week}T00:00:00`); const end = new Date(start); end.setDate(end.getDate() + 7);
+    const unique = new Set<string>();
+    for (const shift of shifts) {
+        const date = new Date(`${shift.date}T00:00:00`); const key = `${shift.date}\u0000${shift.shiftId}`;
+        if (date < start || date >= end) throw new WorkplaceAccessError('Ca đăng ký nằm ngoài tuần đã chọn.', 400);
+        if (unique.has(key)) throw new WorkplaceAccessError('Dữ liệu có ca đăng ký trùng lặp.', 400);
+        unique.add(key);
     }
 }
 
-// DELETE /api/register — Delete a weekly shift registration with server-side validation  
-export async function DELETE(req: NextRequest) {
+function quotaFor(store: StoreDoc, date: string, shiftId: string): number {
+    const quotas = store.settings?.quotas;
+    if (quotas?.specialDates?.[date]?.[shiftId] !== undefined) return quotas.specialDates[date][shiftId];
+    return [0, 6].includes(new Date(`${date}T00:00:00`).getDay())
+        ? quotas?.defaultWeekend?.[shiftId] ?? 5 : quotas?.defaultWeekday?.[shiftId] ?? 5;
+}
+
+async function loadOpenStore(caller: Awaited<ReturnType<typeof requireWorkplaceCaller>>, storeId: string) {
+    const snapshot = await caller.db.collection('stores').doc(storeId).get();
+    if (!snapshot.exists || snapshot.data()?.isActive === false) throw new WorkplaceAccessError('Cửa hàng không tồn tại hoặc đã ngừng hoạt động.', 404);
+    const store = { id: snapshot.id, ...snapshot.data() } as StoreDoc;
+    let open = store.settings?.registrationOpen ?? false;
+    if (store.settings?.registrationSchedule?.enabled) open = isInOpenWindow(store.settings.registrationSchedule);
+    if (!open) throw new WorkplaceAccessError('Cổng đăng ký ca đang đóng.', 403);
+    return store;
+}
+
+export async function POST(req: NextRequest) {
     try {
-        const token = req.headers.get('Authorization')?.split('Bearer ')[1];
-        if (!token) return NextResponse.json({ error: 'Không được phép' }, { status: 401 });
+        const caller = await requireWorkplaceCaller(req); const input = schema.parse(await req.json());
+        if (input.userId !== caller.uid) throw new WorkplaceAccessError('Không được thay đổi đăng ký của người khác.', 403);
+        assertEditableWeek(input.weekStartDate); assertShiftDates(input.weekStartDate, input.shifts);
+        const store = await loadOpenStore(caller, input.storeId);
+        const byDate = new Map<string, ShiftEntry[]>();
+        for (const shift of input.shifts) { const group = byDate.get(shift.date) || []; group.push(shift); byDate.set(shift.date, group); }
+        for (const date of byDate.keys()) await assertEmployeeStoreMembership(caller.db, caller.user, input.storeId, date);
+        const maxPerDay = store.settings?.maxShiftsPerDay ?? 1;
+        if ([...byDate.values()].some(group => group.length > maxPerDay)) throw new WorkplaceAccessError(`Chỉ được đăng ký tối đa ${maxPerDay} ca trong một ngày.`, 400);
+        for (const [date, shifts] of byDate) assertNoOverlappingShifts(store, date, shifts.map(shift => shift.shiftId));
 
-        const adminAuth = getAdminAuth();
-        const decoded = await adminAuth.verifyIdToken(token);
+        const id = weeklyRegistrationId(caller.uid, input.storeId, input.weekStartDate);
+        const regRef = caller.db.collection('weekly_registrations').doc(id);
+        const legacyId = legacyWeeklyRegistrationId(caller.uid, input.weekStartDate);
+        const legacyRef = caller.db.collection('weekly_registrations').doc(legacyId);
+        const [outside, outsideLegacy] = await Promise.all([regRef.get(), legacyRef.get()]);
+        const outsideCurrent = outside.exists ? outside : outsideLegacy;
+        const newHeldDates = new Set(input.shifts.flatMap(shift => shiftTouchesDates(store, shift.date, shift.shiftId)));
+        const oldHeldDates = new Set(outsideCurrent.exists
+            ? ((outsideCurrent.data() as WeeklyRegistration).shifts || []).flatMap(shift => shiftTouchesDates(store, shift.date, shift.shiftId))
+            : []);
+        const dates = new Set([...newHeldDates, ...oldHeldDates]);
+        const dateList = [...dates]; const dayRefs = dateList.map(date => allocationRef(caller.db, caller.uid, date));
+        const regsQuery = caller.db.collection('weekly_registrations').where('storeId', '==', input.storeId).where('weekStartDate', '==', input.weekStartDate);
+        const userRegsQuery = caller.db.collection('weekly_registrations').where('userId', '==', caller.uid);
+        const policyRef = caller.db.collection('workforce_policies').doc('global');
 
-        const adminDb = getAdminDb();
-
-        // Get caller's storeId
-        const callerDoc = await adminDb.collection('users').doc(decoded.uid).get();
-        if (!callerDoc.exists) {
-            return NextResponse.json({ error: 'Không tìm thấy người dùng' }, { status: 403 });
-        }
-        const callerData = callerDoc.data()!;
-        const storeId: string = callerData.storeId ?? '';
-
-        // Server-side check: registration must be open to allow deletion too
-        if (storeId) {
-            const storeSnap = await adminDb.collection('stores').doc(storeId).get();
-            const storeData = storeSnap.data();
-            let registrationOpen: boolean = storeData?.settings?.registrationOpen ?? false;
-
-            const schedule = storeData?.settings?.registrationSchedule;
-            if (schedule?.enabled) {
-                registrationOpen = isInOpenWindow(schedule);
-                if (registrationOpen !== (storeData?.settings?.registrationOpen ?? false)) {
-                    // Background update — don't await to keep response fast
-                    adminDb.collection('stores').doc(storeId).set(
-                        { settings: { ...storeData?.settings, registrationOpen } },
-                        { merge: true }
-                    ).catch(console.error);
+        await caller.db.runTransaction(async transaction => {
+            const [existing, legacyExisting, registrations, userRegistrations, policySnapshot, ...daySnapshots] = await Promise.all([transaction.get(regRef), transaction.get(legacyRef), transaction.get(regsQuery), transaction.get(userRegsQuery), transaction.get(policyRef), ...dayRefs.map(ref => transaction.get(ref))]);
+            const old = existing.exists ? existing.data() as WeeklyRegistration : legacyExisting.exists ? legacyExisting.data() as WeeklyRegistration : null;
+            if (store.settings?.strictShiftLimit ?? true) {
+                for (const shift of input.shifts) {
+                    const count = registrations.docs.filter(doc => doc.id !== id && doc.id !== legacyId && (doc.data() as WeeklyRegistration).shifts?.some(item => item.date === shift.date && item.shiftId === shift.shiftId)).length;
+                    if (count >= quotaFor(store, shift.date, shift.shiftId)) throw new WorkplaceAccessError(`Ca ${shift.shiftId} ngày ${shift.date} đã đầy.`, 409);
                 }
             }
-
-            if (!registrationOpen) {
-                return NextResponse.json(
-                    { error: 'Đăng ký thất bại do cổng đăng ký đã đóng' },
-                    { status: 403 }
-                );
+            const policy = policySnapshot.data() || {};
+            const totals = new Map<string, Set<string>>();
+            userRegistrations.docs.forEach(doc => {
+                if (doc.id === id || doc.id === legacyId) return;
+                const registration = doc.data() as WeeklyRegistration;
+                registration.shifts?.forEach(shift => {
+                    const month = shift.date.slice(0, 7); const values = totals.get(month) || new Set<string>();
+                    values.add(`${registration.storeId}\u0000${shift.date}\u0000${shift.shiftId}`); totals.set(month, values);
+                });
+            });
+            input.shifts.forEach(shift => {
+                const month = shift.date.slice(0, 7); const values = totals.get(month) || new Set<string>();
+                values.add(`${input.storeId}\u0000${shift.date}\u0000${shift.shiftId}`); totals.set(month, values);
+            });
+            for (const [month, values] of totals) {
+                const [year, monthNumber] = month.split('-').map(Number);
+                const days = new Date(year, monthNumber, 0).getDate();
+                const max = caller.user.type === 'FT'
+                    ? Math.max(0, days - Number(policy.ftDaysOff ?? 4))
+                    : Number(policy.ptMaxShifts ?? 25);
+                if (values.size > max) throw new WorkplaceAccessError(`Tổng số ca tháng ${month} vượt định mức tài khoản (${values.size}/${max}).`, 409);
             }
-        }
+            daySnapshots.forEach((snapshot, index) => {
+                const date = dateList[index]; const allocation = allocationFromSnapshot(snapshot, caller.uid, date, input.storeId);
+                const ids = new Set((allocation.registrationIds || []).filter(value => value !== legacyId));
+                if (newHeldDates.has(date)) ids.add(id); else if (oldHeldDates.has(date)) ids.delete(id);
+                writeAllocation(transaction, dayRefs[index], { ...allocation, registrationIds: [...ids] });
+            });
+            transaction.set(regRef, {
+                id, userId: caller.uid, storeId: input.storeId, weekStartDate: input.weekStartDate,
+                shifts: input.shifts.map(shift => ({ ...shift, isAssignedByManager: false })),
+                submittedAt: new Date().toISOString(), schemaVersion: 2, revision: (old?.revision || 0) + 1,
+            } satisfies WeeklyRegistration);
+            if (legacyExisting.exists && legacyRef.id !== regRef.id) transaction.delete(legacyRef);
+        });
+        return NextResponse.json({ message: 'Đăng ký ca làm thành công', id });
+    } catch (error) {
+        if (error instanceof z.ZodError) return NextResponse.json({ error: 'Dữ liệu đăng ký không hợp lệ.' }, { status: 400 });
+        return workplaceAccessResponse(error) ?? NextResponse.json({ error: error instanceof Error ? error.message : 'Không thể đăng ký ca.' }, { status: 500 });
+    }
+}
 
-        const { registrationId } = await req.json() as { registrationId: string };
-        if (!registrationId) {
-            return NextResponse.json({ error: 'Thiếu registrationId' }, { status: 400 });
-        }
-
-        // Verify this registration belongs to the caller
-        const regSnap = await adminDb.collection('weekly_registrations').doc(registrationId).get();
-        if (!regSnap.exists) {
-            return NextResponse.json({ error: 'Không tìm thấy đăng ký' }, { status: 404 });
-        }
-
-        const regData = regSnap.data() as WeeklyRegistration;
-        if (regData.userId !== decoded.uid) {
-            return NextResponse.json({ error: 'Không được phép xóa đăng ký của người khác' }, { status: 403 });
-        }
-
-        // Server-side check: check if week is editable (must be next week or later)
-        const currentWeekStartOfToday = new Date();
-        const day = currentWeekStartOfToday.getDay();
-        const diff = currentWeekStartOfToday.getDate() - day + (day === 0 ? -6 : 1);
-        currentWeekStartOfToday.setDate(diff);
-        currentWeekStartOfToday.setHours(0, 0, 0, 0);
-
-        const minEditableWeekStart = new Date(currentWeekStartOfToday);
-        minEditableWeekStart.setDate(minEditableWeekStart.getDate() + 7);
-
-        const targetWeekStart = new Date(regData.weekStartDate + 'T00:00:00');
-
-        if (targetWeekStart.getTime() !== minEditableWeekStart.getTime()) {
-            return NextResponse.json({ error: 'Chỉ được phép xóa lịch cho đúng tuần đang mở đăng ký (Tuần tiếp theo)' }, { status: 403 });
-        }
-
-        await adminDb.collection('weekly_registrations').doc(registrationId).delete();
+export async function DELETE(req: NextRequest) {
+    try {
+        const caller = await requireWorkplaceCaller(req);
+        const { registrationId } = z.object({ registrationId: z.string().min(1) }).strict().parse(await req.json());
+        const ref = caller.db.collection('weekly_registrations').doc(registrationId); const snapshot = await ref.get();
+        if (!snapshot.exists) throw new WorkplaceAccessError('Không tìm thấy đăng ký.', 404);
+        const registration = snapshot.data() as WeeklyRegistration;
+        if (registration.userId !== caller.uid) throw new WorkplaceAccessError('Không được xóa đăng ký của người khác.', 403);
+        assertEditableWeek(registration.weekStartDate); const store = await loadOpenStore(caller, registration.storeId);
+        const dates = [...new Set(registration.shifts.flatMap(shift => shiftTouchesDates(store, shift.date, shift.shiftId)))]; const refs = dates.map(date => allocationRef(caller.db, caller.uid, date));
+        await caller.db.runTransaction(async transaction => {
+            const [fresh, ...snapshots] = await Promise.all([transaction.get(ref), ...refs.map(item => transaction.get(item))]);
+            if (!fresh.exists) return;
+            snapshots.forEach((item, index) => { const allocation = allocationFromSnapshot(item, caller.uid, dates[index], registration.storeId); writeAllocation(transaction, refs[index], { ...allocation, registrationIds: (allocation.registrationIds || []).filter(id => id !== registrationId) }); });
+            transaction.delete(ref);
+        });
         return NextResponse.json({ message: 'Đã xóa đăng ký thành công' });
-    } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Lỗi hệ thống';
-        return NextResponse.json({ error: message }, { status: 500 });
+    } catch (error) {
+        if (error instanceof z.ZodError) return NextResponse.json({ error: 'Thiếu registrationId.' }, { status: 400 });
+        return workplaceAccessResponse(error) ?? NextResponse.json({ error: error instanceof Error ? error.message : 'Không thể xóa đăng ký.' }, { status: 500 });
     }
 }

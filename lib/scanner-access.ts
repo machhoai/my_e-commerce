@@ -4,6 +4,8 @@ import { cookies } from 'next/headers';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { fetchWmsApi, getWmsResponseError, type WmsApiResponse } from '@/lib/wms-api';
 import type { CounterDoc } from '@/types';
+import type { UserDoc } from '@/types';
+import { getUserStoreIds } from '@/lib/workplace/server';
 
 const SCANNER_PAGE_PERMISSION = 'page.product_scanner';
 const SCANNER_ANY_COUNTER_PERMISSION = 'action.product_scanner.scan_any_counter';
@@ -21,6 +23,7 @@ export type ScannerSessionUser = {
     name: string;
     email: string;
     storeId?: string;
+    storeIds: string[];
     customRoleId?: string;
     isActive: boolean;
 };
@@ -60,12 +63,14 @@ export async function requireSessionUser(): Promise<ScannerSessionUser> {
     const data = userSnap.data()!;
     if (data.isActive === false) throw new ScannerAccessError('Tài khoản đã bị vô hiệu hóa.', 403);
 
+    const userData = { uid, ...data } as UserDoc;
     return {
         uid,
         role: data.role || '',
         name: data.name || '',
         email: data.email || '',
         storeId: data.storeId || undefined,
+        storeIds: await getUserStoreIds(getAdminDb(), userData),
         customRoleId: data.customRoleId || undefined,
         isActive: data.isActive !== false,
     };
@@ -92,7 +97,7 @@ export async function requireScannerUser() {
 export async function requireStoreSettingsManager(storeId: string) {
     const user = await requireSessionUser();
     const isAdmin = user.role === 'admin' || user.role === 'super_admin';
-    const isOwnStoreManager = user.role === 'store_manager' && user.storeId === storeId;
+    const isOwnStoreManager = user.role === 'store_manager' && user.storeIds.includes(storeId);
     if (!isAdmin && !isOwnStoreManager) {
         throw new ScannerAccessError('Bạn không có quyền cấu hình mapping quầy của cửa hàng này.', 403);
     }
@@ -186,7 +191,7 @@ export async function getScannerPlacementsForUser(user: ScannerSessionUser): Pro
         const employeeIds: string[] = Array.isArray(schedule.employeeIds) ? schedule.employeeIds : [];
         if (!employeeIds.includes(user.uid)) continue;
         if (!schedule.storeId || !schedule.counterId) continue;
-        if (user.storeId && schedule.storeId !== user.storeId) continue;
+        if (!isAdmin && !user.storeIds.includes(schedule.storeId)) continue;
 
         if (!schedule.shiftId) continue;
         const key = `${schedule.storeId}:${schedule.counterId}:${schedule.date}:${schedule.shiftId}`;

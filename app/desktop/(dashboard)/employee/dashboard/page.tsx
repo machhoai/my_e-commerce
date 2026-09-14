@@ -19,6 +19,7 @@ export default function EmployeeDashboardPage() {
     const [monthlySchedules, setMonthlySchedules] = useState<ScheduleDoc[]>([]);
     const [counters, setCounters] = useState<Record<string, string>>({});
     const [settings, setSettings] = useState<SettingsDoc | null>(null);
+    const [workforcePolicy, setWorkforcePolicy] = useState({ ftDaysOff: 4, ptMaxShifts: 25 });
     const [loading, setLoading] = useState(true);
 
     // KPI self-scoring state
@@ -64,6 +65,10 @@ export default function EmployeeDashboardPage() {
         };
 
         fetchCountersAndSettings();
+        void getToken().then(token => fetch('/api/workforce-policy', { headers: { Authorization: `Bearer ${token}` } }))
+            .then(response => response.json())
+            .then(data => setWorkforcePolicy({ ftDaysOff: data.ftDaysOff ?? 4, ptMaxShifts: data.ptMaxShifts ?? 25 }))
+            .catch(() => undefined);
 
         // Fetch KPI templates for the store
         const fetchKpiTemplates = async () => {
@@ -162,10 +167,10 @@ export default function EmployeeDashboardPage() {
         let isWarning = false;
 
         if (userDoc.type === 'FT') {
-            const ftDaysOff = settings?.monthlyQuotas?.ftDaysOff ?? 4;
+            const ftDaysOff = workforcePolicy.ftDaysOff;
             maxShifts = Math.max(0, daysInMonth - ftDaysOff);
         } else {
-            maxShifts = settings?.monthlyQuotas?.ptMaxShifts ?? 25;
+            maxShifts = workforcePolicy.ptMaxShifts;
         }
 
         isDanger = completedShifts > maxShifts;

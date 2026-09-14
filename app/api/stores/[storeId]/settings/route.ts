@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { getAdminDb } from '@/lib/firebase-admin';
 import { fetchWmsApi } from '@/lib/wms-api';
 import { StoreSettings, CounterDoc } from '@/types';
 
 import { isInOpenWindow } from '@/lib/utils/schedule';
+import { assertWorkplaceScope, requireWorkplaceCaller, workplaceAccessResponse } from '@/lib/workplace/access';
 
 // GET /api/stores/[storeId]/settings — any authenticated user can read (needed for real-time checks)
 export async function GET(
@@ -12,11 +13,8 @@ export async function GET(
 ) {
     try {
         const { storeId } = await params;
-        const token = req.headers.get('Authorization')?.split('Bearer ')[1];
-        if (!token) return NextResponse.json({ error: 'Không được phép' }, { status: 401 });
-
-        const adminAuth = getAdminAuth();
-        await adminAuth.verifyIdToken(token);
+        const caller = await requireWorkplaceCaller(req);
+        await assertWorkplaceScope(caller, 'STORE', storeId);
 
         const adminDb = getAdminDb();
         const storeSnap = await adminDb.collection('stores').doc(storeId).get();
@@ -57,6 +55,8 @@ export async function GET(
 
         return NextResponse.json(settings);
     } catch (err: unknown) {
+        const accessResponse = workplaceAccessResponse(err);
+        if (accessResponse) return accessResponse;
         const message = err instanceof Error ? err.message : 'Lỗi hệ thống';
         return NextResponse.json({ error: message }, { status: 500 });
     }
@@ -69,11 +69,9 @@ export async function PUT(
 ) {
     try {
         const { storeId } = await params;
-        const token = req.headers.get('Authorization')?.split('Bearer ')[1];
-        if (!token) return NextResponse.json({ error: 'Không được phép' }, { status: 401 });
-
-        const adminAuth = getAdminAuth();
-        const decoded = await adminAuth.verifyIdToken(token);
+        const caller = await requireWorkplaceCaller(req);
+        await assertWorkplaceScope(caller, 'STORE', storeId);
+        const decoded = { uid: caller.uid };
         const adminDb = getAdminDb();
 
         // Verify caller is admin OR store_manager belonging to this store
@@ -82,8 +80,8 @@ export async function PUT(
             return NextResponse.json({ error: 'Không tìm thấy người dùng' }, { status: 403 });
         }
         const callerData = callerDoc.data()!;
-        const isAdmin = callerData.role === 'admin';
-        const isStoreManager = callerData.role === 'store_manager' && callerData.storeId === storeId;
+        const isAdmin = caller.isAdmin;
+        const isStoreManager = callerData.role === 'store_manager';
 
         if (!isAdmin && !isStoreManager) {
             return NextResponse.json({ error: 'Bị từ chối truy cập — chỉ Admin hoặc Cửa hàng trưởng mới có quyền' }, { status: 403 });
@@ -157,6 +155,8 @@ export async function PUT(
 
         return NextResponse.json({ message: 'Cài đặt cửa hàng đã được cập nhật' });
     } catch (err: unknown) {
+        const accessResponse = workplaceAccessResponse(err);
+        if (accessResponse) return accessResponse;
         const message = err instanceof Error ? err.message : 'Lỗi hệ thống';
         return NextResponse.json({ error: message }, { status: 500 });
     }

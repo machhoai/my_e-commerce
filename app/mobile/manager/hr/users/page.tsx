@@ -23,6 +23,7 @@ import { showToast } from '@/lib/utils/toast';
 import BottomSheet from '@/components/shared/BottomSheet';
 import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 import UserInfoEditor from '@/components/shared/UserInfoEditor';
+import { fetchWorkplaceMembers } from '@/lib/workplace/client';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface FormState {
@@ -684,7 +685,7 @@ function FormField({ label, icon, required, children }: {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 function MobileHrUsersContent() {
     const router = useRouter();
-    const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId } = useAuth();
+    const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId, activeWorkplace } = useAuth();
 
     const [employees, setEmployees] = useState<UserDoc[]>([]);
     const [loading, setLoading] = useState(true);
@@ -775,32 +776,21 @@ function MobileHrUsersContent() {
         if (authLoading || !user || !userDoc) return;
         const effectiveStoreId = userDoc.role === 'admin'
             ? selectedAdminStoreId
-            : (contextStoreId || userDoc.officeId || userDoc.warehouseId || userDoc.storeId);
-        const constraints: ReturnType<typeof where>[] = [];
-        if (effectiveStoreId) {
-            if (userDoc.role === 'admin' && selectedLocationType) {
-                const field = selectedLocationType === 'OFFICE' ? 'officeId' : selectedLocationType === 'CENTRAL' ? 'warehouseId' : 'storeId';
-                constraints.push(where(field, '==', effectiveStoreId));
-            } else {
-                // Non-admin: derive field from their own workplace
-                const nonAdminField = userDoc.officeId ? 'officeId' : userDoc.warehouseId ? 'warehouseId' : 'storeId';
-                constraints.push(where(nonAdminField, '==', effectiveStoreId));
-            }
-        }
-        const q = (userDoc.role === 'store_manager' || userDoc.role === 'admin')
-            ? query(collection(db, 'users'), ...constraints)
-            : query(collection(db, 'users'), where('role', '==', 'employee'), ...constraints);
-
-        const unsub = onSnapshot(q, snap => {
-            let docs = snap.docs.map(d => d.data() as UserDoc);
-            docs = docs.filter(d => d.role !== 'admin' && d.uid !== userDoc.uid);
-            docs.sort((a, b) => a.name.localeCompare(b.name));
-            setEmployees(docs);
-            setLoading(false);
-        }, err => { console.error(err); setLoading(false); });
-
-        return () => unsub();
-    }, [authLoading, user, userDoc, selectedAdminStoreId, selectedLocationType, contextStoreId]);
+            : (activeWorkplace?.workplace.id || contextStoreId || userDoc.officeId || userDoc.warehouseId || userDoc.storeId);
+        if (!effectiveStoreId) { setEmployees([]); setLoading(false); return; }
+        let cancelled = false;
+        const type = userDoc.role === 'admin' && selectedLocationType
+            ? selectedLocationType
+            : (activeWorkplace?.workplace.type || 'STORE');
+        setLoading(true);
+        fetchWorkplaceMembers(user, type, effectiveStoreId).then(data => {
+            if (cancelled) return;
+            const docs = data.filter(item => item.role !== 'admin' && item.uid !== userDoc.uid)
+                .sort((a, b) => a.name.localeCompare(b.name));
+            setEmployees(docs); setLoading(false);
+        }).catch(err => { if (!cancelled) { console.error(err); setLoading(false); } });
+        return () => { cancelled = true; };
+    }, [authLoading, user, userDoc, selectedAdminStoreId, selectedLocationType, contextStoreId, activeWorkplace]);
 
     // Save selectedAdminStoreId
     useEffect(() => {

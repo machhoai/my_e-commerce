@@ -19,7 +19,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { UserDoc, CustomRoleDoc, OfficeDoc } from '@/types';
+import { UserDoc, CustomRoleDoc, UserWorkplace } from '@/types';
 import { phoneToEmail } from '@/lib/utils';
 
 // ── Role cookie helpers (Edge-readable, not for auth — just nav hints) ──────
@@ -36,6 +36,7 @@ function clearRoleCookie() {
 
 // ── LocalStorage key for office user's selected store ───────────────────────
 const OFFICE_STORE_KEY = 'office_selected_store_id';
+const ACTIVE_WORKPLACE_KEY = 'active_workplace_key';
 
 interface AuthContextValue {
     user: User | null;
@@ -59,6 +60,12 @@ interface AuthContextValue {
     // ── Office managed stores ───────────────────────────────────────────────
     /** List of store IDs this office is allowed to manage (office-context users only). */
     managedStoreIds: string[];
+    /** Direct workplace memberships for this account, including inactive history. */
+    workplaces: UserWorkplace[];
+    /** Active direct store memberships; scheduling and attendance only use these stores. */
+    directStoreIds: string[];
+    activeWorkplace: UserWorkplace | null;
+    setActiveWorkplaceKey: (key: string) => void;
     /**
      * The store ID currently selected for data viewing.
      * - Store-context users: === userDoc.storeId (fixed)
@@ -81,14 +88,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [permissions, setPermissions] = useState<Set<string>>(new Set());
     const [roleDefaultRoute, setRoleDefaultRoute] = useState<string | null>(null);
     const [managedStoreIds, setManagedStoreIds] = useState<string[]>([]);
+    const [workplaces, setWorkplaces] = useState<UserWorkplace[]>([]);
+    const [activeWorkplaceKey, setActiveWorkplaceKeyState] = useState('');
     const [effectiveStoreId, setEffectiveStoreIdState] = useState<string>('');
+
+    const directStoreIds = workplaces
+        .filter(item => item.status === 'ACTIVE' && item.isActive && item.workplace.type === 'STORE')
+        .map(item => item.workplace.id);
+    const activeWorkplace = workplaces.find(item =>
+        item.workplace.key === activeWorkplaceKey && item.isEffective && item.isActive
+    ) || null;
+
+    const setActiveWorkplaceKey = useCallback((key: string) => {
+        setActiveWorkplaceKeyState(key);
+        if (typeof window !== 'undefined' && user?.uid) {
+            localStorage.setItem(`${ACTIVE_WORKPLACE_KEY}:${user.uid}`, key);
+        }
+        const selected = workplaces.find(item => item.workplace.key === key);
+        if (selected?.workplace.type === 'STORE') {
+            setEffectiveStoreIdState(selected.workplace.id);
+            if (typeof window !== 'undefined') localStorage.setItem(OFFICE_STORE_KEY, selected.workplace.id);
+        }
+    }, [user?.uid, workplaces]);
 
     const setEffectiveStoreId = useCallback((storeId: string) => {
         setEffectiveStoreIdState(storeId);
         if (typeof window !== 'undefined') {
             localStorage.setItem(OFFICE_STORE_KEY, storeId);
         }
-    }, []);
+        const selected = workplaces.find(item =>
+            item.status === 'ACTIVE' && item.isActive
+            && item.workplace.type === 'STORE' && item.workplace.id === storeId
+        );
+        if (selected) {
+            setActiveWorkplaceKeyState(selected.workplace.key);
+            if (typeof window !== 'undefined' && user?.uid) {
+                localStorage.setItem(`${ACTIVE_WORKPLACE_KEY}:${user.uid}`, selected.workplace.key);
+            }
+        }
+    }, [user?.uid, workplaces]);
 
     const fetchUserDoc = useCallback(async (uid: string) => {
         try {
@@ -137,38 +175,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     }
                 }
 
-                // ── Resolve office managed stores ───────────────────────
-                const isOfficeCtx = data.workplaceType === 'OFFICE' || (data.officeId && data.role !== 'admin');
-                if (isOfficeCtx && data.officeId) {
-                    try {
-                        const officeSnap = await getDoc(doc(db, 'offices', data.officeId));
-                        if (officeSnap.exists()) {
-                            const officeData = officeSnap.data() as OfficeDoc;
-                            const ids = officeData.managedStoreIds ?? [];
-                            setManagedStoreIds(ids);
-
-                            // Restore or default the effective store selection
-                            const saved = typeof window !== 'undefined'
-                                ? (localStorage.getItem(OFFICE_STORE_KEY) ?? '')
-                                : '';
-                            const valid = saved && ids.includes(saved) ? saved : (ids[0] ?? '');
-                            setEffectiveStoreIdState(valid);
-                        } else {
-                            setManagedStoreIds([]);
-                            setEffectiveStoreIdState('');
-                        }
-                    } catch (err) {
-                        console.error('Failed to load office doc:', err);
-                        setManagedStoreIds([]);
-                        setEffectiveStoreIdState('');
-                    }
-                } else if (data.storeId) {
-                    // Store-context user: effectiveStoreId = their own storeId
-                    setManagedStoreIds([]);
-                    setEffectiveStoreIdState(data.storeId);
-                } else {
-                    setManagedStoreIds([]);
-                    setEffectiveStoreIdState('');
+                // Load direct memberships and management scope from the server.
+                try {
+                    const firebaseUser = auth.currentUser;
+                    if (!firebaseUser) throw new Error('No authenticated user');
+                    const token = await firebaseUser.getIdToken();
+                    const response = await fetch('/api/me/workplaces', {
+                        headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+                    });
+                    if (!response.ok) throw new Error('Failed to load workplaces');
+                    const result = await response.json() as {
+                        workplaces: UserWorkplace[];
+                        managedStoreIds: string[];
+                        primaryWorkplaceKey: string | null;
+                    };
+                    const active = result.workplaces.filter(item => item.isEffective && item.isActive);
+                    setWorkplaces(result.workplaces);
+                    setManagedStoreIds(result.managedStoreIds || []);
+                    const savedKey = typeof window !== 'undefined'
+                        ? localStorage.getItem(`${ACTIVE_WORKPLACE_KEY}:${uid}`) || ''
+                        : '';
+                    const selected = active.find(item => item.workplace.key === savedKey)
+                        || active.find(item => item.workplace.key === result.primaryWorkplaceKey)
+                        || active[0]
+                        || null;
+                    setActiveWorkplaceKeyState(selected?.workplace.key || '');
+                    const directStores = active.filter(item => item.workplace.type === 'STORE');
+                    const savedStore = typeof window !== 'undefined' ? localStorage.getItem(OFFICE_STORE_KEY) || '' : '';
+                    const allowedStoreIds = new Set(result.managedStoreIds || []);
+                    const selectedStore = selected?.workplace.type === 'STORE'
+                        ? selected.workplace.id
+                        : allowedStoreIds.has(savedStore)
+                            ? savedStore
+                            : directStores[0]?.workplace.id || result.managedStoreIds?.[0] || '';
+                    setEffectiveStoreIdState(selectedStore);
+                } catch (err) {
+                    console.error('Failed to load workplaces:', err);
+                    const fallback: UserWorkplace[] = data.storeId ? [{
+                        id: `legacy-${uid}`,
+                        userId: uid,
+                        workplace: { type: 'STORE', id: data.storeId, key: `STORE:${encodeURIComponent(data.storeId)}` },
+                        status: 'ACTIVE', effectiveFrom: data.createdAt || new Date(0).toISOString(), effectiveTo: null,
+                        version: 1, createdAt: data.createdAt || '', createdBy: 'legacy', updatedAt: '', updatedBy: 'legacy',
+                        name: data.storeId, isActive: true, isEffective: true,
+                    }] : [];
+                    setWorkplaces(fallback);
+                    setManagedStoreIds(data.storeId ? [data.storeId] : []);
+                    setActiveWorkplaceKeyState(fallback[0]?.workplace.key || '');
+                    setEffectiveStoreIdState(data.storeId || '');
                 }
             }
         } catch (err) {
@@ -227,6 +281,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setPermissions(new Set());
                 setRoleDefaultRoute(null);
                 setManagedStoreIds([]);
+                setWorkplaces([]);
+                setActiveWorkplaceKeyState('');
                 setEffectiveStoreIdState('');
                 setLoading(false);
             }
@@ -274,6 +330,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setPermissions(new Set());
         setRoleDefaultRoute(null);
         setManagedStoreIds([]);
+        setWorkplaces([]);
+        setActiveWorkplaceKeyState('');
         setEffectiveStoreIdState('');
     }, []);
 
@@ -306,7 +364,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         <AuthContext.Provider value={{
             user, userDoc, loading, permissions, hasPermission,
             roleDefaultRoute, getToken, login, logout, changePassword,
-            managedStoreIds, effectiveStoreId, setEffectiveStoreId, refreshUserDoc,
+            managedStoreIds, workplaces, directStoreIds, activeWorkplace, setActiveWorkplaceKey,
+            effectiveStoreId, setEffectiveStoreId, refreshUserDoc,
         }}>
             {children}
         </AuthContext.Provider>

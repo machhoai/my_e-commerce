@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { OfficeDoc } from '@/types';
+import type { UserDoc } from '@/types';
+import { getUserOfficeIds } from '@/lib/workplace/server';
 
 async function requireAdmin(req: NextRequest) {
     const token = req.headers.get('Authorization')?.split('Bearer ')[1];
@@ -31,12 +33,10 @@ export async function GET(req: NextRequest) {
             const snap = await adminDb.collection('offices').orderBy('name').get();
             return NextResponse.json(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         } else {
-            // Non-admin: return their own office
-            const officeId = callerSnap.data()?.officeId;
-            if (!officeId) return NextResponse.json([]);
-            const officeSnap = await adminDb.collection('offices').doc(officeId).get();
-            if (!officeSnap.exists) return NextResponse.json([]);
-            return NextResponse.json([{ id: officeSnap.id, ...officeSnap.data() }]);
+            const ids = await getUserOfficeIds(adminDb, { uid: decoded.uid, ...callerSnap.data() } as UserDoc);
+            if (!ids.length) return NextResponse.json([]);
+            const snapshots = await adminDb.getAll(...ids.map(id => adminDb.collection('offices').doc(id)));
+            return NextResponse.json(snapshots.filter(item => item.exists).map(item => ({ id: item.id, ...item.data() })));
         }
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Lỗi hệ thống';

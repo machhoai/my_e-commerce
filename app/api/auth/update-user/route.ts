@@ -1,13 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { canManageHr } from '@/lib/hr-access';
 import type { UserDoc } from '@/types';
+import { assertUserInWorkplaceScope, requireWorkplaceCaller } from '@/lib/workplace/access';
 
 // Allow large payloads for base64 ID card photos
 export const maxDuration = 30;
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
     try {
         // Check content-length to prevent abuse (10MB limit)
         const contentLength = parseInt(request.headers.get('content-length') || '0');
@@ -33,7 +34,6 @@ export async function POST(request: Request) {
 
         const requesterData = requesterDoc.data() as UserDoc;
         const requesterRole = requesterData.role;
-        const requesterStoreId = requesterData.storeId;
         const requesterCanManageHr = await canManageHr(adminDb, requesterData);
         const body = await request.json();
 
@@ -44,29 +44,19 @@ export async function POST(request: Request) {
             if (!requesterCanManageHr) {
                 return NextResponse.json({ error: 'Bạn không có quyền quản lý nhân sự' }, { status: 403 });
             }
+            const targetDoc = await adminDb.collection('users').doc(targetUid).get();
+            if (!targetDoc.exists) return NextResponse.json({ error: 'Không tìm thấy người dùng' }, { status: 404 });
+            const targetData = { uid: targetUid, ...targetDoc.data() } as UserDoc;
+            await assertUserInWorkplaceScope(await requireWorkplaceCaller(request), targetData);
             if (requesterRole !== 'admin' && requesterRole !== 'super_admin' && requesterRole !== 'store_manager') {
-                const targetDoc = await adminDb.collection('users').doc(targetUid).get();
-                if (!targetDoc.exists) return NextResponse.json({ error: 'Không tìm thấy người dùng' }, { status: 404 });
-                const targetData = targetDoc.data();
                 if (targetData?.role !== 'employee') {
                     return NextResponse.json({ error: 'Quản lý chỉ có thể chỉnh sửa nhân viên' }, { status: 403 });
                 }
-                // Store isolation check
-                if (!requesterStoreId || targetData?.storeId !== requesterStoreId) {
-                    return NextResponse.json({ error: 'Không thể chỉnh sửa nhân viên từ cửa hàng khác' }, { status: 403 });
-                }
             }
             if (requesterRole === 'store_manager') {
-                const targetDoc = await adminDb.collection('users').doc(targetUid).get();
-                if (!targetDoc.exists) return NextResponse.json({ error: 'Không tìm thấy người dùng' }, { status: 404 });
-                const targetData = targetDoc.data();
                 const allowedRoles = ['manager', 'employee'];
                 if (!allowedRoles.includes(targetData?.role)) {
                     return NextResponse.json({ error: 'Cửa hàng trưởng chỉ có thể chỉnh sửa Quản lý và Nhân viên' }, { status: 403 });
-                }
-                // Store isolation check
-                if (targetData?.storeId !== requesterStoreId) {
-                    return NextResponse.json({ error: 'Không thể chỉnh sửa người dùng từ cửa hàng khác' }, { status: 403 });
                 }
             }
         }
@@ -124,28 +114,8 @@ export async function POST(request: Request) {
             if (body.role !== undefined) updateData.role = body.role;
             if (body.canManageHR !== undefined) updateData.canManageHR = Boolean(body.canManageHR);
 
-            // Workplace assignment: workplaceType determines which ID field is populated
-            if (body.workplaceType !== undefined) {
-                const wt: 'STORE' | 'OFFICE' | 'CENTRAL' = body.workplaceType;
-                updateData.workplaceType = wt;
-
-                // Clear all 3 IDs first, then set the relevant one
-                updateData.storeId = null;
-                updateData.officeId = null;
-                updateData.warehouseId = null;
-
-                if (wt === 'STORE' && body.storeId) updateData.storeId = body.storeId;
-                if (wt === 'OFFICE' && body.officeId) updateData.officeId = body.officeId;
-                if (wt === 'CENTRAL' && body.warehouseId) updateData.warehouseId = body.warehouseId;
-            } else {
-                // Legacy: if only storeId sent (no workplaceType), assume STORE
-                if (body.storeId !== undefined) {
-                    updateData.storeId = body.storeId || null;
-                    updateData.workplaceType = body.storeId ? 'STORE' : null;
-                    updateData.officeId = null;
-                    updateData.warehouseId = null;
-                }
-            }
+            // Workplace assignments are changed only through /api/users/{uid}/workplaces.
+            // Legacy fields remain a read-only compatibility snapshot during migration.
 
             if (body.customRoleId !== undefined) updateData.customRoleId = body.customRoleId || null;
         }

@@ -8,6 +8,7 @@ import {
     type AttendancePermission,
 } from '@/lib/attendance/permission';
 import type { UserDoc } from '@/types';
+import { getManagedStoreIds } from '@/lib/workplace/server';
 
 export type { AttendancePermission } from '@/lib/attendance/permission';
 
@@ -65,13 +66,11 @@ export async function requireAttendanceCaller(req: NextRequest): Promise<Attenda
     const isAdmin = user.role === 'admin' || user.role === 'super_admin';
     const roleId = user.customRoleId || user.role;
 
-    const [roleSnapshot, officeSnapshot] = await Promise.all([
+    const [roleSnapshot, managedStoreIds] = await Promise.all([
         !isAdmin && roleId
             ? db.collection('custom_roles').doc(roleId).get()
             : Promise.resolve(null),
-        !isAdmin && user.officeId
-            ? db.collection('offices').doc(user.officeId).get()
-            : Promise.resolve(null),
+        !isAdmin ? getManagedStoreIds(db, user) : Promise.resolve(new Set<string>()),
     ]);
 
     const permissions = new Set<string>(
@@ -79,13 +78,6 @@ export async function requireAttendanceCaller(req: NextRequest): Promise<Attenda
             ? roleSnapshot.data()!.permissions
             : [],
     );
-    const officeStoreIds =
-        officeSnapshot?.exists && Array.isArray(officeSnapshot.data()?.managedStoreIds)
-            ? officeSnapshot.data()!.managedStoreIds
-            : [];
-    const managedStoreIds = new Set<string>(officeStoreIds);
-    if (user.storeId) managedStoreIds.add(user.storeId);
-
     return {
         uid: identity.uid,
         user,

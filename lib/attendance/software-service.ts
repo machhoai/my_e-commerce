@@ -4,7 +4,6 @@ import { createHash } from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import {
     assertAttendancePermission,
-    assertAttendanceStoreAccess,
     AttendanceAccessError,
     requireAttendanceCaller,
 } from '@/lib/attendance/access';
@@ -25,6 +24,8 @@ import type {
     StoreAttendancePolicy,
     StoreDoc,
 } from '@/types';
+import { getUserStoreIds, userHasWorkplace } from '@/lib/workplace/server';
+import { allocationFromSnapshot, allocationRef, writeAllocation } from '@/lib/scheduling/server';
 
 export class AttendanceServiceError extends Error {
     constructor(
@@ -38,9 +39,32 @@ export class AttendanceServiceError extends Error {
 }
 
 export interface AttendancePunchInput {
+    storeId?: string;
     eventType: AttendanceEventType;
     idempotencyKey: string;
     location?: AttendanceLocationCapture;
+}
+
+async function resolveAttendanceStoreId(
+    caller: Awaited<ReturnType<typeof requireAttendanceCaller>>,
+    requested: string | undefined,
+    attendanceDate: string,
+) {
+    const allocationSnapshot = await allocationRef(getAdminDb(), caller.uid, attendanceDate).get();
+    const allocatedStoreId = allocationSnapshot.exists
+        ? allocationSnapshot.data()?.storeId as string | undefined
+        : undefined;
+    if (allocatedStoreId) return allocatedStoreId;
+    if (requested) {
+        if (!caller.isAdmin && !(await userHasWorkplace(getAdminDb(), caller.user, 'STORE', requested))) {
+            throw new AttendanceServiceError('Bạn không có quan hệ làm việc tại cửa hàng này.', 403, 'STORE_ACCESS_DENIED');
+        }
+        return requested;
+    }
+    const ids = await getUserStoreIds(getAdminDb(), caller.user);
+    if (ids.length === 1) return ids[0];
+    if (ids.length > 1) throw new AttendanceServiceError('Vui lòng chọn cửa hàng trước khi chấm công.', 400, 'STORE_REQUIRED');
+    throw new AttendanceServiceError('Tài khoản chưa được gán vào cửa hàng.', 400, 'NO_STORE');
 }
 
 const hashId = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -48,6 +72,18 @@ const dailyStateId = (storeId: string, employeeUid: string, date: string) =>
     hashId(`${storeId}\u0000${employeeUid}\u0000${date}`);
 const requestId = (employeeUid: string, idempotencyKey: string) =>
     hashId(`${employeeUid}\u0000${idempotencyKey}`);
+
+async function previousOpenAttendanceDate(userId: string, nominalDate: string): Promise<string | null> {
+    const previous = new Date(`${nominalDate}T00:00:00+07:00`);
+    previous.setDate(previous.getDate() - 1);
+    const date = previous.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+    const db = getAdminDb();
+    const allocation = await allocationRef(db, userId, date).get();
+    const storeId = allocation.data()?.storeId as string | undefined;
+    if (!storeId) return null;
+    const state = await db.collection('attendance_daily_states').doc(dailyStateId(storeId, userId, date)).get();
+    return state.exists && state.data()?.checkInEventId && !state.data()?.checkOutEventId ? date : null;
+}
 
 async function loadStateEvents(state: AttendanceDailyState | null): Promise<AttendanceEvent[]> {
     const eventIds = [state?.checkInEventId, state?.checkOutEventId].filter(
@@ -92,11 +128,14 @@ export async function getSoftwareAttendanceContext(
 
     const now = new Date();
     const serverTime = now.toISOString();
-    const attendanceDate = vietnamAttendanceDate(now);
+    let attendanceDate = vietnamAttendanceDate(now);
+    attendanceDate = await previousOpenAttendanceDate(caller.uid, attendanceDate) || attendanceDate;
     const currentIpAddress = getTrustedAttendanceRequestIp(req);
-    const storeId = caller.user.storeId ?? '';
-
-    if (!storeId) {
+    let storeId = '';
+    try {
+        storeId = await resolveAttendanceStoreId(caller, req.nextUrl.searchParams.get('storeId') || undefined, attendanceDate);
+    } catch (error) {
+        if (!(error instanceof AttendanceServiceError) || error.reason !== 'NO_STORE') throw error;
         return {
             canPunch: false,
             reason: 'NO_STORE',
@@ -112,8 +151,6 @@ export async function getSoftwareAttendanceContext(
             todayEvents: [],
         };
     }
-    assertAttendanceStoreAccess(caller, storeId);
-
     const db = getAdminDb();
     const [storeSnapshot, policySnapshot, stateSnapshot] = await Promise.all([
         db.collection('stores').doc(storeId).get(),
@@ -180,12 +217,11 @@ export async function getSoftwareAttendanceContext(
 export async function getPersonalAttendanceEvents(
     req: NextRequest,
     attendanceDate = vietnamAttendanceDate(),
+    requestedStoreId?: string,
 ): Promise<{ attendanceDate: string; events: AttendanceEvent[] }> {
     const caller = await requireAttendanceCaller(req);
     assertAttendancePermission(caller, 'action.attendance.punch');
-    const storeId = caller.user.storeId ?? '';
-    if (!storeId) throw new AttendanceServiceError('Tài khoản chưa được gán vào cửa hàng.', 400, 'NO_STORE');
-    assertAttendanceStoreAccess(caller, storeId);
+    const storeId = await resolveAttendanceStoreId(caller, requestedStoreId, attendanceDate);
 
     const stateSnapshot = await getAdminDb()
         .collection('attendance_daily_states')
@@ -237,14 +273,25 @@ export async function punchSoftwareAttendance(
 ): Promise<{ event: AttendanceEvent; created: boolean }> {
     const caller = await requireAttendanceCaller(req);
     assertAttendancePermission(caller, 'action.attendance.punch');
-    const storeId = caller.user.storeId ?? '';
-    if (!storeId) throw new AttendanceServiceError('Tài khoản chưa được gán vào cửa hàng.', 400, 'NO_STORE');
-    assertAttendanceStoreAccess(caller, storeId);
-
     const db = getAdminDb();
+    const preflightRequestRef = db.collection('attendance_event_requests').doc(requestId(caller.uid, input.idempotencyKey));
+    const preflightRequest = await preflightRequestRef.get();
+    if (preflightRequest.exists) {
+        const data = preflightRequest.data()!;
+        if (data.eventType !== input.eventType || (input.storeId && data.storeId !== input.storeId)) {
+            throw new AttendanceServiceError('Mã yêu cầu đã được dùng cho một thao tác khác.', 409, 'IDEMPOTENCY_CONFLICT');
+        }
+        const event = data.eventId ? await db.collection('attendance_events').doc(data.eventId).get() : null;
+        if (!event?.exists) throw new AttendanceServiceError('Không tìm thấy sự kiện chấm công đã tạo.', 409, 'EVENT_NOT_FOUND');
+        return { event: event.data() as AttendanceEvent, created: false };
+    }
     const now = new Date();
     const occurredAt = now.toISOString();
-    const attendanceDate = vietnamAttendanceDate(now);
+    let attendanceDate = vietnamAttendanceDate(now);
+    if (input.eventType === 'CHECK_OUT') {
+        attendanceDate = await previousOpenAttendanceDate(caller.uid, attendanceDate) || attendanceDate;
+    }
+    const storeId = await resolveAttendanceStoreId(caller, input.storeId, attendanceDate);
     const currentIpAddress = getTrustedAttendanceRequestIp(req);
     const eventRef = db.collection('attendance_events').doc();
     const stateRef = db.collection('attendance_daily_states').doc(
@@ -252,15 +299,17 @@ export async function punchSoftwareAttendance(
     );
     const policyRef = db.collection('store_attendance_policies').doc(storeId);
     const storeRef = db.collection('stores').doc(storeId);
-    const requestRef = db.collection('attendance_event_requests').doc(
-        requestId(caller.uid, input.idempotencyKey),
-    );
+    const requestRef = preflightRequestRef;
+    const dayRef = allocationRef(db, caller.uid, attendanceDate);
 
     return db.runTransaction(async (transaction) => {
-        const [requestSnapshot, policySnapshot, stateSnapshot, storeSnapshot] =
-            await transaction.getAll(requestRef, policyRef, stateRef, storeRef);
+        const [requestSnapshot, policySnapshot, stateSnapshot, storeSnapshot, daySnapshot] =
+            await transaction.getAll(requestRef, policyRef, stateRef, storeRef, dayRef);
 
         if (requestSnapshot.exists) {
+            if (requestSnapshot.data()?.storeId !== storeId || requestSnapshot.data()?.eventType !== input.eventType) {
+                throw new AttendanceServiceError('Mã yêu cầu đã được dùng cho một thao tác khác.', 409, 'IDEMPOTENCY_CONFLICT');
+            }
             const existingEventId = requestSnapshot.data()?.eventId as string | undefined;
             if (!existingEventId) {
                 throw new AttendanceServiceError('Yêu cầu chấm công cũ không hợp lệ.', 409, 'INVALID_REQUEST_STATE');
@@ -285,6 +334,7 @@ export async function punchSoftwareAttendance(
         const state = stateSnapshot.exists
             ? (stateSnapshot.data() as AttendanceDailyState)
             : null;
+        const allocation = allocationFromSnapshot(daySnapshot, caller.uid, attendanceDate, storeId);
         if (!isAttendanceEventExpected(input.eventType, state, policy.requireCheckOut)) {
             const nextEventType = getNextAttendanceEventType(state, policy.requireCheckOut);
             throw new AttendanceServiceError(
@@ -340,7 +390,12 @@ export async function punchSoftwareAttendance(
             storeId,
             eventId: event.id,
             idempotencyKey: input.idempotencyKey,
+            eventType: input.eventType,
             createdAt: occurredAt,
+        });
+        writeAllocation(transaction, dayRef, {
+            ...allocation,
+            attendanceStateIds: [...new Set([...(allocation.attendanceStateIds || []), stateRef.id])],
         });
 
         return { event, created: true };

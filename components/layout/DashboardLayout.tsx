@@ -3,25 +3,25 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Clock, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ShoppingCart, ClipboardList, Ticket, CalendarDays, LayoutGrid, Link2, Star, Gift } from 'lucide-react';
+import { Calendar, Clock, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ClipboardList, Ticket, CalendarDays, LayoutGrid, Link2, Star, Gift } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
-import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { StoreDoc, CustomRoleDoc } from '@/types';
+import { CustomRoleDoc } from '@/types';
 
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { WorkplacePicker } from '@/components/shared/WorkplacePicker';
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-    const { user, userDoc, logout, loading, hasPermission } = useAuth();
+    const { user, userDoc, logout, loading, hasPermission, activeWorkplace } = useAuth();
     const { referralEnabled } = useStoreSettings();
     const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = useState(false);
-    const [storeName, setStoreName] = useState<string>('');
     const [unreadCount, setUnreadCount] = useState(0);
     const [customRoles, setCustomRoles] = useState<CustomRoleDoc[]>([]);
     const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -50,24 +50,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     // Initialize Push Notifications hook (handles permission request and saving token)
     usePushNotifications();
-
-    // Fetch store name (only relevant for STORE context users)
-    useEffect(() => {
-        const isStoreCtx = userDoc?.workplaceType === 'STORE' || (!userDoc?.workplaceType && userDoc?.storeId && userDoc?.role !== 'admin');
-        if (isStoreCtx && userDoc?.storeId) {
-            const fetchStore = async () => {
-                try {
-                    const snap = await getDoc(doc(db, 'stores', userDoc.storeId!));
-                    if (snap.exists()) {
-                        setStoreName((snap.data() as StoreDoc).name);
-                    }
-                } catch (err) {
-                    console.error("Failed to fetch store:", err);
-                }
-            };
-            fetchStore();
-        }
-    }, [userDoc]);
 
     // Fetch custom roles for role name display
     useEffect(() => {
@@ -131,9 +113,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // Determine effective location context
     const isAdmin = userDoc?.role === 'admin';
     const isSuperAdmin = userDoc?.role === 'super_admin';
-    const isOfficeContext = !isAdmin && !isSuperAdmin && (userDoc?.workplaceType === 'OFFICE' || userDoc?.role === 'office');
-    const isCentralContext = !isAdmin && !isSuperAdmin && userDoc?.workplaceType === 'CENTRAL';
-    const isStoreContext = !isAdmin && !isSuperAdmin && !isOfficeContext && !isCentralContext;
+    const currentWorkplaceType = activeWorkplace?.workplace.type || userDoc?.workplaceType;
+    const isOfficeContext = !isAdmin && !isSuperAdmin && (currentWorkplaceType === 'OFFICE' || (!activeWorkplace && userDoc?.role === 'office'));
+    const isCentralContext = !isAdmin && !isSuperAdmin && currentWorkplaceType === 'CENTRAL';
+    const isStoreContext = !isAdmin && !isSuperAdmin && currentWorkplaceType === 'STORE';
 
     const routes = [
         {
@@ -650,10 +633,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 return roleLabelMap[userDoc.role] ?? userDoc.role;
                             })()}
                         </span>
-                        {storeName && userDoc.role !== 'admin' && (
+                        {activeWorkplace && userDoc.role !== 'admin' && (
                             <span className="inline-flex items-center gap-1 rounded-full border border-surface-200 bg-surface-50 px-2.5 py-0.5 text-[11px] text-surface-500">
                                 <Building2 className="size-2.5 shrink-0" />
-                                <span className="max-w-[110px] truncate">{storeName}</span>
+                                <span className="max-w-[110px] truncate">{activeWorkplace.name}</span>
                             </span>
                         )}
                         {userDoc.type && (
@@ -661,6 +644,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 {userDoc.type}
                             </span>
                         )}
+                    </div>
+                    <div className="mt-2.5">
+                        <WorkplacePicker />
                     </div>
                 </div>
 
@@ -776,7 +762,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     ? "w-[72px] bg-surface-50"
                     : "w-64 bg-primary-400"
             )}>
-                <SidebarContent />
+                {SidebarContent()}
             </aside>
 
             {/* Mobile Drawer Overlay */}
@@ -794,7 +780,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         >
                             <X className="w-5 h-5" />
                         </button>
-                        <SidebarContent />
+                        {SidebarContent()}
                     </aside>
                 </div>
             )}

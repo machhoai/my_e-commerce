@@ -29,6 +29,7 @@ import type {
     UserDoc,
     ZkUserDoc,
 } from '@/types';
+import { getStoreUsers } from '@/lib/workplace/server';
 
 export class AttendanceManagerError extends Error {
     constructor(message: string, public readonly status: number) {
@@ -134,11 +135,11 @@ async function loadManagerData(storeId: string, startDate: string, endDate: stri
     const db = getAdminDb();
     const startTimestamp = `${startDate}T00:00:00`;
     const endTimestamp = `${endDate}T23:59:59.999`;
-    const [storeSnapshot, policySnapshot, usersSnapshot, schedulesSnapshot, eventsSnapshot, logsSnapshot, zkSnapshot] =
+    const [storeSnapshot, policySnapshot, storeUsers, schedulesSnapshot, eventsSnapshot, logsSnapshot, zkSnapshot] =
         await Promise.all([
             db.collection('stores').doc(storeId).get(),
             db.collection('store_attendance_policies').doc(storeId).get(),
-            db.collection('users').where('storeId', '==', storeId).get(),
+            getStoreUsers(db, storeId, new Date(`${endDate}T12:00:00+07:00`)),
             db.collection('schedules').where('date', '>=', startDate).where('date', '<=', endDate).get(),
             db.collection('attendance_events').where('attendanceDate', '>=', startDate).where('attendanceDate', '<=', endDate).get(),
             db.collection('attendance_logs').where('timestamp', '>=', startTimestamp).where('timestamp', '<=', endTimestamp).get(),
@@ -148,8 +149,7 @@ async function loadManagerData(storeId: string, startDate: string, endDate: stri
     if (!storeSnapshot.exists) throw new AttendanceManagerError('Không tìm thấy cửa hàng.', 404);
     const store = { id: storeSnapshot.id, ...storeSnapshot.data() } as StoreDoc;
     const policy = policySnapshot.exists ? policySnapshot.data() as StoreAttendancePolicy : null;
-    const employees = usersSnapshot.docs
-        .map((snapshot) => ({ ...snapshot.data(), uid: snapshot.id } as UserDoc))
+    const employees = storeUsers
         .filter((user) => user.isActive !== false && user.role !== 'admin' && user.role !== 'super_admin')
         .map((user) => toEmployee(user, storeId))
         .sort((a, b) => a.name.localeCompare(b.name, 'vi'));

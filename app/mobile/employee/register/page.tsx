@@ -61,11 +61,16 @@ export default function MobileEmployeeRegisterPage() {
         (async () => {
             setLoading(true);
             try {
-                const regId = weeklyRegId(user.uid, currentWeekStart);
-                const regSnap = await getDoc(doc(db, 'weekly_registrations', regId));
-                if (regSnap.exists()) {
-                    setExistingRegId(regId);
-                    const data = regSnap.data() as WeeklyRegistration;
+                const regId = weeklyRegId(user.uid, storeId, currentWeekStart);
+                const legacyRegId = `${user.uid}_${toLocalDateString(currentWeekStart)}`;
+                const [regSnap, legacyRegSnap] = await Promise.all([
+                    getDoc(doc(db, 'weekly_registrations', regId)),
+                    getDoc(doc(db, 'weekly_registrations', legacyRegId)),
+                ]);
+                const selectedRegSnap = regSnap.exists() ? regSnap : legacyRegSnap;
+                if (selectedRegSnap.exists() && (!selectedRegSnap.data()?.storeId || selectedRegSnap.data()?.storeId === storeId)) {
+                    setExistingRegId(selectedRegSnap.id);
+                    const data = selectedRegSnap.data() as WeeklyRegistration;
                     setSelectedShifts(weekDays.map(dateStr =>
                         data.shifts.filter(s => s.date === dateStr).map(s => s.shiftId)
                     ));
@@ -206,9 +211,9 @@ export default function MobileEmployeeRegisterPage() {
         try {
             const shiftsToSave: ShiftEntry[] = [];
             selectedShifts.forEach((ds, i) => ds.forEach(sid => shiftsToSave.push({ date: weekDays[i], shiftId: sid })));
-            const regId = weeklyRegId(user.uid, currentWeekStart);
+            const regId = weeklyRegId(user.uid, storeId, currentWeekStart);
             const payload: WeeklyRegistration = {
-                id: regId, userId: user.uid, storeId: userDoc.storeId ?? '',
+                id: regId, userId: user.uid, storeId,
                 weekStartDate: toLocalDateString(currentWeekStart), shifts: shiftsToSave, submittedAt: new Date().toISOString(),
             };
             const token = await user.getIdToken();

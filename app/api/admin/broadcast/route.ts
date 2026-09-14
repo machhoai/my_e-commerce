@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getAdminAuth } from '@/lib/firebase-admin';
 import { broadcastTemplate } from '@/lib/notification-engine';
+import { getStoreUsers } from '@/lib/workplace/server';
+import type { Message } from 'firebase-admin/messaging';
 
 export async function POST(request: Request) {
     try {
@@ -61,31 +63,34 @@ export async function POST(request: Request) {
 
         // Build user query
         let usersQuery: FirebaseFirestore.Query = adminDb.collection('users');
+        let storeUsers: Awaited<ReturnType<typeof getStoreUsers>> | null = null;
 
         if (targetType === 'STORE') {
             if (!targetValue) return NextResponse.json({ error: 'Vui lòng chọn cửa hàng' }, { status: 400 });
-            usersQuery = usersQuery.where('storeId', '==', targetValue);
+            storeUsers = await getStoreUsers(adminDb, targetValue);
         } else if (targetType === 'ROLE') {
             if (!targetValue) return NextResponse.json({ error: 'Vui lòng chọn chức vụ' }, { status: 400 });
             usersQuery = usersQuery.where('role', '==', targetValue);
         }
 
-        const usersSnapshot = await usersQuery.get();
-        if (usersSnapshot.empty) {
+        const usersSnapshot = storeUsers ? null : await usersQuery.get();
+        if ((storeUsers && storeUsers.length === 0) || usersSnapshot?.empty) {
             return NextResponse.json({ error: 'Không tìm thấy người dùng nào phù hợp với điều kiện' }, { status: 404 });
         }
 
         const usersData: { uid: string, name: string, fcmToken?: string, fcmTokens?: string[], storeId?: string }[] = [];
 
-        usersSnapshot.forEach(doc => {
-            const data = doc.data();
+        const candidateUsers = storeUsers
+            ? storeUsers.map(data => ({ id: data.uid, data }))
+            : (usersSnapshot?.docs || []).map(doc => ({ id: doc.id, data: doc.data() }));
+        candidateUsers.forEach(({ id, data }) => {
             if (data.isActive !== false) {
                 usersData.push({
-                    uid: doc.id,
+                    uid: id,
                     name: data.name || 'bạn',
                     fcmToken: data.fcmToken,
                     fcmTokens: data.fcmTokens,
-                    storeId: data.storeId,
+                    storeId: targetType === 'STORE' ? targetValue : data.storeId,
                 });
             }
         });
@@ -128,7 +133,7 @@ export async function POST(request: Request) {
         let pushSuccessCount = 0;
         let pushFailureCount = 0;
 
-        const uniquePushMessages: any[] = [];
+        const uniquePushMessages: Message[] = [];
         const seenTokens = new Set<string>();
 
         for (const user of usersData) {

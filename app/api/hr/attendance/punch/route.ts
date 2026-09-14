@@ -7,6 +7,7 @@ import {
 
 const punchInputSchema = z
     .object({
+        storeId: z.string().trim().min(1).optional(),
         eventType: z.enum(['CHECK_IN', 'CHECK_OUT']),
         idempotencyKey: z.string().uuid(),
         location: z

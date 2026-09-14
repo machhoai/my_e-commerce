@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { WarehouseDoc } from '@/types';
+import type { UserDoc } from '@/types';
+import { getUserMemberships } from '@/lib/workplace/server';
 
 async function requireAdmin(req: NextRequest) {
     const token = req.headers.get('Authorization')?.split('Bearer ')[1];
@@ -31,12 +33,11 @@ export async function GET(req: NextRequest) {
             const snap = await adminDb.collection('warehouses').orderBy('name').get();
             return NextResponse.json(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         } else {
-            // Non-admin: return their own warehouse
-            const warehouseId = callerSnap.data()?.warehouseId;
-            if (!warehouseId) return NextResponse.json([]);
-            const whSnap = await adminDb.collection('warehouses').doc(warehouseId).get();
-            if (!whSnap.exists) return NextResponse.json([]);
-            return NextResponse.json([{ id: whSnap.id, ...whSnap.data() }]);
+            const memberships = await getUserMemberships(adminDb, { uid: decoded.uid, ...callerSnap.data() } as UserDoc);
+            const ids = memberships.filter(item => item.workplace.type === 'CENTRAL').map(item => item.workplace.id);
+            if (!ids.length) return NextResponse.json([]);
+            const snapshots = await adminDb.getAll(...ids.map(id => adminDb.collection('warehouses').doc(id)));
+            return NextResponse.json(snapshots.filter(item => item.exists).map(item => ({ id: item.id, ...item.data() })));
         }
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Lỗi hệ thống';

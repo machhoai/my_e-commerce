@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { canManageHr } from '@/lib/hr-access';
 import type { UserDoc } from '@/types';
+import { assertUserInWorkplaceScope, requireWorkplaceCaller } from '@/lib/workplace/access';
 
 export async function POST(req: NextRequest) {
     try {
@@ -17,7 +18,6 @@ export async function POST(req: NextRequest) {
 
         const callerData = callerDoc.data() as UserDoc;
         const callerRole = callerData.role;
-        const callerStoreId = callerData.storeId;
 
         // Who can toggle?
         // admin: anyone
@@ -38,23 +38,18 @@ export async function POST(req: NextRequest) {
 
         const targetDoc = await adminDb.collection('users').doc(targetUid).get();
         if (!targetDoc.exists) return NextResponse.json({ error: 'Không tìm thấy người dùng' }, { status: 404 });
-        const targetRole = targetDoc.data()?.role;
-        const targetStoreId = targetDoc.data()?.storeId;
+        const target = { uid: targetUid, ...targetDoc.data() } as UserDoc;
+        const targetRole = target.role;
+        await assertUserInWorkplaceScope(await requireWorkplaceCaller(req), target);
 
         if (callerRole === 'store_manager') {
             // store_manager can toggle manager and employee in their store only
             if (!['manager', 'employee'].includes(targetRole)) {
                 return NextResponse.json({ error: 'Cửa hàng trưởng chỉ có thể thao tác với Quản lý và Nhân viên' }, { status: 403 });
             }
-            if (targetStoreId !== callerStoreId) {
-                return NextResponse.json({ error: 'Không thể thao tác với người dùng từ cửa hàng khác' }, { status: 403 });
-            }
         } else if (callerRole !== 'admin' && callerRole !== 'super_admin') {
             if (targetRole !== 'employee') {
                 return NextResponse.json({ error: 'Quản lý chỉ có thể thay đổi trạng thái nhân viên' }, { status: 403 });
-            }
-            if (!callerStoreId || targetStoreId !== callerStoreId) {
-                return NextResponse.json({ error: 'Không thể thao tác với người dùng từ cửa hàng khác' }, { status: 403 });
             }
         }
 

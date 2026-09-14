@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import ContractSection from '@/components/shared/ContractSection';
 import type { LocationType } from '@/components/hr/LocationPicker';
+import WorkplaceMembershipEditor from '@/components/shared/WorkplaceMembershipEditor';
 
 // ── Field config ────────────────────────────────────────────
 interface FieldDef {
@@ -171,20 +172,16 @@ export default function UserInfoEditor({
         })();
     }, [user, isAdmin]);
 
-    // ── Eligible roles (filtered by creatorRoles + applicableTo) ──
+    // Roles and permissions are account-wide, so workplace type does not filter them.
     const eligibleRoles = useMemo(() => {
         return customRoles.filter(r => {
             if (r.isLocked) return false;
             const canCreate = r.creatorRoles?.includes(userDoc?.role ?? '') ||
                 r.creatorRoles?.includes(userDoc?.customRoleId ?? '');
             if (!canCreate) return false;
-            // If applicableTo is set, the role must support the selected workplaceType
-            if (r.applicableTo && r.applicableTo.length > 0) {
-                return r.applicableTo.includes(editWorkplaceType);
-            }
-            return true; // No restriction = applies to all locations
+            return true;
         });
-    }, [customRoles, userDoc, editWorkplaceType]);
+    }, [customRoles, userDoc]);
 
     // ── Role display name for read-only ──────────────────────
     const roleDisplayName = useMemo(() => {
@@ -292,24 +289,6 @@ export default function UserInfoEditor({
                 if (payload.customRoleId !== undefined || payload.role !== undefined) {
                     payload.role = editRole;
                     payload.customRoleId = editCustomRoleId || null;
-                }
-            }
-
-            // Admin: send workplace/store fields if changed
-            if (isAdmin) {
-                const oldWt = employee.workplaceType || 'STORE';
-                const oldStoreId = employee.storeId || '';
-                const oldOfficeId = employee.officeId || '';
-                const oldWarehouseId = employee.warehouseId || '';
-
-                if (editWorkplaceType !== oldWt ||
-                    editStoreId !== oldStoreId ||
-                    editOfficeId !== oldOfficeId ||
-                    editWarehouseId !== oldWarehouseId) {
-                    payload.workplaceType = editWorkplaceType;
-                    payload.storeId = editWorkplaceType === 'STORE' ? (editStoreId || null) : null;
-                    payload.officeId = editWorkplaceType === 'OFFICE' ? (editOfficeId || null) : null;
-                    payload.warehouseId = editWorkplaceType === 'CENTRAL' ? (editWarehouseId || null) : null;
                 }
             }
 
@@ -439,8 +418,8 @@ export default function UserInfoEditor({
                     )}
                 </div>
 
-                {/* Admin: Loại địa điểm + cửa hàng */}
-                {isAdmin && (
+                {/* Legacy single-location editor remains hidden during compatibility migration. */}
+                {false && isAdmin && (
                     <div className="space-y-1">
                         <label className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
                             roleEditable ? 'text-primary-600' : 'text-gray-400'
@@ -590,6 +569,7 @@ export default function UserInfoEditor({
                     <ContractSection employee={employee} onUpdated={onUpdated} />
                 </div>
             )}
+            <WorkplaceMembershipEditor userId={employee.uid} onUpdated={onUpdated} />
         </div>
     );
 }
