@@ -7,7 +7,7 @@ import { useMobileTranslation } from '@/lib/i18n';
 export default function MobileManagerSchedulingBuilderPage() {
     const { t } = useMobileTranslation();
     return (
-        <MobilePageShell title={t('nav.scheduleBuilder')}>
+        <MobilePageShell title={t('nav.scheduleBuilder')} showWorkplacePicker>
             <DesktopPage />
         </MobilePageShell>
     );

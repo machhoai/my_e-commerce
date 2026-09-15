@@ -3,7 +3,7 @@ import MobilePageShell from '@/components/mobile/MobilePageShell';
 
 export default function MobileEmployeeAttendancePage() {
     return (
-        <MobilePageShell title="Chấm công">
+        <MobilePageShell title="Chấm công" showWorkplacePicker>
             <EmployeeAttendancePanel />
         </MobilePageShell>
     );

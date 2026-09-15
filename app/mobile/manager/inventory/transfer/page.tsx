@@ -7,7 +7,7 @@ import { useMobileTranslation } from '@/lib/i18n';
 export default function MobileManagerInventoryTransferPage() {
     const { t } = useMobileTranslation();
     return (
-        <MobilePageShell title={t('nav.transfer')}>
+        <MobilePageShell title={t('nav.transfer')} showWorkplacePicker>
             <DesktopPage />
         </MobilePageShell>
     );

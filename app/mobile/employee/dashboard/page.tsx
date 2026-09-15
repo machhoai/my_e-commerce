@@ -164,7 +164,7 @@ export default function MobileEmployeeDashboardPage() {
         : '';
 
     return (
-        <MobilePageShell title={t('employee.scheduleTitle')}>
+        <MobilePageShell title={t('employee.scheduleTitle')} showWorkplacePicker>
             {/* Monthly summary card */}
             {!loading && (
                 <div className="bg-gradient-to-br from-primary-50 to-blue-50 border border-primary-100 rounded-2xl p-3 mb-3">

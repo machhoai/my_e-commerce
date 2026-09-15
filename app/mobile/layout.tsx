@@ -9,9 +9,7 @@ import UniversalScannerModal from '@/components/scanner/UniversalScannerModal';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import ReferralCelebrationModal from '@/components/referral/ReferralCelebrationModal';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
-import PWAGatekeeper from '@/components/shared/PWAGatekeeper';
 import { I18nMobileProvider, useMobileTranslation } from '@/lib/i18n';
-import { WorkplacePicker } from '@/components/shared/WorkplacePicker';
 
 export default function MobileLayout({
     children,
@@ -57,9 +55,6 @@ function MobileLayoutInner({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="no-scrollbar">
-            <div className="fixed right-3 top-3 z-[55] rounded-2xl bg-white/95 p-2 shadow-lg backdrop-blur-md">
-                <WorkplacePicker compact />
-            </div>
             {/* iOS-compatible notification permission banner.
                 iOS PWA requires Notification.requestPermission() to be called
                 from a direct user gesture (tap). We cannot auto-prompt. */}

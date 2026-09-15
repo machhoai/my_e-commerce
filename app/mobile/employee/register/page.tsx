@@ -255,7 +255,7 @@ export default function MobileEmployeeRegisterPage() {
     const totalSelected = selectedShifts.reduce((s, d) => s + d.length, 0);
 
     return (
-        <MobilePageShell title={t('register.title')}>
+        <MobilePageShell title={t('register.title')} showWorkplacePicker>
             {/* Week nav */}
             <div className="flex items-center gap-1 mb-2">
                 <button onClick={previousWeek} className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center active:scale-95 transition-transform shrink-0">

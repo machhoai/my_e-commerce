@@ -7,7 +7,7 @@ import { useMobileTranslation } from '@/lib/i18n';
 export default function MobileEmployeeKpi_statsPage() {
     const { t } = useMobileTranslation();
     return (
-        <MobilePageShell title={t('nav.myKPI')}>
+        <MobilePageShell title={t('nav.myKPI')} showWorkplacePicker>
             <DesktopPage />
         </MobilePageShell>
     );

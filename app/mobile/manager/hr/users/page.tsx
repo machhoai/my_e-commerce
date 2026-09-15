@@ -23,6 +23,7 @@ import { showToast } from '@/lib/utils/toast';
 import BottomSheet from '@/components/shared/BottomSheet';
 import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 import UserInfoEditor from '@/components/shared/UserInfoEditor';
+import { WorkplacePicker } from '@/components/shared/WorkplacePicker';
 import { fetchWorkplaceMembers } from '@/lib/workplace/client';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -957,6 +958,10 @@ function MobileHrUsersContent() {
                     </button>
                 ) : null}
             />
+
+            {!isAdmin && (
+                <WorkplacePicker className="mx-4 mt-3 w-auto rounded-2xl border border-gray-100 bg-white px-3 py-2.5 shadow-sm" />
+            )}
 
             {/* Admin location selector — grouped by type */}
             {isAdmin && (

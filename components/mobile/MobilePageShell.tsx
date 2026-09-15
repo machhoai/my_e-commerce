@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMobileTranslation } from '@/lib/i18n';
+import { WorkplacePicker } from '@/components/shared/WorkplacePicker';
 
 interface MobilePageShellProps {
     title: string;
@@ -14,6 +15,8 @@ interface MobilePageShellProps {
     noPadding?: boolean;
     /** Custom back action. Defaults to router.back() */
     onBack?: () => void;
+    /** Show the workplace context selector as part of the page, below the header. */
+    showWorkplacePicker?: boolean;
 }
 
 export default function MobilePageShell({
@@ -22,6 +25,7 @@ export default function MobilePageShell({
     headerRight,
     noPadding = false,
     onBack,
+    showWorkplacePicker = false,
 }: MobilePageShellProps) {
     const router = useRouter();
     const { t } = useMobileTranslation();
@@ -48,6 +52,10 @@ export default function MobilePageShell({
                     )}
                 </div>
             </header>
+
+            {showWorkplacePicker && (
+                <WorkplacePicker className="mx-4 mt-4 w-auto rounded-2xl border border-gray-100 bg-white px-3 py-2.5 shadow-sm" />
+            )}
 
             {/* ── Page content ────────────────────────────────────────────── */}
             <main className={cn('flex-1', noPadding ? '' : 'p-4')}>

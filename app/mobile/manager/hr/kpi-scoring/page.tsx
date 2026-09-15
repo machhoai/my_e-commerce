@@ -7,7 +7,7 @@ import { useMobileTranslation } from '@/lib/i18n';
 export default function MobileManagerHrKpiScoringPage() {
     const { t } = useMobileTranslation();
     return (
-        <MobilePageShell title={t('nav.kpiScoring')}>
+        <MobilePageShell title={t('nav.kpiScoring')} showWorkplacePicker>
             <DesktopPage />
         </MobilePageShell>
     );

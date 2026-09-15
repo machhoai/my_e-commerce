@@ -7,7 +7,7 @@ import { useMobileTranslation } from '@/lib/i18n';
 export default function MobileManagerInventoryCountersPage() {
     const { t } = useMobileTranslation();
     return (
-        <MobilePageShell title={t('nav.counters')}>
+        <MobilePageShell title={t('nav.counters')} showWorkplacePicker>
             <DesktopPage />
         </MobilePageShell>
     );

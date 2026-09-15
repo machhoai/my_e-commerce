@@ -7,7 +7,7 @@ import { useMobileTranslation } from '@/lib/i18n';
 export default function MobileManagerKpiTemplatesPage() {
     const { t } = useMobileTranslation();
     return (
-        <MobilePageShell title={t('nav.kpiTemplates')}>
+        <MobilePageShell title={t('nav.kpiTemplates')} showWorkplacePicker>
             <DesktopPage />
         </MobilePageShell>
     );
