@@ -2,10 +2,8 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { UserDoc, UserRole, EmployeeType, StoreDoc, OfficeDoc, WarehouseDoc, CustomRoleDoc } from '@/types';
-import { Users, Plus, ShieldAlert, KeyRound, MailPlus, Search, ShieldCheck, Building2, Shield, ScanLine, ImageIcon } from 'lucide-react';
+import { Users, Plus, KeyRound, MailPlus, ShieldCheck, Building2, Shield, ScanLine, ImageIcon } from 'lucide-react';
 import { showToast } from '@/lib/utils/toast';
 import { cn } from '@/lib/utils';
 import { useTableParams } from '@/hooks/useTableParams';
@@ -16,6 +14,7 @@ import Portal from '@/components/Portal';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 import CCCDCamera, { CCCDScanResult } from '@/components/hr/CCCDCamera';
 import UserInfoEditor from '@/components/shared/UserInfoEditor';
+import StoreMultiSelect from '@/components/hr/StoreMultiSelect';
 
 const ROLE_LABELS: Record<string, string> = {
     admin: 'Quản trị viên',
@@ -92,6 +91,7 @@ function AdminUsersPageContent() {
     const [newCanManageHR, setNewCanManageHR] = useState(false);
     const [newWorkplaceType, setNewWorkplaceType] = useState<'STORE' | 'OFFICE' | 'CENTRAL'>('STORE');
     const [newStoreId, setNewStoreId] = useState('');
+    const [newStoreIds, setNewStoreIds] = useState<string[]>([]);
     const [newOfficeId, setNewOfficeId] = useState('');
     const [newWarehouseId, setNewWarehouseId] = useState('');
     const [newCustomRoleId, setNewCustomRoleId] = useState('');
@@ -106,8 +106,6 @@ function AdminUsersPageContent() {
 
     // Derive the location type for the FORM's workplace selector (based on newWorkplaceType)
     const formLocationType = newWorkplaceType;
-
-    const LOCATION_ICON: Record<string, string> = { STORE: '🏪', OFFICE: '🏢', CENTRAL: '🏭' };
 
     const [actionLoading, setActionLoading] = useState(false);
     const [customRoles, setCustomRoles] = useState<CustomRoleDoc[]>([]);
@@ -155,6 +153,24 @@ function AdminUsersPageContent() {
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
+    const loadUsers = useCallback(async () => {
+        if (!user) return;
+        setLoading(true);
+        try {
+            const token = await getToken();
+            const response = await fetch('/api/admin/users', {
+                headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Không thể tải danh sách người dùng');
+            setUsers(Array.isArray(data) ? data : []);
+        } catch (error) {
+            console.error('Error fetching users:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [getToken, user]);
+
     // Fetch all location collections at once
     useEffect(() => {
         if (!user) return;
@@ -189,31 +205,9 @@ function AdminUsersPageContent() {
         fetchRoles();
     }, [user, getToken]);
 
-    // Subscribe to users filtered by selected store (or all if none selected)
     useEffect(() => {
-        if (authLoading || !user) return;
-        setLoading(true);
-
-        let q;
-        if (!selectedLocationId) {
-            q = query(collection(db, 'users'), orderBy('name'));
-        } else if (selectedLocationType === 'STORE') {
-            q = query(collection(db, 'users'), where('storeId', '==', selectedLocationId), orderBy('name'));
-        } else if (selectedLocationType === 'OFFICE') {
-            q = query(collection(db, 'users'), where('officeId', '==', selectedLocationId), orderBy('name'));
-        } else {
-            q = query(collection(db, 'users'), where('warehouseId', '==', selectedLocationId), orderBy('name'));
-        }
-
-        const unsubscribe = onSnapshot(q, (snap) => {
-            setUsers(snap.docs.map(d => d.data() as UserDoc));
-            setLoading(false);
-        }, (err) => {
-            console.error('Error fetching users:', err);
-            setLoading(false);
-        });
-        return () => unsubscribe();
-    }, [authLoading, user, selectedLocationId, selectedLocationType]);
+        if (!authLoading) void loadUsers();
+    }, [authLoading, loadUsers]);
 
     const resetForm = () => {
         setNewName(''); setNewPhone(''); setNewRole('employee'); setNewType('PT');
@@ -223,6 +217,7 @@ function AdminUsersPageContent() {
         setNewGender(''); setNewPermanentAddress(''); setNewIdCardFrontPhoto(''); setNewIdCardBackPhoto('');
         setCccdScanned(false);
         setNewStoreId(selectedLocationType === 'STORE' ? selectedLocationId : '');
+        setNewStoreIds(selectedLocationType === 'STORE' && selectedLocationId ? [selectedLocationId] : []);
         setNewOfficeId(selectedLocationType === 'OFFICE' ? selectedLocationId : '');
         setNewWarehouseId(selectedLocationType === 'CENTRAL' ? selectedLocationId : '');
         setNewWorkplaceType(
@@ -260,6 +255,9 @@ function AdminUsersPageContent() {
         e.preventDefault();
         setActionLoading(true);
         try {
+            if (!editUid && newWorkplaceType === 'STORE' && newStoreIds.length === 0 && newRole !== 'admin') {
+                throw new Error('Vui lòng chọn ít nhất một cửa hàng cho người dùng.');
+            }
             const token = await getToken();
             const endpoint = editUid ? '/api/auth/update-user' : '/api/auth/create-user';
             const bodyPayload: Record<string, unknown> = {
@@ -276,7 +274,8 @@ function AdminUsersPageContent() {
                 idCardBackPhoto: newIdCardBackPhoto || undefined,
                 canManageHR: newCanManageHR,
                 workplaceType: newWorkplaceType,
-                storeId: newWorkplaceType === 'STORE' ? (newStoreId || undefined) : undefined,
+                storeId: editUid && newWorkplaceType === 'STORE' ? (newStoreId || undefined) : undefined,
+                storeIds: !editUid && newWorkplaceType === 'STORE' ? newStoreIds : undefined,
                 officeId: newWorkplaceType === 'OFFICE' ? (newOfficeId || undefined) : undefined,
                 warehouseId: newWorkplaceType === 'CENTRAL' ? (newWarehouseId || undefined) : undefined,
                 customRoleId: newCustomRoleId || null,
@@ -291,6 +290,7 @@ function AdminUsersPageContent() {
             if (!res.ok) throw new Error(data.error || 'Thao tác thất bại');
             showToast.success('Thành công', `Người dùng ${newName} đã được ${editUid ? 'cập nhật' : 'tạo'} thành công!`);
             resetForm();
+            await loadUsers();
         } catch (err: unknown) {
             showToast.error('Lỗi', err instanceof Error ? err.message : 'Đã xảy ra lỗi');
         } finally {
@@ -309,6 +309,7 @@ function AdminUsersPageContent() {
             });
             if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
             showToast.success('Đã cập nhật', `Tài khoản ${u.name} đã được ${!u.isActive ? 'kích hoạt' : 'vô hiệu hóa'}`);
+            await loadUsers();
         } catch (err: unknown) {
             showToast.error('Lỗi', err instanceof Error ? err.message : 'Thao tác thất bại');
         } finally {
@@ -353,19 +354,29 @@ function AdminUsersPageContent() {
             ...warehouses.map(w => [w.id, { name: w.name, type: 'CENTRAL' }] as [string, { name: string; type: string }]),
         ]
     );
-    const getLocationLabel = (u: UserDoc) => {
+    const getLocationLabels = (u: UserDoc) => {
+        const storeIds = u.storeIds?.length ? u.storeIds : u.storeId ? [u.storeId] : [];
+        if (storeIds.length) return storeIds.map(id => `🏪 ${locationLabelMap.get(id)?.name || id}`);
         const id = u.storeId || u.officeId || u.warehouseId;
-        if (!id) return null;
+        if (!id) return [];
         const loc = locationLabelMap.get(id);
-        if (!loc) return id;
+        if (!loc) return [id];
         const icon = loc.type === 'OFFICE' ? '🏢' : loc.type === 'CENTRAL' ? '🏭' : '🏪';
-        return `${icon} ${loc.name}`;
+        return [`${icon} ${loc.name}`];
     };
+
+    const locationFilteredUsers = !selectedLocationId
+        ? users
+        : selectedLocationType === 'STORE'
+            ? users.filter(u => (u.storeIds?.length ? u.storeIds : u.storeId ? [u.storeId] : []).includes(selectedLocationId))
+            : selectedLocationType === 'OFFICE'
+                ? users.filter(u => u.officeId === selectedLocationId)
+                : users.filter(u => u.warehouseId === selectedLocationId);
 
     const filtered = processTableData(
         isCustomRoleFilter
-            ? users.filter(u => u.customRoleId === roleFilterValue.slice(7))
-            : users,
+            ? locationFilteredUsers.filter(u => u.customRoleId === roleFilterValue.slice(7))
+            : locationFilteredUsers,
         {
             searchQuery: params.q,
             searchFields: ['name', 'phone'] as (keyof UserDoc)[],
@@ -445,8 +456,8 @@ function AdminUsersPageContent() {
                 </div>
                 <span className="text-sm text-surface-500 shrink-0">
                     {selectedLocationName
-                        ? <><strong className="text-accent-700">{selectedLocationName.icon} {selectedLocationName.name}</strong> &middot; {users.length} người</>
-                        : <>{users.length} người (tất cả)</>
+                        ? <><strong className="text-accent-700">{selectedLocationName.icon} {selectedLocationName.name}</strong> &middot; {locationFilteredUsers.length} người</>
+                        : <>{locationFilteredUsers.length} người (tất cả)</>
                     }
                 </span>
             </div>
@@ -455,7 +466,6 @@ function AdminUsersPageContent() {
 
             {/* User table - always shown */}
             {(() => {
-                const storeMap = new Map(stores.map(s => [s.id, s.name]));
                 return (
                     <>
                         <DataTableToolbar
@@ -548,9 +558,12 @@ function AdminUsersPageContent() {
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-3.5">
-                                                        <span className="text-xs font-medium px-2 py-0.5 rounded bg-surface-100 text-surface-600">
-                                                            {getLocationLabel(u) ?? <span className="italic text-surface-400">— Admin —</span>}
-                                                        </span>
+                                                        <div className="flex max-w-[280px] flex-wrap gap-1">
+                                                            {getLocationLabels(u).map(label => (
+                                                                <span key={label} className="rounded bg-surface-100 px-2 py-0.5 text-xs font-medium text-surface-600">{label}</span>
+                                                            ))}
+                                                            {!getLocationLabels(u).length && <span className="italic text-surface-400">— Admin —</span>}
+                                                        </div>
                                                     </td>
                                                     <td className="px-4 py-3.5 text-center">
                                                         <button
@@ -801,13 +814,18 @@ function AdminUsersPageContent() {
                                             <label className="text-sm font-medium text-surface-700">
                                                 {newWorkplaceType === 'STORE' ? '🏥 Chọn Cửa hàng' : newWorkplaceType === 'OFFICE' ? '🏢 Chọn Văn phòng' : '🏭 Chọn Kho tổng'}
                                             </label>
-                                            {newWorkplaceType === 'STORE' && (
+                                            {newWorkplaceType === 'STORE' && (editUid ? (
                                                 <select value={newStoreId} onChange={e => setNewStoreId(e.target.value)}
                                                     className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-accent-500 focus:border-accent-400 block p-2.5">
                                                     <option value="">(Không thuộc cửa hàng nào)</option>
                                                     {stores.map(s => <option key={s.id} value={s.id}>{s.name}{!s.isActive ? ' (Đã tắt)' : ''}</option>)}
                                                 </select>
-                                            )}
+                                            ) : (
+                                                <>
+                                                    <StoreMultiSelect stores={stores} value={newStoreIds} onChange={setNewStoreIds} />
+                                                    <p className="mt-1 text-[10px] text-surface-500">Có thể chọn một hoặc nhiều cửa hàng. Cửa hàng đầu tiên được chọn sẽ là cửa hàng chính.</p>
+                                                </>
+                                            ))}
                                             {newWorkplaceType === 'OFFICE' && (
                                                 <select value={newOfficeId} onChange={e => setNewOfficeId(e.target.value)}
                                                     className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-teal-500 focus:border-teal-400 block p-2.5">
@@ -916,7 +934,10 @@ function AdminUsersPageContent() {
                             <div className="p-6">
                                 <UserInfoEditor
                                     employee={editEmployee}
-                                    onUpdated={() => setEditEmployee(null)}
+                                    onUpdated={() => {
+                                        setEditEmployee(null);
+                                        void loadUsers();
+                                    }}
                                     variant="full"
                                 />
                             </div>

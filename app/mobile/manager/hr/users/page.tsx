@@ -5,17 +5,15 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import {
     UserDoc, EmployeeType, UserRole, StoreDoc, OfficeDoc,
     WarehouseDoc, CustomRoleDoc,
 } from '@/types';
 import {
-    Users, Search, Plus, X, ChevronLeft, ChevronRight, UserCheck,
-    UserX, FileWarning, Award, CheckCircle2, AlertTriangle,
-    Shield, Building2, KeyRound, Filter, SlidersHorizontal,
-    MailPlus, Briefcase, RotateCcw, UserMinus, ChevronDown,
+    Users, Search, Plus, X, ChevronLeft, ChevronRight,
+    CheckCircle2, AlertTriangle,
+    Shield, Building2, KeyRound, SlidersHorizontal,
+    Briefcase, RotateCcw, UserMinus, ChevronDown,
     Phone, Mail, CreditCard, GraduationCap, Calendar,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -25,6 +23,7 @@ import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 import UserInfoEditor from '@/components/shared/UserInfoEditor';
 import { WorkplacePicker } from '@/components/shared/WorkplacePicker';
 import { fetchWorkplaceMembers } from '@/lib/workplace/client';
+import StoreMultiSelect from '@/components/hr/StoreMultiSelect';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface FormState {
@@ -40,6 +39,7 @@ interface FormState {
     bankAccount: string;
     education: string;
     storeId: string;
+    storeIds: string[];
     officeId: string;
     warehouseId: string;
     workplaceType: 'STORE' | 'OFFICE' | 'CENTRAL';
@@ -48,7 +48,7 @@ interface FormState {
 const EMPTY_FORM: FormState = {
     name: '', phone: '', type: 'PT', role: 'employee', customRoleId: '',
     dob: '', jobTitle: '', email: '', idCard: '', bankAccount: '',
-    education: '', storeId: '', officeId: '', warehouseId: '', workplaceType: 'STORE',
+    education: '', storeId: '', storeIds: [], officeId: '', warehouseId: '', workplaceType: 'STORE',
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -199,14 +199,7 @@ function EmployeeCard({
         kpiScore >= 80 ? 'text-emerald-600' :
             kpiScore >= 50 ? 'text-amber-600' : 'text-rose-600';
 
-    const storeName = employee.officeId
-        ? storeMap.get(employee.officeId) ?? null
-        : employee.warehouseId
-            ? storeMap.get(employee.warehouseId) ?? null
-            : employee.storeId
-                ? storeMap.get(employee.storeId) ?? null
-                : null;
-    const locationIcon = employee.workplaceType === 'OFFICE' ? '🏢' : employee.workplaceType === 'CENTRAL' ? '🏭' : '🏪';
+    const storeIds = employee.storeIds?.length ? employee.storeIds : employee.storeId ? [employee.storeId] : [];
 
     return (
         <div
@@ -256,11 +249,11 @@ function EmployeeCard({
                         )}>
                             {employee.type === 'FT' ? 'Toàn thời gian' : 'Bán thời gian'}
                         </span>
-                        {storeName && (
-                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-gray-50 text-gray-500 border border-gray-100 truncate max-w-[100px]">
-                                {locationIcon}{storeName}
+                        {storeIds.map(storeId => (
+                            <span key={storeId} className="max-w-[130px] truncate rounded-lg border border-gray-100 bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+                                🏪 {storeMap.get(storeId) ?? storeId}
                             </span>
-                        )}
+                        ))}
                     </div>
                 </div>
 
@@ -444,12 +437,12 @@ function EmployeeFormSheet({
                                                     label={form.workplaceType === 'STORE' ? 'Cửa hàng' : form.workplaceType === 'OFFICE' ? 'Văn phòng' : 'Kho'}
                                                     icon={<Building2 className="w-4 h-4" />}
                                                 >
-                                                    {form.workplaceType === 'STORE' && (
+                                                    {form.workplaceType === 'STORE' && (isEdit ? (
                                                         <select value={form.storeId} onChange={e => setForm(f => ({ ...f, storeId: e.target.value }))} className={selectCls}>
                                                             <option value="">-- Chưa gán --</option>
                                                             {stores.map(s => <option key={s.id} value={s.id}>🏪 {s.name}</option>)}
                                                         </select>
-                                                    )}
+                                                    ) : <StoreMultiSelect stores={stores} value={form.storeIds} onChange={storeIds => setForm(f => ({ ...f, storeIds }))} className="sm:grid-cols-1" />)}
                                                     {form.workplaceType === 'OFFICE' && (
                                                         <select value={form.officeId} onChange={e => setForm(f => ({ ...f, officeId: e.target.value }))} className={selectCls}>
                                                             <option value="">-- Chưa gán --</option>
@@ -463,9 +456,15 @@ function EmployeeFormSheet({
                                                         </select>
                                                     )}
                                                 </FormField>
-                                            </>
+                                             </>
+                                         )}
+                                        {!isAdmin && !isEdit && stores.length > 1 && (
+                                            <FormField label="Cửa hàng làm việc" required icon={<Building2 className="w-4 h-4" />}>
+                                                <StoreMultiSelect stores={stores} value={form.storeIds} onChange={storeIds => setForm(f => ({ ...f, storeIds }))} className="sm:grid-cols-1" />
+                                                <p className="mt-1 text-[10px] text-gray-400">Có thể chọn một hoặc nhiều cửa hàng trong phạm vi quản lý.</p>
+                                            </FormField>
                                         )}
-                                        <FormField label="Vai trò" required icon={<Shield className="w-4 h-4" />}>
+                                         <FormField label="Vai trò" required icon={<Shield className="w-4 h-4" />}>
                                             <select
                                                 value={selectValue}
                                                 onChange={e => handleRoleChange(e.target.value)}
@@ -686,10 +685,11 @@ function FormField({ label, icon, required, children }: {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 function MobileHrUsersContent() {
     const router = useRouter();
-    const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId, activeWorkplace } = useAuth();
+    const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId, activeWorkplace, managedStoreIds, workplaces } = useAuth();
 
     const [employees, setEmployees] = useState<UserDoc[]>([]);
     const [loading, setLoading] = useState(true);
+    const [employeesRefreshKey, setEmployeesRefreshKey] = useState(0);
     const [customRoles, setCustomRoles] = useState<CustomRoleDoc[]>([]);
     const [kpiAverages, setKpiAverages] = useState<Record<string, { avgOfficial: number; count: number }>>({});
     const [stores, setStores] = useState<StoreDoc[]>([]);
@@ -715,13 +715,19 @@ function MobileHrUsersContent() {
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
-    // Fetch stores/offices/warehouses for admin
+    // The stores API is already scoped for non-admin users.
     useEffect(() => {
-        if (userDoc?.role !== 'admin' || !user) return;
+        if (!user) return;
         (async () => {
             try {
                 const token = await getToken();
                 const h = { Authorization: `Bearer ${token}` };
+                if (userDoc?.role !== 'admin') {
+                    const sr = await fetch('/api/stores', { headers: h });
+                    const sd = await sr.json();
+                    setStores(Array.isArray(sd) ? sd : []);
+                    return;
+                }
                 const [sr, or, wr] = await Promise.all([
                     fetch('/api/stores', { headers: h }),
                     fetch('/api/offices', { headers: h }),
@@ -791,7 +797,7 @@ function MobileHrUsersContent() {
             setEmployees(docs); setLoading(false);
         }).catch(err => { if (!cancelled) { console.error(err); setLoading(false); } });
         return () => { cancelled = true; };
-    }, [authLoading, user, userDoc, selectedAdminStoreId, selectedLocationType, contextStoreId, activeWorkplace]);
+    }, [authLoading, user, userDoc, selectedAdminStoreId, selectedLocationType, contextStoreId, activeWorkplace, employeesRefreshKey]);
 
     // Save selectedAdminStoreId
     useEffect(() => {
@@ -836,11 +842,17 @@ function MobileHrUsersContent() {
 
     // Form open helpers
     const openCreate = useCallback(() => {
-        setForm(EMPTY_FORM);
+        const primaryStore = workplaces.find(item => item.isPrimary && item.isEffective && item.isActive && item.workplace.type === 'STORE');
+        const preferredStoreId = primaryStore?.workplace.id
+            || (activeWorkplace?.workplace.type === 'STORE' ? activeWorkplace.workplace.id : contextStoreId);
+        const initialStoreId = preferredStoreId && managedStoreIds.includes(preferredStoreId)
+            ? preferredStoreId
+            : managedStoreIds[0] || '';
+        setForm({ ...EMPTY_FORM, storeIds: initialStoreId ? [initialStoreId] : [] });
         setEditUid(null);
         setFormError('');
         setShowForm(true);
-    }, []);
+    }, [activeWorkplace, contextStoreId, managedStoreIds, workplaces]);
 
     const openEdit = useCallback((emp: UserDoc) => {
         setEditEmployee(emp);
@@ -851,6 +863,9 @@ function MobileHrUsersContent() {
         setFormSubmitting(true);
         setFormError('');
         try {
+            if (!editUid && form.workplaceType === 'STORE' && form.storeIds.length === 0 && form.role !== 'admin') {
+                throw new Error('Vui lòng chọn ít nhất một cửa hàng cho nhân viên.');
+            }
             const token = await getToken();
             const endpoint = editUid ? '/api/auth/update-user' : '/api/auth/create-user';
             const body: any = {
@@ -874,9 +889,11 @@ function MobileHrUsersContent() {
                 if (canManageEmployees) body.customRoleId = form.customRoleId || null;
                 if (isAdmin) {
                     body.workplaceType = form.workplaceType;
-                    if (form.workplaceType === 'STORE' && form.storeId) body.storeId = form.storeId;
+                    if (form.workplaceType === 'STORE') body.storeIds = form.storeIds;
                     if (form.workplaceType === 'OFFICE' && form.officeId) body.officeId = form.officeId;
                     if (form.workplaceType === 'CENTRAL' && form.warehouseId) body.warehouseId = form.warehouseId;
+                } else {
+                    body.storeIds = form.storeIds;
                 }
             }
 
@@ -892,6 +909,7 @@ function MobileHrUsersContent() {
                 `Nhân viên ${form.name} đã được ${editUid ? 'cập nhật' : 'thêm'} vào hệ thống.`
             );
             setShowForm(false);
+            setEmployeesRefreshKey(key => key + 1);
         } catch (err: unknown) {
             setFormError(err instanceof Error ? err.message : 'Đã xảy ra lỗi');
         } finally {
@@ -1088,7 +1106,10 @@ function MobileHrUsersContent() {
                     <div className="px-5 py-4">
                         <UserInfoEditor
                             employee={editEmployee}
-                            onUpdated={() => setEditEmployee(null)}
+                            onUpdated={() => {
+                                setEditEmployee(null);
+                                setEmployeesRefreshKey(key => key + 1);
+                            }}
                             variant="compact"
                         />
                     </div>

@@ -89,6 +89,14 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         type: 'action',
     },
     {
+        // Legacy key retained because existing employee and custom roles already store it.
+        key: 'register_shift',
+        label: 'Đăng Ký Ca Làm',
+        description: 'Tự đăng ký và chỉnh sửa ca làm hàng tuần',
+        group: 'Nhân sự & Lịch',
+        type: 'action',
+    },
+    {
         key: 'page.hr.users',
         label: 'Xem Danh Sách Nhân Viên',
         description: 'Truy cập trang quản lý nhân viên',
@@ -552,6 +560,8 @@ export interface UserDoc {
     // Workplace assignment — workplaceType drives context-aware navigation
     workplaceType?: WorkplaceType;
     storeId?: string;      // Populated when workplaceType === 'STORE'
+    /** Active store memberships, hydrated by HR/admin list APIs. */
+    storeIds?: string[];
     officeId?: string;     // Populated when workplaceType === 'OFFICE'
     warehouseId?: string;  // Populated when workplaceType === 'CENTRAL'
     /** Default workplace only. Authorization uses workplace_memberships in schema v2. */

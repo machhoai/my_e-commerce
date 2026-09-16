@@ -13,7 +13,7 @@ import {
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 
 export default function EmployeeRegisterPage() {
-    const { user, userDoc, effectiveStoreId: contextStoreId } = useAuth();
+    const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId } = useAuth();
 
     // ─── Settings (real-time via onSnapshot) ────────────────────────────────
     const [settings, setSettings] = useState<StoreSettings | null>(null);
@@ -333,13 +333,12 @@ export default function EmployeeRegisterPage() {
             });
 
             const regId = weeklyRegId(user.uid, storeId, currentWeekStart);
-            const payload: WeeklyRegistration = {
+            const payload = {
                 id: regId,
                 userId: user.uid,
                 storeId,
                 weekStartDate: toLocalDateString(currentWeekStart),
                 shifts: shiftsToSave,
-                submittedAt: new Date().toISOString(),
             };
 
             // POST to our new secure API route instead of writing directly to Firestore
@@ -403,10 +402,19 @@ export default function EmployeeRegisterPage() {
     };
 
     // ─── Loading State ────────────────────────────────────────────────────────
-    if (loading) {
+    if (loading || authLoading) {
         return (
             <div className="flex justify-center items-center h-64">
                 <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        );
+    }
+
+    if (userDoc && !hasPermission('register_shift')) {
+        return (
+            <div className="flex min-h-64 flex-col items-center justify-center gap-3 text-center text-danger-600">
+                <AlertCircle className="h-8 w-8" />
+                <p className="font-semibold">Bạn không có quyền đăng ký ca làm.</p>
             </div>
         );
     }

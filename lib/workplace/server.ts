@@ -76,6 +76,34 @@ export async function getUserStoreIds(db: Firestore, user: UserDoc, at = new Dat
         .map(item => item.workplace.id))];
 }
 
+/** Adds every active store membership to user records used by HR list screens. */
+export async function hydrateUserStoreIds(db: Firestore, users: UserDoc[], at = new Date()): Promise<UserDoc[]> {
+    const idsByUser = new Map<string, Set<string>>();
+    for (const user of users) {
+        const legacyIds = user.workplaceSchemaVersion === 2 || !user.storeId ? [] : [user.storeId];
+        idsByUser.set(user.uid, new Set(legacyIds));
+    }
+
+    const versionTwoIds = users.filter(user => user.workplaceSchemaVersion === 2).map(user => user.uid);
+    const chunks: string[][] = [];
+    for (let index = 0; index < versionTwoIds.length; index += 30) {
+        chunks.push(versionTwoIds.slice(index, index + 30));
+    }
+    const snapshots = await Promise.all(chunks.map(chunk => db.collection('workplace_memberships')
+        .where('userId', 'in', chunk)
+        .get()));
+    for (const snapshot of snapshots) {
+        for (const document of snapshot.docs) {
+            const membership = { id: document.id, ...document.data() } as WorkplaceMembership;
+            if (membership.workplace.type === 'STORE' && membershipIsEffective(membership, at)) {
+                idsByUser.get(membership.userId)?.add(membership.workplace.id);
+            }
+        }
+    }
+
+    return users.map(user => ({ ...user, storeIds: [...(idsByUser.get(user.uid) || [])] }));
+}
+
 export async function getStoreUsers(db: Firestore, storeId: string, at = new Date()): Promise<UserDoc[]> {
     const key = workplaceKey('STORE', storeId);
     const [memberships, legacyUsers] = await Promise.all([

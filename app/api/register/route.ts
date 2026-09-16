@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { ShiftEntry, StoreDoc, WeeklyRegistration } from '@/types';
 import { isInOpenWindow } from '@/lib/utils/schedule';
-import { requireWorkplaceCaller, workplaceAccessResponse, WorkplaceAccessError } from '@/lib/workplace/access';
+import { assertPermission, requireWorkplaceCaller, workplaceAccessResponse, WorkplaceAccessError } from '@/lib/workplace/access';
 import { legacyWeeklyRegistrationId, weeklyRegistrationId } from '@/lib/workplace/keys';
 import { allocationFromSnapshot, allocationRef, assertEmployeeStoreMembership, assertNoOverlappingShifts, shiftTouchesDates, writeAllocation } from '@/lib/scheduling/server';
 
@@ -10,6 +10,9 @@ const schema = z.object({
     id: z.string().optional(), userId: z.string().min(1), storeId: z.string().trim().min(1),
     weekStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     shifts: z.array(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), shiftId: z.string().trim().min(1), isAssignedByManager: z.boolean().optional() }).strict()).min(1),
+    // Kept for compatibility with clients deployed before submittedAt became server-owned.
+    // The value is intentionally ignored when the registration document is written.
+    submittedAt: z.string().datetime().optional(),
 }).strict();
 
 function assertEditableWeek(value: string) {
@@ -49,6 +52,7 @@ async function loadOpenStore(caller: Awaited<ReturnType<typeof requireWorkplaceC
 export async function POST(req: NextRequest) {
     try {
         const caller = await requireWorkplaceCaller(req); const input = schema.parse(await req.json());
+        assertPermission(caller, 'register_shift');
         if (input.userId !== caller.uid) throw new WorkplaceAccessError('Không được thay đổi đăng ký của người khác.', 403);
         assertEditableWeek(input.weekStartDate); assertShiftDates(input.weekStartDate, input.shifts);
         const store = await loadOpenStore(caller, input.storeId);
@@ -129,6 +133,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
     try {
         const caller = await requireWorkplaceCaller(req);
+        assertPermission(caller, 'register_shift');
         const { registrationId } = z.object({ registrationId: z.string().min(1) }).strict().parse(await req.json());
         const ref = caller.db.collection('weekly_registrations').doc(registrationId); const snapshot = await ref.get();
         if (!snapshot.exists) throw new WorkplaceAccessError('Không tìm thấy đăng ký.', 404);

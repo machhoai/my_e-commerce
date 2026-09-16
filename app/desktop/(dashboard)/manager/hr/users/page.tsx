@@ -2,10 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { UserDoc, EmployeeType, UserRole, StoreDoc, OfficeDoc, WarehouseDoc, CustomRoleDoc } from '@/types';
-import { Users, Search, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Plus, MailPlus, KeyRound, Building2, Shield, Award, UserX, RotateCcw, Briefcase, TrendingUp, FileWarning, CheckCircle2, AlertTriangle, QrCode } from 'lucide-react';
+import { Users, ShieldAlert, UserMinus, UserCheck, Plus, MailPlus, KeyRound, Building2, Shield, Award, UserX, RotateCcw, FileWarning, CheckCircle2, AlertTriangle, QrCode } from 'lucide-react';
 import { showToast } from '@/lib/utils/toast';
 import ExportEmployeesExcel from '@/components/hr/ExportEmployeesExcel';
 import { cn } from '@/lib/utils';
@@ -19,16 +17,18 @@ import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 import { LabelPrintConfigurator } from '@/components/admin/LabelPrintConfigurator';
 import UserInfoEditor from '@/components/shared/UserInfoEditor';
 import { fetchWorkplaceMembers } from '@/lib/workplace/client';
-import LocationPicker, { deriveLocationType, locationFieldName, locationIcon, locationLabel, type LocationType } from '@/components/hr/LocationPicker';
+import LocationPicker, { deriveLocationType, locationIcon, locationLabel, type LocationType } from '@/components/hr/LocationPicker';
+import StoreMultiSelect from '@/components/hr/StoreMultiSelect';
 
 function ManagerUsersPageContent() {
-    const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId, managedStoreIds, activeWorkplace } = useAuth();
+    const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId, managedStoreIds, activeWorkplace, workplaces } = useAuth();
     const canManageEmployees = userDoc?.role === 'admin' || userDoc?.role === 'super_admin' ||
         userDoc?.role === 'store_manager' || userDoc?.canManageHR === true ||
         hasPermission('action.hr.manage');
     const { params, setParam, setParams, clearAll, toggleSort, activeFilterCount, setPage, setPageSize } = useTableParams();
     const [employees, setEmployees] = useState<UserDoc[]>([]);
     const [loading, setLoading] = useState(true);
+    const [employeesRefreshKey, setEmployeesRefreshKey] = useState(0);
     const [profileUid, setProfileUid] = useState<string | null>(null);
     const [printEmployees, setPrintEmployees] = useState<UserDoc[]>([]);
 
@@ -54,6 +54,7 @@ function ManagerUsersPageContent() {
     const [newResignationDate, setNewResignationDate] = useState('');
     const [newContractNumber, setNewContractNumber] = useState('');
     const [newStoreId, setNewStoreId] = useState('');
+    const [newStoreIds, setNewStoreIds] = useState<string[]>([]);
     /** For admin form: STORE | OFFICE | CENTRAL — drives which ID field is shown */
     const [newWorkplaceType, setNewWorkplaceType] = useState<LocationType>('STORE');
     const [newOfficeId, setNewOfficeId] = useState('');
@@ -127,13 +128,19 @@ function ManagerUsersPageContent() {
         return deriveLocationType(selectedAdminStoreId, stores, offices, warehouses);
     }, [selectedAdminStoreId, stores, offices, warehouses]);
 
-    // Fetch stores, offices, warehouses for admin
+    // Stores are scoped by the API for non-admin users; admins also need offices/warehouses.
     useEffect(() => {
-        if (userDoc?.role !== 'admin' || !user) return;
+        if (!user) return;
         async function fetchLocations() {
             try {
                 const token = await getToken();
                 const headers = { Authorization: `Bearer ${token}` };
+                if (userDoc?.role !== 'admin') {
+                    const storesRes = await fetch('/api/stores', { headers });
+                    const storesData = await storesRes.json();
+                    setStores(Array.isArray(storesData) ? storesData : []);
+                    return;
+                }
                 const [storesRes, officesRes, warehousesRes] = await Promise.all([
                     fetch('/api/stores', { headers }),
                     fetch('/api/offices', { headers }),
@@ -202,13 +209,16 @@ function ManagerUsersPageContent() {
             setEmployees(docs); setLoading(false);
         }).catch(err => { if (!cancelled) { console.error('Error fetching employees:', err); setLoading(false); } });
         return () => { cancelled = true; };
-    }, [authLoading, user, userDoc, selectedAdminStoreId, selectedLocationType, contextStoreId, activeWorkplace]);
+    }, [authLoading, user, userDoc, selectedAdminStoreId, selectedLocationType, contextStoreId, activeWorkplace, employeesRefreshKey]);
 
     const handleCreateOrUpdateUser = async (e: React.FormEvent) => {
         e.preventDefault();
         setActionLoading(editUid ? 'update' : 'create');
 
         try {
+            if (!editUid && newWorkplaceType === 'STORE' && newStoreIds.length === 0 && newRole !== 'admin') {
+                throw new Error('Vui lòng chọn ít nhất một cửa hàng cho nhân viên.');
+            }
             const token = await user?.getIdToken();
             const endpoint = editUid ? '/api/auth/update-user' : '/api/auth/create-user';
             const bodyPayload: any = {
@@ -246,9 +256,11 @@ function ManagerUsersPageContent() {
                 }
                 if (userDoc?.role === 'admin') {
                     bodyPayload.workplaceType = newWorkplaceType;
-                    if (newWorkplaceType === 'STORE' && newStoreId) bodyPayload.storeId = newStoreId;
+                    if (newWorkplaceType === 'STORE') bodyPayload.storeIds = newStoreIds;
                     if (newWorkplaceType === 'OFFICE' && newOfficeId) bodyPayload.officeId = newOfficeId;
                     if (newWorkplaceType === 'CENTRAL' && newWarehouseId) bodyPayload.warehouseId = newWarehouseId;
+                } else {
+                    bodyPayload.storeIds = newStoreIds;
                 }
             }
 
@@ -267,6 +279,7 @@ function ManagerUsersPageContent() {
             showToast.success('Thành công', `Nhân viên ${newName} đã được ${editUid ? 'cập nhật' : 'tạo'} thành công!`);
             setIsCreateModalOpen(false);
             setEditUid(null);
+            setEmployeesRefreshKey(key => key + 1);
 
             // Reset form
             resetForm();
@@ -287,7 +300,21 @@ function ManagerUsersPageContent() {
         setNewDob(''); setNewJobTitle(''); setNewEmail('');
         setNewIdCard(''); setNewBankAccount(''); setNewEducation('');
         setNewProbationStartDate(''); setNewOfficialStartDate(''); setNewResignationDate(''); setNewContractNumber('');
-        setNewStoreId('');
+        setNewStoreId(''); setNewStoreIds([]);
+    };
+
+    const openCreateModal = () => {
+        resetForm();
+        const primaryStore = workplaces.find(item => item.isPrimary && item.isEffective && item.isActive && item.workplace.type === 'STORE');
+        const preferredStoreId = primaryStore?.workplace.id
+            || (activeWorkplace?.workplace.type === 'STORE' ? activeWorkplace.workplace.id : contextStoreId);
+        if (preferredStoreId && managedStoreIds.includes(preferredStoreId)) {
+            setNewStoreIds([preferredStoreId]);
+        } else if (managedStoreIds[0]) {
+            setNewStoreIds([managedStoreIds[0]]);
+        }
+        setEditUid(null);
+        setIsCreateModalOpen(true);
     };
 
     const openEditModal = (employee: UserDoc) => {
@@ -342,9 +369,6 @@ function ManagerUsersPageContent() {
             setActionLoading(null);
         }
     };
-
-    // Build storeId → name lookup map for rendering the Store column in the table
-    const storeMap = new Map(stores.map(s => [s.id, s.name]));
 
     // Compute counts for stat cards (always from full list)
     const activeEmployees = employees.filter(e => e.isActive !== false);
@@ -544,9 +568,7 @@ function ManagerUsersPageContent() {
                                 </button>
                                 {canManageEmployees && <button
                                     onClick={() => {
-                                        resetForm();
-                                        setEditUid(null);
-                                        setIsCreateModalOpen(true);
+                                        openCreateModal();
                                     }}
                                     className="flex items-center gap-2 bg-gradient-to-r from-primary-600 to-accent-600 hover:from-primary-700 hover:to-accent-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-primary-500/20 transition-all active:scale-95"
                                 >
@@ -566,7 +588,7 @@ function ManagerUsersPageContent() {
                                             <SortableHeader label="Nhân viên" field="name" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-5 text-center" />
                                             <SortableHeader label="Loại HĐ" field="type" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-4 text-center" />
                                             <SortableHeader label="Vai trò" field="role" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-4 text-center" />
-                                            {userDoc?.role === 'admin' && <th scope="col" className="px-4 py-3.5 text-center font-bold">Cửa hàng</th>}
+                                            <th scope="col" className="px-4 py-3.5 text-center font-bold">Cửa hàng</th>
                                             <SortableHeader label="KPI TB" field="kpi" currentSort={params.sort} currentOrder={params.order} onSort={toggleSort} className="px-4 text-center" />
                                             <th scope="col" className="px-4 py-3.5 text-center font-bold">Hồ sơ</th>
                                             <th scope="col" className="px-4 py-3.5 text-center font-bold">Trạng thái</th>
@@ -576,13 +598,13 @@ function ManagerUsersPageContent() {
                                     <tbody className="divide-y divide-surface-100">
                                         {loading ? (
                                             <tr>
-                                                <td colSpan={userDoc?.role === 'admin' ? 8 : 7} className="py-12 text-center">
+                                                <td colSpan={8} className="py-12 text-center">
                                                     <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
                                                 </td>
                                             </tr>
                                         ) : filteredEmployees.length === 0 ? (
                                             <tr>
-                                                <td colSpan={userDoc?.role === 'admin' ? 8 : 7} className="py-16 text-center">
+                                                <td colSpan={8} className="py-16 text-center">
                                                     <div className="flex flex-col items-center gap-3">
                                                         <div className="w-16 h-16 rounded-full bg-surface-100 flex items-center justify-center">
                                                             <Users className="w-7 h-7 text-surface-400" />
@@ -670,20 +692,16 @@ function ManagerUsersPageContent() {
                                                                 );
                                                             })()}
                                                         </td>
-                                                        {userDoc?.role === 'admin' && (
-                                                            <td className="px-4 py-3.5">
-                                                                <span className="text-xs font-medium truncate px-2.5 py-1 rounded-lg bg-surface-50 text-surface-600 border border-surface-200 inline-flex items-center gap-1">
-                                                                    {e.workplaceType === 'OFFICE' ? '🏢' : e.workplaceType === 'CENTRAL' ? '🏭' : '🏪'}
-                                                                    {e.officeId
-                                                                        ? (offices.find(o => o.id === e.officeId)?.name ?? e.officeId)
-                                                                        : e.warehouseId
-                                                                            ? (warehouses.find(w => w.id === e.warehouseId)?.name ?? e.warehouseId)
-                                                                            : e.storeId
-                                                                                ? (storeMap.get(e.storeId) ?? e.storeId)
-                                                                                : <span className="italic text-surface-400">—</span>}
-                                                                </span>
-                                                            </td>
-                                                        )}
+                                                        <td className="px-4 py-3.5">
+                                                            <div className="flex max-w-[260px] flex-wrap justify-center gap-1">
+                                                                {(e.storeIds?.length ? e.storeIds : e.storeId ? [e.storeId] : []).map(storeId => (
+                                                                    <span key={storeId} className="inline-flex items-center gap-1 rounded-lg border border-surface-200 bg-surface-50 px-2 py-1 text-[11px] font-medium text-surface-600">
+                                                                        🏪 {storeMap.get(storeId) ?? storeId}
+                                                                    </span>
+                                                                ))}
+                                                                {!e.storeIds?.length && !e.storeId && <span className="italic text-surface-400">—</span>}
+                                                            </div>
+                                                        </td>
                                                         <td className="px-4 py-3.5 text-center">
                                                             {(() => {
                                                                 const kpi = kpiAverages[e.uid];
@@ -861,7 +879,7 @@ function ManagerUsersPageContent() {
                                                         return (
                                                             <>
                                                                 {/* Admin: workplace type first so role filter is correct */}
-                                                                {userDoc?.role === 'admin' && (
+                                                                 {userDoc?.role === 'admin' && (
                                                                     <>
                                                                         <div className="space-y-1.5">
                                                                             <label className="text-sm font-medium text-surface-700 flex items-center gap-1.5">
@@ -895,12 +913,12 @@ function ManagerUsersPageContent() {
                                                                             <label className="text-sm font-medium text-surface-700">
                                                                                 {newWorkplaceType === 'STORE' ? 'Cửa hàng' : newWorkplaceType === 'OFFICE' ? 'Văn phòng' : 'Kho'}
                                                                             </label>
-                                                                            {newWorkplaceType === 'STORE' && (
+                                                                            {newWorkplaceType === 'STORE' && (editUid ? (
                                                                                 <select value={newStoreId} onChange={e => setNewStoreId(e.target.value)} className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 cursor-pointer">
                                                                                     <option value="">-- Chưa gán --</option>
                                                                                     {stores.map(s => <option key={s.id} value={s.id}>🏪 {s.name}</option>)}
                                                                                 </select>
-                                                                            )}
+                                                                            ) : <StoreMultiSelect stores={stores} value={newStoreIds} onChange={setNewStoreIds} />)}
                                                                             {newWorkplaceType === 'OFFICE' && (
                                                                                 <select value={newOfficeId} onChange={e => setNewOfficeId(e.target.value)} className="w-full bg-surface-50 border border-surface-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 cursor-pointer">
                                                                                     <option value="">-- Chưa gán --</option>
@@ -914,9 +932,16 @@ function ManagerUsersPageContent() {
                                                                                 </select>
                                                                             )}
                                                                         </div>
-                                                                    </>
-                                                                )}
-                                                                <div className="space-y-1.5">
+                                                                     </>
+                                                                 )}
+                                                                 {userDoc?.role !== 'admin' && !editUid && managedStoreIds.length > 1 && (
+                                                                     <div className="space-y-1.5">
+                                                                         <label className="text-sm font-medium text-surface-700">Cửa hàng làm việc <span className="text-danger-500">*</span></label>
+                                                                         <StoreMultiSelect stores={stores} value={newStoreIds} onChange={setNewStoreIds} />
+                                                                         <p className="text-[10px] text-surface-400">Có thể chọn một hoặc nhiều cửa hàng trong phạm vi quản lý.</p>
+                                                                     </div>
+                                                                 )}
+                                                                 <div className="space-y-1.5">
                                                                     <label className="text-sm font-medium text-surface-700 flex items-center gap-1.5">
                                                                         <Shield className="w-3.5 h-3.5 text-accent-500" />
                                                                         Vai trò <span className="text-danger-500">*</span>
@@ -1085,7 +1110,10 @@ function ManagerUsersPageContent() {
                                         <div className="p-6">
                                             <UserInfoEditor
                                                 employee={editEmployee}
-                                                onUpdated={() => setEditEmployee(null)}
+                                                onUpdated={() => {
+                                                    setEditEmployee(null);
+                                                    setEmployeesRefreshKey(key => key + 1);
+                                                }}
                                                 variant="full"
                                             />
                                         </div>

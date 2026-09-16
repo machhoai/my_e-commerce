@@ -301,12 +301,14 @@ export default function MobileEmployeeDashboardPage() {
             )}
 
             {/* CTA to register */}
-            <button
-                onClick={() => router.push('/employee/register')}
-                className="mt-3 w-full py-3 rounded-xl bg-primary-600 text-white text-xs font-bold active:scale-[0.98] transition-transform shadow-md shadow-primary-200"
-            >
-                {t('employee.registerNextWeek')}
-            </button>
+            {hasPermission('register_shift') && (
+                <button
+                    onClick={() => router.push('/employee/register')}
+                    className="mt-3 w-full py-3 rounded-xl bg-primary-600 text-white text-xs font-bold active:scale-[0.98] transition-transform shadow-md shadow-primary-200"
+                >
+                    {t('employee.registerNextWeek')}
+                </button>
+            )}
 
             {/* Self Scoring Modal */}
             {selfScoreModal.template && (

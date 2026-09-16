@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { assertPermission, assertWorkplaceScope, requireWorkplaceCaller, workplaceAccessResponse, WorkplaceAccessError } from '@/lib/workplace/access';
 import { parseWorkplaceKey } from '@/lib/workplace/keys';
-import { getWorkplaceUsers } from '@/lib/workplace/server';
+import { getWorkplaceUsers, hydrateUserStoreIds } from '@/lib/workplace/server';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ key: string }> }) {
     try {
@@ -9,7 +9,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ key:
         const parsed = parseWorkplaceKey((await params).key);
         if (!parsed) throw new WorkplaceAccessError('Mã nơi làm việc không hợp lệ.', 400);
         await assertWorkplaceScope(caller, parsed.type, parsed.id);
-        const users = (await getWorkplaceUsers(caller.db, parsed.type, parsed.id)).filter(item => item.isActive !== false);
+        const users = await hydrateUserStoreIds(
+            caller.db,
+            (await getWorkplaceUsers(caller.db, parsed.type, parsed.id)).filter(item => item.isActive !== false),
+        );
         return NextResponse.json(users, { headers: { 'Cache-Control': 'no-store' } });
     } catch (error) {
         return workplaceAccessResponse(error) ?? NextResponse.json({ error: 'Không thể tải danh sách nhân viên.' }, { status: 500 });

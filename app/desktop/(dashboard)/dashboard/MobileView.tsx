@@ -1742,12 +1742,12 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
             colorClass: 'bg-blue-300 text-blue-900',
             route: '/employee/dashboard',
         },
-        {
+        ...(hasPermission('register_shift') ? [{
             icon: PlusSquare,
             label: t('qa_registerShift'),
             colorClass: 'bg-emerald-300 text-emerald-900',
             route: '/employee/register',
-        },
+        }] : []),
         {
             icon: TrendingUp,
             label: t('qa_myKpi'),
@@ -1827,7 +1827,7 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
             items: [
                 { icon: LayoutDashboard, label: t('nav_mySchedule'), route: '/employee/dashboard', color: 'bg-blue-50 text-blue-600' },
                 { icon: Clock, label: t('qa_attendance'), route: '/employee/attendance', color: 'bg-teal-50 text-teal-600', permKey: 'action.attendance.punch' },
-                { icon: PlusSquare, label: t('nav_registerShift'), route: '/employee/register', color: 'bg-blue-50 text-blue-600' },
+                { icon: PlusSquare, label: t('nav_registerShift'), route: '/employee/register', color: 'bg-blue-50 text-blue-600', permKey: 'register_shift' },
                 { icon: TrendingUp, label: t('nav_myKpi'), route: '/employee/kpi-stats', color: 'bg-amber-50 text-amber-600' },
                 { icon: Star, label: t('nav_referralPoints'), route: '/employee/referral-history', color: 'bg-amber-50 text-amber-600' },
                 { icon: Repeat, label: t('nav_handover'), route: '/employee/inventory/handover', color: 'bg-emerald-50 text-emerald-600' },
@@ -1839,7 +1839,7 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
             group: t('group_operation'),
             items: [
                 { icon: Calendar, label: t('nav_scheduling'), route: '/manager/scheduling/overview', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.overview' },
-                { icon: PlusSquare, label: t('nav_registerShift'), route: '/employee/register', color: 'bg-emerald-50 text-emerald-600' },
+                { icon: PlusSquare, label: t('nav_registerShift'), route: '/employee/register', color: 'bg-emerald-50 text-emerald-600', permKey: 'register_shift' },
                 { icon: ClipboardList, label: t('nav_shiftRegister'), route: '/manager/scheduling/register', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.register' },
                 { icon: PlusSquare, label: t('nav_shiftBuilder'), route: '/manager/scheduling/builder', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.builder' },
                 { icon: Activity, label: t('nav_shiftHistory'), route: '/manager/scheduling/history', color: 'bg-blue-50 text-blue-600', permKey: 'page.scheduling.history' },

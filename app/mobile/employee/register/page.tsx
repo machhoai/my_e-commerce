@@ -14,7 +14,7 @@ import MobilePageShell from '@/components/mobile/MobilePageShell';
 import { useMobileTranslation } from '@/lib/i18n';
 
 export default function MobileEmployeeRegisterPage() {
-    const { user, userDoc, effectiveStoreId: contextStoreId } = useAuth();
+    const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId } = useAuth();
     const { t, locale } = useMobileTranslation();
 
     const [settings, setSettings] = useState<StoreSettings | null>(null);
@@ -212,9 +212,9 @@ export default function MobileEmployeeRegisterPage() {
             const shiftsToSave: ShiftEntry[] = [];
             selectedShifts.forEach((ds, i) => ds.forEach(sid => shiftsToSave.push({ date: weekDays[i], shiftId: sid })));
             const regId = weeklyRegId(user.uid, storeId, currentWeekStart);
-            const payload: WeeklyRegistration = {
+            const payload = {
                 id: regId, userId: user.uid, storeId,
-                weekStartDate: toLocalDateString(currentWeekStart), shifts: shiftsToSave, submittedAt: new Date().toISOString(),
+                weekStartDate: toLocalDateString(currentWeekStart), shifts: shiftsToSave,
             };
             const token = await user.getIdToken();
             const res = await fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(payload) });
@@ -253,6 +253,27 @@ export default function MobileEmployeeRegisterPage() {
         : '';
 
     const totalSelected = selectedShifts.reduce((s, d) => s + d.length, 0);
+
+    if (authLoading) {
+        return (
+            <MobilePageShell title={t('register.title')} showWorkplacePicker>
+                <div className="flex min-h-48 items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary-500" />
+                </div>
+            </MobilePageShell>
+        );
+    }
+
+    if (userDoc && !hasPermission('register_shift')) {
+        return (
+            <MobilePageShell title={t('register.title')} showWorkplacePicker>
+                <div className="flex min-h-48 flex-col items-center justify-center gap-2 px-6 text-center text-red-600">
+                    <AlertCircle className="h-7 w-7" />
+                    <p className="text-sm font-bold">Bạn không có quyền đăng ký ca làm.</p>
+                </div>
+            </MobilePageShell>
+        );
+    }
 
     return (
         <MobilePageShell title={t('register.title')} showWorkplacePicker>
