@@ -4,6 +4,7 @@ import type { ShiftEntry, StoreDoc, WeeklyRegistration } from '@/types';
 import { requireWorkplaceCaller, workplaceAccessResponse, WorkplaceAccessError } from '@/lib/workplace/access';
 import { legacyWeeklyRegistrationId, weeklyRegistrationId } from '@/lib/workplace/keys';
 import { allocationFromSnapshot, allocationRef, assertCanManageStore, assertEmployeeStoreMembership, assertNoOverlappingShifts, getTargetUser, shiftTouchesDates, writeAllocation } from '@/lib/scheduling/server';
+import { exceedsDailyShiftLimit } from '@/lib/scheduling/policy';
 
 function storeQuota(store: StoreDoc, date: string, shiftId: string) {
     const quotas = store.settings?.quotas;
@@ -67,9 +68,10 @@ export async function POST(req: NextRequest) {
                 });
             });
             resultingShifts.forEach(item => { if (item.date === input.date) dayShifts.add(item.shiftId); });
-            const maxPerDay = store.settings?.maxShiftsPerDay ?? 1;
-            if (dayShifts.size > maxPerDay) throw new WorkplaceAccessError(`Chỉ được xếp tối đa ${maxPerDay} ca trong một ngày.`, 409);
             assertNoOverlappingShifts(store, input.date, [...dayShifts]);
+            if (exceedsDailyShiftLimit(dayShifts)) {
+                throw new WorkplaceAccessError('Một nhân viên chỉ được xếp một ca trong một ngày.', 409);
+            }
             if (store.settings?.strictShiftLimit ?? true) {
                 const employees = new Set(storeRegs.docs
                     .filter(doc => doc.id !== id && doc.id !== legacyId && (doc.data() as WeeklyRegistration).shifts?.some(item => item.date === input.date && item.shiftId === input.shiftId))

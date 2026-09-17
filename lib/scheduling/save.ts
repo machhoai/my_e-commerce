@@ -4,6 +4,7 @@ import type { ScheduleDoc, StoreDoc } from '@/types';
 import type { WorkplaceCaller } from '@/lib/workplace/access';
 import { WorkplaceAccessError } from '@/lib/workplace/access';
 import { scheduleId } from '@/lib/workplace/keys';
+import { exceedsDailyShiftLimit } from '@/lib/scheduling/policy';
 import { allocationFromSnapshot, allocationRef, assertCanManageStore, assertEmployeeStoreMembership, assertNoOverlappingShifts, getTargetUser, shiftTouchesDates, writeAllocation } from './server';
 
 export interface ScheduleDayInput {
@@ -44,10 +45,18 @@ export async function saveScheduleDays(caller: WorkplaceCaller, storeId: string,
     const shiftsByUserDay = new Map<string, Set<string>>();
     for (const day of days) for (const assignment of Object.values(day.assignments)) for (const uid of assignment.employeeIds) {
         const key = `${uid}\u0000${day.date}`; const shifts = shiftsByUserDay.get(key) || new Set<string>();
-        if (shifts.has(day.shiftId)) throw new WorkplaceAccessError('Một nhân viên không thể được xếp vào nhiều quầy trong cùng ca.', 409);
         shifts.add(day.shiftId); shiftsByUserDay.set(key, shifts);
     }
-    for (const [key, shifts] of shiftsByUserDay) assertNoOverlappingShifts({ id: storeSnapshot.id, ...storeSnapshot.data() } as StoreDoc, key.split('\u0000')[1], [...shifts]);
+    for (const [key, shifts] of shiftsByUserDay) {
+        assertNoOverlappingShifts(
+            { id: storeSnapshot.id, ...storeSnapshot.data() } as StoreDoc,
+            key.split('\u0000')[1],
+            [...shifts],
+        );
+        if (exceedsDailyShiftLimit(shifts)) {
+            throw new WorkplaceAccessError('Một nhân viên chỉ được xếp một ca trong một ngày.', 409);
+        }
+    }
     if (writeCount > 180 || allEmployeeIds.size > 250) throw new WorkplaceAccessError('Lịch quá lớn cho một lần lưu. Vui lòng chia nhỏ theo ngày.', 413);
 
     const users = new Map<string, Awaited<ReturnType<typeof getTargetUser>>>();
@@ -119,18 +128,14 @@ export async function saveScheduleDays(caller: WorkplaceCaller, storeId: string,
             assignment.employeeIds.forEach(uid => add(uid, day.date, day.shiftId, counterId))));
         shiftsAfterSave.forEach((values, key) => {
             const uniqueShifts = new Set(values.map(value => value.shiftId));
-            if (uniqueShifts.size !== values.length) {
-                throw new WorkplaceAccessError('Một nhân viên không thể được xếp vào nhiều quầy trong cùng ca.', 409);
-            }
-            const maxPerDay = storeSnapshot.data()?.settings?.maxShiftsPerDay ?? 1;
-            if (uniqueShifts.size > maxPerDay) {
-                throw new WorkplaceAccessError(`Chỉ được xếp tối đa ${maxPerDay} ca trong một ngày.`, 409);
-            }
             assertNoOverlappingShifts(
                 { id: storeSnapshot.id, ...storeSnapshot.data() } as StoreDoc,
                 key.split('\u0000')[1],
                 [...uniqueShifts],
             );
+            if (exceedsDailyShiftLimit(uniqueShifts)) {
+                throw new WorkplaceAccessError('Một nhân viên chỉ được xếp một ca trong một ngày.', 409);
+            }
         });
         if (storeSnapshot.data()?.settings?.strictShiftLimit ?? true) {
             employeesByShift.forEach((employees, key) => {

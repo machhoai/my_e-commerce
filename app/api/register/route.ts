@@ -5,6 +5,7 @@ import { isInOpenWindow } from '@/lib/utils/schedule';
 import { assertPermission, requireWorkplaceCaller, workplaceAccessResponse, WorkplaceAccessError } from '@/lib/workplace/access';
 import { legacyWeeklyRegistrationId, weeklyRegistrationId } from '@/lib/workplace/keys';
 import { allocationFromSnapshot, allocationRef, assertEmployeeStoreMembership, assertNoOverlappingShifts, shiftTouchesDates, writeAllocation } from '@/lib/scheduling/server';
+import { exceedsDailyShiftLimit } from '@/lib/scheduling/policy';
 
 const schema = z.object({
     id: z.string().optional(), userId: z.string().min(1), storeId: z.string().trim().min(1),
@@ -59,9 +60,10 @@ export async function POST(req: NextRequest) {
         const byDate = new Map<string, ShiftEntry[]>();
         for (const shift of input.shifts) { const group = byDate.get(shift.date) || []; group.push(shift); byDate.set(shift.date, group); }
         for (const date of byDate.keys()) await assertEmployeeStoreMembership(caller.db, caller.user, input.storeId, date);
-        const maxPerDay = store.settings?.maxShiftsPerDay ?? 1;
-        if ([...byDate.values()].some(group => group.length > maxPerDay)) throw new WorkplaceAccessError(`Chỉ được đăng ký tối đa ${maxPerDay} ca trong một ngày.`, 400);
         for (const [date, shifts] of byDate) assertNoOverlappingShifts(store, date, shifts.map(shift => shift.shiftId));
+        if ([...byDate.values()].some(group => exceedsDailyShiftLimit(group.map(shift => shift.shiftId)))) {
+            throw new WorkplaceAccessError('Mỗi nhân viên chỉ được đăng ký một ca trong một ngày.', 400);
+        }
 
         const id = weeklyRegistrationId(caller.uid, input.storeId, input.weekStartDate);
         const regRef = caller.db.collection('weekly_registrations').doc(id);
