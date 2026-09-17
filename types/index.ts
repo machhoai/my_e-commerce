@@ -556,6 +556,8 @@ export interface UserDoc {
     type: EmployeeType;
     isActive: boolean;
     createdAt?: string;
+    /** First time the mandatory account/profile setup was completed. */
+    setupCompletedAt?: string;
 
     // Workplace assignment — workplaceType drives context-aware navigation
     workplaceType?: WorkplaceType;

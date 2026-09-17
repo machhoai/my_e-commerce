@@ -19,6 +19,7 @@ import UserInfoEditor from '@/components/shared/UserInfoEditor';
 import { fetchWorkplaceMembers } from '@/lib/workplace/client';
 import LocationPicker, { deriveLocationType, locationIcon, locationLabel, type LocationType } from '@/components/hr/LocationPicker';
 import StoreMultiSelect from '@/components/hr/StoreMultiSelect';
+import { getAgeFromDob } from '@/lib/hr/employee-age';
 
 function ManagerUsersPageContent() {
     const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId, managedStoreIds, activeWorkplace, workplaces } = useAuth();
@@ -620,14 +621,24 @@ function ManagerUsersPageContent() {
                                             paginatedEmployees.map((e) => {
                                                 const isActive = e.isActive !== false; // Default true if undefined
                                                 const isSubmitting = actionLoading === e.uid;
+                                                const age = getAgeFromDob(e.dob);
+                                                const isUnder18 = age !== null && age < 18;
 
                                                 return (
-                                                    <tr key={e.uid} className={`group transition-all duration-200 ${!isActive ? 'bg-surface-50/50 hover:bg-surface-100/70' : 'hover:bg-primary-50/30'}`}>
+                                                    <tr key={e.uid} className={cn(
+                                                        'group transition-all duration-200',
+                                                        !isActive
+                                                            ? 'bg-surface-50/50 hover:bg-surface-100/70'
+                                                            : isUnder18
+                                                                ? 'bg-danger-50/70 hover:bg-danger-100/70 ring-1 ring-inset ring-danger-200'
+                                                                : 'hover:bg-primary-50/30',
+                                                    )}>
                                                         <td className="px-5 py-3.5 whitespace-nowrap">
                                                             <div className="flex items-center gap-3">
                                                                 {/* Avatar */}
                                                                 <div className={cn(
                                                                     'w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-transform group-hover:scale-110 overflow-hidden',
+                                                                    isUnder18 && 'ring-2 ring-danger-300 ring-offset-1',
                                                                     !e.avatar && (isActive
                                                                         ? 'bg-gradient-to-br from-primary-400 to-accent-500 text-white shadow-sm'
                                                                         : 'bg-surface-200 text-surface-500')
@@ -639,15 +650,26 @@ function ManagerUsersPageContent() {
                                                                         e.name.split(' ').slice(-1)[0]?.[0]?.toUpperCase() || '?'
                                                                     )}
                                                                 </div>
-                                                                <div>
-                                                                    <div
-                                                                        className={cn(
-                                                                            `font-semibold transition-colors ${!isActive ? 'text-surface-400' : 'text-surface-900 group-hover:text-primary-700'}`,
-                                                                            hasPermission('action.hr.view_employee_profile') && 'cursor-pointer hover:underline'
+                                                                <div className="min-w-0">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div
+                                                                            className={cn(
+                                                                                `font-semibold transition-colors ${!isActive ? 'text-surface-400' : 'text-surface-900 group-hover:text-primary-700'}`,
+                                                                                hasPermission('action.hr.view_employee_profile') && 'cursor-pointer hover:underline'
+                                                                            )}
+                                                                            onClick={() => { if (hasPermission('action.hr.view_employee_profile')) setProfileUid(e.uid); }}
+                                                                        >
+                                                                            {e.name}
+                                                                        </div>
+                                                                        {isUnder18 && (
+                                                                            <span
+                                                                                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-danger-200 bg-danger-100 px-2 py-0.5 text-[10px] font-bold text-danger-700"
+                                                                                title={`Ngày sinh: ${e.dob}`}
+                                                                            >
+                                                                                <AlertTriangle className="h-3 w-3" />
+                                                                                Chưa đủ 18 · {age} tuổi
+                                                                            </span>
                                                                         )}
-                                                                        onClick={() => { if (hasPermission('action.hr.view_employee_profile')) setProfileUid(e.uid); }}
-                                                                    >
-                                                                        {e.name}
                                                                     </div>
                                                                     <div className="text-surface-400 text-xs mt-0.5 font-medium">{e.phone}</div>
                                                                 </div>

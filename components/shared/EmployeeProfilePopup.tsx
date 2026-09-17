@@ -37,6 +37,16 @@ function barColor(v: number) {
 function formatDate(dateStr: string) {
     try { const [y, m, d] = dateStr.split('-'); return `${d}/${m}/${y}`; } catch { return dateStr; }
 }
+function formatDateTime(value?: string) {
+    if (!value) return 'Chưa ghi nhận';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Chưa ghi nhận';
+    return date.toLocaleString('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+    });
+}
 function formatMonthLabel(m: string) {
     const [y, mo] = m.split('-'); return `T${mo}/${y.slice(2)}`;
 }
@@ -397,6 +407,8 @@ export default function EmployeeProfilePopup({ employeeUid, storeId, onClose, in
     const infoItems = employee ? [
         { icon: <Phone className="w-4 h-4" />, label: 'Số điện thoại', value: employee.phone },
         { icon: <Mail className="w-4 h-4" />, label: 'Email', value: employee.email || '—' },
+        { icon: <Clock className="w-4 h-4" />, label: 'Ngày tạo tài khoản', value: formatDateTime(employee.createdAt) },
+        { icon: <CheckCircle2 className="w-4 h-4" />, label: 'Hoàn thành setup tài khoản', value: formatDateTime(employee.setupCompletedAt) },
         { icon: <CalendarDays className="w-4 h-4" />, label: 'Ngày sinh', value: employee.dob ? formatDate(employee.dob) : '—' },
         { icon: <UserCircle className="w-4 h-4" />, label: 'Giới tính', value: employee.gender || '—' },
         { icon: <Briefcase className="w-4 h-4" />, label: 'Chức danh', value: employee.jobTitle || '—' },

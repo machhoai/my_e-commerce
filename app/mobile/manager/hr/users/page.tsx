@@ -24,6 +24,7 @@ import UserInfoEditor from '@/components/shared/UserInfoEditor';
 import { WorkplacePicker } from '@/components/shared/WorkplacePicker';
 import { fetchWorkplaceMembers } from '@/lib/workplace/client';
 import StoreMultiSelect from '@/components/hr/StoreMultiSelect';
+import { getAgeFromDob } from '@/lib/hr/employee-age';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface FormState {
@@ -165,6 +166,8 @@ function EmployeeCard({
 }) {
     const isActive = employee.isActive !== false;
     const profileOk = isProfileComplete(employee);
+    const age = getAgeFromDob(employee.dob);
+    const isUnder18 = age !== null && age < 18;
 
     // Resolve role display
     const colorMap: Record<string, string> = {
@@ -205,7 +208,11 @@ function EmployeeCard({
         <div
             className={cn(
                 'bg-white rounded-2xl border shadow-sm overflow-hidden active:scale-[0.99] transition-transform',
-                isActive ? 'border-gray-100' : 'border-gray-100 opacity-70',
+                !isActive
+                    ? 'border-gray-100 opacity-70'
+                    : isUnder18
+                        ? 'border-rose-300 bg-rose-50/70 ring-1 ring-rose-200'
+                        : 'border-gray-100',
             )}
         >
             {/* Main row — tap to view profile */}
@@ -216,6 +223,7 @@ function EmployeeCard({
                 {/* Avatar */}
                 <div className={cn(
                     'w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold shrink-0 overflow-hidden',
+                    isUnder18 && 'ring-2 ring-rose-300 ring-offset-1',
                     !employee.avatar && (isActive
                         ? 'bg-gradient-to-br from-primary-400 to-violet-500 text-white'
                         : 'bg-gray-200 text-gray-400'),
@@ -235,6 +243,12 @@ function EmployeeCard({
                         {!isActive && (
                             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 shrink-0">
                                 Nghỉ việc
+                            </span>
+                        )}
+                        {isUnder18 && (
+                            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2 py-0.5 text-[9px] font-bold text-rose-700">
+                                <AlertTriangle className="h-3 w-3" />
+                                Chưa đủ 18 · {age} tuổi
                             </span>
                         )}
                     </div>
