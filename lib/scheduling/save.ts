@@ -25,14 +25,16 @@ export async function saveScheduleDays(caller: WorkplaceCaller, storeId: string,
     if (!days.length) throw new WorkplaceAccessError('Không có ngày xếp lịch để lưu.', 400);
     const storeSnapshot = await caller.db.collection('stores').doc(storeId).get();
     if (!storeSnapshot.exists || storeSnapshot.data()?.isActive === false) throw new WorkplaceAccessError('Cửa hàng không tồn tại hoặc đã ngừng hoạt động.', 404);
-    const counters = new Set<string>((storeSnapshot.data()?.settings?.counters || []).filter((item: { isActive?: boolean }) => item.isActive !== false).map((item: { id: string }) => item.id));
+    // Counter.isActive controls inventory/WMS access, not whether the physical
+    // counter can be used for scheduling. Every configured counter is schedulable.
+    const counters = new Set<string>((storeSnapshot.data()?.settings?.counters || []).map((item: { id: string }) => item.id));
 
     const allEmployeeIds = new Set<string>();
     let writeCount = 0;
     for (const day of days) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(day.date) || !day.shiftId || !day.assignments) throw new WorkplaceAccessError('Dữ liệu lịch không hợp lệ.', 400);
         for (const [counterId, assignment] of Object.entries(day.assignments)) {
-            if (!counters.has(counterId)) throw new WorkplaceAccessError('Quầy không thuộc cửa hàng hoặc đã ngừng hoạt động.', 400);
+            if (!counters.has(counterId)) throw new WorkplaceAccessError('Quầy không thuộc cửa hàng.', 400);
             if (!Array.isArray(assignment.employeeIds) || !Array.isArray(assignment.assignedByManagerUids)) throw new WorkplaceAccessError('Danh sách phân công không hợp lệ.', 400);
             if (new Set(assignment.employeeIds).size !== assignment.employeeIds.length) throw new WorkplaceAccessError('Một nhân viên bị lặp trong cùng quầy.', 400);
             if (assignment.assignedByManagerUids.some(uid => !assignment.employeeIds.includes(uid))) throw new WorkplaceAccessError('Danh sách quản lý gán không hợp lệ.', 400);

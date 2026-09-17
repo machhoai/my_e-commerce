@@ -735,7 +735,7 @@ export default function ManagerSettingsPage() {
                         </h2>
                     </div>
                     <p className="text-sm text-surface-500 mb-6">
-                        Các quầy này dùng để phân công nhân viên. Mapping mỗi quầy với đúng vị trí WMS để giới hạn quyền quét và kiểm kho.
+                        Tất cả quầy đều dùng để phân công nhân viên. Nút bật/tắt chỉ kiểm soát chức năng kho; mapping WMS giới hạn quyền quét và kiểm kho.
                     </p>
 
                     {loadingWmsLocations && (
@@ -766,10 +766,7 @@ export default function ManagerSettingsPage() {
                             <p className="text-sm text-surface-400 text-center py-4 bg-surface-50 rounded-lg border border-dashed">Chưa có quầy nào</p>
                         ) : (
                             counters.map(counter => (
-                                <div key={counter.id} className={`p-3 border rounded-xl group transition-colors ${counter.isActive !== false
-                                    ? 'bg-surface-50 border-surface-100 hover:border-warning-200'
-                                    : 'bg-surface-100/50 border-surface-200 opacity-60'
-                                    }`}>
+                                <div key={counter.id} className="p-3 border rounded-xl group transition-colors bg-surface-50 border-surface-100 hover:border-warning-200">
                                     <div className="flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-3 flex-1 min-w-0">
                                         {/* Active toggle */}
@@ -778,7 +775,8 @@ export default function ManagerSettingsPage() {
                                             onClick={() => handleToggleCounter(counter.id)}
                                             className={`relative w-9 h-5 flex rounded-full transition-colors shrink-0 ${counter.isActive !== false ? 'bg-success-500' : 'bg-surface-300'
                                                 }`}
-                                            title={counter.isActive !== false ? 'Bật' : 'Tắt'}
+                                            title={counter.isActive !== false ? 'Tắt chức năng kho' : 'Bật chức năng kho'}
+                                            aria-label={counter.isActive !== false ? `Tắt chức năng kho cho ${counter.name}` : `Bật chức năng kho cho ${counter.name}`}
                                         >
                                             <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${counter.isActive !== false ? 'translate-x-4' : 'translate-x-0.5'
                                                 }`} />
@@ -791,12 +789,13 @@ export default function ManagerSettingsPage() {
                                             className="text-sm font-semibold text-surface-700 bg-transparent border-none outline-none focus:bg-white focus:ring-1 focus:ring-warning-300 rounded px-1.5 py-0.5 w-full min-w-0"
                                         />
                                         {/* Inventory badge */}
-                                        {counter.isActive !== false && (
-                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-success-600 bg-success-50 border border-success-200 px-1.5 py-0.5 rounded shrink-0">
-                                                <Package className="w-3 h-3" />
-                                                Kho
-                                            </span>
-                                        )}
+                                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold border px-1.5 py-0.5 rounded shrink-0 ${counter.isActive !== false
+                                            ? 'text-success-600 bg-success-50 border-success-200'
+                                            : 'text-surface-500 bg-surface-100 border-surface-200'
+                                            }`}>
+                                            <Package className="w-3 h-3" />
+                                            {counter.isActive !== false ? 'Kho bật' : 'Kho tắt'}
+                                        </span>
                                     </div>
                                     <button onClick={() => handleRemoveCounter(counter.id)}
                                         className="text-surface-400 hover:text-danger-500 hover:bg-danger-50 p-1.5 rounded-lg transition-colors ml-2 shrink-0">
