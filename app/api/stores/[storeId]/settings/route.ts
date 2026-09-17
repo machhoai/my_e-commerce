@@ -5,7 +5,6 @@ import { StoreSettings, CounterDoc } from '@/types';
 
 import { isInOpenWindow } from '@/lib/utils/schedule';
 import { assertWorkplaceScope, requireWorkplaceCaller, workplaceAccessResponse } from '@/lib/workplace/access';
-import { MAX_EMPLOYEE_SHIFTS_PER_DAY } from '@/lib/scheduling/policy';
 
 // GET /api/stores/[storeId]/settings — any authenticated user can read (needed for real-time checks)
 export async function GET(
@@ -39,7 +38,6 @@ export async function GET(
                 ptMaxShifts: 25,
             },
         };
-        settings.maxShiftsPerDay = MAX_EMPLOYEE_SHIFTS_PER_DAY;
 
         // On-demand auto-schedule check
         const schedule = settings.registrationSchedule;
@@ -90,8 +88,6 @@ export async function PUT(
         }
 
         const body = await req.json() as Partial<StoreSettings>;
-        // This is a company-wide scheduling invariant, not a per-store option.
-        body.maxShiftsPerDay = MAX_EMPLOYEE_SHIFTS_PER_DAY;
 
         // Validate store exists
         const storeSnap = await adminDb.collection('stores').doc(storeId).get();

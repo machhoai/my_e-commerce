@@ -11,7 +11,6 @@ import {
     ChevronLeft, ChevronRight, Trash2, Lock, Users2
 } from 'lucide-react';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
-import { MAX_EMPLOYEE_SHIFTS_PER_DAY } from '@/lib/scheduling/policy';
 
 export default function EmployeeRegisterPage() {
     const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId } = useAuth();
@@ -235,7 +234,7 @@ export default function EmployeeRegisterPage() {
             }
 
             // Enforce max shifts per day
-            const maxShiftsPerDay = MAX_EMPLOYEE_SHIFTS_PER_DAY;
+            const maxShiftsPerDay = settings?.maxShiftsPerDay ?? 1;
             if (dayShifts.length >= maxShiftsPerDay) {
                 if (maxShiftsPerDay === 1) {
                     // Replace current selection (original behavior)
@@ -260,7 +259,7 @@ export default function EmployeeRegisterPage() {
 
         for (let i = 0; i < 7; i++) {
             const count = selectedShifts[i].length;
-            const maxPerDay = MAX_EMPLOYEE_SHIFTS_PER_DAY;
+            const maxPerDay = settings?.maxShiftsPerDay ?? 1;
             if (count === 0) emptyDays++;
             else {
                 workDaysCount++;
@@ -490,7 +489,7 @@ export default function EmployeeRegisterPage() {
                         </ul>
                     ) : (
                         <ul className="list-disc pl-5 space-y-0.5 marker:text-primary-400 text-primary-700">
-                            <li>Bạn chỉ chọn <strong>tối đa 1 ca</strong> mỗi ngày.</li>
+                            <li>Bạn chỉ chọn <strong>tối đa {settings?.maxShiftsPerDay ?? 1} ca</strong> mỗi ngày.</li>
                             <li>Không bắt buộc ngày nghỉ, nhưng có thể nghỉ nhiều ngày nếu muốn.</li>
                         </ul>
                     )}

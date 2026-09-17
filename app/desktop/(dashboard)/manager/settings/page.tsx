@@ -7,7 +7,6 @@ import { showToast } from '@/lib/utils/toast';
 import { SettingsDoc, CounterDoc, RegistrationSchedule, StoreDoc } from '@/types';
 import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader';
 import { getManageableWmsLocationsAction } from '@/actions/scanner';
-import { MAX_EMPLOYEE_SHIFTS_PER_DAY } from '@/lib/scheduling/policy';
 
 type WmsLocationOption = {
     id: string;
@@ -146,7 +145,7 @@ export default function ManagerSettingsPage() {
             if (new Set(mappedLocationIds).size !== mappedLocationIds.length) {
                 throw new Error('Mỗi vị trí WMS chỉ được mapping với một quầy trong cùng cửa hàng.');
             }
-            const payload = { ...settings, maxShiftsPerDay: MAX_EMPLOYEE_SHIFTS_PER_DAY, counters, registrationSchedule: schedule };
+            const payload = { ...settings, counters, registrationSchedule: schedule };
             const token = await user.getIdToken();
 
             const res = await fetch(`/api/stores/${storeId}/settings`, {
@@ -508,17 +507,27 @@ export default function ManagerSettingsPage() {
                             </h2>
                         </div>
                         <p className="text-sm text-surface-500 mb-5">
-                            Quy định toàn hệ thống: mỗi nhân viên chỉ làm việc tại <strong>một cửa hàng</strong>
-                            và tối đa <strong>1 ca/ngày</strong>. Trong cùng ca, nhân viên vẫn có thể làm tại nhiều quầy.
+                            Giới hạn số ca tối đa nhân viên có thể chọn trong <strong>một ngày</strong>.
+                            Mặc định là <strong>1</strong> ca/ngày. Tăng lên để cho phép chọn nhiều ca trong ngày.
                         </p>
                         <div className="flex items-center gap-3">
                             <input
-                                type="number" value={MAX_EMPLOYEE_SHIFTS_PER_DAY} disabled
-                                className="w-24 bg-surface-100 border border-surface-200 text-sm font-bold rounded-lg block p-2.5 outline-none cursor-not-allowed"
+                                type="number" min="1" max="10"
+                                value={settings?.maxShiftsPerDay ?? 1}
+                                onChange={e => {
+                                    const val = Math.max(1, parseInt(e.target.value) || 1);
+                                    setSettings(s => s ? { ...s, maxShiftsPerDay: val } : null);
+                                    showToast.info('Cập nhật cục bộ', 'Cài đặt đã cập nhật cục bộ. Nhớ bấm Lưu.');
+                                }}
+                                className="w-24 bg-surface-50 border border-surface-200 text-sm font-bold rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 outline-none"
                             />
                             <span className="text-sm text-surface-600 font-medium">ca/ngày</span>
-                            <span className="text-xs px-2.5 py-1 rounded-full font-semibold border bg-surface-100 text-surface-500 border-surface-200">
-                                Cố định — 1 ca/ngày
+                            <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${
+                                (settings?.maxShiftsPerDay ?? 1) > 1
+                                    ? 'bg-primary-50 text-primary-700 border-primary-200'
+                                    : 'bg-surface-100 text-surface-500 border-surface-200'
+                            }`}>
+                                {(settings?.maxShiftsPerDay ?? 1) === 1 ? 'Mặc định — 1 ca/ngày' : `Tối đa ${settings?.maxShiftsPerDay} ca/ngày`}
                             </span>
                         </div>
                     </div>

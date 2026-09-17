@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import MobilePageShell from '@/components/mobile/MobilePageShell';
 import { useMobileTranslation } from '@/lib/i18n';
-import { MAX_EMPLOYEE_SHIFTS_PER_DAY } from '@/lib/scheduling/policy';
 
 export default function MobileEmployeeRegisterPage() {
     const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId } = useAuth();
@@ -156,7 +155,7 @@ export default function MobileEmployeeRegisterPage() {
             if (strictShiftLimit && count >= max && !isManager) { setError(t('register.shiftFull', { count: String(count), max: String(max) })); return; }
 
             // Enforce max shifts per day
-            const maxShiftsPerDay = MAX_EMPLOYEE_SHIFTS_PER_DAY;
+            const maxShiftsPerDay = settings?.maxShiftsPerDay ?? 1;
             if (dayShifts.length >= maxShiftsPerDay) {
                 if (maxShiftsPerDay === 1) {
                     newSelections[dayIndex] = [shiftId]; // Replace (original behavior)
@@ -177,7 +176,7 @@ export default function MobileEmployeeRegisterPage() {
         const warnings: string[] = [];
         let emptyDays = 0; let workDays = 0;
         for (let i = 0; i < 7; i++) {
-            const maxPerDay = MAX_EMPLOYEE_SHIFTS_PER_DAY;
+            const maxPerDay = settings?.maxShiftsPerDay ?? 1;
             if (selectedShifts[i].length === 0) emptyDays++; else { workDays++; if (selectedShifts[i].length > maxPerDay) return { valid: false, message: t('register.maxShiftsPerDayError', { max: String(maxPerDay) }) }; }
         }
         if (workDays === 0) return { valid: false, message: t('register.selectSchedule') };
@@ -305,7 +304,7 @@ export default function MobileEmployeeRegisterPage() {
                 <p className="text-[10px] text-primary-700">
                     {userDoc?.role === 'manager' || isFT
                         ? t('register.ftManagerRule')
-                        : t('register.ptRule', { max: '1' })
+                        : t('register.ptRule', { max: String(settings?.maxShiftsPerDay ?? 1) })
                     }
                 </p>
             </div>

@@ -3,8 +3,7 @@ import { z } from 'zod';
 import type { ShiftEntry, StoreDoc, WeeklyRegistration } from '@/types';
 import { requireWorkplaceCaller, workplaceAccessResponse, WorkplaceAccessError } from '@/lib/workplace/access';
 import { legacyWeeklyRegistrationId, weeklyRegistrationId } from '@/lib/workplace/keys';
-import { allocationFromSnapshot, allocationRef, assertCanManageStore, assertEmployeeStoreMembership, assertNoOverlappingShifts, getTargetUser, shiftTouchesDates, writeAllocation } from '@/lib/scheduling/server';
-import { exceedsDailyShiftLimit } from '@/lib/scheduling/policy';
+import { allocationFromSnapshot, allocationRef, assertCanManageStore, assertEmployeeStoreMembership, getTargetUser, shiftTouchesDates, writeAllocation } from '@/lib/scheduling/server';
 
 function storeQuota(store: StoreDoc, date: string, shiftId: string) {
     const quotas = store.settings?.quotas;
@@ -60,18 +59,10 @@ export async function POST(req: NextRequest) {
             }
             const shift: ShiftEntry = { date: input.date, shiftId: input.shiftId, isAssignedByManager: true };
             const resultingShifts = [...(current?.shifts || []), shift];
-            const dayShifts = new Set<string>();
-            userRegs.docs.forEach(doc => {
-                if (doc.id === id || doc.id === legacyId) return;
-                (doc.data() as WeeklyRegistration).shifts?.forEach(item => {
-                    if (item.date === input.date) dayShifts.add(item.shiftId);
-                });
-            });
-            resultingShifts.forEach(item => { if (item.date === input.date) dayShifts.add(item.shiftId); });
-            assertNoOverlappingShifts(store, input.date, [...dayShifts]);
-            if (exceedsDailyShiftLimit(dayShifts)) {
-                throw new WorkplaceAccessError('Một nhân viên chỉ được xếp một ca trong một ngày.', 409);
-            }
+            // Registrations are availability/candidate entries, not actual work
+            // assignments. A manager may add another shift here; the one-shift-
+            // per-day and overlap rules are enforced atomically when counters are
+            // published by saveScheduleDays().
             if (store.settings?.strictShiftLimit ?? true) {
                 const employees = new Set(storeRegs.docs
                     .filter(doc => doc.id !== id && doc.id !== legacyId && (doc.data() as WeeklyRegistration).shifts?.some(item => item.date === input.date && item.shiftId === input.shiftId))
