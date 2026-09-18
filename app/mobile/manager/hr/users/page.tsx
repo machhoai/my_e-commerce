@@ -1129,6 +1129,7 @@ function MobileHrUsersContent() {
                                 setEditEmployee(null);
                                 setEmployeesRefreshKey(key => key + 1);
                             }}
+                            onWorkplacesUpdated={() => setEmployeesRefreshKey(key => key + 1)}
                             variant="compact"
                         />
                     </div>

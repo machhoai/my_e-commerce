@@ -31,6 +31,25 @@ async function getTargetUser(caller: Awaited<ReturnType<typeof requireWorkplaceC
     return { uid, ...snapshot.data() } as UserDoc;
 }
 
+function assertWorkplaceMutationPermission(
+    caller: Awaited<ReturnType<typeof requireWorkplaceCaller>>,
+    permission: 'action.hr.workplaces.assign' | 'action.hr.workplaces.end' | 'action.hr.workplaces.set_primary',
+    workplaceType: WorkplaceType,
+) {
+    if (caller.isAdmin || caller.permissions.has(permission)) return;
+
+    // Backward compatibility: HR managers could manage an employee's stores
+    // before workplace memberships introduced more granular permissions.
+    const canManageStores = workplaceType === 'STORE' && (
+        caller.user.role === 'store_manager'
+        || caller.user.canManageHR === true
+        || caller.permissions.has('action.hr.manage')
+    );
+    if (canManageStores) return;
+
+    throw new WorkplaceAccessError('Bạn không có quyền thực hiện thao tác này.', 403);
+}
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ uid: string }> }) {
     try {
         const caller = await requireWorkplaceCaller(req);
@@ -50,10 +69,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ uid:
 export async function POST(req: NextRequest, { params }: { params: Promise<{ uid: string }> }) {
     try {
         const caller = await requireWorkplaceCaller(req);
-        assertPermission(caller, 'action.hr.workplaces.assign');
+        const input = assignSchema.parse(await req.json());
+        assertWorkplaceMutationPermission(caller, 'action.hr.workplaces.assign', input.type);
         const { uid } = await params;
         if (!caller.isAdmin) await assertUserInWorkplaceScope(caller, await getTargetUser(caller, uid));
-        const input = assignSchema.parse(await req.json());
         await assertWorkplaceScope(caller, input.type, input.workplaceId);
         const key = workplaceKey(input.type, input.workplaceId);
         await assertWorkplaceExists(caller.db, key);
@@ -160,9 +179,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ui
         if (!membershipSnapshot.exists) throw new WorkplaceAccessError('Không tìm thấy quan hệ nơi làm việc.', 404);
         const membership = { id: membershipSnapshot.id, ...membershipSnapshot.data() } as WorkplaceMembership;
         if (membership.userId !== uid) throw new WorkplaceAccessError('Quan hệ nơi làm việc không thuộc tài khoản này.', 400);
-        assertPermission(caller, input.action === 'SET_PRIMARY'
+        assertWorkplaceMutationPermission(caller, input.action === 'SET_PRIMARY'
             ? 'action.hr.workplaces.set_primary'
-            : 'action.hr.workplaces.end');
+            : 'action.hr.workplaces.end', membership.workplace.type);
         await assertWorkplaceScope(caller, membership.workplace.type, membership.workplace.id);
         const now = new Date().toISOString();
         const effectiveAt = input.effectiveAt || now;

@@ -319,24 +319,7 @@ function ManagerUsersPageContent() {
     };
 
     const openEditModal = (employee: UserDoc) => {
-        setNewName(employee.name);
-        setNewPhone(employee.phone);
-        setNewType(employee.type || 'PT');
-        setNewRole(employee.role ?? 'employee');
-        setNewCustomRoleId(employee.customRoleId ?? '');
-        setNewDob(employee.dob || '');
-        setNewJobTitle(employee.jobTitle || '');
-        setNewEmail(employee.email || '');
-        setNewIdCard(employee.idCard || '');
-        setNewBankAccount(employee.bankAccount || '');
-        setNewEducation(employee.education || '');
-        setNewProbationStartDate(employee.probationStartDate || '');
-        setNewOfficialStartDate(employee.officialStartDate || '');
-        setNewResignationDate(employee.resignationDate || '');
-        setNewContractNumber(employee.contractNumber || '');
-        setNewStoreId(employee.storeId || '');
-        setEditUid(employee.uid);
-        setIsCreateModalOpen(true);
+        setEditEmployee(employee);
     };
 
     const handleToggleActive = async (targetUid: string, currentStatus: boolean, employeeName: string) => {
@@ -1141,6 +1124,7 @@ function ManagerUsersPageContent() {
                                                     setEditEmployee(null);
                                                     setEmployeesRefreshKey(key => key + 1);
                                                 }}
+                                                onWorkplacesUpdated={() => setEmployeesRefreshKey(key => key + 1)}
                                                 variant="full"
                                             />
                                         </div>

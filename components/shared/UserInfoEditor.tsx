@@ -82,6 +82,8 @@ interface UserInfoEditorProps {
     employee: UserDoc;
     /** Callback sau khi update thành công */
     onUpdated: () => void;
+    /** Callback riêng cho thay đổi nơi làm việc; không buộc đóng editor */
+    onWorkplacesUpdated?: () => void;
     /** Ẩn phần hợp đồng (nếu ContractSection đã hiện ở chỗ khác) */
     hideContract?: boolean;
     /** Layout compact (mobile) hoặc full (desktop) */
@@ -91,6 +93,7 @@ interface UserInfoEditorProps {
 export default function UserInfoEditor({
     employee,
     onUpdated,
+    onWorkplacesUpdated,
     hideContract = false,
     variant = 'full',
 }: UserInfoEditorProps) {
@@ -323,8 +326,8 @@ export default function UserInfoEditor({
         } finally {
             setSaving(false);
         }
-    }, [user, employee, editData, editableFields, canEditRole, isAdmin,
-        editRole, editCustomRoleId, editWorkplaceType, editStoreId, editOfficeId, editWarehouseId, onUpdated]);
+    }, [user, employee, editData, editableFields, canEditRole,
+        editRole, editCustomRoleId, onUpdated]);
 
     // ── Render helpers ───────────────────────────────────────
     const isCompact = variant === 'compact';
@@ -569,7 +572,7 @@ export default function UserInfoEditor({
                     <ContractSection employee={employee} onUpdated={onUpdated} />
                 </div>
             )}
-            <WorkplaceMembershipEditor userId={employee.uid} onUpdated={onUpdated} />
+            <WorkplaceMembershipEditor userId={employee.uid} onUpdated={onWorkplacesUpdated} />
         </div>
     );
 }

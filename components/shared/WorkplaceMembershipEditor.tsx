@@ -10,11 +10,15 @@ const labels = { STORE: 'Cửa hàng', OFFICE: 'Văn phòng', CENTRAL: 'Kho trun
 const icons = { STORE: Store, OFFICE: Building2, CENTRAL: Warehouse } as const;
 
 export default function WorkplaceMembershipEditor({ userId, onUpdated }: { userId: string; onUpdated?: () => void }) {
-    const { user, userDoc, hasPermission } = useAuth();
+    const { user, userDoc, hasPermission, managedStoreIds, workplaces } = useAuth();
     const isAdmin = userDoc?.role === 'admin' || userDoc?.role === 'super_admin';
-    const canAssign = isAdmin || hasPermission('action.hr.workplaces.assign');
-    const canEnd = isAdmin || hasPermission('action.hr.workplaces.end');
-    const canSetPrimary = isAdmin || hasPermission('action.hr.workplaces.set_primary');
+    const canManageEmployeeStores = userDoc?.role === 'store_manager'
+        || userDoc?.canManageHR === true
+        || hasPermission('action.hr.manage');
+    const canAssignAnyWorkplace = isAdmin || hasPermission('action.hr.workplaces.assign');
+    const canAssign = canAssignAnyWorkplace || canManageEmployeeStores;
+    const canEndAnyWorkplace = isAdmin || hasPermission('action.hr.workplaces.end');
+    const canSetAnyPrimary = isAdmin || hasPermission('action.hr.workplaces.set_primary');
     const [memberships, setMemberships] = useState<UserWorkplace[]>([]);
     const [stores, setStores] = useState<StoreDoc[]>([]);
     const [offices, setOffices] = useState<OfficeDoc[]>([]);
@@ -22,6 +26,7 @@ export default function WorkplaceMembershipEditor({ userId, onUpdated }: { userI
     const [type, setType] = useState<WorkplaceType>('STORE');
     const [locationId, setLocationId] = useState('');
     const [busy, setBusy] = useState(false);
+    const assignType: WorkplaceType = canAssignAnyWorkplace ? type : 'STORE';
 
     const load = useCallback(async () => {
         if (!user) return;
@@ -44,14 +49,30 @@ export default function WorkplaceMembershipEditor({ userId, onUpdated }: { userI
     }, [user, userId]);
 
     useEffect(() => { void load(); }, [load]);
-    const options = useMemo(() => type === 'STORE' ? stores : type === 'OFFICE' ? offices : warehouses, [type, stores, offices, warehouses]);
+    const options = useMemo(() => {
+        const locations = assignType === 'STORE' ? stores : assignType === 'OFFICE' ? offices : warehouses;
+        return locations.filter(location => location.isActive !== false && !memberships.some(membership =>
+            membership.status === 'ACTIVE'
+            && membership.workplace.type === assignType
+            && membership.workplace.id === location.id
+        ));
+    }, [assignType, stores, offices, warehouses, memberships]);
+
+    const isWithinManagementScope = (membership: UserWorkplace) => isAdmin
+        || (membership.workplace.type === 'STORE'
+            ? managedStoreIds.includes(membership.workplace.id)
+            : workplaces.some(item =>
+                item.workplace.key === membership.workplace.key
+                && item.isEffective
+                && item.isActive
+            ));
 
     const assign = async () => {
         if (!user || !locationId) return; setBusy(true);
         try {
             const token = await user.getIdToken(); const response = await fetch(`/api/users/${encodeURIComponent(userId)}/workplaces`, {
                 method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type, workplaceId: locationId }),
+                body: JSON.stringify({ type: assignType, workplaceId: locationId }),
             });
             const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Không thể gán nơi làm việc.');
             setLocationId(''); await load(); onUpdated?.(); showToast.success('Đã gán nơi làm việc', 'Tài khoản có thể sử dụng địa điểm mới theo quyền hiện có.');
@@ -79,23 +100,27 @@ export default function WorkplaceMembershipEditor({ userId, onUpdated }: { userI
                 {busy && <Loader2 className="size-4 animate-spin text-primary-500" />}
             </div>
             <div className="space-y-2">
-                {memberships.map(item => { const Icon = icons[item.workplace.type]; return (
+                {memberships.map(item => { const Icon = icons[item.workplace.type]; const isWithinScope = isWithinManagementScope(item); return (
                     <div key={item.id} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3">
                         <Icon className="size-4 shrink-0 text-gray-500" />
                         <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-gray-800">{item.name}</p><p className="text-[11px] text-gray-400">{labels[item.workplace.type]} · {item.status === 'ACTIVE' ? (item.isEffective ? 'Đang làm việc' : 'Chưa đến ngày hiệu lực') : item.status === 'SUSPENDED' ? 'Tạm ngưng' : 'Đã kết thúc'}</p></div>
                         {item.status === 'ACTIVE' && item.isPrimary && <Star className="size-4 fill-amber-400 text-amber-400" aria-label="Nơi làm việc chính" />}
-                        {item.status === 'ACTIVE' && canSetPrimary && !item.isPrimary && <button disabled={busy} onClick={() => update(item.id, 'SET_PRIMARY')} className="rounded-lg p-2 text-amber-500 hover:bg-amber-50" title="Đặt làm nơi chính"><Star className="size-4" /></button>}
-                        {item.status === 'ACTIVE' && canEnd && <button disabled={busy} onClick={() => update(item.id, 'END')} className="rounded-lg p-2 text-danger-500 hover:bg-danger-50" title="Ngừng làm việc tại nơi này"><XCircle className="size-4" /></button>}
+                        {item.status === 'ACTIVE' && isWithinScope && (canSetAnyPrimary || (canManageEmployeeStores && item.workplace.type === 'STORE')) && !item.isPrimary && <button disabled={busy} onClick={() => update(item.id, 'SET_PRIMARY')} className="rounded-lg p-2 text-amber-500 hover:bg-amber-50" title="Đặt làm nơi chính"><Star className="size-4" /></button>}
+                        {item.status === 'ACTIVE' && isWithinScope && (canEndAnyWorkplace || (canManageEmployeeStores && item.workplace.type === 'STORE')) && <button disabled={busy} onClick={() => update(item.id, 'END')} className="rounded-lg p-2 text-danger-500 hover:bg-danger-50" title="Ngừng làm việc tại nơi này"><XCircle className="size-4" /></button>}
                     </div>
                 ); })}
                 {!memberships.length && !busy && <p className="rounded-xl bg-gray-50 p-3 text-sm text-gray-500">Tài khoản chưa có nơi làm việc.</p>}
             </div>
             {canAssign && <div className="grid grid-cols-1 gap-2 rounded-xl bg-gray-50 p-3 sm:grid-cols-[140px_1fr_auto]">
-                <select value={type} onChange={event => { setType(event.target.value as WorkplaceType); setLocationId(''); }} className="rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm">
-                    <option value="STORE">Cửa hàng</option><option value="OFFICE">Văn phòng</option><option value="CENTRAL">Kho trung tâm</option>
-                </select>
+                {canAssignAnyWorkplace ? (
+                    <select value={type} onChange={event => { setType(event.target.value as WorkplaceType); setLocationId(''); }} className="rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm">
+                        <option value="STORE">Cửa hàng</option><option value="OFFICE">Văn phòng</option><option value="CENTRAL">Kho trung tâm</option>
+                    </select>
+                ) : (
+                    <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm text-gray-700"><Store className="size-4" /> Cửa hàng</div>
+                )}
                 <select value={locationId} onChange={event => setLocationId(event.target.value)} className="min-w-0 rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm">
-                    <option value="">Chọn địa điểm…</option>{options.filter(item => item.isActive !== false).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                    <option value="">{options.length ? 'Chọn địa điểm…' : 'Không còn địa điểm có thể gán'}</option>{options.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
                 </select>
                 <button disabled={busy || !locationId} onClick={assign} className="flex items-center justify-center gap-1 rounded-lg bg-primary-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"><Plus className="size-4" /> Gán</button>
             </div>}
