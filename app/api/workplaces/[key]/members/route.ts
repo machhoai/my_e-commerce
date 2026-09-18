@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ key:
         await assertWorkplaceScope(caller, parsed.type, parsed.id);
         const users = await hydrateUserStoreIds(
             caller.db,
-            (await getWorkplaceUsers(caller.db, parsed.type, parsed.id)).filter(item => item.isActive !== false),
+            await getWorkplaceUsers(caller.db, parsed.type, parsed.id),
         );
         return NextResponse.json(users, { headers: { 'Cache-Control': 'no-store' } });
     } catch (error) {

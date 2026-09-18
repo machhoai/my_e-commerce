@@ -359,6 +359,11 @@ function ManagerUsersPageContent() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `Không thể ${actionName.toLowerCase()} người dùng`);
 
+            setEmployees(current => current.map(employee =>
+                employee.uid === targetUid
+                    ? { ...employee, isActive: !currentStatus }
+                    : employee
+            ));
             showToast.success('Đã cập nhật', `Đã ${actionName.toLowerCase()} ${employeeName} thành công.`);
         } catch (err: unknown) {
             if (err instanceof Error) {

@@ -944,6 +944,11 @@ function MobileHrUsersContent() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
+            setEmployees(current => current.map(employee =>
+                employee.uid === uid
+                    ? { ...employee, isActive: !currentStatus }
+                    : employee
+            ));
             showToast.success(
                 currentStatus ? 'Đã cho nghỉ việc' : 'Đã kích hoạt lại',
                 `Nhân viên ${name} đã được ${action.toLowerCase()} thành công.`
