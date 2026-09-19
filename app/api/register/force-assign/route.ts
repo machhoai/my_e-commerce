@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import type { ShiftEntry, StoreDoc, WeeklyRegistration } from '@/types';
+import type { ScheduleDoc, ShiftEntry, StoreDoc, WeeklyRegistration } from '@/types';
+import { assignedShiftKeys, monthlyShiftLimit, nextMonthStart } from '@/lib/scheduling/monthly-quota';
 import { requireWorkplaceCaller, workplaceAccessResponse, WorkplaceAccessError } from '@/lib/workplace/access';
 import { legacyWeeklyRegistrationId, weeklyRegistrationId } from '@/lib/workplace/keys';
 import { allocationFromSnapshot, allocationRef, assertCanManageStore, assertEmployeeStoreMembership, getTargetUser, shiftTouchesDates, writeAllocation } from '@/lib/scheduling/server';
@@ -45,13 +46,15 @@ export async function POST(req: NextRequest) {
             ...shiftTouchesDates(store, input.date, input.shiftId),
         ])];
         const dayRefs = heldDates.map(date => allocationRef(caller.db, input.targetUserId, date));
-        const userRegsQuery = caller.db.collection('weekly_registrations').where('userId', '==', input.targetUserId);
         const storeRegsQuery = caller.db.collection('weekly_registrations').where('storeId', '==', input.storeId).where('weekStartDate', '==', input.weekStartDate);
-        const policyRef = caller.db.collection('workforce_policies').doc('global');
+        const month = input.date.slice(0, 7);
+        const assignedQuery = caller.db.collection('schedules')
+            .where('employeeIds', 'array-contains', input.targetUserId)
+            .where('date', '>=', `${month}-01`).where('date', '<', nextMonthStart(month));
         await caller.db.runTransaction(async transaction => {
-            const [regSnapshot, legacySnapshot, userRegs, storeRegs, policySnapshot, ...daySnapshots] = await Promise.all([
-                transaction.get(regRef), transaction.get(legacyRef), transaction.get(userRegsQuery),
-                transaction.get(storeRegsQuery), transaction.get(policyRef), ...dayRefs.map(ref => transaction.get(ref)),
+            const [regSnapshot, legacySnapshot, storeRegs, assignedSnapshot, ...daySnapshots] = await Promise.all([
+                transaction.get(regRef), transaction.get(legacyRef), transaction.get(storeRegsQuery),
+                transaction.get(assignedQuery), ...dayRefs.map(ref => transaction.get(ref)),
             ]);
             const current = regSnapshot.exists ? regSnapshot.data() as WeeklyRegistration : legacySnapshot.exists ? legacySnapshot.data() as WeeklyRegistration : null;
             if (current?.shifts.some(shift => shift.date === input.date && shift.shiftId === input.shiftId)) {
@@ -71,28 +74,11 @@ export async function POST(req: NextRequest) {
                     throw new WorkplaceAccessError(`Ca ${input.shiftId} ngày ${input.date} đã đầy.`, 409);
                 }
             }
-            const monthly = new Map<string, Set<string>>();
-            userRegs.docs.forEach(doc => {
-                if (doc.id === id || doc.id === legacyId) return;
-                const registration = doc.data() as WeeklyRegistration;
-                registration.shifts?.forEach(item => {
-                    const values = monthly.get(item.date.slice(0, 7)) || new Set<string>();
-                    values.add(`${registration.storeId}\u0000${item.date}\u0000${item.shiftId}`);
-                    monthly.set(item.date.slice(0, 7), values);
-                });
-            });
-            resultingShifts.forEach(item => {
-                const values = monthly.get(item.date.slice(0, 7)) || new Set<string>();
-                values.add(`${input.storeId}\u0000${item.date}\u0000${item.shiftId}`);
-                monthly.set(item.date.slice(0, 7), values);
-            });
-            const policy = policySnapshot.data() || {};
-            monthly.forEach((values, month) => {
-                const [year, monthNumber] = month.split('-').map(Number);
-                const days = new Date(year, monthNumber, 0).getDate();
-                const max = target.type === 'FT' ? Math.max(0, days - Number(policy.ftDaysOff ?? 4)) : Number(policy.ptMaxShifts ?? 25);
-                if (values.size > max) throw new WorkplaceAccessError(`Tổng số ca tháng ${month} vượt định mức tài khoản (${values.size}/${max}).`, 409);
-            });
+            const assigned = assignedShiftKeys(assignedSnapshot.docs.map(doc => doc.data() as ScheduleDoc));
+            const max = monthlyShiftLimit(target.type, month, store.settings?.monthlyQuotas);
+            if (assigned.size >= max && !assigned.has(`${input.storeId}\u0000${input.date}\u0000${input.shiftId}`)) {
+                throw new WorkplaceAccessError(`Nhân viên đã đạt giới hạn ca được xếp tháng ${month} (${assigned.size}/${max}).`, 409);
+            }
             transaction.set(regRef, {
                 id, userId: input.targetUserId, storeId: input.storeId, weekStartDate: input.weekStartDate,
                 shifts: resultingShifts, submittedAt: current?.submittedAt || new Date().toISOString(),

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import type { ShiftEntry, StoreDoc, WeeklyRegistration } from '@/types';
+import type { ScheduleDoc, ShiftEntry, StoreDoc, WeeklyRegistration } from '@/types';
+import { assignedShiftKeys, monthlyShiftLimit, nextMonthStart } from '@/lib/scheduling/monthly-quota';
 import { isInOpenWindow } from '@/lib/utils/schedule';
 import { assertPermission, requireWorkplaceCaller, workplaceAccessResponse, WorkplaceAccessError } from '@/lib/workplace/access';
 import { legacyWeeklyRegistrationId, weeklyRegistrationId } from '@/lib/workplace/keys';
@@ -76,11 +77,18 @@ export async function POST(req: NextRequest) {
         const dates = new Set([...newHeldDates, ...oldHeldDates]);
         const dateList = [...dates]; const dayRefs = dateList.map(date => allocationRef(caller.db, caller.uid, date));
         const regsQuery = caller.db.collection('weekly_registrations').where('storeId', '==', input.storeId).where('weekStartDate', '==', input.weekStartDate);
-        const userRegsQuery = caller.db.collection('weekly_registrations').where('userId', '==', caller.uid);
-        const policyRef = caller.db.collection('workforce_policies').doc('global');
+        const months = [...new Set(input.shifts.map(shift => shift.date.slice(0, 7)))];
+        const scheduleQueries = months.map(month => caller.db.collection('schedules')
+            .where('employeeIds', 'array-contains', caller.uid)
+            .where('date', '>=', `${month}-01`).where('date', '<', nextMonthStart(month)));
 
         await caller.db.runTransaction(async transaction => {
-            const [existing, legacyExisting, registrations, userRegistrations, policySnapshot, ...daySnapshots] = await Promise.all([transaction.get(regRef), transaction.get(legacyRef), transaction.get(regsQuery), transaction.get(userRegsQuery), transaction.get(policyRef), ...dayRefs.map(ref => transaction.get(ref))]);
+            const [existing, legacyExisting, registrations, ...remaining] = await Promise.all([
+                transaction.get(regRef), transaction.get(legacyRef), transaction.get(regsQuery),
+                ...scheduleQueries.map(query => transaction.get(query)), ...dayRefs.map(ref => transaction.get(ref)),
+            ]);
+            const scheduleSnapshots = remaining.slice(0, scheduleQueries.length) as FirebaseFirestore.QuerySnapshot[];
+            const daySnapshots = remaining.slice(scheduleQueries.length) as FirebaseFirestore.DocumentSnapshot[];
             const old = existing.exists ? existing.data() as WeeklyRegistration : legacyExisting.exists ? legacyExisting.data() as WeeklyRegistration : null;
             if (store.settings?.strictShiftLimit ?? true) {
                 for (const shift of input.shifts) {
@@ -88,28 +96,17 @@ export async function POST(req: NextRequest) {
                     if (count >= quotaFor(store, shift.date, shift.shiftId)) throw new WorkplaceAccessError(`Ca ${shift.shiftId} ngày ${shift.date} đã đầy.`, 409);
                 }
             }
-            const policy = policySnapshot.data() || {};
-            const totals = new Map<string, Set<string>>();
-            userRegistrations.docs.forEach(doc => {
-                if (doc.id === id || doc.id === legacyId) return;
-                const registration = doc.data() as WeeklyRegistration;
-                registration.shifts?.forEach(shift => {
-                    const month = shift.date.slice(0, 7); const values = totals.get(month) || new Set<string>();
-                    values.add(`${registration.storeId}\u0000${shift.date}\u0000${shift.shiftId}`); totals.set(month, values);
-                });
+            months.forEach((month, index) => {
+                const assigned = assignedShiftKeys(scheduleSnapshots[index].docs.map(doc => doc.data() as ScheduleDoc));
+                const max = monthlyShiftLimit(caller.user.type, month, store.settings?.monthlyQuotas);
+                const oldKeys = new Set((old?.shifts || []).map(shift => `${shift.date}\u0000${shift.shiftId}`));
+                const newlyRequested = input.shifts.some(shift => shift.date.startsWith(month)
+                    && !oldKeys.has(`${shift.date}\u0000${shift.shiftId}`)
+                    && !assigned.has(`${input.storeId}\u0000${shift.date}\u0000${shift.shiftId}`));
+                if (newlyRequested && assigned.size >= max) {
+                    throw new WorkplaceAccessError(`Đã đạt giới hạn ca được xếp tháng ${month} (${assigned.size}/${max}).`, 409);
+                }
             });
-            input.shifts.forEach(shift => {
-                const month = shift.date.slice(0, 7); const values = totals.get(month) || new Set<string>();
-                values.add(`${input.storeId}\u0000${shift.date}\u0000${shift.shiftId}`); totals.set(month, values);
-            });
-            for (const [month, values] of totals) {
-                const [year, monthNumber] = month.split('-').map(Number);
-                const days = new Date(year, monthNumber, 0).getDate();
-                const max = caller.user.type === 'FT'
-                    ? Math.max(0, days - Number(policy.ftDaysOff ?? 4))
-                    : Number(policy.ptMaxShifts ?? 25);
-                if (values.size > max) throw new WorkplaceAccessError(`Tổng số ca tháng ${month} vượt định mức tài khoản (${values.size}/${max}).`, 409);
-            }
             daySnapshots.forEach((snapshot, index) => {
                 const date = dateList[index]; const allocation = allocationFromSnapshot(snapshot, caller.uid, date, input.storeId);
                 const ids = new Set((allocation.registrationIds || []).filter(value => value !== legacyId));

@@ -149,11 +149,8 @@ function ManagerHistoryPageContent() {
                 }
                 setSettings(settingsData);
 
-                const token = await getToken();
-                const policyResponse = await fetch('/api/workforce-policy', { headers: { Authorization: `Bearer ${token}` } });
-                const policy = policyResponse.ok ? await policyResponse.json() : {};
-                const ftDaysOff = policy.ftDaysOff ?? 4;
-                const maxPT = policy.ptMaxShifts ?? 25;
+                const ftDaysOff = settingsData?.monthlyQuotas?.ftDaysOff ?? 4;
+                const maxPT = settingsData?.monthlyQuotas?.ptMaxShifts ?? 25;
 
                 const year = currentMonth.getFullYear();
                 const month = currentMonth.getMonth();

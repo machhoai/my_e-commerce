@@ -35,7 +35,6 @@ export default function MobileEmployeeDashboardPage() {
     const [monthlySchedules, setMonthlySchedules] = useState<ScheduleDoc[]>([]);
     const [counters, setCounters] = useState<Record<string, string>>({});
     const [settings, setSettings] = useState<SettingsDoc | null>(null);
-    const [workforcePolicy, setWorkforcePolicy] = useState({ ftDaysOff: 4, ptMaxShifts: 25 });
     const [loading, setLoading] = useState(true);
     const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
 
@@ -76,10 +75,6 @@ export default function MobileEmployeeDashboardPage() {
             } catch { /* silent */ }
         };
         fetchStore();
-        void getToken().then(token => fetch('/api/workforce-policy', { headers: { Authorization: `Bearer ${token}` } }))
-            .then(response => response.json())
-            .then(data => setWorkforcePolicy({ ftDaysOff: data.ftDaysOff ?? 4, ptMaxShifts: data.ptMaxShifts ?? 25 }))
-            .catch(() => undefined);
 
         // KPI templates
         const fetchKpi = async () => {
@@ -149,8 +144,8 @@ export default function MobileEmployeeDashboardPage() {
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const isFT = userDoc?.type === 'FT';
     const maxShifts = isFT
-        ? Math.max(0, daysInMonth - workforcePolicy.ftDaysOff)
-        : workforcePolicy.ptMaxShifts;
+        ? Math.max(0, daysInMonth - (settings?.monthlyQuotas?.ftDaysOff ?? 4))
+        : (settings?.monthlyQuotas?.ptMaxShifts ?? 25);
     const progress = Math.min((completedShifts / Math.max(1, maxShifts)) * 100, 100);
 
     const previousWeek = () => setCurrentWeekStart(d => { const nd = new Date(d); nd.setDate(nd.getDate() - 7); return nd; });
