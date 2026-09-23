@@ -3,13 +3,15 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { X, ScanLine, Keyboard, SearchX, Camera, RotateCcw, Zap, ZapOff, Phone, Loader2, CheckCircle2, Ticket, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { preloadScannerData, voucherSearchAction } from '@/actions/scanner';
+// import { preloadScannerData, voucherSearchAction } from '@/actions/scanner'; // Tạm tắt quét voucher.
+import { preloadScannerData } from '@/actions/scanner';
 import type { PreloadedEmployee } from '@/actions/scanner';
 import { createPendingReferral } from '@/actions/referral';
 import { ticketLookupAction } from '@/actions/ticket-scan';
 import { useAuth } from '@/contexts/AuthContext';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
-import type { ScanResult, TicketOrderData, TicketPassData } from '@/types';
+// import type { ScanResult, TicketOrderData, TicketPassData } from '@/types'; // Tạm tắt quét voucher.
+import type { TicketOrderData, TicketPassData } from '@/types';
 import type { VoucherCode } from '@/types';
 import VoucherListSelector from './VoucherListSelector';
 import VoucherDetailsCard from './VoucherDetailsCard';
@@ -489,7 +491,7 @@ export default function UniversalScannerModal() {
     const { user: authUser, hasPermission } = useAuth();
 
     // Permission gates — admin always bypasses via hasPermission()
-    const canSearchVouchers = hasPermission('search_vouchers');
+    // const canSearchVouchers = hasPermission('search_vouchers'); // Tạm tắt quét voucher.
     const canManageReferrals = hasPermission('manage_referrals');
     const canScanTickets = hasPermission('scan_tickets');
     const canUseAI = hasPermission('action.ai.chat');
@@ -787,6 +789,7 @@ export default function UniversalScannerModal() {
             return;
         }
 
+        /* Tạm tắt tra cứu và quy đổi voucher trên scanner; dùng JPOS để quy đổi.
         // 4. Phone or Voucher code → must hit server (permission-gated)
         if (!canSearchVouchers) {
             setView({ kind: 'not-found', query: trimmed });
@@ -809,6 +812,12 @@ export default function UniversalScannerModal() {
         } catch {
             setView({ kind: 'not-found', query: trimmed });
         }
+        */
+        setView({
+            kind: 'scan-error',
+            title: 'Chức năng quét voucher đã bị vô hiệu hóa',
+            message: 'Vui lòng sử dụng chức năng quy đổi voucher trên JPOS.',
+        });
     };
 
     // Keep ref in sync so the camera callback (stale closure) always calls the latest handleSearch
@@ -835,6 +844,9 @@ export default function UniversalScannerModal() {
 
                         {/* Manual input */}
                         <div className="p-4 bg-white">
+                            <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm font-medium text-amber-800" role="status">
+                                Chức năng quét voucher đã bị vô hiệu hóa. Vui lòng sử dụng chức năng quy đổi voucher trên JPOS.
+                            </p>
                             {showManual ? (
                                 <div className="relative">
                                     <form onSubmit={handleManualSubmit} className="flex gap-2">
