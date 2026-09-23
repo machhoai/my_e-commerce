@@ -22,7 +22,8 @@ import BottomSheet from '@/components/shared/BottomSheet';
 import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 import UserInfoEditor from '@/components/shared/UserInfoEditor';
 import { WorkplacePicker } from '@/components/shared/WorkplacePicker';
-import { fetchWorkplaceMembers } from '@/lib/workplace/client';
+import { fetchAllEmployees, fetchWorkplaceMembers } from '@/lib/workplace/client';
+import ExportEmployeesExcel from '@/components/hr/ExportEmployeesExcel';
 import StoreMultiSelect from '@/components/hr/StoreMultiSelect';
 import { getAgeFromDob } from '@/lib/hr/employee-age';
 
@@ -798,27 +799,30 @@ function MobileHrUsersContent() {
         const effectiveStoreId = userDoc.role === 'admin'
             ? selectedAdminStoreId
             : (activeWorkplace?.workplace.id || contextStoreId || userDoc.officeId || userDoc.warehouseId || userDoc.storeId);
-        if (!effectiveStoreId) { setEmployees([]); setLoading(false); return; }
+        if (!effectiveStoreId && userDoc.role !== 'admin') { setEmployees([]); setLoading(false); return; }
         let cancelled = false;
         const type = userDoc.role === 'admin' && selectedLocationType
             ? selectedLocationType
             : (activeWorkplace?.workplace.type || 'STORE');
         setLoading(true);
-        fetchWorkplaceMembers(user, type, effectiveStoreId).then(data => {
+        const request = userDoc.role === 'admin' && !selectedAdminStoreId
+            ? fetchAllEmployees(user)
+            : fetchWorkplaceMembers(user, type, effectiveStoreId || '');
+        request.then(data => {
             if (cancelled) return;
             const docs = data.filter(item => item.role !== 'admin' && item.uid !== userDoc.uid)
                 .sort((a, b) => a.name.localeCompare(b.name));
             setEmployees(docs); setLoading(false);
-        }).catch(err => { if (!cancelled) { console.error(err); setLoading(false); } });
+        }).catch(err => { if (!cancelled) { console.error(err); setEmployees([]); setLoading(false); showToast.error('Lỗi', 'Không thể tải danh sách nhân viên.'); } });
         return () => { cancelled = true; };
     }, [authLoading, user, userDoc, selectedAdminStoreId, selectedLocationType, contextStoreId, activeWorkplace, employeesRefreshKey]);
 
     // Save selectedAdminStoreId
     useEffect(() => {
-        if (typeof window !== 'undefined' && selectedAdminStoreId) {
-            localStorage.setItem('globalSelectedStoreId', selectedAdminStoreId);
-        }
-    }, [selectedAdminStoreId]);
+        if (typeof window === 'undefined' || userDoc?.role !== 'admin') return;
+        if (selectedAdminStoreId) localStorage.setItem('globalSelectedStoreId', selectedAdminStoreId);
+        else localStorage.removeItem('globalSelectedStoreId');
+    }, [selectedAdminStoreId, userDoc?.role]);
 
     // Filtered list
     const filteredEmployees = useMemo(() => {
@@ -1042,6 +1046,10 @@ function MobileHrUsersContent() {
                 onFilter={() => setShowFilter(true)}
                 activeFilters={activeFilterCount}
             />
+
+            <div className="px-4 pb-3 flex justify-end">
+                <ExportEmployeesExcel employees={loading ? [] : filteredEmployees} className="px-4 py-2 text-sm" />
+            </div>
 
             {/* Employee list */}
             <div className="px-4 pb-6 space-y-3">

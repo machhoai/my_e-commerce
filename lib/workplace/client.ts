@@ -20,3 +20,13 @@ export async function fetchWorkplaceMembers(user: User, type: 'STORE' | 'OFFICE'
     if (!response.ok) throw new Error(data?.error || 'Không thể tải danh sách nhân viên.');
     return Array.isArray(data) ? data : [];
 }
+
+export async function fetchAllEmployees(user: User): Promise<UserDoc[]> {
+    const token = await user.getIdToken();
+    const response = await fetch('/api/admin/users', {
+        headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || 'Không thể tải danh sách nhân viên.');
+    return Array.isArray(data) ? data : [];
+}

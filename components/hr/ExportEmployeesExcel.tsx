@@ -7,6 +7,7 @@ import { showToast } from '@/lib/utils/toast';
 
 interface ExportEmployeesExcelProps {
     employees: UserDoc[];
+    className?: string;
 }
 
 function isProfileComplete(e: UserDoc): boolean {
@@ -28,7 +29,7 @@ function parseBase64Image(dataUri: string): { base64: string; extension: 'png' |
     return { base64: match[2], extension: mapped };
 }
 
-export default function ExportEmployeesExcel({ employees }: ExportEmployeesExcelProps) {
+export default function ExportEmployeesExcel({ employees, className = '' }: ExportEmployeesExcelProps) {
     const [exporting, setExporting] = useState(false);
 
     const handleExport = async () => {
@@ -189,8 +190,8 @@ export default function ExportEmployeesExcel({ employees }: ExportEmployeesExcel
         <button
             onClick={handleExport}
             disabled={exporting || employees.length === 0}
-            className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Xuất tất cả nhân viên ra file Excel"
+            className={`flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+            title="Xuất nhân viên theo bộ lọc hiện tại ra file Excel"
         >
             {exporting ? (
                 <>

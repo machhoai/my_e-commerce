@@ -16,7 +16,7 @@ import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader
 import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 import { LabelPrintConfigurator } from '@/components/admin/LabelPrintConfigurator';
 import UserInfoEditor from '@/components/shared/UserInfoEditor';
-import { fetchWorkplaceMembers } from '@/lib/workplace/client';
+import { fetchAllEmployees, fetchWorkplaceMembers } from '@/lib/workplace/client';
 import LocationPicker, { deriveLocationType, locationIcon, locationLabel, type LocationType } from '@/components/hr/LocationPicker';
 import StoreMultiSelect from '@/components/hr/StoreMultiSelect';
 import { getAgeFromDob } from '@/lib/hr/employee-age';
@@ -90,9 +90,11 @@ function ManagerUsersPageContent() {
         {
             key: 'status',
             label: 'Trạng thái',
+            showAllOption: false,
             options: [
                 { value: 'true', label: 'Đang làm việc' },
                 { value: 'false', label: 'Nghỉ việc' },
+                { value: 'all', label: 'Tất cả' },
             ],
         },
     ];
@@ -116,10 +118,10 @@ function ManagerUsersPageContent() {
     });
 
     useEffect(() => {
-        if (typeof window !== 'undefined' && selectedAdminStoreId) {
-            localStorage.setItem('globalSelectedStoreId', selectedAdminStoreId);
-        }
-    }, [selectedAdminStoreId]);
+        if (typeof window === 'undefined' || userDoc?.role !== 'admin') return;
+        if (selectedAdminStoreId) localStorage.setItem('globalSelectedStoreId', selectedAdminStoreId);
+        else localStorage.removeItem('globalSelectedStoreId');
+    }, [selectedAdminStoreId, userDoc?.role]);
 
     const getToken = useCallback(() => user?.getIdToken(), [user]);
 
@@ -197,18 +199,21 @@ function ManagerUsersPageContent() {
             ? selectedAdminStoreId
             : (activeWorkplace?.workplace.id || contextStoreId || userDoc.storeId);
 
-        if (!effectiveStoreId) { setEmployees([]); setLoading(false); return; }
+        if (!effectiveStoreId && userDoc.role !== 'admin') { setEmployees([]); setLoading(false); return; }
         let cancelled = false;
         const type = userDoc.role === 'admin' && selectedLocationType
             ? selectedLocationType
             : (activeWorkplace?.workplace.type || 'STORE');
         setLoading(true);
-        fetchWorkplaceMembers(user, type, effectiveStoreId).then(data => {
+        const request = userDoc.role === 'admin' && !selectedAdminStoreId
+            ? fetchAllEmployees(user)
+            : fetchWorkplaceMembers(user, type, effectiveStoreId || '');
+        request.then(data => {
             if (cancelled) return;
             const docs = data.filter(item => item.role !== 'admin' && item.uid !== userDoc.uid)
                 .sort((a, b) => a.name.localeCompare(b.name));
             setEmployees(docs); setLoading(false);
-        }).catch(err => { if (!cancelled) { console.error('Error fetching employees:', err); setLoading(false); } });
+        }).catch(err => { if (!cancelled) { console.error('Error fetching employees:', err); setEmployees([]); setLoading(false); showToast.error('Lỗi', 'Không thể tải danh sách nhân viên.'); } });
         return () => { cancelled = true; };
     }, [authLoading, user, userDoc, selectedAdminStoreId, selectedLocationType, contextStoreId, activeWorkplace, employeesRefreshKey]);
 
@@ -374,22 +379,21 @@ function ManagerUsersPageContent() {
     const incompleteProfiles = activeEmployees.filter(e => !isProfileComplete(e));
 
     // Default status filter to 'true' (active) when not set in URL
-    const statusFilterValue = params.status !== undefined && params.status !== '' ? params.status : 'true';
+    const statusFilterValue = params.status || 'true';
 
     const isKpiSort = params.sort === 'kpi';
     const roleFilterValue = params.role || '';
     const isCustomRoleFilter = roleFilterValue.startsWith('custom:');
     let filteredEmployees = processTableData(
-        isCustomRoleFilter
+        (isCustomRoleFilter
             ? employees.filter(u => u.customRoleId === roleFilterValue.slice(7))
-            : employees,
+            : employees).filter(u => statusFilterValue === 'all' || String(u.isActive !== false) === statusFilterValue),
         {
             searchQuery: params.q,
             searchFields: ['name', 'phone'] as (keyof UserDoc)[],
             filters: [
                 { field: 'type' as keyof UserDoc, value: params.type || '' },
                 ...(!isCustomRoleFilter && roleFilterValue ? [{ field: 'role' as keyof UserDoc, value: roleFilterValue }] : []),
-                { field: 'isActive' as keyof UserDoc, value: statusFilterValue },
             ],
             sortField: isKpiSort ? undefined : (params.sort as keyof UserDoc) || undefined,
             sortOrder: params.order as 'asc' | 'desc',
@@ -546,7 +550,7 @@ function ManagerUsersPageContent() {
 
                             {/* Action buttons */}
                             <div className="flex items-center gap-2 justify-end">
-                                <ExportEmployeesExcel employees={filteredEmployees} />
+                                <ExportEmployeesExcel employees={loading ? [] : filteredEmployees} />
                                 <button
                                     onClick={() => setPrintEmployees(filteredEmployees)}
                                     disabled={filteredEmployees.length === 0}

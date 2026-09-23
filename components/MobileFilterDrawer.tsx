@@ -14,6 +14,7 @@ export interface FilterConfig {
     key: string;
     label: string;
     options: FilterOption[];
+    showAllOption?: boolean;
 }
 
 export interface SortOption {
@@ -133,7 +134,7 @@ export default function MobileFilterDrawer({
                                     {filter.label}
                                 </label>
                                 <div className="flex flex-wrap gap-2">
-                                    <button
+                                    {filter.showAllOption !== false && <button
                                         onClick={() => setLocalValues(prev => {
                                             const next = { ...prev };
                                             delete next[filter.key];
@@ -147,7 +148,7 @@ export default function MobileFilterDrawer({
                                         )}
                                     >
                                         Tất cả
-                                    </button>
+                                    </button>}
                                     {filter.options.map((opt) => (
                                         <button
                                             key={opt.value}
