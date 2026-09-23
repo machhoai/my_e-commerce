@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { assertPermission, assertWorkplaceScope, requireWorkplaceCaller, workplaceAccessResponse, WorkplaceAccessError } from '@/lib/workplace/access';
 import { parseWorkplaceKey } from '@/lib/workplace/keys';
-import { getWorkplaceUsers, hydrateUserStoreIds } from '@/lib/workplace/server';
+import { getWorkplaceUsers, hydrateUserWorkplaces } from '@/lib/workplace/server';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ key: string }> }) {
     try {
@@ -9,7 +9,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ key:
         const parsed = parseWorkplaceKey((await params).key);
         if (!parsed) throw new WorkplaceAccessError('Mã nơi làm việc không hợp lệ.', 400);
         await assertWorkplaceScope(caller, parsed.type, parsed.id);
-        const users = await hydrateUserStoreIds(
+        const users = await hydrateUserWorkplaces(
             caller.db,
             await getWorkplaceUsers(caller.db, parsed.type, parsed.id),
         );

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireWorkplaceCaller, workplaceAccessResponse, WorkplaceAccessError } from '@/lib/workplace/access';
-import { getManagedStoreIds, getStoreUsers, hydrateUserStoreIds } from '@/lib/workplace/server';
+import { getManagedStoreIds, getStoreUsers, hydrateUserWorkplaces } from '@/lib/workplace/server';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ storeId: string }> }) {
     try {
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ stor
         if (!caller.isAdmin && !(await getManagedStoreIds(caller.db, caller.user)).has(storeId)) {
             throw new WorkplaceAccessError('Cửa hàng nằm ngoài phạm vi quản lý.', 403);
         }
-        const users = await hydrateUserStoreIds(
+        const users = await hydrateUserWorkplaces(
             caller.db,
             (await getStoreUsers(caller.db, storeId)).filter(user => user.isActive !== false),
         );

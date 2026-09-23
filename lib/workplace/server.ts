@@ -76,12 +76,20 @@ export async function getUserStoreIds(db: Firestore, user: UserDoc, at = new Dat
         .map(item => item.workplace.id))];
 }
 
-/** Adds every active store membership to user records used by HR list screens. */
-export async function hydrateUserStoreIds(db: Firestore, users: UserDoc[], at = new Date()): Promise<UserDoc[]> {
-    const idsByUser = new Map<string, Set<string>>();
+/** Adds every active workplace membership to user records used by HR list screens. */
+export async function hydrateUserWorkplaces(db: Firestore, users: UserDoc[], at = new Date()): Promise<UserDoc[]> {
+    const workplacesByUser = new Map<string, Map<string, { type: WorkplaceType; id: string }>>();
     for (const user of users) {
-        const legacyIds = user.workplaceSchemaVersion === 2 || !user.storeId ? [] : [user.storeId];
-        idsByUser.set(user.uid, new Set(legacyIds));
+        const assignments = new Map<string, { type: WorkplaceType; id: string }>();
+        if (user.workplaceSchemaVersion !== 2) {
+            const legacy: Array<[WorkplaceType, string | undefined]> = [
+                ['STORE', user.storeId], ['OFFICE', user.officeId], ['CENTRAL', user.warehouseId],
+            ];
+            for (const [type, id] of legacy) {
+                if (id) assignments.set(workplaceKey(type, id), { type, id });
+            }
+        }
+        workplacesByUser.set(user.uid, assignments);
     }
 
     const versionTwoIds = users.filter(user => user.workplaceSchemaVersion === 2).map(user => user.uid);
@@ -95,13 +103,37 @@ export async function hydrateUserStoreIds(db: Firestore, users: UserDoc[], at = 
     for (const snapshot of snapshots) {
         for (const document of snapshot.docs) {
             const membership = { id: document.id, ...document.data() } as WorkplaceMembership;
-            if (membership.workplace.type === 'STORE' && membershipIsEffective(membership, at)) {
-                idsByUser.get(membership.userId)?.add(membership.workplace.id);
+            if (membershipIsEffective(membership, at)) {
+                const { type, id } = membership.workplace;
+                workplacesByUser.get(membership.userId)?.set(workplaceKey(type, id), { type, id });
             }
         }
     }
 
-    return users.map(user => ({ ...user, storeIds: [...(idsByUser.get(user.uid) || [])] }));
+    const distinctWorkplaces = new Map<string, { type: WorkplaceType; id: string }>();
+    for (const assignments of workplacesByUser.values()) {
+        for (const [key, assignment] of assignments) distinctWorkplaces.set(key, assignment);
+    }
+    const names = new Map<string, string>();
+    const locations = [...distinctWorkplaces.entries()];
+    for (let index = 0; index < locations.length; index += 100) {
+        const batch = locations.slice(index, index + 100);
+        const docs = await db.getAll(...batch.map(([, { type, id }]) => db.collection(WORKPLACE_COLLECTIONS[type]).doc(id)));
+        docs.forEach((doc, index) => {
+            const name = doc.data()?.name;
+            names.set(batch[index][0], typeof name === 'string' && name ? name : batch[index][1].id);
+        });
+    }
+
+    return users.map(user => {
+        const assignments = [...(workplacesByUser.get(user.uid) || new Map()).entries()]
+            .map(([key, { type, id }]) => ({ type, id, name: names.get(key) || id }));
+        return {
+            ...user,
+            storeIds: assignments.filter(item => item.type === 'STORE').map(item => item.id),
+            workplaceAssignments: assignments,
+        };
+    });
 }
 
 export async function getStoreUsers(db: Firestore, storeId: string, at = new Date()): Promise<UserDoc[]> {

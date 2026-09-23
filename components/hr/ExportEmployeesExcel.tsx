@@ -29,6 +29,13 @@ function parseBase64Image(dataUri: string): { base64: string; extension: 'png' |
     return { base64: match[2], extension: mapped };
 }
 
+function workplaceLines(employee: UserDoc): string[] {
+    const assignments = employee.workplaceAssignments || [];
+    return [...assignments]
+        .sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name, 'vi'))
+        .map(({ type, name }) => `${type === 'STORE' ? 'Cửa hàng' : type === 'OFFICE' ? 'Văn phòng' : 'Kho'}: ${name}`);
+}
+
 export default function ExportEmployeesExcel({ employees, className = '' }: ExportEmployeesExcelProps) {
     const [exporting, setExporting] = useState(false);
 
@@ -67,6 +74,7 @@ export default function ExportEmployeesExcel({ employees, className = '' }: Expo
                 { header: 'Số hợp đồng', key: 'contractNumber', width: 16 },
                 { header: 'Loại HĐ', key: 'type', width: 10 },
                 { header: 'Vai trò', key: 'role', width: 14 },
+                { header: 'Cửa hàng / địa điểm làm việc', key: 'workplaces', width: 38 },
                 { header: 'Chức danh', key: 'jobTitle', width: 18 },
                 { header: 'Tài khoản NH', key: 'bankAccount', width: 22 },
                 { header: 'Học vấn', key: 'education', width: 14 },
@@ -100,6 +108,7 @@ export default function ExportEmployeesExcel({ employees, className = '' }: Expo
                     : e.role === 'manager' ? 'Quản lý'
                     : e.role === 'admin' ? 'Admin'
                     : 'Nhân viên';
+                const locations = workplaceLines(e);
 
                 sheet.addRow({
                     stt: i + 1,
@@ -116,6 +125,7 @@ export default function ExportEmployeesExcel({ employees, className = '' }: Expo
                     contractNumber: e.contractNumber || '',
                     type: e.type === 'FT' ? 'Toàn thời gian' : 'Bán thời gian',
                     role: roleLabel,
+                    workplaces: locations.join('\n'),
                     jobTitle: e.jobTitle || '',
                     bankAccount: e.bankAccount || '',
                     education: e.education || '',
@@ -128,6 +138,7 @@ export default function ExportEmployeesExcel({ employees, className = '' }: Expo
 
                 const row = sheet.getRow(rowIndex);
                 row.alignment = { vertical: 'middle', wrapText: true };
+                row.height = Math.max(20, locations.length * 17);
 
                 // Alternate row colors
                 if (i % 2 === 1) {
@@ -163,12 +174,12 @@ export default function ExportEmployeesExcel({ employees, className = '' }: Expo
                     } as any);
                 };
 
-                addImageToCell(e.avatar, 20);           // Col T = 20
-                addImageToCell(e.idCardFrontPhoto, 21);  // Col U = 21
-                addImageToCell(e.idCardBackPhoto, 22);   // Col V = 22
+                addImageToCell(e.avatar, 21);
+                addImageToCell(e.idCardFrontPhoto, 22);
+                addImageToCell(e.idCardBackPhoto, 23);
 
                 if (hasImage) {
-                    row.height = IMAGE_ROW_HEIGHT;
+                    row.height = Math.max(row.height || 0, IMAGE_ROW_HEIGHT);
                 }
             }
 

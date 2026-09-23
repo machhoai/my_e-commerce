@@ -564,6 +564,8 @@ export interface UserDoc {
     storeId?: string;      // Populated when workplaceType === 'STORE'
     /** Active store memberships, hydrated by HR/admin list APIs. */
     storeIds?: string[];
+    /** Active workplaces with names, hydrated for HR/admin lists and exports. */
+    workplaceAssignments?: Array<{ type: WorkplaceType; id: string; name: string }>;
     officeId?: string;     // Populated when workplaceType === 'OFFICE'
     warehouseId?: string;  // Populated when workplaceType === 'CENTRAL'
     /** Default workplace only. Authorization uses workplace_memberships in schema v2. */

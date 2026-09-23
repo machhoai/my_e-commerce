@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { UserDoc } from '@/types';
 import { requireWorkplaceCaller, WorkplaceAccessError, workplaceAccessResponse } from '@/lib/workplace/access';
-import { hydrateUserStoreIds } from '@/lib/workplace/server';
+import { hydrateUserWorkplaces } from '@/lib/workplace/server';
 
 export async function GET(req: NextRequest) {
     try {
@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
         if (!caller.isAdmin) throw new WorkplaceAccessError('Bạn không có quyền xem toàn bộ người dùng.', 403);
         const snapshot = await caller.db.collection('users').orderBy('name').get();
         const users = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserDoc));
-        return NextResponse.json(await hydrateUserStoreIds(caller.db, users), {
+        return NextResponse.json(await hydrateUserWorkplaces(caller.db, users), {
             headers: { 'Cache-Control': 'no-store' },
         });
     } catch (error) {
