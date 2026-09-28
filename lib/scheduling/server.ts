@@ -6,10 +6,7 @@ import type { WorkplaceCaller } from '@/lib/workplace/access';
 import { assertPermission, WorkplaceAccessError } from '@/lib/workplace/access';
 import { employeeDayAllocationId } from '@/lib/workplace/keys';
 import { getManagedStoreIds, userHasWorkplace } from '@/lib/workplace/server';
-
-export function businessDateInstant(date: string): Date {
-    return new Date(`${date}T12:00:00+07:00`);
-}
+import { businessDateInstant } from './policy';
 
 function shiftInterval(store: StoreDoc, date: string, shiftId: string): [number, number] | null {
     const ruleSet = store.settings?.attendanceRules?.byShift?.[shiftId];

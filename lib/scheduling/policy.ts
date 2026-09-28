@@ -4,6 +4,11 @@
  */
 export const MAX_EMPLOYEE_SHIFTS_PER_DAY = 1;
 
+export function businessDateInstant(date: string): Date {
+    // Memberships added during a business day apply to shifts on that date.
+    return new Date(`${date}T23:59:59.999+07:00`);
+}
+
 export function exceedsDailyShiftLimit(shiftIds: Iterable<string>): boolean {
     return new Set(shiftIds).size > MAX_EMPLOYEE_SHIFTS_PER_DAY;
 }

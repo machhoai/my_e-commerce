@@ -199,23 +199,6 @@ export default function ManagerSchedulePage() {
                     }
                 });
 
-                const users: UserDoc[] = [];
-                if (uidsForShift.size > 0) {
-                    const uidsArray = Array.from(uidsForShift);
-                    for (let i = 0; i < uidsArray.length; i += 10) {
-                        const chunk = uidsArray.slice(i, i + 10);
-                        const qUsers = query(collection(db, 'users'), where('uid', 'in', chunk));
-                        const uSnap = await getDocs(qUsers);
-                        uSnap.docs.forEach(u => users.push(u.data() as UserDoc));
-                    }
-                }
-                users.sort((a, b) => a.name.localeCompare(b.name));
-
-                const inactive = new Set(users.filter(u => u.isActive === false).map(u => u.uid));
-                setInactiveUids(inactive);
-                setRegisteredEmployees(users.filter(u => u.isActive !== false));
-                setManagerAssignedUids(forceAssignedUids);
-
                 // --- Server schedule for this day/shift ---
                 const qScheds = query(
                     collection(db, 'schedules'),
@@ -230,8 +213,26 @@ export default function ManagerSchedulePage() {
                     const sData = docSnap.data() as ScheduleDoc;
                     if (serverSlot[sData.counterId] !== undefined) {
                         serverSlot[sData.counterId] = sData.employeeIds || [];
+                        (sData.employeeIds || []).forEach(uid => uidsForShift.add(uid));
+                        (sData.assignedByManagerUids || []).forEach(uid => forceAssignedUids.add(uid));
                     }
                 });
+
+                // Published assignments can outlive or predate a weekly registration.
+                // Keep those employees visible while editing the published schedule.
+                const users: UserDoc[] = [];
+                const uidsArray = Array.from(uidsForShift);
+                for (let i = 0; i < uidsArray.length; i += 10) {
+                    const chunk = uidsArray.slice(i, i + 10);
+                    const qUsers = query(collection(db, 'users'), where('uid', 'in', chunk));
+                    const uSnap = await getDocs(qUsers);
+                    uSnap.docs.forEach(u => users.push(u.data() as UserDoc));
+                }
+                users.sort((a, b) => a.name.localeCompare(b.name));
+                const inactive = new Set(users.filter(u => u.isActive === false).map(u => u.uid));
+                setInactiveUids(inactive);
+                setRegisteredEmployees(users.filter(u => u.isActive !== false));
+                setManagerAssignedUids(forceAssignedUids);
 
                 // Snapshot clean server state for this slot
                 serverAssignments.current = JSON.parse(JSON.stringify(serverSlot));
@@ -314,6 +315,19 @@ export default function ManagerSchedulePage() {
                         uidsForShift.add(reg.userId);
                         if (matchingShift.isAssignedByManager) forceAssignedUids.add(reg.userId);
                     }
+                });
+
+                const schedQuery = query(
+                    collection(db, 'schedules'),
+                    where('storeId', '==', effectiveStoreId),
+                    where('date', '==', selectedDate),
+                    where('shiftId', '==', selectedShiftId)
+                );
+                const schedSnap = await getDocs(schedQuery);
+                schedSnap.docs.forEach(d => {
+                    const schedule = d.data() as ScheduleDoc;
+                    (schedule.employeeIds || []).forEach(uid => uidsForShift.add(uid));
+                    (schedule.assignedByManagerUids || []).forEach(uid => forceAssignedUids.add(uid));
                 });
 
                 const users: UserDoc[] = [];

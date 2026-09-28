@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
-import { UserDoc, WeeklyRegistration } from '@/types';
+import { UserDoc } from '@/types';
+import { fetchStoreMembers } from '@/lib/workplace/client';
 import { Search, UserPlus, X, UserCog, Loader2 } from 'lucide-react';
 import { toLocalDateString, getWeekStart } from '@/lib/utils';
 import Portal from '@/components/Portal';
@@ -38,18 +37,14 @@ export default function ForceAssignModal({
 
     // Fetch all active store employees when modal opens
     useEffect(() => {
-        if (!isOpen || !storeId) return;
+        const currentUser = user;
+        if (!isOpen || !storeId || !currentUser) return;
 
         async function fetchEmployees() {
+            if (!currentUser) return;
             setLoading(true);
             try {
-                const usersQuery = query(
-                    collection(db, 'users'),
-                    where('storeId', '==', storeId)
-                );
-                const snap = await getDocs(usersQuery);
-                const employees = snap.docs
-                    .map(d => d.data() as UserDoc)
+                const employees = (await fetchStoreMembers(currentUser, storeId))
                     .filter(u => u.isActive !== false && u.role !== 'admin')
                     .sort((a, b) => a.name.localeCompare(b.name));
                 setAllEmployees(employees);
@@ -64,7 +59,7 @@ export default function ForceAssignModal({
         setSearchQuery('');
         setError('');
         setSuccessMsg('');
-    }, [isOpen, storeId]);
+    }, [isOpen, storeId, user]);
 
     const availableEmployees = allEmployees
         .filter(e => !registeredUids.has(e.uid))
