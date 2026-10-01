@@ -10,7 +10,7 @@
  * (on that date) is closest to the actual punch time is selected.
  */
 
-import type { AttendanceRule, AttendanceRuleSet } from '@/types';
+import type { AttendanceRule, AttendanceRuleSet, DailyAttendance } from '@/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -208,4 +208,83 @@ export function calculateAttendanceStatus(
     }
 
     return { status, effectiveCheckIn, workHours, rule, detectedShift, checkOutStatus };
+}
+
+export interface DetailedAttendanceShift {
+    shift: string;
+    dayType: 'Ngày thường' | 'Cuối tuần/lễ';
+    standardMinutes: number | null;
+    workedMinutes: number | null;
+    missingMinutes: number | null;
+    outsideMinutes: number | null;
+    counted: boolean;
+    pending: boolean;
+    label: string;
+    statusIn: PunchStatus;
+    statusOut: PunchOutStatus;
+}
+
+/** Export uses Vietnam time and configured rules; never invent a default paid shift. */
+export function detailedAttendanceShifts(
+    date: string,
+    record: DailyAttendance | undefined,
+    settings?: RuleContainer | null,
+    now = new Date(),
+): DetailedAttendanceShift[] {
+    const byShift = settings?.attendanceRules?.byShift ?? {};
+    const weekend = [0, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay());
+    const inMs = record?.checkIn ? Date.parse(record.checkIn) : NaN;
+    const outMs = record?.checkOut ? Date.parse(record.checkOut) : NaN;
+    const scheduled = [...new Set([
+        ...(record?.scheduledShiftIds ?? []),
+        ...(record?.scheduledShiftId ? [record.scheduledShiftId] : []),
+    ])];
+    const bounds = (shift: string) => {
+        const rule = byShift[shift] ? resolveRuleForShift(shift, date, byShift) : null;
+        const start = rule ? Date.parse(`${date}T${rule.startTime}:00+07:00`) : NaN;
+        let end = rule ? Date.parse(`${date}T${rule.endTime}:00+07:00`) : NaN;
+        if (end < start) end += 86_400_000;
+        return { rule, start, end };
+    };
+    let shifts = scheduled;
+    if (!shifts.length && (record?.checkIn || record?.checkOut)) {
+        const anchor = Number.isFinite(inMs) ? inMs : outMs;
+        const detected = Object.keys(byShift).sort((a, b) =>
+            Math.abs(bounds(a).start - anchor) - Math.abs(bounds(b).start - anchor))[0];
+        shifts = [detected ?? 'Chưa xác định'];
+    }
+    if (!shifts.length) shifts = [''];
+
+    return shifts.map((shift) => {
+        const { rule, start, end } = bounds(shift);
+        const special = Boolean(byShift[shift]?.specialDates?.[date]);
+        const standardMinutes = Number.isFinite(end - start) && end > start ? (end - start) / 60_000 : null;
+        const result: DetailedAttendanceShift = {
+            shift, dayType: weekend || special ? 'Cuối tuần/lễ' : 'Ngày thường',
+            standardMinutes, workedMinutes: null, missingMinutes: null, outsideMinutes: null,
+            counted: false, pending: false, label: '', statusIn: 'UNKNOWN', statusOut: 'UNKNOWN',
+        };
+        const pending = (reason: string) => ({ ...result, pending: true, label: `Chờ xác nhận · ${reason}` });
+        if (!record?.checkIn && !record?.checkOut) {
+            if (shift) result.label = Number.isFinite(end) && now.getTime() < end ? 'Chưa kết thúc ca' : 'Vắng';
+            return result;
+        }
+        if (scheduled.length > 1) return pending('Nhiều ca, chỉ có giờ đầu/cuối ngày');
+        if (!record?.checkIn || !record?.checkOut) return pending(!record?.checkIn ? 'Thiếu giờ vào' : 'Thiếu giờ ra');
+        if (!Number.isFinite(inMs) || !Number.isFinite(outMs) || outMs <= inMs) return pending('Giờ vào/ra không hợp lệ');
+        if (!rule || standardMinutes === null) return pending('Thiếu hoặc sai quy tắc ca');
+
+        // Keep full precision for counting; round only when displaying minutes in Excel.
+        const workedMinutes = Math.max(0, Math.min(outMs, end) - Math.max(inMs, start)) / 60_000;
+        if (workedMinutes === 0) return pending('Chấm công ngoài khung ca');
+        const missingMinutes = Math.max(0, standardMinutes - workedMinutes);
+        const outsideMinutes = Math.max(0, outMs - inMs) / 60_000 - workedMinutes;
+        return {
+            ...result, workedMinutes, missingMinutes, outsideMinutes, counted: true,
+            label: missingMinutes > 0 ? 'Thiếu giờ' : 'Đủ giờ',
+            statusIn: inMs < start ? 'EARLY' : inMs > start + rule.allowedLateMins * 60_000 ? 'LATE' : 'ON_TIME',
+            statusOut: outMs < end - rule.allowedEarlyMins * 60_000 ? 'EARLY_OUT'
+                : outMs > end + rule.allowedLateMins * 60_000 ? 'OVERTIME' : 'ON_TIME_OUT',
+        };
+    });
 }
