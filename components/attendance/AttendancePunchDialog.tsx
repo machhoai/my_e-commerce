@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { MapPin, X } from 'lucide-react';
 import EmployeeAttendancePanel from '@/components/attendance/EmployeeAttendancePanel';
+import { WorkplacePicker } from '@/components/shared/WorkplacePicker';
 import { cn } from '@/lib/utils';
 
 interface AttendancePunchDialogProps {
@@ -76,6 +77,7 @@ export default function AttendancePunchDialog({ className }: AttendancePunchDial
                             </button>
                         </header>
                         <div className="overflow-y-auto p-3 sm:p-5">
+                            <WorkplacePicker className="mb-3 rounded-xl border border-surface-200 bg-white p-2" />
                             <EmployeeAttendancePanel />
                         </div>
                     </section>

@@ -5,6 +5,7 @@
     "common.close": "关闭",
     "common.loading": "加载中...",
     "common.error": "错误",
+    "attendance.mappingEmployeesLoadError": "无法加载考勤机匹配的员工列表。",
     "common.success": "成功",
     "common.noData": "暂无数据",
     "common.viewDetails": "查看详情",

@@ -1,10 +1,10 @@
 import type { User } from 'firebase/auth';
 import type { UserDoc } from '@/types';
 
-export async function fetchStoreMembers(user: User, storeId: string): Promise<UserDoc[]> {
+export async function fetchStoreMembers(user: User, storeId: string, signal?: AbortSignal): Promise<UserDoc[]> {
     const token = await user.getIdToken();
     const response = await fetch(`/api/stores/${encodeURIComponent(storeId)}/members`, {
-        headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+        headers: { Authorization: `Bearer ${token}` }, cache: 'no-store', signal,
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || 'Không thể tải danh sách nhân viên.');

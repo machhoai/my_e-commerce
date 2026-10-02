@@ -15,8 +15,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { useAttendanceMappingEmployees } from '@/hooks/useAttendanceMappingEmployees';
 import { AttendanceDeviceDoc, ZkUserDoc, UserDoc } from '@/types';
 import {
     Link2, RefreshCw, Zap, Eye, EyeOff, CheckCircle2,
@@ -91,7 +90,7 @@ export default function MappingPage() {
     const [devices, setDevices] = useState<AttendanceDeviceDoc[]>([]);
     const [selectedStoreId, setSelectedStoreId] = useState('');
     const [selectedDeviceId, setSelectedDeviceId] = useState('');
-    const [systemUsers, setSystemUsers] = useState<UserDoc[]>([]);
+    const eligibleSystemUsers = useAttendanceMappingEmployees(user, selectedStoreId, isAdmin);
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
     const [showIgnored, setShowIgnored] = useState(false);
@@ -193,22 +192,6 @@ export default function MappingPage() {
     useEffect(() => {
         void loadMappings(selectedStoreId, selectedDeviceId);
     }, [loadMappings, selectedDeviceId, selectedStoreId]);
-
-    useEffect(() => {
-        const unsub = onSnapshot(collection(db, 'users'), (snap) => {
-            const docs = snap.docs
-                .map((d) => d.data() as UserDoc)
-                .filter((u) => u.isActive !== false && u.role !== 'admin');
-            docs.sort((a, b) => a.name.localeCompare(b.name));
-            setSystemUsers(docs);
-        });
-        return () => unsub();
-    }, []);
-
-    const eligibleSystemUsers = useMemo(
-        () => systemUsers.filter((employee) => employee.storeId === selectedStoreId),
-        [selectedStoreId, systemUsers],
-    );
 
     // ── Sync users ─────────────────────────────────────────────────────────────
 

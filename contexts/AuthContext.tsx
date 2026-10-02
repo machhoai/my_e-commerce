@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [effectiveStoreId, setEffectiveStoreIdState] = useState<string>('');
 
     const directStoreIds = workplaces
-        .filter(item => item.status === 'ACTIVE' && item.isActive && item.workplace.type === 'STORE')
+        .filter(item => item.status === 'ACTIVE' && item.isEffective && item.isActive && item.workplace.type === 'STORE')
         .map(item => item.workplace.id);
     const activeWorkplace = workplaces.find(item =>
         item.workplace.key === activeWorkplaceKey && item.isEffective && item.isActive
@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             localStorage.setItem(OFFICE_STORE_KEY, storeId);
         }
         const selected = workplaces.find(item =>
-            item.status === 'ACTIVE' && item.isActive
+            item.status === 'ACTIVE' && item.isEffective && item.isActive
             && item.workplace.type === 'STORE' && item.workplace.id === storeId
         );
         if (selected) {
