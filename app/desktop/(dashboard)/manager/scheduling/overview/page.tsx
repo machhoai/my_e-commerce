@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, doc, getDoc, orderBy, where } from 'firebase/firestore';
@@ -16,6 +16,8 @@ import autoTable from 'jspdf-autotable';
 import { registerVietnameseFont } from '@/lib/pdf-font';
 import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 import { fetchStoreMembers } from '@/lib/workplace/client';
+import { canvasToPNG, downloadExport, isIOSDevice, scheduleCanvasScale } from '@/lib/schedule-export';
+import { showToast } from '@/lib/utils/toast';
 
 type ViewMode = 'employee' | 'shift';
 
@@ -26,6 +28,46 @@ export default function GlobalOverviewPage() {
     const [weekDays, setWeekDays] = useState<Date[]>([]);
     const [loading, setLoading] = useState(true);
     const [isExporting, setIsExporting] = useState(false);
+    const [preparedExport, setPreparedExport] = useState<File | null>(null);
+    const [exportUrl, setExportUrl] = useState('');
+    const [isSharing, setIsSharing] = useState(false);
+    const exportDialogRef = useRef<HTMLDialogElement>(null);
+
+    useEffect(() => {
+        if (!preparedExport) return;
+        const url = URL.createObjectURL(preparedExport);
+        setExportUrl(url);
+        const dialog = exportDialogRef.current;
+        dialog?.showModal();
+        return () => {
+            dialog?.close();
+            URL.revokeObjectURL(url);
+        };
+    }, [preparedExport]);
+
+    const deliverExport = (blob: Blob, filename: string) => {
+        const file = new File([blob], filename, { type: blob.type });
+        if (isIOSDevice(navigator.userAgent, navigator.maxTouchPoints) || window.matchMedia('(pointer: coarse)').matches) {
+            // Rendering takes away transient activation. A fresh tap opens the iOS share sheet.
+            setPreparedExport(file);
+        } else {
+            downloadExport(file);
+        }
+    };
+
+    const shareExport = async () => {
+        if (!preparedExport || isSharing) return;
+        try {
+            setIsSharing(true);
+            await navigator.share({ files: [preparedExport], title: 'Lịch làm việc' });
+        } catch (error) {
+            if (!(error instanceof Error && error.name === 'AbortError')) {
+                showToast.error('Không thể chia sẻ', 'Vui lòng chọn Mở file để lưu ảnh hoặc PDF.');
+            }
+        } finally {
+            setIsSharing(false);
+        }
+    };
 
     const [viewMode, setViewMode] = useState<ViewMode>('shift');
     const [selectedShift, setSelectedShift] = useState<string>('');
@@ -348,15 +390,18 @@ export default function GlobalOverviewPage() {
 
     /** Convert cell text with [TAG] markers to colored HTML spans */
     const cellToHtml = (cell: string) => {
+        const escapeHtml = (text: string) => text.normalize('NFC').replace(/[&<>"']/g, char => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        })[char]!);
         return cell.split('\n').map(line => {
             const match = line.match(/^\[(FT|PT|QL|CTH)\](.*)$/);
             if (match) {
                 const tag = `[${match[1]}]`;
                 const name = match[2];
                 const color = tagColorMap[tag] || '#334155';
-                return `<span style="color:${color};font-weight:600">${name}</span>`;
+                return `<span style="color:${color};font-weight:600">${escapeHtml(name)}</span>`;
             }
-            return `<span>${line}</span>`;
+            return `<span>${escapeHtml(line)}</span>`;
         }).join('<br/>');
     };
 
@@ -364,13 +409,15 @@ export default function GlobalOverviewPage() {
     const exportAsPDF = async () => {
         setIsExporting(true);
         try {
-            const doc = new jsPDF('landscape', 'mm', 'a4');
+            // Keep all seven days and their grouped headers on the same sheet.
+            const pageWidth = viewMode === 'shift' ? Math.max(297, 56 + shifts.length * 7 * 32) : 297;
+            const doc = new jsPDF('landscape', 'mm', [pageWidth, 210]);
             await registerVietnameseFont(doc);
             doc.setFontSize(14);
             doc.text(`Lịch Tổng Quan Tuần: ${weekId}`, 14, 15);
 
             /** Strip [TAG] markers from text for PDF display */
-            const stripTags = (text: string) => text.replace(/\[(FT|PT|QL|CTH)\]/g, '');
+            const stripTags = (text: string) => text.replace(/\[(FT|PT|QL|CTH)\]/g, '').normalize('NFC');
 
             /** Get the RGB color for the first [TAG] found in text */
             const getTagRgb = (text: string): [number, number, number] | null => {
@@ -491,7 +538,11 @@ export default function GlobalOverviewPage() {
             // Legend
             const finalY = (doc as any).lastAutoTable?.finalY ?? doc.internal.pageSize.height - 15;
             doc.setFontSize(9);
-            const legendY = finalY + 8;
+            let legendY = finalY + 8;
+            if (legendY > doc.internal.pageSize.height - 14) {
+                doc.addPage();
+                legendY = 15;
+            }
             const legendItems = [
                 { label: 'Full-time (FT)', rgb: [37, 99, 235] },
                 { label: 'Part-time (PT)', rgb: [5, 150, 105] },
@@ -501,18 +552,19 @@ export default function GlobalOverviewPage() {
             let legendX = 14;
             legendItems.forEach(item => {
                 doc.setTextColor(item.rgb[0], item.rgb[1], item.rgb[2]);
-                doc.setFont('helvetica', 'bold');
-                doc.text('\u25CF ', legendX, legendY);
+                doc.setFillColor(item.rgb[0], item.rgb[1], item.rgb[2]);
+                doc.circle(legendX + 1, legendY - 1, 0.8, 'F');
                 legendX += 3;
-                doc.setFont('helvetica', 'normal');
+                doc.setFont('Roboto', 'normal');
                 doc.setTextColor(100, 116, 139);
                 doc.text(item.label + '    ', legendX, legendY);
                 legendX += doc.getTextWidth(item.label + '    ');
             });
 
-            doc.save(`Lich-Tong-Quan-Tuan-${weekId}.pdf`);
+            deliverExport(doc.output('blob'), `Lich-Tong-Quan-Tuan-${weekId}.pdf`);
         } catch (err) {
             console.error('Export PDF failed:', err);
+            showToast.error('Không thể xuất PDF', err instanceof Error ? err.message : 'Vui lòng thử lại.');
         } finally {
             setIsExporting(false);
         }
@@ -521,10 +573,12 @@ export default function GlobalOverviewPage() {
     /** Export as PNG using a hidden clean HTML table + html2canvas */
     const exportAsImage = async () => {
         setIsExporting(true);
+        let wrapper: HTMLDivElement | null = null;
+        let canvas: HTMLCanvasElement | null = null;
         try {
             // Create a clean, hidden HTML table with inline styles (no Tailwind)
-            const wrapper = document.createElement('div');
-            wrapper.style.cssText = 'position:fixed;top:-99999px;left:0;z-index:-1;background:#fff;padding:24px;width:2000px;';
+            wrapper = document.createElement('div');
+            wrapper.style.cssText = 'position:absolute;top:0;left:0;z-index:-1;pointer-events:none;background:#fff;padding:24px;width:max-content;';
 
             // Title
             const titleEl = document.createElement('h2');
@@ -644,31 +698,57 @@ export default function GlobalOverviewPage() {
 
             document.body.appendChild(wrapper);
 
-            // Wait for reflow then capture
-            await new Promise(r => setTimeout(r, 50));
+            await document.fonts.ready;
+            const width = Math.ceil(wrapper.getBoundingClientRect().width);
+            const height = Math.ceil(wrapper.getBoundingClientRect().height);
 
-            const canvas = await html2canvas(wrapper, {
-                scale: 2,
+            canvas = await html2canvas(wrapper, {
+                scale: scheduleCanvasScale(width, height, isIOSDevice(navigator.userAgent, navigator.maxTouchPoints)),
+                width,
+                height,
+                windowWidth: Math.max(document.documentElement.clientWidth, width),
+                windowHeight: Math.max(document.documentElement.clientHeight, height),
+                scrollX: 0,
+                scrollY: 0,
                 useCORS: true,
                 backgroundColor: '#ffffff',
             });
 
-            // Cleanup
-            document.body.removeChild(wrapper);
-
-            const link = document.createElement('a');
-            link.download = `Lich-Tong-Quan-Tuan-${weekId}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
+            deliverExport(await canvasToPNG(canvas), `Lich-Tong-Quan-Tuan-${weekId}.png`);
         } catch (err) {
             console.error('Export image failed:', err);
+            showToast.error('Không thể xuất ảnh', err instanceof Error ? err.message : 'Vui lòng thử lại.');
         } finally {
+            wrapper?.remove();
+            if (canvas) {
+                canvas.width = 0;
+                canvas.height = 0;
+            }
             setIsExporting(false);
         }
     };
 
     return (
         <div className="space-y-4 mx-auto">
+            <dialog
+                ref={exportDialogRef}
+                onCancel={() => setPreparedExport(null)}
+                aria-labelledby="schedule-export-title"
+                className="w-[calc(100%_-_2rem)] max-w-md rounded-2xl p-5 backdrop:bg-black/40"
+            >
+                <h2 id="schedule-export-title" className="text-lg font-bold">File lịch đã sẵn sàng</h2>
+                <p className="mt-2 text-sm text-surface-600 break-all">{preparedExport?.name}</p>
+                <p className="mt-2 text-sm text-surface-600">Chọn Lưu / Chia sẻ, sau đó chọn Lưu hình ảnh hoặc Lưu vào Tệp. Bạn cũng có thể mở file để xem và lưu.</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                    {preparedExport && navigator.canShare?.({ files: [preparedExport] }) && (
+                        <button type="button" disabled={isSharing} onClick={shareExport} className="rounded-lg bg-primary-600 px-4 py-2 text-white disabled:opacity-50">Lưu / Chia sẻ</button>
+                    )}
+                    {preparedExport && exportUrl && (
+                        <a href={exportUrl} target="_blank" rel="noopener noreferrer" className="rounded-lg border px-4 py-2">Mở file</a>
+                    )}
+                    <button type="button" disabled={isSharing} onClick={() => setPreparedExport(null)} className="rounded-lg border px-4 py-2">Đóng</button>
+                </div>
+            </dialog>
             {/* Admin Store Selector Banner */}
             {userDoc?.role === 'admin' && (
                 <div className="bg-white rounded-xl border border-surface-200 shadow-sm p-3 flex flex-col sm:flex-row items-start sm:items-center gap-3">
