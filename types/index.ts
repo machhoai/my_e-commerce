@@ -1314,6 +1314,8 @@ export interface DailyAttendance {
     date: string;             // YYYY-MM-DD
     checkIn?: string | null;  // ISO timestamp of first punch
     checkOut?: string | null; // ISO timestamp of last punch (only when >1 punch)
+    /** Software check-in without a valid check-out before 06:00 the following day. */
+    missingCheckOut?: boolean;
     punchCount: number;       // Total raw punch count for the day
     /** True when the employee appears in at least one published schedule for this date. */
     scheduled?: boolean;

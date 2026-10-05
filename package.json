@@ -7,7 +7,7 @@
         "build": "next build --webpack",
         "start": "next start",
         "lint": "eslint",
-        "test:attendance": "node --test --experimental-strip-types tests/unit/attendance-policy.test.mts tests/unit/attendance-detailed-export.test.mts tests/unit/attendance-workplace.test.mjs"
+        "test:attendance": "node --test --experimental-strip-types tests/unit/attendance-policy.test.mts tests/unit/attendance-detailed-export.test.mts tests/unit/attendance-workplace.test.mjs tests/unit/attendance-software-service.test.mjs"
     },
     "dependencies": {
         "@ai-sdk/anthropic": "^1.2.12",

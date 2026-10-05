@@ -7,7 +7,7 @@ import { attendancePolicyInputSchema } from '../../lib/attendance/policy-schema.
 // @ts-expect-error Node's strip-types test runner requires the explicit .ts extension.
 import { getNextAttendanceEventType, isAttendanceEventExpected, vietnamAttendanceDate } from '../../lib/attendance/state.ts';
 // @ts-expect-error Node's strip-types test runner requires the explicit .ts extension.
-import { parseAttendanceRange, resolveAcceptedAttendanceTimes, selectAttendanceRosterUids } from '../../lib/attendance/manager-model.ts';
+import { attendanceCheckoutDeadline, isWithinAttendanceCheckoutWindow, previousAttendanceDateBeforeDeadline, parseAttendanceRange, resolveAcceptedAttendanceTimes, selectAttendanceRosterUids } from '../../lib/attendance/manager-model.ts';
 // @ts-expect-error Node's strip-types test runner requires the explicit .ts extension.
 import { calculateAttendanceStatus } from '../../lib/attendance-rules.ts';
 // @ts-expect-error Node's strip-types test runner requires the explicit .ts extension.
@@ -178,6 +178,49 @@ test('daily attendance state enforces CHECK_IN then CHECK_OUT order', () => {
 
 test('attendance date is calculated in Vietnam timezone', () => {
     assert.equal(vietnamAttendanceDate(new Date('2026-08-20T18:30:00.000Z')), '2026-08-21');
+});
+
+test('software checkout deadline is exclusive at 06:00 Vietnam time, including month/year boundaries', () => {
+    assert.equal(attendanceCheckoutDeadline('2026-09-27'), Date.parse('2026-09-28T06:00:00+07:00'));
+    assert.equal(isWithinAttendanceCheckoutWindow('2026-09-27', '2026-09-28T05:59:59.999+07:00'), true);
+    assert.equal(isWithinAttendanceCheckoutWindow('2026-09-27', '2026-09-28T06:00:00+07:00'), false);
+    assert.equal(isWithinAttendanceCheckoutWindow('2026-09-27', '2026-09-28T15:52:56.152+07:00'), false);
+    assert.equal(isWithinAttendanceCheckoutWindow('2026-09-27', '2026-09-26T23:59:59+07:00'), false);
+    assert.equal(isWithinAttendanceCheckoutWindow('2026-09-27', 'invalid'), false);
+    assert.equal(previousAttendanceDateBeforeDeadline('2027-01-01', new Date('2027-01-01T05:59:59+07:00')), '2026-12-31');
+    assert.equal(previousAttendanceDateBeforeDeadline('2026-10-01', new Date('2026-10-01T05:59:59+07:00')), '2026-09-30');
+    assert.equal(previousAttendanceDateBeforeDeadline('2026-09-28', new Date('2026-09-28T06:00:00+07:00')), null);
+});
+
+test('forgotten software checkout cannot produce a full shift from the following afternoon', () => {
+    const punches = [
+        { occurredAt: '2026-09-27T07:22:38.812Z', eventType: 'CHECK_IN', status: 'ACCEPTED', source: 'SOFTWARE' },
+        { occurredAt: '2026-09-28T08:52:56.152Z', eventType: 'CHECK_OUT', status: 'ACCEPTED', source: 'SOFTWARE' },
+    ] as const;
+    const resolved = resolveAcceptedAttendanceTimes([...punches], '2026-09-27');
+    assert.equal(resolved.checkIn, punches[0].occurredAt);
+    assert.equal(resolved.checkOut, null);
+    assert.equal(resolved.acceptedCount, 1);
+    assert.equal(calculateAttendanceStatus(resolved.checkIn!, resolved.checkOut, '2026-09-27').workHours, null);
+});
+
+test('software overnight checkout before 06:00 remains valid; machine checkout is unaffected', () => {
+    const checkIn = { occurredAt: '2026-09-27T14:22:00+07:00', eventType: 'CHECK_IN', status: 'ACCEPTED', source: 'SOFTWARE' } as const;
+    const checkOut = { occurredAt: '2026-09-28T05:59:59+07:00', eventType: 'CHECK_OUT', status: 'ACCEPTED', source: 'SOFTWARE' } as const;
+    assert.equal(resolveAcceptedAttendanceTimes([checkIn, checkOut], '2026-09-27').checkOut, checkOut.occurredAt);
+    const expired = { ...checkOut, occurredAt: '2026-09-28T06:00:00+07:00' };
+    assert.equal(resolveAcceptedAttendanceTimes([checkIn, expired], '2026-09-27').checkOut, null);
+    assert.equal(resolveAcceptedAttendanceTimes([
+        { ...checkIn, source: 'MACHINE' }, { ...expired, source: 'MACHINE' },
+    ], '2026-09-27').checkOut, expired.occurredAt);
+});
+
+test('expired previous session does not prevent the next day check-in', () => {
+    const instant = new Date('2026-09-28T08:00:00+07:00');
+    const nominalDate = vietnamAttendanceDate(instant);
+    assert.equal(previousAttendanceDateBeforeDeadline(nominalDate, instant), null);
+    assert.equal(getNextAttendanceEventType(null, true), 'CHECK_IN');
+    assert.equal(isAttendanceEventExpected('CHECK_OUT', null, true), false);
 });
 
 test('manager range validates real dates and resolves month end', () => {

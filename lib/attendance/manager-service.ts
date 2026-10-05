@@ -9,6 +9,7 @@ import {
 import { getAdminDb } from '@/lib/firebase-admin';
 import {
     parseAttendanceRange,
+    attendanceCheckoutDeadline,
     resolveAcceptedAttendanceTimes,
     selectAttendanceRosterUids,
 } from '@/lib/attendance/manager-model';
@@ -108,7 +109,7 @@ function aggregateDaily(
     shiftIds: string[],
     zkUserId: string,
 ): DailyAttendance {
-    const { checkIn, checkOut, acceptedCount } = resolveAcceptedAttendanceTimes(punches);
+    const { checkIn, checkOut, acceptedCount } = resolveAcceptedAttendanceTimes(punches, date);
     const accepted = punches.filter((event) => event.status === 'ACCEPTED');
 
     return {
@@ -121,6 +122,8 @@ function aggregateDaily(
         date,
         checkIn,
         checkOut,
+        missingCheckOut: Boolean(checkIn && !checkOut && Date.now() >= attendanceCheckoutDeadline(date)
+            && accepted.some((event) => event.source === 'SOFTWARE' && event.eventType === 'CHECK_IN')),
         punchCount: acceptedCount,
         scheduled: shiftIds.length > 0,
         scheduledShiftId: shiftIds[0] ?? null,

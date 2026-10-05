@@ -635,7 +635,7 @@ export default function AttendancePage() {
                         : rec?.checkIn
                             ? `${formatTime(rec.checkIn)}${methodLabel ? ` [${methodLabel}]` : ''}`
                             : '—';
-                    const outTime = formatTime(rec?.checkOut);
+                    const outTime = rec?.missingCheckOut ? 'Thiếu giờ ra' : formatTime(rec?.checkOut);
 
                     if (rec?.checkIn) {
                         const statusResult = calculateAttendanceStatus(

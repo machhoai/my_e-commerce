@@ -15,6 +15,7 @@ import {
 } from '@/lib/attendance/policy';
 import { getTrustedAttendanceRequestIp } from '@/lib/attendance/request-ip';
 import { getNextAttendanceEventType, isAttendanceEventExpected, vietnamAttendanceDate } from '@/lib/attendance/state';
+import { isWithinAttendanceCheckoutWindow, previousAttendanceDateBeforeDeadline } from '@/lib/attendance/manager-model';
 import { getAdminDb } from '@/lib/firebase-admin';
 import type {
     AttendanceDailyState,
@@ -73,10 +74,9 @@ const dailyStateId = (storeId: string, employeeUid: string, date: string) =>
 const requestId = (employeeUid: string, idempotencyKey: string) =>
     hashId(`${employeeUid}\u0000${idempotencyKey}`);
 
-async function previousOpenAttendanceDate(userId: string, nominalDate: string): Promise<string | null> {
-    const previous = new Date(`${nominalDate}T00:00:00+07:00`);
-    previous.setDate(previous.getDate() - 1);
-    const date = previous.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+async function previousOpenAttendanceDate(userId: string, nominalDate: string, now: Date): Promise<string | null> {
+    const date = previousAttendanceDateBeforeDeadline(nominalDate, now);
+    if (!date) return null;
     const db = getAdminDb();
     const allocation = await allocationRef(db, userId, date).get();
     const storeId = allocation.data()?.storeId as string | undefined;
@@ -129,7 +129,7 @@ export async function getSoftwareAttendanceContext(
     const now = new Date();
     const serverTime = now.toISOString();
     let attendanceDate = vietnamAttendanceDate(now);
-    attendanceDate = await previousOpenAttendanceDate(caller.uid, attendanceDate) || attendanceDate;
+    attendanceDate = await previousOpenAttendanceDate(caller.uid, attendanceDate, now) || attendanceDate;
     const currentIpAddress = getTrustedAttendanceRequestIp(req);
     let storeId = '';
     try {
@@ -288,9 +288,7 @@ export async function punchSoftwareAttendance(
     const now = new Date();
     const occurredAt = now.toISOString();
     let attendanceDate = vietnamAttendanceDate(now);
-    if (input.eventType === 'CHECK_OUT') {
-        attendanceDate = await previousOpenAttendanceDate(caller.uid, attendanceDate) || attendanceDate;
-    }
+    attendanceDate = await previousOpenAttendanceDate(caller.uid, attendanceDate, now) || attendanceDate;
     const storeId = await resolveAttendanceStoreId(caller, input.storeId, attendanceDate);
     const currentIpAddress = getTrustedAttendanceRequestIp(req);
     const eventRef = db.collection('attendance_events').doc();
@@ -330,6 +328,16 @@ export async function punchSoftwareAttendance(
             ? (policySnapshot.data() as StoreAttendancePolicy)
             : null;
         assertSoftwarePolicy(policy);
+
+        // Recheck inside the transaction: a request/retry may straddle 06:00.
+        if (input.eventType === 'CHECK_OUT'
+            && !isWithinAttendanceCheckoutWindow(attendanceDate, new Date().toISOString())) {
+            throw new AttendanceServiceError(
+                'Đã quá hạn chấm công ra (06:00 sáng hôm sau). Ca này thiếu check-out. Vui lòng tải lại để chấm công ca mới.',
+                409,
+                'CHECK_OUT_DEADLINE_EXCEEDED',
+            );
+        }
 
         const state = stateSnapshot.exists
             ? (stateSnapshot.data() as AttendanceDailyState)

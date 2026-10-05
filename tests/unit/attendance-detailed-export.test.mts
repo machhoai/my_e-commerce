@@ -5,6 +5,8 @@ import ExcelJS from 'exceljs';
 import { detailedAttendanceShifts } from '../../lib/attendance-rules.ts';
 // @ts-expect-error Node strip-types runner requires explicit extensions.
 import { buildDetailedAttendanceWorkbook } from '../../lib/attendance-detailed-export.ts';
+// @ts-expect-error Node strip-types runner requires explicit extensions.
+import { resolveAcceptedAttendanceTimes } from '../../lib/attendance/manager-model.ts';
 import type { DailyAttendance } from '../../types/index';
 import type { RuleContainer } from '../../lib/attendance-rules';
 
@@ -20,6 +22,28 @@ function record(date: string, checkIn?: string | null, checkOut?: string | null,
         checkIn, checkOut, punchCount: 2, scheduledShiftId: 'Ca 1', ...extra };
 }
 const shift = (rec: DailyAttendance, rules: RuleContainer = settings) => detailedAttendanceShifts(rec.date, rec, rules, now)[0];
+
+test('expired software checkout exports as missing instead of eight hours and 1050.289 outside minutes', () => {
+    const resolved = resolveAcceptedAttendanceTimes([
+        { occurredAt: '2026-09-27T07:22:38.812Z', eventType: 'CHECK_IN', status: 'ACCEPTED', source: 'SOFTWARE' },
+        { occurredAt: '2026-09-28T08:52:56.152Z', eventType: 'CHECK_OUT', status: 'ACCEPTED', source: 'SOFTWARE' },
+    ], '2026-09-27');
+    const rec = record('2026-09-27', resolved.checkIn, resolved.checkOut, { missingCheckOut: true });
+    const rules = { attendanceRules: { byShift: {
+        'Ca 1': { defaultWeekday: { ...weekday, startTime: '14:30', endTime: '22:30' },
+            defaultWeekend: { ...weekend, startTime: '14:30', endTime: '22:30' }, specialDates: {} },
+    } } };
+    const result = shift(rec, rules);
+    assert.equal(result.counted, false);
+    assert.equal(result.workedMinutes, null);
+    assert.equal(result.outsideMinutes, null);
+    assert.match(result.label, /Thiếu giờ ra/);
+    const workbook = buildDetailedAttendanceWorkbook('2026-09', [rec], [{ uid: 'u1', name: rec.zk_name }], rules, now);
+    const row = workbook.getWorksheet(rec.zk_name)!.getRow(30);
+    assert.equal(row.getCell(9).value, null);
+    assert.equal(row.getCell(11).value, null);
+    assert.match(String(row.getCell(12).value), /Thiếu giờ ra/);
+});
 
 test('configured weekday, weekend and special-date durations determine integer shift counts', () => {
     for (const date of ['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04']) {

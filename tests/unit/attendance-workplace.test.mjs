@@ -25,6 +25,7 @@ const keys = loadModule('../../lib/workplace/keys.ts');
 const workplaces = loadModule('../../lib/workplace/server.ts', { './keys': keys });
 const policy = loadModule('../../lib/attendance/policy.ts');
 const state = loadModule('../../lib/attendance/state.ts');
+const managerModel = loadModule('../../lib/attendance/manager-model.ts');
 const permissions = loadModule('../../lib/attendance/permission.ts');
 
 function fixture() {
@@ -71,6 +72,7 @@ function fixture() {
             AttendanceAccessError: class extends Error {},
         },
         '@/lib/attendance/policy': policy, '@/lib/attendance/state': state,
+        '@/lib/attendance/manager-model': managerModel,
         '@/lib/attendance/request-ip': { getTrustedAttendanceRequestIp: () => null },
         '@/lib/firebase-admin': { getAdminDb: () => db }, '@/lib/workplace/server': workplaces,
         '@/lib/scheduling/server': { allocationRef: (database, uid, date) => database.collection('employee_day_allocations').doc(keys.employeeDayAllocationId(uid, date)) },
