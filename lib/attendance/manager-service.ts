@@ -152,33 +152,18 @@ async function loadManagerData(storeId: string, startDate: string, endDate: stri
     if (!storeSnapshot.exists) throw new AttendanceManagerError('Không tìm thấy cửa hàng.', 404);
     const store = { id: storeSnapshot.id, ...storeSnapshot.data() } as StoreDoc;
     const policy = policySnapshot.exists ? policySnapshot.data() as StoreAttendancePolicy : null;
-    const employees = storeUsers
-        .filter((user) => user.isActive !== false && user.role !== 'admin' && user.role !== 'super_admin')
-        .map((user) => toEmployee(user, storeId))
-        .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
-    const employeeByUid = new Map(employees.map((employee) => [employee.uid, employee]));
     const schedules = schedulesSnapshot.docs
         .map((snapshot) => snapshot.data() as ScheduleDoc)
         .filter((schedule) => schedule.storeId === storeId);
     const attendanceEvents = eventsSnapshot.docs
         .map((snapshot) => ({ id: snapshot.id, ...snapshot.data() } as AttendanceEvent))
-        .filter((event) => event.storeId === storeId && employeeByUid.has(event.employeeUid));
+        .filter((event) => event.storeId === storeId);
     const zkUsers = zkSnapshot.docs.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() } as ZkUserDoc));
     const zkById = new Map(zkUsers.map((zkUser) => [
         `${zkUser.deviceId ?? ''}|${zkUser.zk_user_id}`,
         zkUser,
     ]));
-    const zkByEmployee = new Map<string, ZkUserDoc>();
-    for (const zkUser of zkUsers) {
-        if (
-            (!zkUser.storeId || zkUser.storeId === storeId)
-            && zkUser.status === 'mapped'
-            && zkUser.mapped_system_uid
-            && employeeByUid.has(zkUser.mapped_system_uid)
-        ) {
-            zkByEmployee.set(zkUser.mapped_system_uid, zkUser);
-        }
-    }
+    const storeUserUids = new Set(storeUsers.map((user) => user.uid));
     const machineLogs = logsSnapshot.docs
         .map((snapshot) => ({ id: snapshot.id, ...snapshot.data() } as AttendanceLogDoc))
         .flatMap((log) => {
@@ -191,11 +176,49 @@ async function loadManagerData(storeId: string, startDate: string, endDate: stri
             const employeeUid = log.mapped_system_uid
                 ?? compositeMapping?.mapped_system_uid
                 ?? legacyMapping?.mapped_system_uid;
-            if (!employeeUid || !employeeByUid.has(employeeUid)) return [];
+            if (!employeeUid) return [];
+            // Unscoped legacy logs require a store mapping or a current store member.
+            const mappingStoreId = compositeMapping?.storeId ?? legacyMapping?.storeId;
+            if (!log.storeId && (mappingStoreId ? mappingStoreId !== storeId : !storeUserUids.has(employeeUid))) return [];
             return [{ ...log, employeeUid }];
         });
 
-    return { store, policy, employees, employeeByUid, schedules, attendanceEvents, machineLogs, zkByEmployee };
+    // Historical punches belong to the selected store even after resignation or transfer.
+    const punchedUids = new Set([
+        ...attendanceEvents.map((event) => event.employeeUid),
+        ...machineLogs.map((log) => log.employeeUid),
+    ]);
+    const missingUids = [...punchedUids].filter((uid) => !storeUserUids.has(uid));
+    const historicalUsers = missingUids.length
+        ? await db.getAll(...missingUids.map((uid) => db.collection('users').doc(uid)))
+        : [];
+    const employees = [
+        ...storeUsers,
+        ...historicalUsers.filter((snapshot) => snapshot.exists)
+            .map((snapshot) => ({ ...snapshot.data(), uid: snapshot.id } as UserDoc)),
+    ]
+        .filter((user) => punchedUids.has(user.uid)
+            || (user.isActive !== false && user.role !== 'admin' && user.role !== 'super_admin'))
+        .map((user) => toEmployee(user, storeId))
+        .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+    const employeeByUid = new Map(employees.map((employee) => [employee.uid, employee]));
+    const zkByEmployee = new Map<string, ZkUserDoc>();
+    for (const zkUser of zkUsers) {
+        if (
+            (!zkUser.storeId || zkUser.storeId === storeId)
+            && zkUser.status === 'mapped'
+            && zkUser.mapped_system_uid
+            && employeeByUid.has(zkUser.mapped_system_uid)
+        ) {
+            zkByEmployee.set(zkUser.mapped_system_uid, zkUser);
+        }
+    }
+
+    return {
+        store, policy, employees, employeeByUid, schedules, zkByEmployee,
+        attendanceEvents: attendanceEvents.filter((event) => employeeByUid.has(event.employeeUid)),
+        machineLogs: machineLogs.filter((log) => employeeByUid.has(log.employeeUid)),
+    };
 }
 
 export async function getManagerAttendance(
