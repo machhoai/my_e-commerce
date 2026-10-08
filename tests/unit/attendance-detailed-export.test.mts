@@ -21,7 +21,7 @@ function record(date: string, checkIn?: string | null, checkOut?: string | null,
     return { zk_user_id: '1', mapped_system_uid: 'u1', zk_name: 'Nhân viên mẫu', date,
         checkIn, checkOut, punchCount: 2, scheduledShiftId: 'Ca 1', ...extra };
 }
-const shift = (rec: DailyAttendance, rules: RuleContainer = settings) => detailedAttendanceShifts(rec.date, rec, rules, now)[0];
+const shift = (rec: DailyAttendance, rules: RuleContainer = settings) => detailedAttendanceShifts(rec.date, rec, rules)[0];
 
 test('expired software checkout exports as missing instead of eight hours and 1050.289 outside minutes', () => {
     const resolved = resolveAcceptedAttendanceTimes([
@@ -39,10 +39,10 @@ test('expired software checkout exports as missing instead of eight hours and 10
     assert.equal(result.outsideMinutes, null);
     assert.match(result.label, /Thiếu giờ ra/);
     const workbook = buildDetailedAttendanceWorkbook('2026-09', [rec], [{ uid: 'u1', name: rec.zk_name }], rules, now);
-    const row = workbook.getWorksheet(rec.zk_name)!.getRow(30);
-    assert.equal(row.getCell(9).value, null);
-    assert.equal(row.getCell(11).value, null);
-    assert.match(String(row.getCell(12).value), /Thiếu giờ ra/);
+    const row = workbook.getWorksheet(rec.zk_name)!.getRow(4);
+    assert.equal(row.getCell(9).value, 'Thiếu checkout');
+    assert.equal(row.getCell(10).value, null);
+    assert.equal(row.getCell(12).value, null);
 });
 
 test('configured weekday, weekend and special-date durations determine integer shift counts', () => {
@@ -91,24 +91,27 @@ test('missing, reversed, invalid and outside-only punches require confirmation',
         assert.equal(result.workedMinutes, null);
         assert.equal(result.missingMinutes, null);
     }
-    const missingRules = detailedAttendanceShifts('2026-10-01', record('2026-10-01', '2026-10-01T09:00:00+07:00', '2026-10-01T16:00:00+07:00'), null, now)[0];
+    const missingRules = detailedAttendanceShifts('2026-10-01', record('2026-10-01', '2026-10-01T09:00:00+07:00', '2026-10-01T16:00:00+07:00'), null)[0];
     assert.equal(missingRules.pending, true);
     assert.equal(missingRules.standardMinutes, null);
 });
 
-test('multiple scheduled shifts are shown separately and not inferred from daily FILO', () => {
+test('registered shifts do not duplicate or override the shift inferred from punches', () => {
     const results = detailedAttendanceShifts('2026-10-01', record('2026-10-01', '2026-10-01T09:00:00+07:00', '2026-10-01T23:00:00+07:00', {
         scheduledShiftIds: ['Ca 1', 'Ca 2', 'Ca 1'],
-    }), settings, now);
-    assert.equal(results.length, 2);
-    assert.ok(results.every(result => result.pending && !result.counted));
+    }), settings);
+    assert.equal(results.length, 1);
+    assert.equal(results[0].shift, 'Ca 1');
+    assert.equal(results[0].counted, true);
+    const actual = shift(record('2026-10-01', '2026-10-01T16:00:00+07:00', '2026-10-01T23:00:00+07:00'));
+    assert.equal(actual.shift, 'Ca 2');
+    assert.equal(actual.workedMinutes, 420);
 });
 
-test('unpunched scheduled days distinguish future shifts from absence and never count', () => {
+test('unpunched scheduled days and empty days do not export shifts', () => {
     const rec = record('2026-10-01', null, null, { absence: true });
-    assert.equal(shift(rec).label, 'Vắng');
-    assert.equal(detailedAttendanceShifts(rec.date, rec, settings, new Date('2026-10-01T10:00:00+07:00'))[0].label, 'Chưa kết thúc ca');
-    assert.equal(detailedAttendanceShifts(rec.date, undefined, settings, now)[0].label, '');
+    assert.deepEqual(detailedAttendanceShifts(rec.date, rec, settings), []);
+    assert.deepEqual(detailedAttendanceShifts(rec.date, undefined, settings), []);
 });
 
 test('export shift detection resolves start time for the actual special date', () => {
@@ -132,7 +135,7 @@ test('overnight shift and seconds retain their exact duration', () => {
     assert.equal(result.missingMinutes, 0.5);
 });
 
-test('XLSX round trip reconciles summary and both detail views without total hours', async () => {
+test('XLSX round trip includes total hours, missing checkout and full borders in both detail views', async () => {
     const attendance = [
         record('2026-10-01', '2026-10-01T09:30:00+07:00', '2026-10-01T16:30:00+07:00'),
         record('2026-10-02', '2026-10-02T09:00:00+07:00', '2026-10-02T17:00:00+07:00'),
@@ -148,21 +151,73 @@ test('XLSX round trip reconciles summary and both detail views without total hou
     assert.equal(summary.getCell('C4').value, 1);
     const employee = loaded.getWorksheet('Nhân viên mẫu')!;
     const combined = loaded.getWorksheet('Tổng hợp chi tiết')!;
-    for (let row = 4; row <= 34; row++) assert.deepEqual(employee.getRow(row).values, combined.getRow(row).values);
+    for (let row = 4; row <= 6; row++) assert.deepEqual(employee.getRow(row).values, combined.getRow(row).values);
+    const headers = employee.getRow(3).values as unknown[];
+    assert.ok(!headers.includes('Trạng thái ca'));
+    assert.deepEqual(headers.slice(8, 11), ['Giờ chuẩn ca', 'Tổng giờ làm', 'Giờ làm trong ca']);
     assert.equal(employee.getCell('H4').value, 7);
-    assert.equal(employee.getCell('I4').value, 6.5);
-    assert.equal(employee.getCell('J4').value, 30);
+    assert.equal(employee.getCell('I4').value, 7);
+    assert.equal(employee.getCell('J4').value, 6.5);
     assert.equal(employee.getCell('K4').value, 30);
+    assert.equal(employee.getCell('L4').value, 30);
     assert.equal(employee.getCell('H5').value, 8);
-    assert.equal(employee.getCell('I6').value, null);
+    assert.equal(employee.getCell('I6').value, 'Thiếu checkout');
+    assert.equal(employee.getCell('J6').value, null);
+    for (const sheet of [employee, combined, summary]) {
+        for (const edge of ['left', 'right', 'top', 'bottom'] as const) {
+            assert.equal(sheet.getCell('B4').border[edge]?.style, 'thin');
+        }
+    }
 });
 
 test('employee names that collide with other sheets still export, including inactive staff', () => {
     const workbook = buildDetailedAttendanceWorkbook('2026-10', [
-        record('2026-10-01', null, null),
-        record('2026-10-01', null, null, { mapped_system_uid: 'u2', mapped_system_name: 'Tổng kết' }),
-        record('2026-10-01', null, null, { mapped_system_uid: 'u3', mapped_system_name: 'Tổng kết' }),
+        record('2026-10-01', '2026-10-01T09:00:00+07:00', null),
+        record('2026-10-01', '2026-10-01T09:00:00+07:00', null, { mapped_system_uid: 'u2', mapped_system_name: 'Tổng kết' }),
+        record('2026-10-01', '2026-10-01T09:00:00+07:00', null, { mapped_system_uid: 'u3', mapped_system_name: 'Tổng kết' }),
     ], [{ uid: 'u1', name: 'Tổng kết' }], settings, now);
     assert.equal(workbook.worksheets.length, 5);
     assert.equal(new Set(workbook.worksheets.map(sheet => sheet.name)).size, 5);
+});
+
+test('export excludes registration-only employees and days while using actual shift policies', () => {
+    const workbook = buildDetailedAttendanceWorkbook('2026-10', [
+        record('2026-10-01', null, null, { absence: true }),
+        record('2026-10-02', '2026-10-02T16:00:00+07:00', '2026-10-02T23:00:00+07:00'),
+        record('2026-10-03', null, null, { mapped_system_uid: 'unpunched' }),
+        record('2026-09-30', '2026-09-30T09:00:00+07:00', null, { mapped_system_uid: 'outside' }),
+    ], [{ uid: 'u1', name: 'Đã nghỉ' }, { uid: 'unpunched', name: 'Chỉ đăng ký' }], settings, now);
+    assert.equal(workbook.worksheets.length, 3);
+    assert.equal(workbook.getWorksheet('Chỉ đăng ký'), undefined);
+    const sheet = workbook.getWorksheet('Đã nghỉ')!;
+    assert.equal(sheet.getCell('B4').value, '02/10/2026');
+    assert.equal(sheet.getCell('D4').value, 'Ca 2');
+    assert.equal(sheet.getCell('I4').value, 7);
+    assert.equal(sheet.getCell('J4').value, 7);
+    assert.match(String(sheet.getCell('A5').value), /^TỔNG KẾT:/);
+});
+
+test('total hours preserves overnight duration and marks incomplete or invalid punches', () => {
+    const workbook = buildDetailedAttendanceWorkbook('2026-10', [
+        record('2026-10-01', '2026-10-01T22:00:30+07:00', '2026-10-02T06:00:00+07:00'),
+        record('2026-10-02', null, '2026-10-02T16:00:00+07:00'),
+        record('2026-10-03', '2026-10-03T16:00:00+07:00', '2026-10-03T09:00:00+07:00'),
+    ], [], settings, now);
+    const sheet = workbook.getWorksheet('Nhân viên mẫu')!;
+    assert.equal(sheet.getCell('I4').value, 8 - 30 / 3600);
+    assert.equal(sheet.getCell('I4').numFmt, '0.00');
+    assert.equal(sheet.getCell('I5').value, 'Thiếu checkin');
+    assert.equal(sheet.getCell('D5').value, 'Ca 1');
+    assert.equal(sheet.getCell('I6').value, 'Giờ vào/ra không hợp lệ');
+});
+
+test('weekend shift detection uses weekend hours even when registrations disagree', () => {
+    const rules = { attendanceRules: { byShift: {
+        'Ca 1': { defaultWeekday: weekday, defaultWeekend: { ...weekend, startTime: '15:00', endTime: '23:00' }, specialDates: {} },
+        'Ca 2': { defaultWeekday: { ...weekday, startTime: '16:00', endTime: '23:00' }, defaultWeekend: weekend, specialDates: {} },
+    } } };
+    const result = shift(record('2026-10-03', '2026-10-03T09:00:00+07:00', '2026-10-03T17:00:00+07:00'), rules);
+    assert.equal(result.shift, 'Ca 2');
+    assert.equal(result.standardMinutes, 480);
+    assert.equal(result.workedMinutes, 480);
 });

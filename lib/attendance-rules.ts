@@ -229,16 +229,12 @@ export function detailedAttendanceShifts(
     date: string,
     record: DailyAttendance | undefined,
     settings?: RuleContainer | null,
-    now = new Date(),
 ): DetailedAttendanceShift[] {
+    if (!record?.checkIn && !record?.checkOut) return [];
     const byShift = settings?.attendanceRules?.byShift ?? {};
     const weekend = [0, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay());
     const inMs = record?.checkIn ? Date.parse(record.checkIn) : NaN;
     const outMs = record?.checkOut ? Date.parse(record.checkOut) : NaN;
-    const scheduled = [...new Set([
-        ...(record?.scheduledShiftIds ?? []),
-        ...(record?.scheduledShiftId ? [record.scheduledShiftId] : []),
-    ])];
     const bounds = (shift: string) => {
         const rule = byShift[shift] ? resolveRuleForShift(shift, date, byShift) : null;
         const start = rule ? Date.parse(`${date}T${rule.startTime}:00+07:00`) : NaN;
@@ -246,14 +242,12 @@ export function detailedAttendanceShifts(
         if (end < start) end += 86_400_000;
         return { rule, start, end };
     };
-    let shifts = scheduled;
-    if (!shifts.length && (record?.checkIn || record?.checkOut)) {
-        const anchor = Number.isFinite(inMs) ? inMs : outMs;
-        const detected = Object.keys(byShift).sort((a, b) =>
-            Math.abs(bounds(a).start - anchor) - Math.abs(bounds(b).start - anchor))[0];
-        shifts = [detected ?? 'Chưa xác định'];
-    }
-    if (!shifts.length) shifts = [''];
+    // Infer the worked shift from punches and the rules for this date, not registrations.
+    const anchor = Number.isFinite(inMs) ? inMs : outMs;
+    const shiftAnchor = (shift: string) => Number.isFinite(inMs) ? bounds(shift).start : bounds(shift).end;
+    const detected = Object.keys(byShift).sort((a, b) =>
+        Math.abs(shiftAnchor(a) - anchor) - Math.abs(shiftAnchor(b) - anchor))[0];
+    const shifts = [detected ?? 'Chưa xác định'];
 
     return shifts.map((shift) => {
         const { rule, start, end } = bounds(shift);
@@ -265,11 +259,6 @@ export function detailedAttendanceShifts(
             counted: false, pending: false, label: '', statusIn: 'UNKNOWN', statusOut: 'UNKNOWN',
         };
         const pending = (reason: string) => ({ ...result, pending: true, label: `Chờ xác nhận · ${reason}` });
-        if (!record?.checkIn && !record?.checkOut) {
-            if (shift) result.label = Number.isFinite(end) && now.getTime() < end ? 'Chưa kết thúc ca' : 'Vắng';
-            return result;
-        }
-        if (scheduled.length > 1) return pending('Nhiều ca, chỉ có giờ đầu/cuối ngày');
         if (!record?.checkIn || !record?.checkOut) return pending(!record?.checkIn ? 'Thiếu giờ vào' : 'Thiếu giờ ra');
         if (!Number.isFinite(inMs) || !Number.isFinite(outMs) || outMs <= inMs) return pending('Giờ vào/ra không hợp lệ');
         if (!rule || standardMinutes === null) return pending('Thiếu hoặc sai quy tắc ca');

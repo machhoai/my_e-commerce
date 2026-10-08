@@ -19,13 +19,14 @@ interface Summary {
 type CellValue = string | number | null;
 
 const detailHeaders = ['STT', 'Ngày', 'Thứ', 'Ca', 'Loại ngày', 'Giờ vào', 'Giờ ra',
-    'Giờ chuẩn ca', 'Giờ làm trong ca', 'Phút thiếu', 'Phút ngoài ca', 'Trạng thái ca',
+    'Giờ chuẩn ca', 'Tổng giờ làm', 'Giờ làm trong ca', 'Phút thiếu', 'Phút ngoài ca',
     'Trạng thái vào', 'Trạng thái ra', 'Nguồn'];
 const summaryHeaders = ['STT', 'Họ tên', 'Số ca ngày thường có làm', 'Số ca cuối tuần/lễ có làm',
     'Số ca thiếu giờ', 'Số ca chờ xác nhận', 'Số ngày trễ', 'Số ngày về sớm', 'Tổng phút thiếu', 'Tổng phút ngoài ca'];
 const note = 'Ca có làm: có đủ giờ vào/ra hợp lệ và có thời gian trong ca; ca thiếu giờ vẫn tính 1 ca. '
     + 'Thiếu và ngoài ca không bù trừ. Ngoài ca chưa đồng nghĩa tăng ca được duyệt. '
-    + 'Ngày đặc biệt cấu hình cho ca được xếp vào cuối tuần/lễ. Nhiều ca chỉ có giờ đầu/cuối ngày: chờ xác nhận. '
+    + 'Chỉ xuất ngày có chấm công. Ca xác định theo giờ vào và chính sách chấm công của ngày, không theo lịch đăng ký. '
+    + 'Tổng giờ làm = giờ ra trừ giờ vào. Ngày đặc biệt cấu hình cho ca được xếp vào cuối tuần/lễ. '
     + 'Phút hiển thị 2 số thập phân; phép tính giữ độ chính xác gốc.';
 const inLabels = { EARLY: 'Đến sớm', ON_TIME: 'Đúng giờ', LATE: 'Trễ', UNKNOWN: '' };
 const outLabels = { EARLY_OUT: 'Về sớm', ON_TIME_OUT: 'Đúng giờ', OVERTIME: 'Ngoài ca', UNKNOWN: '' };
@@ -37,7 +38,8 @@ function styleRow(row: ExcelJS.Row, fill: string, header = false) {
     row.eachCell({ includeEmpty: true }, (cell) => {
         cell.font = { name: 'Arial', size: 10, bold: header, color: { argb: header ? 'FFFFFFFF' : 'FF1F2937' } };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } };
-        cell.border = { bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } } };
+        const border: ExcelJS.Border = { style: 'thin', color: { argb: 'FFD1D5DB' } };
+        cell.border = { top: border, bottom: border, left: border, right: border };
         cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     });
 }
@@ -54,7 +56,7 @@ function addNote(sheet: ExcelJS.Worksheet, columns: number) {
     sheet.addRow([]);
     const row = sheet.addRow([note]);
     sheet.mergeCells(row.number, 1, row.number, columns);
-    row.height = 55;
+    row.height = 70;
     row.getCell(1).font = { name: 'Arial', size: 10, color: { argb: 'FF4B5563' } };
     row.getCell(1).alignment = { wrapText: true, vertical: 'middle' };
 }
@@ -76,7 +78,7 @@ export function buildDetailedAttendanceWorkbook(
     const summarySheet = workbook.addWorksheet('Tổng kết', { views: [{ state: 'frozen', ySplit: 2 }] });
     const combinedSheet = workbook.addWorksheet('Tổng hợp chi tiết', { views: [{ state: 'frozen', ySplit: 1 }] });
     summarySheet.columns = [6, 28, 23, 25, 18, 20, 17, 20, 20, 22].map(width => ({ width }));
-    const widths = [6, 15, 8, 16, 18, 12, 12, 15, 17, 14, 16, 48, 18, 18, 18];
+    const widths = [6, 15, 8, 16, 18, 12, 12, 15, 23, 17, 14, 16, 18, 18, 18];
     combinedSheet.columns = widths.map(width => ({ width }));
     title(summarySheet, `TỔNG KẾT CHẤM CÔNG — Tháng ${label}`, summaryHeaders.length, 'FF065F46');
     styleRow(summarySheet.addRow(summaryHeaders), 'FF065F46', true);
@@ -86,7 +88,8 @@ export function buildDetailedAttendanceWorkbook(
     const names = new Map<string, string>();
     const employeeNames = new Map(employees.map(employee => [employee.uid, employee.name]));
     for (const record of attendance) {
-        if (!record.mapped_system_uid || !record.date.startsWith(`${month}-`)) continue;
+        if (!record.mapped_system_uid || !record.date.startsWith(`${month}-`)
+            || (!record.checkIn && !record.checkOut)) continue;
         records.set(`${record.mapped_system_uid}|${record.date}`, record);
         names.set(record.mapped_system_uid, employeeNames.get(record.mapped_system_uid)
             ?? record.mapped_system_name ?? record.zk_name ?? record.mapped_system_uid);
@@ -115,7 +118,7 @@ export function buildDetailedAttendanceWorkbook(
         for (let day = 1; day <= numDays; day++) {
             const date = `${month}-${String(day).padStart(2, '0')}`;
             const record = records.get(`${uid}|${date}`);
-            const shifts = detailedAttendanceShifts(date, record, settings, now);
+            const shifts = detailedAttendanceShifts(date, record, settings);
             let late = false;
             let early = false;
             for (const shift of shifts) {
@@ -129,21 +132,27 @@ export function buildDetailedAttendanceWorkbook(
                 if (shift.pending) summary.pending++;
                 late ||= shift.statusIn === 'LATE';
                 early ||= shift.statusOut === 'EARLY_OUT';
+                const inMs = record?.checkIn ? Date.parse(record.checkIn) : NaN;
+                const outMs = record?.checkOut ? Date.parse(record.checkOut) : NaN;
+                const totalHours: CellValue = !record?.checkOut ? 'Thiếu checkout'
+                    : !record?.checkIn ? 'Thiếu checkin'
+                        : Number.isFinite(inMs) && Number.isFinite(outMs) && outMs > inMs
+                            ? (outMs - inMs) / 3_600_000 : 'Giờ vào/ra không hợp lệ';
                 const values: CellValue[] = [++ordinal, `${String(day).padStart(2, '0')}/${label}`,
                     ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][new Date(`${date}T00:00:00Z`).getUTCDay()],
                     shift.shift || null, shift.dayType, clock(record?.checkIn), clock(record?.checkOut),
                     shift.standardMinutes === null ? null : shift.standardMinutes / 60,
+                    totalHours,
                     shift.workedMinutes === null ? null : shift.workedMinutes / 60,
-                    shift.missingMinutes, shift.outsideMinutes, shift.label || null,
+                    shift.missingMinutes, shift.outsideMinutes,
                     inLabels[shift.statusIn] || null, outLabels[shift.statusOut] || null,
                     record?.methods?.map(method => method === 'BIOMETRIC' ? 'Máy' : method).join('/') || null];
                 for (const target of [sheet, combinedSheet]) {
                     const row = target.addRow(values);
                     styleRow(row, shift.dayType === 'Cuối tuần/lễ' ? 'FFFFF7ED' : day % 2 ? 'FFFAFAFA' : 'FFFFFFFF');
-                    for (const column of [8, 9, 10, 11]) row.getCell(column).numFmt = '0.00';
-                    row.getCell(12).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+                    for (const column of [8, 9, 10, 11, 12]) row.getCell(column).numFmt = '0.00';
                     if (shift.pending || (shift.missingMinutes ?? 0) > 0) {
-                        row.getCell(12).font = { name: 'Arial', size: 10, bold: true, color: { argb: shift.pending ? 'FFF59E0B' : 'FFEF4444' } };
+                        row.getCell(shift.pending ? 9 : 11).font = { name: 'Arial', size: 10, bold: true, color: { argb: shift.pending ? 'FFF59E0B' : 'FFEF4444' } };
                         row.height = 32;
                     }
                     if (shift.statusIn === 'LATE') row.getCell(13).font = { name: 'Arial', bold: true, color: { argb: 'FFEF4444' } };
