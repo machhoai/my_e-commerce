@@ -70,12 +70,18 @@ test('late arrival and late departure remain separate; grace does not erase miss
     assert.equal(withinGrace.missingMinutes, 14);
 });
 
-test('outside time on either end cannot create additional shifts or hide short work', () => {
+test('outside minutes count late checkout only and exclude early checkin', () => {
     const result = shift(record('2026-10-01', '2026-10-01T08:30:00+07:00', '2026-10-01T17:00:00+07:00'));
     assert.equal(result.workedMinutes, 420);
-    assert.equal(result.outsideMinutes, 90);
+    assert.equal(result.outsideMinutes, 60);
     assert.equal(result.missingMinutes, 0);
     assert.equal(result.counted, true);
+    for (const checkOut of ['15:30', '16:00']) {
+        const earlyIn = shift(record('2026-10-01', '2026-10-01T08:30:00+07:00', `2026-10-01T${checkOut}:00+07:00`));
+        assert.equal(earlyIn.outsideMinutes, 0);
+    }
+    const seconds = shift(record('2026-10-01', '2026-10-01T08:30:00+07:00', '2026-10-01T16:00:30+07:00'));
+    assert.equal(seconds.outsideMinutes, 0.5);
 });
 
 test('missing, reversed, invalid and outside-only punches require confirmation', () => {
@@ -220,4 +226,22 @@ test('weekend shift detection uses weekend hours even when registrations disagre
     assert.equal(result.shift, 'Ca 2');
     assert.equal(result.standardMinutes, 480);
     assert.equal(result.workedMinutes, 480);
+});
+
+test('XLSX summary and detail views exclude early arrival from outside minutes', async () => {
+    const workbook = buildDetailedAttendanceWorkbook('2026-10', [
+        record('2026-10-01', '2026-10-01T08:30:00+07:00', '2026-10-01T17:00:00+07:00'),
+        record('2026-10-02', '2026-10-02T08:30:00+07:00', '2026-10-02T17:00:00+07:00'),
+    ], [], settings, now);
+    const loaded = new ExcelJS.Workbook();
+    await loaded.xlsx.load(await workbook.xlsx.writeBuffer());
+    for (const name of ['Nhân viên mẫu', 'Tổng hợp chi tiết']) {
+        const sheet = loaded.getWorksheet(name)!;
+        assert.equal(sheet.getCell('L4').value, 60);
+        assert.equal(sheet.getCell('L5').value, 0);
+        assert.equal(sheet.getCell('I4').value, 8.5);
+    }
+    const summary = loaded.getWorksheet('Tổng kết')!;
+    assert.equal(summary.getCell('J3').value, 60);
+    assert.equal(summary.getCell('J4').value, 60);
 });

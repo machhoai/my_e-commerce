@@ -24,6 +24,7 @@ const detailHeaders = ['STT', 'Ngày', 'Thứ', 'Ca', 'Loại ngày', 'Giờ và
 const summaryHeaders = ['STT', 'Họ tên', 'Số ca ngày thường có làm', 'Số ca cuối tuần/lễ có làm',
     'Số ca thiếu giờ', 'Số ca chờ xác nhận', 'Số ngày trễ', 'Số ngày về sớm', 'Tổng phút thiếu', 'Tổng phút ngoài ca'];
 const note = 'Ca có làm: có đủ giờ vào/ra hợp lệ và có thời gian trong ca; ca thiếu giờ vẫn tính 1 ca. '
+    + 'Phút ngoài ca chỉ tính giờ ra sau giờ kết thúc ca, không tính giờ vào sớm. '
     + 'Thiếu và ngoài ca không bù trừ. Ngoài ca chưa đồng nghĩa tăng ca được duyệt. '
     + 'Chỉ xuất ngày có chấm công. Ca xác định theo giờ vào và chính sách chấm công của ngày, không theo lịch đăng ký. '
     + 'Tổng giờ làm = giờ ra trừ giờ vào. Ngày đặc biệt cấu hình cho ca được xếp vào cuối tuần/lễ. '

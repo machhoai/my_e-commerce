@@ -267,7 +267,7 @@ export function detailedAttendanceShifts(
         const workedMinutes = Math.max(0, Math.min(outMs, end) - Math.max(inMs, start)) / 60_000;
         if (workedMinutes === 0) return pending('Chấm công ngoài khung ca');
         const missingMinutes = Math.max(0, standardMinutes - workedMinutes);
-        const outsideMinutes = Math.max(0, outMs - inMs) / 60_000 - workedMinutes;
+        const outsideMinutes = Math.max(0, outMs - end) / 60_000;
         return {
             ...result, workedMinutes, missingMinutes, outsideMinutes, counted: true,
             label: missingMinutes > 0 ? 'Thiếu giờ' : 'Đủ giờ',
