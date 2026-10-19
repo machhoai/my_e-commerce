@@ -1174,6 +1174,7 @@ export interface SoftwareAttendanceContext {
     attendanceDate: string;
     serverTime: string;
     nextEventType: AttendanceEventType | null;
+    checkOutAvailableAt: string | null;
     locationRequired: boolean;
     currentIpAddress: string | null;
     isIpAllowed: boolean | null;

@@ -1,5 +1,14 @@
 import type { AttendanceDailyState, AttendanceEventType } from '@/types';
 
+export const MINIMUM_ATTENDANCE_SESSION_MS = 60_000;
+
+export function attendanceCheckoutAvailableAt(checkInOccurredAt: string | undefined): string | null {
+    const checkInTime = checkInOccurredAt ? Date.parse(checkInOccurredAt) : NaN;
+    return Number.isFinite(checkInTime)
+        ? new Date(checkInTime + MINIMUM_ATTENDANCE_SESSION_MS).toISOString()
+        : null;
+}
+
 export function getNextAttendanceEventType(
     state: AttendanceDailyState | null,
     requireCheckOut: boolean,

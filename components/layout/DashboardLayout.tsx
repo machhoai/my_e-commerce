@@ -134,13 +134,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             group: 'Cá Nhân',
         },
         {
-            label: 'Chấm Công',
-            href: '/employee/attendance',
-            icon: Clock,
-            show: isStoreContext && hasPermission('action.attendance.punch'),
-            group: 'Cá Nhân',
-        },
-        {
             label: 'KPI Của Tôi',
             href: '/employee/kpi-stats',
             icon: BarChart3,

@@ -23,7 +23,8 @@ function loadModule(relativePath, dependencies = {}) {
 
 const keys = loadModule('../../lib/workplace/keys.ts');
 const workplaces = loadModule('../../lib/workplace/server.ts', { './keys': keys });
-const policy = loadModule('../../lib/attendance/policy.ts');
+const gpsRules = loadModule('../../lib/attendance/gps.ts');
+const policy = loadModule('../../lib/attendance/policy.ts', { './gps.ts': gpsRules });
 const state = loadModule('../../lib/attendance/state.ts');
 const managerModel = loadModule('../../lib/attendance/manager-model.ts');
 const permissions = loadModule('../../lib/attendance/permission.ts');

@@ -1,5 +1,7 @@
 'use client';
 
+import EmployeeAttendancePanel from '@/components/attendance/EmployeeAttendancePanel';
+
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -854,7 +856,7 @@ function PersonalScheduleSection() {
             finally { if (!cancelled) setLoading(false); }
         })();
         return () => { cancelled = true; };
-    }, [user, userDoc]);
+    }, [user, userDoc, storeId]);
 
     const formatDate = (iso: string) => {
         const d = new Date(iso + 'T00:00:00');
@@ -867,38 +869,42 @@ function PersonalScheduleSection() {
                 <Clock className="w-4 h-4" style={{ color: '#FF8200' }} />
                 Lịch làm việc của tôi
             </h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Today */}
-                <button onClick={() => router.push('/employee/dashboard')}
-                    className="text-left rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-                    <div className="h-1" style={{ background: 'linear-gradient(90deg, #FFCD00, #FF8200)' }} />
-                    <div className="p-5 flex items-center gap-4">
-                        <span className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#FFCD0018' }}>
-                            <Clock className="w-6 h-6" style={{ color: '#B8890A' }} strokeWidth={1.75} />
-                        </span>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Hôm nay</p>
-                            {loading ? (
-                                <p className="text-lg font-bold text-gray-200 mt-1">Đang tải...</p>
-                            ) : todayShifts.length > 0 ? (
-                                <>
-                                    <p className="text-xl font-bold text-gray-900 mt-0.5 tracking-tight" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                                        {todayShifts.map(s => s.shiftId).join(', ')}
-                                    </p>
-                                    <p className="text-xs text-gray-400 mt-0.5">{todayShifts.length} ca · {todayShifts.map(s => s.counterId).filter(Boolean).join(', ')}</p>
-                                </>
-                            ) : (
-                                <p className="text-base font-semibold text-gray-400 mt-1">Không có ca hôm nay</p>
-                            )}
-                        </div>
-                        {todayShifts.length > 0 && (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold shrink-0" style={{ background: '#97D70020', color: '#4a7c00' }}>
-                                <CheckCircle2 className="w-3.5 h-3.5" />Có ca
+            <div className="grid grid-cols-1 items-start lg:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                    {/* Today */}
+                    <button onClick={() => router.push('/employee/dashboard')}
+                        className="w-full text-left rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                        <div className="h-1" style={{ background: 'linear-gradient(90deg, #FFCD00, #FF8200)' }} />
+                        <div className="p-5 flex items-center gap-4">
+                            <span className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#FFCD0018' }}>
+                                <Clock className="w-6 h-6" style={{ color: '#B8890A' }} strokeWidth={1.75} />
                             </span>
-                        )}
-                        <ChevronRight className="w-5 h-5 text-gray-300 shrink-0" />
-                    </div>
-                </button>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Hôm nay</p>
+                                {loading ? (
+                                    <p className="text-lg font-bold text-gray-200 mt-1">Đang tải...</p>
+                                ) : todayShifts.length > 0 ? (
+                                    <>
+                                        <p className="text-xl font-bold text-gray-900 mt-0.5 tracking-tight" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                                            {todayShifts.map(s => s.shiftId).join(', ')}
+                                        </p>
+                                        <p className="text-xs text-gray-400 mt-0.5">{todayShifts.length} ca · {todayShifts.map(s => s.counterId).filter(Boolean).join(', ')}</p>
+                                    </>
+                                ) : (
+                                    <p className="text-base font-semibold text-gray-400 mt-1">Không có ca hôm nay</p>
+                                )}
+                            </div>
+                            {todayShifts.length > 0 && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold shrink-0" style={{ background: '#97D70020', color: '#4a7c00' }}>
+                                    <CheckCircle2 className="w-3.5 h-3.5" />Có ca
+                                </span>
+                            )}
+                            <ChevronRight className="w-5 h-5 text-gray-300 shrink-0" />
+                        </div>
+                    </button>
+
+                    <EmployeeAttendancePanel key={storeId} dashboard />
+                </div>
 
                 {/* Next shift */}
                 <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-5 flex items-center gap-4">

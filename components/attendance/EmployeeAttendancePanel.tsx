@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     AlertTriangle,
     Building2,
@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import HoldAttendanceButton from './HoldAttendanceButton';
+import { useAttendanceLocation } from './useAttendanceLocation';
 import type {
     AttendanceEvent,
     AttendanceEventType,
@@ -35,6 +37,16 @@ function formatAttendanceTime(value: string): string {
 
 function eventLabel(eventType: AttendanceEventType): string {
     return eventType === 'CHECK_IN' ? 'Chấm công vào' : 'Chấm công ra';
+}
+
+function checkoutWaitSeconds(
+    context: SoftwareAttendanceContext | null,
+    serverClock: { time: number; receivedAt: number } | null,
+): number {
+    if (context?.nextEventType !== 'CHECK_OUT' || !context.checkOutAvailableAt || !serverClock) return 0;
+    // Use server time and elapsed time, independent of the phone's clock settings.
+    const now = serverClock.time + performance.now() - serverClock.receivedAt;
+    return Math.max(0, Math.ceil((Date.parse(context.checkOutAvailableAt) - now) / 1000));
 }
 
 function captureCurrentLocation(): Promise<{
@@ -72,7 +84,7 @@ function AttendanceEventCard({ event }: { event: AttendanceEvent }) {
         <div className="flex items-center gap-3 rounded-2xl border border-surface-200 bg-white p-3">
             <div className={cn(
                 'flex size-10 shrink-0 items-center justify-center rounded-xl',
-                isCheckIn ? 'bg-success-50 text-success-600' : 'bg-primary-50 text-primary-600',
+                isCheckIn ? 'bg-success-50 text-success-600' : 'bg-orange-50 text-orange-600',
             )}>
                 {isCheckIn ? <LogIn className="size-5" /> : <LogOut className="size-5" />}
             </div>
@@ -89,7 +101,7 @@ function AttendanceEventCard({ event }: { event: AttendanceEvent }) {
     );
 }
 
-export default function EmployeeAttendancePanel() {
+export default function EmployeeAttendancePanel({ dashboard = false }: { dashboard?: boolean }) {
     const { user, loading: authLoading, hasPermission, getToken, effectiveStoreId } = useAuth();
     const canUseAttendance = hasPermission('action.attendance.punch')
         || hasPermission('page.hr.attendance');
@@ -98,6 +110,11 @@ export default function EmployeeAttendancePanel() {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const [checkoutWait, setCheckoutWait] = useState(0);
+    const [clock, setClock] = useState<Date | null>(null);
+    const gps = useAttendanceLocation(context?.policy?.gps, Boolean(canUseAttendance && context?.locationRequired));
+    const punchInFlight = useRef(false);
+    const serverClock = useRef<{ time: number; receivedAt: number } | null>(null);
 
     const loadContext = useCallback(async (signal?: AbortSignal) => {
         if (!user || !canUseAttendance) {
@@ -116,7 +133,10 @@ export default function EmployeeAttendancePanel() {
             const data = await response.json().catch(() => null);
             if (!response.ok) throw new Error(data?.error || 'Không thể tải trạng thái chấm công.');
             if (signal?.aborted) return;
-            setContext(data as SoftwareAttendanceContext);
+            const nextContext = data as SoftwareAttendanceContext;
+            serverClock.current = { time: Date.parse(nextContext.serverTime), receivedAt: performance.now() };
+            setCheckoutWait(checkoutWaitSeconds(nextContext, serverClock.current));
+            setContext(nextContext);
             setError(null);
         } catch (loadError) {
             if (loadError instanceof Error && loadError.name === 'AbortError') return;
@@ -128,13 +148,37 @@ export default function EmployeeAttendancePanel() {
     }, [canUseAttendance, effectiveStoreId, getToken, user]);
 
     useEffect(() => {
+        const updateClock = () => {
+            const anchor = serverClock.current;
+            setClock(new Date(anchor ? anchor.time + performance.now() - anchor.receivedAt : Date.now()));
+        };
+        updateClock();
+        const timer = window.setInterval(updateClock, 1000);
+        return () => window.clearInterval(timer);
+    }, []);
+
+    useEffect(() => {
         const controller = new AbortController();
         void loadContext(controller.signal);
         return () => controller.abort();
     }, [loadContext]);
 
+    useEffect(() => {
+        if (context?.nextEventType !== 'CHECK_OUT' || !context.checkOutAvailableAt) return;
+        const timer = window.setInterval(() => {
+            const remaining = checkoutWaitSeconds(context, serverClock.current);
+            setCheckoutWait(remaining);
+            if (remaining === 0) window.clearInterval(timer);
+        }, 1000);
+        return () => window.clearInterval(timer);
+    }, [context]);
+
     const handlePunch = async () => {
-        if (!context?.canPunch || !context.nextEventType || submitting) return;
+        if (!context?.canPunch || !context.nextEventType || punchInFlight.current
+            || (context.locationRequired && !gps.accepted)
+            || checkoutWaitSeconds(context, serverClock.current) > 0) return;
+        // Lock synchronously before React rerenders to ignore rapid repeated taps.
+        punchInFlight.current = true;
         setSubmitting(true);
         setError(null);
         setSuccess(null);
@@ -173,9 +217,12 @@ export default function EmployeeAttendancePanel() {
         } catch (punchError) {
             setError(punchError instanceof Error ? punchError.message : 'Không thể thực hiện chấm công.');
         } finally {
+            punchInFlight.current = false;
             setSubmitting(false);
         }
     };
+
+    if (dashboard && !canUseAttendance) return null;
 
     if (authLoading || loading) {
         return (
@@ -201,6 +248,61 @@ export default function EmployeeAttendancePanel() {
     const method = context?.policy?.verificationMethod;
     const nextEventType = context?.nextEventType;
     const completed = context?.reason === 'COMPLETED';
+    const canPunch = Boolean(context?.canPunch && checkoutWait === 0
+        && (!context.locationRequired || gps.accepted));
+    const statusMessage = !context?.canPunch ? context?.message
+        : context.locationRequired && !gps.accepted ? gps.message
+            : checkoutWait > 0 ? `Đã vào ca. Có thể ra ca sau ${checkoutWait} giây.`
+                : context.locationRequired ? `Trong vùng · ${Math.round(gps.distanceM ?? 0)} m` : context.message;
+    const punchButton = (
+        <HoldAttendanceButton
+            disabled={!canPunch || !nextEventType || submitting}
+            submitting={submitting}
+            checkout={nextEventType === 'CHECK_OUT'}
+            completed={completed}
+            onConfirm={() => void handlePunch()}
+        />
+    );
+    const liveClock = (
+        <div className="text-center">
+            <p className="text-5xl font-black tracking-tight tabular-nums text-surface-900">
+                {clock?.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }) ?? '--:--'}
+            </p>
+            <p className="mt-2 text-xs font-bold uppercase tracking-wider text-surface-500">
+                {clock?.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' })}
+            </p>
+        </div>
+    );
+
+    if (dashboard) {
+        return (
+            <section aria-label="Chấm công hôm nay" className="rounded-3xl border border-surface-200 bg-gradient-to-b from-emerald-50/70 to-surface-50 p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                    <div>
+                        <p className="mt-1 text-xs text-surface-500">{context?.store?.name || 'Chưa xác định cửa hàng'}</p>
+                    </div>
+                    <button type="button" disabled={submitting} onClick={() => { gps.retry(); void loadContext(); }} aria-label="Thử lại định vị và làm mới chấm công" className="rounded-full bg-white p-2 text-surface-600 disabled:opacity-50">
+                        <RefreshCw className="size-4" />
+                    </button>
+                </div>
+                {liveClock}
+                {punchButton}
+                <div role="status" className={cn('mt-2 flex items-start justify-center gap-2 rounded-xl p-3 text-center text-xs font-medium', canPunch || completed ? 'bg-emerald-100/60 text-emerald-800' : 'bg-amber-50 text-amber-800')}>
+                    {canPunch ? <MapPin className="size-4 shrink-0" /> : <AlertTriangle className="size-4 shrink-0" />}
+                    <span>{statusMessage || error || 'Chưa tải được trạng thái. Hãy thử làm mới.'}</span>
+                </div>
+                <div aria-live="polite" className="mt-2 space-y-2 text-sm">
+                    {error && <p className="rounded-xl bg-danger-50 p-3 text-danger-700">{error}</p>}
+                    {success && <p className="rounded-xl bg-success-50 p-3 text-success-700">{success}</p>}
+                </div>
+                {context?.todayEvents.length ? (
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                        {context.todayEvents.map((event) => <AttendanceEventCard key={event.id} event={event} />)}
+                    </div>
+                ) : null}
+            </section>
+        );
+    }
 
     return (
         <div className="space-y-4">
@@ -217,7 +319,7 @@ export default function EmployeeAttendancePanel() {
                         </div>
                         <button
                             type="button"
-                            onClick={() => void loadContext()}
+                            onClick={() => { gps.retry(); void loadContext(); }}
                             disabled={submitting}
                             aria-label="Làm mới trạng thái chấm công"
                             className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/15 transition hover:bg-white/25 disabled:opacity-50"
@@ -230,17 +332,19 @@ export default function EmployeeAttendancePanel() {
                 <div className="space-y-4 p-4 sm:p-6">
                     <div className={cn(
                         'flex items-start gap-3 rounded-2xl border p-3.5',
-                        context?.canPunch
+                        canPunch
                             ? 'border-success-200 bg-success-50'
                             : completed
                                 ? 'border-primary-200 bg-primary-50'
                                 : 'border-warning-200 bg-warning-50',
                     )}>
-                        {context?.canPunch || completed
-                            ? <CheckCircle2 className={cn('mt-0.5 size-5 shrink-0', context?.canPunch ? 'text-success-600' : 'text-primary-600')} />
+                        {canPunch || completed
+                            ? <CheckCircle2 className={cn('mt-0.5 size-5 shrink-0', canPunch ? 'text-success-600' : 'text-primary-600')} />
                             : <AlertTriangle className="mt-0.5 size-5 shrink-0 text-warning-600" />}
                         <div>
-                            <p className="text-sm font-semibold text-surface-900">{context?.message}</p>
+                            <p className="text-sm font-semibold text-surface-900">
+                                {statusMessage}
+                            </p>
                             {method ? (
                                 <p className="mt-0.5 text-xs text-surface-600">
                                     Xác minh bằng {method === 'GPS' ? 'vị trí GPS' : 'mạng Internet cửa hàng'}.
@@ -276,33 +380,8 @@ export default function EmployeeAttendancePanel() {
                         </div>
                     ) : null}
 
-                    <button
-                        type="button"
-                        onClick={() => void handlePunch()}
-                        disabled={!context?.canPunch || !nextEventType || submitting}
-                        aria-label={nextEventType ? eventLabel(nextEventType) : 'Đã hoàn tất chấm công'}
-                        className={cn(
-                            'flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 text-sm font-bold text-white shadow-sm transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60',
-                            nextEventType === 'CHECK_OUT'
-                                ? 'bg-primary-600 hover:bg-primary-700'
-                                : 'bg-success-600 hover:bg-success-700',
-                        )}
-                    >
-                        {submitting ? (
-                            <Loader2 className="size-5 animate-spin" />
-                        ) : nextEventType === 'CHECK_OUT' ? (
-                            <LogOut className="size-5" />
-                        ) : (
-                            <LogIn className="size-5" />
-                        )}
-                        <span>
-                            {submitting
-                                ? 'Đang xác minh...'
-                                : nextEventType
-                                    ? eventLabel(nextEventType)
-                                    : 'Đã hoàn tất hôm nay'}
-                        </span>
-                    </button>
+                    {liveClock}
+                    {punchButton}
 
                     <div aria-live="polite">
                         {error ? (

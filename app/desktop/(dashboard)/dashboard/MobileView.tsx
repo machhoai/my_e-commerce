@@ -1,5 +1,7 @@
 'use client';
 
+import EmployeeAttendancePanel from '@/components/attendance/EmployeeAttendancePanel';
+
 import { MobileLangProvider, useMobileLang } from './MobileLangContext';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -188,7 +190,7 @@ function PersonalScheduleView({ onNavigate, onNavigateRegister }: { onNavigate: 
             }
         })();
         return () => { cancelled = true; };
-    }, [user?.uid, userDoc?.storeId]);
+    }, [user?.uid, storeId]);
 
     if (loading) {
         return (
@@ -229,6 +231,8 @@ function PersonalScheduleView({ onNavigate, onNavigateRegister }: { onNavigate: 
                     <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
                 </div>
             </button>
+
+            <EmployeeAttendancePanel key={storeId} dashboard />
 
             {/* KPI stats row — 3 mini cards */}
             <div className="grid grid-cols-3 gap-2">
@@ -1740,12 +1744,6 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
             colorClass: 'bg-amber-300 text-amber-900',
             route: '/employee/kpi-stats',
         },
-        ...(hasPermission('action.attendance.punch') ? [{
-            icon: Clock,
-            label: t('qa_attendance'),
-            colorClass: 'bg-teal-300 text-teal-900',
-            route: '/employee/attendance',
-        }] : []),
         {
             icon: Barcode,
             label: t('nav_scanProduct'),
@@ -1805,7 +1803,6 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
             group: t('group_employee'),
             items: [
                 { icon: LayoutDashboard, label: t('nav_mySchedule'), route: '/employee/dashboard', color: 'bg-blue-50 text-blue-600' },
-                { icon: Clock, label: t('qa_attendance'), route: '/employee/attendance', color: 'bg-teal-50 text-teal-600', permKey: 'action.attendance.punch' },
                 { icon: PlusSquare, label: t('nav_registerShift'), route: '/employee/register', color: 'bg-blue-50 text-blue-600', permKey: 'register_shift' },
                 { icon: TrendingUp, label: t('nav_myKpi'), route: '/employee/kpi-stats', color: 'bg-amber-50 text-amber-600' },
                 { icon: Star, label: t('nav_referralPoints'), route: '/employee/referral-history', color: 'bg-amber-50 text-amber-600' },

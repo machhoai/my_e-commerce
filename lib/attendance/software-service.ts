@@ -14,7 +14,7 @@ import {
     type AttendanceVerificationDecision,
 } from '@/lib/attendance/policy';
 import { getTrustedAttendanceRequestIp } from '@/lib/attendance/request-ip';
-import { getNextAttendanceEventType, isAttendanceEventExpected, vietnamAttendanceDate } from '@/lib/attendance/state';
+import { attendanceCheckoutAvailableAt, getNextAttendanceEventType, isAttendanceEventExpected, vietnamAttendanceDate } from '@/lib/attendance/state';
 import { isWithinAttendanceCheckoutWindow, previousAttendanceDateBeforeDeadline } from '@/lib/attendance/manager-model';
 import { getAdminDb } from '@/lib/firebase-admin';
 import type {
@@ -143,6 +143,7 @@ export async function getSoftwareAttendanceContext(
             attendanceDate,
             serverTime,
             nextEventType: null,
+            checkOutAvailableAt: null,
             locationRequired: false,
             currentIpAddress,
             isIpAllowed: null,
@@ -205,6 +206,9 @@ export async function getSoftwareAttendanceContext(
         attendanceDate,
         serverTime,
         nextEventType,
+        checkOutAvailableAt: nextEventType === 'CHECK_OUT'
+            ? attendanceCheckoutAvailableAt(todayEvents.find((event) => event.id === state?.checkInEventId)?.occurredAt)
+            : null,
         locationRequired: reason === 'READY' && policy?.verificationMethod === 'GPS',
         currentIpAddress,
         isIpAllowed,
@@ -352,6 +356,24 @@ export async function punchSoftwareAttendance(
                 409,
                 'EVENT_SEQUENCE_CONFLICT',
             );
+        }
+
+        if (input.eventType === 'CHECK_OUT') {
+            const checkInSnapshot = await transaction.get(
+                db.collection('attendance_events').doc(state!.checkInEventId!),
+            );
+            const availableAt = attendanceCheckoutAvailableAt(checkInSnapshot.data()?.occurredAt);
+            if (!availableAt) {
+                throw new AttendanceServiceError('Không tìm thấy giờ chấm công vào hợp lệ.', 409, 'INVALID_CHECK_IN_TIME');
+            }
+            // Compare with the event timestamp so every recorded session lasts at least one minute.
+            if (now.getTime() < Date.parse(availableAt)) {
+                throw new AttendanceServiceError(
+                    'Bạn chỉ có thể chấm công ra sau ít nhất 1 phút kể từ khi chấm công vào.',
+                    409,
+                    'CHECK_OUT_TOO_SOON',
+                );
+            }
         }
 
         const verification = policy.verificationMethod === 'GPS'
