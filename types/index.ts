@@ -243,22 +243,15 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
     {
         key: 'page.manager.inventory',
         label: 'Xem Kho Cửa Hàng',
-        description: 'Truy cập trang kho và đặt hàng của cửa hàng',
+        description: 'Truy cập các trang nhận hàng, xuất quầy và tồn kho cửa hàng',
         group: 'Kho Cửa Hàng',
         type: 'page',
-    },
-    {
-        key: 'action.manager.order',
-        label: 'Tạo Lệnh Đặt Hàng',
-        description: 'Được phép gửi lệnh đặt hàng về kho tổng',
-        group: 'Kho Cửa Hàng',
-        type: 'action',
     },
     // ── Kho tổng ──────────────────────────────────────────────
     {
         key: 'page.admin.inventory',
         label: 'Xem Kho Tổng',
-        description: 'Truy cập trang tổng quan kho tổng',
+        description: 'Truy cập trang tồn kho tổng',
         group: 'Kho Tổng',
         type: 'page',
     },
@@ -299,13 +292,6 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
     },
     // ── Sản phẩm ──────────────────────────────────────────────
     {
-        key: 'page.products',
-        label: 'Xem Sản Phẩm',
-        description: 'Truy cập trang danh sách sản phẩm',
-        group: 'Sản Phẩm',
-        type: 'page',
-    },
-    {
         key: 'page.products.categories',
         label: 'Xem Danh Mục',
         description: 'Truy cập trang quản lý danh mục sản phẩm',
@@ -320,27 +306,6 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
         type: 'action',
     },
     // ── Văn phòng ─────────────────────────────────────────────
-    {
-        key: 'page.office.approvals',
-        label: 'Duyệt Lệnh Văn Phòng',
-        description: 'Truy cập trang duyệt lệnh đặt hàng từ cửa hàng',
-        group: 'Văn Phòng',
-        type: 'page',
-    },
-    {
-        key: 'action.office.approve',
-        label: 'Phê Duyệt / Từ Chối Lệnh',
-        description: 'Thực hiện phê duyệt hoặc từ chối đơn hàng',
-        group: 'Văn Phòng',
-        type: 'action',
-    },
-    {
-        key: 'page.office.revenue',
-        label: 'Xem Doanh Thu',
-        description: 'Truy cập trang phân tích doanh thu',
-        group: 'Văn Phòng',
-        type: 'page',
-    },
     {
         key: 'page.office.tracking',
         label: 'Tracking Links',
@@ -380,46 +345,10 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
     },
     // ── Voucher ───────────────────────────────────────────────
     {
-        key: 'page.admin.vouchers',
-        label: 'Quản Lý Voucher',
-        description: 'Truy cập trang quản lý chiến dịch và mã voucher',
-        group: 'Voucher',
-        type: 'page',
-    },
-    {
-        key: 'action.voucher.revoke',
-        label: 'Vô Hiệu Hóa Voucher',
-        description: 'Vô hiệu hóa mã voucher đã phát hành',
-        group: 'Voucher',
-        type: 'action',
-    },
-    {
         key: 'search_vouchers',
         label: 'Tìm Kiếm Voucher',
         description: 'Cho phép quét và tìm kiếm mã voucher qua Scanner',
         group: 'Voucher',
-        type: 'action',
-    },
-    // ── Sự kiện ──────────────────────────────────────────────────
-    {
-        key: 'page.admin.events',
-        label: 'Quản Lý Sự Kiện',
-        description: 'Truy cập trang quản lý sự kiện và phát hành voucher',
-        group: 'Sự kiện',
-        type: 'page',
-    },
-    {
-        key: 'page.greensm.promotion',
-        label: 'GreenSM Promotion',
-        description: 'Access the GreenSM monthly lucky wheel promotion',
-        group: 'GreenSM',
-        type: 'page',
-    },
-    {
-        key: 'action.greensm.settings',
-        label: 'GreenSM Settings',
-        description: 'Configure monthly play limits, prize rates, and prize inventory',
-        group: 'GreenSM',
         type: 'action',
     },
     // ── Vé & Đơn hàng (Ticketing) ────────────────────────────────
@@ -595,7 +524,7 @@ export interface UserDoc {
     customRoleId?: string; // Points to a document in 'custom_roles' collection
     fcmToken?: string; // Firebase Cloud Messaging registration token (legacy single)
     fcmTokens?: string[]; // Multi-device FCM tokens array
-    defaultDashboard?: string; // User-configurable preferred landing page (e.g. '/office/revenue')
+    defaultDashboard?: string; // User-configurable preferred landing page (e.g. '/dashboard')
     avatar?: string; // WebP base64 data URI for profile portrait
 
     // Two-Factor Authentication (TOTP / Google Authenticator)

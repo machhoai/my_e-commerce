@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PROTECTED_ROUTE_PREFIXES } from '@/lib/routing';
+import { isDisabledPage } from '@/lib/disabled-features';
 
 // Paths that are public (no auth needed)
 const PUBLIC_PATHS = new Set(['/login', '/change-password', '/403']);
@@ -51,6 +52,10 @@ const CORS_HEADERS = {
 
 export function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
+    // Apply before auth and device routing, including direct /desktop and /mobile URLs.
+    if (isDisabledPage(pathname)) {
+        return new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store' } });
+    }
     const sessionCookie = request.cookies.get('session');
     const hasSession = Boolean(sessionCookie?.value);
     const userRole = request.cookies.get(USER_ROLE_COOKIE)?.value ?? '';
@@ -91,14 +96,7 @@ export function middleware(request: NextRequest) {
             return NextResponse.redirect(new URL('/login', request.url));
         }
         
-        // Allow custom roles to access specific admin boundaries.
-        // These underlying pages MUST implement their own AuthGuard or hasPermission checks.
-        const isBypassedAdminRoute = 
-            pathname.startsWith('/admin/vouchers') || 
-            pathname.startsWith('/admin/events') || 
-            pathname.startsWith('/admin/daily-report');
-
-        if (!isBypassedAdminRoute && !ADMIN_ROLES.has(userRole)) {
+        if (!ADMIN_ROLES.has(userRole)) {
             return NextResponse.redirect(new URL('/403', request.url));
         }
     }

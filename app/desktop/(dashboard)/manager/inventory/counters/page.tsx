@@ -9,7 +9,7 @@ import { DashboardHeader } from '@/components/inventory/overview/DashboardHeader
 import { KPICards } from '@/components/inventory/overview/KPICards';
 import { InventoryCharts } from '@/components/inventory/overview/InventoryCharts';
 import { ProductGrid } from '@/components/inventory/overview/ProductGrid';
-import type { MergedProduct } from '@/app/desktop/(dashboard)/admin/inventory/overview/page';
+import type { MergedProduct } from '@/types/inventory';
 
 // ── Shared Component Mappers ─────────────────────────────────────
 function mapCounterBalancesToMerged(balances: InventoryBalanceDoc[], products: ProductDoc[]): MergedProduct[] {

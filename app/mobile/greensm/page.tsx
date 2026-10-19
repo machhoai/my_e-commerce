@@ -1,12 +1,5 @@
-'use client';
+import { notFound } from 'next/navigation';
 
-import GreenSMPromotion from '@/components/greensm/GreenSMPromotion';
-import MobilePageShell from '@/components/mobile/MobilePageShell';
-
-export default function MobileGreenSMPage() {
-    return (
-        <MobilePageShell title="GreenSM" noPadding>
-            <GreenSMPromotion variant="mobile" />
-        </MobilePageShell>
-    );
+export default function DisabledPage() {
+    notFound();
 }

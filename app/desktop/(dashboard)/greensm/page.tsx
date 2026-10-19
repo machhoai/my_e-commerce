@@ -1,5 +1,5 @@
-import GreenSMPromotion from '@/components/greensm/GreenSMPromotion';
+import { notFound } from 'next/navigation';
 
-export default function DesktopGreenSMPage() {
-    return <GreenSMPromotion variant="desktop" />;
+export default function DisabledPage() {
+    notFound();
 }

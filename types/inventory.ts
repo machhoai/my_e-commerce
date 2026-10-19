@@ -163,3 +163,9 @@ export interface PurchaseOrderDoc {
     warehouseDispatchedByName?: string;
     note?: string;
 }
+
+// Product with current inventory status, shared by active inventory screens.
+export interface MergedProduct extends ProductDoc {
+    currentStock: number;
+    stockStatus: 'safe' | 'low' | 'out';
+}

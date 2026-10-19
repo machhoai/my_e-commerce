@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { CustomRoleDoc } from '@/types';
+import { activePermissions, activeDefaultRoute, isDisabledPage } from '@/lib/disabled-features';
 
 
 // System roles to auto-seed if collection is empty
@@ -74,10 +75,18 @@ export async function GET(req: NextRequest) {
         const applicableToFilter = searchParams.get('applicableTo') as 'STORE' | 'OFFICE' | 'CENTRAL' | null;
 
         const snap = await adminDb.collection('custom_roles').orderBy('name').get();
-        let roles = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        let roles = snap.docs.map(d => {
+            const data = d.data() as Omit<CustomRoleDoc, 'id'>;
+            return {
+                id: d.id,
+                ...data,
+                permissions: activePermissions(data.permissions ?? []),
+                defaultRoute: activeDefaultRoute(data.defaultRoute),
+            };
+        });
 
         if (applicableToFilter) {
-            roles = roles.filter((r: any) =>
+            roles = roles.filter(r =>
                 !r.applicableTo || r.applicableTo.includes(applicableToFilter)
             );
         }
@@ -118,9 +127,13 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Tên role không được để trống' }, { status: 400 });
         }
 
+        if (body.defaultRoute && isDisabledPage(body.defaultRoute.trim())) {
+            return NextResponse.json({ error: 'Trang này đã ngừng sử dụng' }, { status: 400 });
+        }
+
         const newRole: Omit<CustomRoleDoc, 'id'> = {
             name: body.name.trim(),
-            permissions: body.permissions || [],
+            permissions: activePermissions(body.permissions || []),
             creatorRoles: body.creatorRoles || ['admin'],
             color: body.color || undefined,
             ...(body.defaultRoute?.trim() ? { defaultRoute: body.defaultRoute.trim() } : {}),

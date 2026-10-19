@@ -20,8 +20,7 @@ import {
     BarChart3, Banknote, ArrowUpDown, Coins, XCircle, RefreshCw,
     Wifi, WifiOff, CalendarDays, CalendarRange,
     // Extra icons for new routes
-    FileText, Repeat, LayoutDashboard, Star, Ticket, Link2, ScanBarcode,
-    Gift,
+    FileText, Repeat, LayoutDashboard, Star, Link2, ScanBarcode,
     Barcode,
 } from 'lucide-react';
 import {
@@ -1500,19 +1499,6 @@ function InventoryTab() {
                 </div>
             )}
 
-            {/* Quick link to full inventory page */}
-            <button
-                onClick={() => window.location.href = '/manager/inventory/order'}
-                className="flex items-center justify-between px-4 py-3 rounded-2xl bg-white border border-gray-100 shadow-sm active:scale-[0.98] transition-transform"
-            >
-                <div className="flex items-center gap-2.5">
-                    <span className="w-8 h-8 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center">
-                        <Package className="w-4 h-4" strokeWidth={1.75} />
-                    </span>
-                    <span className="text-sm font-semibold text-gray-800">{t('inv_viewAll')}</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-gray-300" />
-            </button>
         </div>
     );
 }
@@ -1792,13 +1778,6 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
             permKeys: ['page.hr.attendance'],
         },
 
-        {
-            icon: DollarSign,
-            label: t('qa_revenue'),
-            colorClass: 'bg-amber-300 text-amber-900',
-            route: '/office/revenue',
-            permKeys: ['page.office.revenue'],
-        },
     ];
 
     // Choose which quick access items to show based on role
@@ -1862,7 +1841,6 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
         {
             group: t('group_storeInventory'),
             items: [
-                { icon: Package, label: t('dashboard.navOrder'), route: '/manager/inventory/order', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
                 { icon: PackagePlus, label: t('dashboard.navReceive'), route: '/manager/inventory/receive', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
                 { icon: ArrowLeftRight, label: t('dashboard.navTransfer'), route: '/manager/inventory/transfer', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
                 { icon: ClipboardList, label: t('dashboard.navLedger'), route: '/manager/inventory/ledger', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.manager.inventory' },
@@ -1873,28 +1851,11 @@ function MobileViewInner({ topReferralData }: { topReferralData?: { uid: string;
                 { icon: ScanBarcode, label: 'Quét SP Xuất Kho', route: '/product-scanner', color: 'bg-orange-50 text-orange-600', permKey: 'page.product_scanner' },
             ],
         },
-        // ── Revenue (office+) ─────────────────────────────────────────
-        {
-            group: t('group_revenue'),
-            items: [
-                { icon: DollarSign, label: t('nav_revenueReport'), route: '/office/revenue', color: 'bg-amber-50 text-amber-600', permKey: 'page.office.revenue' },
-            ],
-        },
         // ── Marketing ─────────────────────────────────────────
         {
             group: t('group_marketing'),
             items: [
                 { icon: Link2, label: t('nav_trackingLinks'), route: '/office/tracking', color: 'bg-pink-50 text-pink-600', permKey: 'page.office.tracking' },
-                { icon: Ticket, label: t('nav_voucherMgmt'), route: '/admin/vouchers', color: 'bg-pink-50 text-pink-600', permKey: 'page.admin.vouchers' },
-                { icon: CalendarDays, label: t('nav_eventMgmt'), route: '/admin/events', color: 'bg-pink-50 text-pink-600', permKey: 'page.admin.events' },
-                { icon: Gift, label: 'GreenSM', route: '/greensm', color: 'bg-emerald-50 text-emerald-600', permKey: 'page.greensm.promotion' },
-            ],
-        },
-        // ── Admin (admin only) ─────────────────────────────────────────
-        {
-            group: t('group_admin'),
-            items: [
-                { icon: BarChart3, label: t('nav_dailyReport'), route: '/admin/daily-report', color: 'bg-rose-50 text-rose-600', permKey: 'page.admin.daily_report' },
             ],
         },
         // ── Cá nhân  (always visible) ─────────────────────────────────

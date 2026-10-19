@@ -14,7 +14,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import type { MergedProduct } from '@/app/desktop/(dashboard)/admin/inventory/overview/page';
+import type { MergedProduct } from '@/types/inventory';
 
 interface ProductGridProps {
     merged: MergedProduct[];

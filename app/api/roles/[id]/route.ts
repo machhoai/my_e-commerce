@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { activePermissions, isDisabledPage } from '@/lib/disabled-features';
 
 async function requireAdmin(req: NextRequest) {
     const token = req.headers.get('Authorization')?.split('Bearer ')[1];
@@ -44,9 +45,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         };
 
 
+        if (body.defaultRoute && isDisabledPage(body.defaultRoute.trim())) {
+            return NextResponse.json({ error: 'Trang này đã ngừng sử dụng' }, { status: 400 });
+        }
+
         const updateData: Record<string, unknown> = {};
         if (body.name !== undefined) updateData.name = body.name.trim();
-        if (body.permissions !== undefined) updateData.permissions = body.permissions;
+        if (body.permissions !== undefined) updateData.permissions = activePermissions(body.permissions);
         if (body.creatorRoles !== undefined) updateData.creatorRoles = body.creatorRoles;
         if (body.color !== undefined) updateData.color = body.color;
         if (body.defaultRoute !== undefined) {

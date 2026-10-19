@@ -468,7 +468,7 @@ export default function AdminRolesPage() {
                             <input
                                 value={newDefaultRoute}
                                 onChange={e => setNewDefaultRoute(e.target.value)}
-                                placeholder="VD: /office/revenue"
+                                placeholder="VD: /dashboard"
                                 className="w-full border border-surface-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-accent-500/20 focus:border-accent-400 outline-none font-mono"
                             />
                         </div>
@@ -523,7 +523,7 @@ export default function AdminRolesPage() {
                                             <input
                                                 value={editDefaultRoute}
                                                 onChange={e => setEditDefaultRoute(e.target.value)}
-                                                placeholder="VD: /office/revenue"
+                                                placeholder="VD: /dashboard"
                                                 className="w-full border border-accent-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-accent-500/20 outline-none font-mono"
                                             />
                                         </div>

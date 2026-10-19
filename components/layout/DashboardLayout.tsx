@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Clock, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ClipboardList, Ticket, CalendarDays, LayoutGrid, Link2, Star, Gift } from 'lucide-react';
+import { Calendar, Clock, Users, Settings as SettingsIcon, LogOut, KeyRound, Menu, X, User, Building2, Bell, BarChart3, Package, ScanBarcode, Store, Warehouse, ChevronDown, ChevronRight, ClipboardList, Ticket, LayoutGrid, Link2, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -223,27 +223,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             group: 'Nhân Sự',
         },
 
-        {
-            label: 'Doanh thu',
-            href: '/office/revenue',
-            icon: BarChart3,
-            show: isAdmin || isSuperAdmin || isOfficeContext ||
-                userDoc?.role === 'office' ||
-                hasPermission('page.office.revenue'),
-            group: 'Báo cáo',
-        },
-        {
-            label: 'Daily Report',
-            href: '/admin/daily-report',
-            icon: BarChart3,
-            show: isAdmin || isSuperAdmin,
-            matchPrefix: '/admin/daily-report',
-            group: 'Báo cáo',
-        },
 
         {
             label: 'Kho Cửa Hàng',
-            href: '/manager/inventory/order',
+            href: '/manager/inventory/receive',
             icon: Package,
             show: isAdmin || isSuperAdmin ||
                 (isStoreContext && userDoc?.role === 'store_manager') ||
@@ -263,17 +246,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         },
         {
             label: 'Kho Tổng',
-            href: '/admin/inventory/overview',
+            href: '/admin/inventory/stock',
             icon: Warehouse,
             show: isAdmin || isSuperAdmin || isCentralContext || hasPermission('page.admin.inventory'),
             matchPrefix: '/admin/inventory',
             group: 'Kho Hàng',
         },
         {
-            label: 'Sản Phẩm',
-            href: '/admin/products/products',
+            label: 'Danh Mục Sản Phẩm',
+            href: '/admin/products/categories',
             icon: Package,
-            show: isAdmin || isSuperAdmin || isCentralContext || hasPermission('page.products'),
+            show: isAdmin || isSuperAdmin || isCentralContext || hasPermission('page.products.categories'),
             matchPrefix: '/admin/products',
             group: 'Kho Hàng',
         },
@@ -287,45 +270,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         },
 
         {
-            label: 'Duyệt Lệnh',
-            href: '/office/inventory/approvals',
-            icon: Package,
-            show: isAdmin || isSuperAdmin || isOfficeContext ||
-                hasPermission('page.office.approvals'),
-            matchPrefix: '/office/inventory',
-            group: 'Văn Phòng',
-        },
-        {
             label: 'Tracking Links',
             href: '/office/tracking',
             icon: Link2,
             show: isAdmin || isSuperAdmin || isOfficeContext ||
                 hasPermission('page.office.tracking'),
             matchPrefix: '/office/tracking',
-            group: 'Marketing',
-        },
-        {
-            label: 'Quản lý Voucher',
-            href: '/admin/vouchers',
-            icon: Ticket,
-            show: hasPermission('page.admin.vouchers') || isSuperAdmin || isAdmin,
-            matchPrefix: '/admin/vouchers',
-            group: 'Marketing',
-        },
-        {
-            label: 'Quản lý Sự kiện',
-            href: '/admin/events',
-            icon: CalendarDays,
-            show: hasPermission('page.admin.events') || isSuperAdmin || isAdmin,
-            matchPrefix: '/admin/events',
-            group: 'Marketing',
-        },
-        {
-            label: 'GreenSM',
-            href: '/greensm',
-            icon: Gift,
-            show: hasPermission('page.greensm.promotion') || isSuperAdmin || isAdmin,
-            matchPrefix: '/greensm',
             group: 'Marketing',
         },
         {

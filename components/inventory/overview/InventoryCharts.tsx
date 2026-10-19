@@ -6,7 +6,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import type { MergedProduct } from '@/app/desktop/(dashboard)/admin/inventory/overview/page';
+import type { MergedProduct } from '@/types/inventory';
 
 interface InventoryChartsProps {
     merged: MergedProduct[];

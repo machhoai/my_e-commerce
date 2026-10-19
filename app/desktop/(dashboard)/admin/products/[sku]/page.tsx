@@ -9,7 +9,6 @@
  */
 
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import { getAdminDb } from '@/lib/firebase-admin';
 import type { ProductDoc, InventoryBalanceDoc } from '@/types/inventory';
 import type { Metadata } from 'next';
@@ -105,9 +104,9 @@ export default async function AdminProductDetailPage(
 
             {/* Breadcrumb */}
             <nav className="flex items-center gap-2 text-sm text-slate-500">
-                <Link href="/admin/products/products" className="hover:text-primary-600 transition-colors">
+                <span>
                     Sản phẩm
-                </Link>
+                </span>
                 <span className="text-slate-300">/</span>
                 <span className="font-semibold text-slate-700 font-mono">{product.companyCode || product.barcode}</span>
             </nav>

@@ -1,5 +1,7 @@
 'use client';
 
+import { activePermissions, activeDefaultRoute, isDisabledPermission } from '@/lib/disabled-features';
+
 import React, {
     createContext,
     useContext,
@@ -144,8 +146,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         const roleSnap = await getDoc(doc(db, 'custom_roles', data.customRoleId));
                         if (roleSnap.exists()) {
                             const roleData = roleSnap.data() as CustomRoleDoc;
-                            setPermissions(new Set<string>(roleData.permissions ?? []));
-                            setRoleDefaultRoute(roleData.defaultRoute || null);
+                            setPermissions(new Set<string>(activePermissions(roleData.permissions ?? [])));
+                            setRoleDefaultRoute(activeDefaultRoute(roleData.defaultRoute));
                         } else {
                             setPermissions(new Set());
                             setRoleDefaultRoute(null);
@@ -163,8 +165,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         const sysRoleSnap = await getDoc(doc(db, 'custom_roles', data.role));
                         if (sysRoleSnap.exists()) {
                             const sysRoleData = sysRoleSnap.data() as CustomRoleDoc;
-                            setPermissions(new Set<string>(sysRoleData.permissions ?? []));
-                            setRoleDefaultRoute(sysRoleData.defaultRoute || null);
+                            setPermissions(new Set<string>(activePermissions(sysRoleData.permissions ?? [])));
+                            setRoleDefaultRoute(activeDefaultRoute(sysRoleData.defaultRoute));
                         } else {
                             setPermissions(new Set());
                             setRoleDefaultRoute(null);
@@ -348,12 +350,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     /**
      * Check if the current user has a given permission key.
      *
-     * - Admin / super_admin → always true (bypass all checks)
+     * - Retired permissions → always false, including admin / super_admin
+     * - Admin / super_admin → true for active permissions
      * - Others → check if `key` is in their permissions Set
      */
     const hasPermission = useCallback(
         (key: string): boolean => {
-            if (!userDoc) return false;
+            if (!userDoc || isDisabledPermission(key)) return false;
             if (userDoc.role === 'super_admin' || userDoc.role === 'admin') return true;
             return permissions.has(key);
         },
