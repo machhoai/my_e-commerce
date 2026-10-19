@@ -62,9 +62,9 @@ export default function DataTableToolbar({
         <>
             <div className={cn("bg-white rounded-xl border border-surface-200 shadow-sm overflow-hidden", className)}>
                 {/* Desktop View */}
-                <div className="hidden md:flex items-center gap-3 p-2">
+                <div className="hidden md:flex flex-wrap items-center gap-3 p-2">
                     {/* Search */}
-                    <div className="relative flex-1 max-w-sm">
+                    <div className="relative min-w-[240px] flex-1 max-w-sm">
                         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
                         <input
                             type="text"
@@ -83,7 +83,7 @@ export default function DataTableToolbar({
                         )}
                     </div>
 
-                    <div className="h-6 w-px bg-surface-200" />
+                    <div className="h-6 w-px shrink-0 bg-surface-200" />
 
                     {/* Filter Dropdowns */}
                     {filters.map((filter) => (
@@ -92,7 +92,7 @@ export default function DataTableToolbar({
                             value={filterValues[filter.key] || ''}
                             onChange={(e) => onFilterChange(filter.key, e.target.value)}
                             className={cn(
-                                'text-sm flex-1 px-3 py-2 rounded-lg border outline-none cursor-pointer transition-all appearance-none bg-no-repeat bg-[length:16px] bg-[right_8px_center]',
+                                'text-sm flex-1 min-w-[140px] px-3 py-2 rounded-lg border outline-none cursor-pointer transition-all appearance-none bg-no-repeat bg-[length:16px] bg-[right_8px_center]',
                                 filterValues[filter.key]
                                     ? 'bg-accent-50 text-accent-700 border-accent-200 font-semibold'
                                     : 'bg-white text-surface-600 border-surface-200 hover:border-surface-300'
@@ -121,7 +121,7 @@ export default function DataTableToolbar({
                                 }
                             }}
                             className={cn(
-                                ' flex flex-1 justify-center items-center text-sm px-3 py-2 rounded-lg border outline-none cursor-pointer transition-all appearance-none bg-no-repeat bg-[length:16px] bg-[right_8px_center]',
+                                ' flex flex-1 min-w-[140px] justify-center items-center text-sm px-3 py-2 rounded-lg border outline-none cursor-pointer transition-all appearance-none bg-no-repeat bg-[length:16px] bg-[right_8px_center]',
                                 currentSort
                                     ? 'bg-accent-50 text-accent-700 border-accent-200 font-semibold'
                                     : 'bg-white text-surface-600 border-surface-200 hover:border-surface-300'

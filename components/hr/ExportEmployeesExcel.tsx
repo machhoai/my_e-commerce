@@ -64,6 +64,7 @@ export default function ExportEmployeesExcel({ employees, className = '' }: Expo
                 { header: 'Họ tên', key: 'name', width: 22 },
                 { header: 'SĐT', key: 'phone', width: 14 },
                 { header: 'Email', key: 'email', width: 26 },
+                { header: 'Thời gian tạo tài khoản', key: 'createdAt', width: 24 },
                 { header: 'Ngày sinh', key: 'dob', width: 14 },
                 { header: 'Giới tính', key: 'gender', width: 10 },
                 { header: 'Số CCCD', key: 'idCard', width: 16 },
@@ -109,12 +110,16 @@ export default function ExportEmployeesExcel({ employees, className = '' }: Expo
                     : e.role === 'admin' ? 'Admin'
                     : 'Nhân viên';
                 const locations = workplaceLines(e);
+                const createdAt = e.createdAt ? new Date(e.createdAt) : null;
 
                 sheet.addRow({
                     stt: i + 1,
                     name: e.name,
                     phone: e.phone,
                     email: e.email || '',
+                    createdAt: createdAt && !Number.isNaN(createdAt.getTime())
+                        ? createdAt.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hourCycle: 'h23' })
+                        : '',
                     dob: e.dob || '',
                     gender: e.gender || '',
                     idCard: e.idCard || '',
@@ -174,9 +179,9 @@ export default function ExportEmployeesExcel({ employees, className = '' }: Expo
                     } as any);
                 };
 
-                addImageToCell(e.avatar, 21);
-                addImageToCell(e.idCardFrontPhoto, 22);
-                addImageToCell(e.idCardBackPhoto, 23);
+                addImageToCell(e.avatar, sheet.getColumn('avatar').number);
+                addImageToCell(e.idCardFrontPhoto, sheet.getColumn('cccdFront').number);
+                addImageToCell(e.idCardBackPhoto, sheet.getColumn('cccdBack').number);
 
                 if (hasImage) {
                     row.height = Math.max(row.height || 0, IMAGE_ROW_HEIGHT);

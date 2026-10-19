@@ -530,7 +530,7 @@ function ManagerUsersPageContent() {
                             </div>
                         </div>
 
-                        <div className="flex gap-2 w-full">
+                        <div className="flex flex-wrap items-start gap-2 w-full">
                             <DataTableToolbar
                                 searchValue={params.q}
                                 onSearchChange={(v) => setParam('q', v)}
@@ -545,11 +545,11 @@ function ManagerUsersPageContent() {
                                 activeFilterCount={activeFilterCount}
                                 onClearAll={clearAll}
                                 onMobileApply={(values) => setParams(values)}
-                                className="flex-1"
+                                className="min-w-0 basis-full 2xl:basis-[640px] 2xl:flex-1"
                             />
 
                             {/* Action buttons */}
-                            <div className="flex items-center gap-2 justify-end">
+                            <div className="flex flex-wrap items-center gap-2 justify-end ml-auto [&>button]:whitespace-nowrap">
                                 <ExportEmployeesExcel employees={loading ? [] : filteredEmployees} />
                                 <button
                                     onClick={() => setPrintEmployees(filteredEmployees)}
