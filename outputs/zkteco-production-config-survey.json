@@ -1,0 +1,21 @@
+{
+  "devices": [
+    {
+      "documentId": "store-01-zk",
+      "deviceId": "store-01-zk",
+      "storeId": "5Ra3pNmRdk6ilxhXPgii",
+      "isActive": true,
+      "bridgeEndpoint": "https://worker.erp.joyworld.vn"
+    }
+  ],
+  "policies": [
+    {
+      "storeId": "5Ra3pNmRdk6ilxhXPgii",
+      "exists": true,
+      "enabled": true,
+      "sourceMode": "MACHINE"
+    }
+  ],
+  "documentReads": 2,
+  "queryLimit": 10
+}

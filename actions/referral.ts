@@ -12,6 +12,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import type { PendingReferralDoc, PointTransactionDoc, ReferralPackage } from '@/types';
 import { FieldValue } from 'firebase-admin/firestore';
 import { broadcastByEvent } from '@/lib/notification-engine';
+import { connection } from 'next/server';
 
 /** Get month key "YYYY-MM" from an ISO date string or current date */
 function getMonthKey(isoDate?: string): string {
@@ -78,6 +79,9 @@ export async function getPointTransactions(
 export async function getTopReferralEmployees(): Promise<
     { uid: string; name: string; points: number }[]
 > {
+    // Cloud Run images are built without database credentials. Read live data
+    // at request time instead of baking a failed build-time lookup into HTML.
+    if (process.env.CLOUD_RUN_BUILD === '1') await connection();
     try {
         const db = getAdminDb();
         const monthKey = getMonthKey();

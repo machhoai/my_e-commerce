@@ -17,6 +17,23 @@ const d = new Date(now.getTime() + (7 * 60 * 60 * 1000));
 const buildVer = `${d.getUTCFullYear().toString().slice(2)}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCHours()).padStart(2, '0')}${String(d.getUTCMinutes()).padStart(2, '0')}`;
 
 const nextConfig: NextConfig = {
+    output: process.env.CLOUD_RUN_BUILD === '1' ? 'standalone' : undefined,
+    async headers() {
+        if (process.env.CLOUD_RUN_BUILD !== '1') return [];
+        return [
+            {
+                source: '/sw.js',
+                headers: [
+                    { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+                    { key: 'Service-Worker-Allowed', value: '/' },
+                ],
+            },
+            {
+                source: '/firebase-messaging-sw.js',
+                headers: [{ key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' }],
+            },
+        ];
+    },
     /* config options here */
     turbopack: {},
     transpilePackages: [

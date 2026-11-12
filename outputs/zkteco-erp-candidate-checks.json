@@ -1,0 +1,16 @@
+[
+  {
+    "method": "GET",
+    "path": "/login",
+    "status": 200,
+    "expected": 200,
+    "passed": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/hr/sync-attendance",
+    "status": 401,
+    "expected": 401,
+    "passed": true
+  }
+]

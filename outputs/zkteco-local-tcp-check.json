@@ -1,0 +1,7 @@
+{
+  "host": "bduck.fortiddns.com",
+  "port": 4370,
+  "tcp_connected": false,
+  "error": "timed out",
+  "duration_seconds": 5.22
+}

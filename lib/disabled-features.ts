@@ -12,6 +12,7 @@ export const DISABLED_PAGE_PATHS = [
 ] as const;
 
 const DISABLED_PERMISSIONS = new Set([
+    'action.ai.chat',
     'page.greensm.promotion',
     'action.greensm.settings',
     'page.admin.events',

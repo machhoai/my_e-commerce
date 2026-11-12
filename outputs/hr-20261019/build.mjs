@@ -1,0 +1,55 @@
+import fs from 'node:fs/promises';
+import { Workbook, SpreadsheetFile } from '@oai/artifact-tool';
+const dir=new URL('.',import.meta.url);
+const d=JSON.parse(await fs.readFile(new URL('source.json',dir),'utf8'));
+const wb=Workbook.create();
+const names={STORE:new Map(d.stores.map(x=>[x.documentId,x.name])),OFFICE:new Map(d.offices.map(x=>[x.documentId,x.name])),CENTRAL:new Map(d.warehouses.map(x=>[x.documentId,x.name]))};
+const roleNames=new Map(d.custom_roles.map(x=>[x.documentId,x.name]));
+const users=new Map(d.users.map(x=>[x.uid||x.documentId,x]));
+const col=n=>{let s='';for(n++;n;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s;return s};
+const asText=v=>v==null?null:typeof v==='object'?JSON.stringify(v):typeof v==='string'&&v.startsWith('=')?"'"+v:v;
+const localDate=v=>!v?null:new Date(Date.parse(v)+(/T/.test(v)?7*3600000:0));
+const memberships=u=>d.workplace_memberships.filter(m=>m.userId===(u.uid||u.documentId));
+const workplaces=u=>{const ms=memberships(u);if(u.workplaceSchemaVersion===2)return [...new Set(ms.filter(m=>m.status==='ACTIVE'&&Date.parse(m.effectiveFrom)<=Date.parse('2026-10-19T23:59:59+07:00')&&(!m.effectiveTo||Date.parse(m.effectiveTo)>Date.parse('2026-10-19T23:59:59+07:00'))).map(m=>names[m.workplace?.type]?.get(m.workplace?.id)||m.workplace?.id))].join('; ');return [['STORE',u.storeId],['OFFICE',u.officeId],['CENTRAL',u.warehouseId]].filter(x=>x[1]).map(([t,id])=>names[t]?.get(id)||id).join('; ')};
+let fields=[['name','Họ và tên',27],['phone','Số điện thoại',17],['status','Trạng thái làm việc',23],['createdAt','Ngày tạo (createdAt)',24],['uid','UID nhân sự',32],['role','Vai trò (role)',18],['type','Loại nhân sự (type)',20],['jobTitle','Chức danh',25],['workplaces','Nơi làm việc hiện tại',32],['gender','Giới tính',13],['dob','Ngày sinh',15],['idCard','Số CCCD',20],['permanentAddress','Địa chỉ thường trú',48],['email','Email',32],['education','Học vấn',23],['bankAccount','Tài khoản ngân hàng',28],['probationStartDate','Ngày bắt đầu thử việc',23],['officialStartDate','Ngày bắt đầu chính thức',25],['resignationDate','Ngày nghỉ việc',19],['contractNumber','Số hợp đồng',20],['contracts','Lịch sử hợp đồng (JSON)',45],['workplaceType','Loại nơi làm việc',22],['storeId','ID cửa hàng',32],['storeName','Tên cửa hàng mặc định',30],['officeId','ID văn phòng',32],['officeName','Tên văn phòng mặc định',30],['warehouseId','ID kho',32],['warehouseName','Tên kho mặc định',30],['customRoleId','ID vai trò tùy chỉnh',30],['customRoleName','Tên vai trò tùy chỉnh',26],['isActive','isActive',13],['canManageHR','Quyền quản lý nhân sự',25],['setupCompletedAt','Ngày hoàn tất hồ sơ',24],['updatedAt','Ngày cập nhật',24],['primaryWorkplaceKey','Khóa nơi làm việc chính',36],['workplaceSchemaVersion','Phiên bản nơi làm việc',25],['avatar','Ảnh chân dung (URL)',42],['idCardFrontPhoto','Ảnh CCCD mặt trước (URL)',42],['idCardBackPhoto','Ảnh CCCD mặt sau (URL)',42],['defaultDashboard','Trang mặc định',28],['isTwoFactorEnabled','Đã bật xác thực hai lớp',26],['referralPoints','Điểm giới thiệu',18],['monthlyReferralPoints','Điểm giới thiệu theo tháng (JSON)',40],['documentId','ID bản ghi Firestore',32]];
+for(const key of new Set(d.users.flatMap(Object.keys)))if(!fields.some(f=>f[0]===key))fields.push([key,key,30]);
+const dates=new Set(['createdAt','dob','probationStartDate','officialStartDate','resignationDate','setupCompletedAt','updatedAt']);
+const cell=(u,k)=>{if(k==='status')return u.isActive?'Đang làm việc':'Đã nghỉ việc';if(k==='workplaces')return workplaces(u);if(k==='storeName')return names.STORE.get(u.storeId)||null;if(k==='officeName')return names.OFFICE.get(u.officeId)||null;if(k==='warehouseName')return names.CENTRAL.get(u.warehouseId)||null;if(k==='customRoleName')return roleNames.get(u.customRoleId)||null;if(dates.has(k))return localDate(u[k]);return asText(u[k]);};
+function table(sheet,headers,rows,widths,name){
+ const last=col(headers.length-1),end=7+rows.length;
+ sheet.showGridLines=false;sheet.tabColor='#203D60';
+ sheet.getRange(`A1:${last}${end}`).format.font={name:'Arial',size:10,color:'#182A3A'};
+ sheet.getRange(`A1:${last}${end}`).format.verticalAlignment='center';
+ sheet.getRange(`A7:${last}7`).values=[headers];
+ if(rows.length)sheet.getRange(`A8:${last}${end}`).values=rows;
+ const t=sheet.tables.add(`A7:${last}${end}`,true,name);t.showFilterButton=true;
+ sheet.getRange(`A7:${last}7`).format={fill:'#203D60',font:{name:'Arial',size:10,bold:true,color:'#FFFFFF'},horizontalAlignment:'center',verticalAlignment:'center',rowHeight:36,wrapText:true};
+ sheet.getRange(`A8:${last}${end}`).format.rowHeight=32;
+ widths.forEach((w,i)=>{sheet.getRange(`${col(i)}1:${col(i)}${end}`).format.columnWidth=w});
+ sheet.freezePanes.freezeRows(7);sheet.freezePanes.freezeColumns(1);
+ sheet.getRange('A2').format.font={name:'Arial',size:16,bold:true,color:'#203D60'};
+ return end;
+}
+const sh=wb.worksheets.add('Nhan su');
+const end=table(sh,fields.map(f=>f[1]),d.users.map(u=>fields.map(([k])=>cell(u,k))),fields.map(f=>f[2]),'NhanSu');
+sh.getRange('A2').values=[['DANH SÁCH NHÂN SỰ']];
+sh.getRange('A3').values=[['Lọc createdAt: 01/07/2026–19/10/2026, gồm cả ngày đầu và ngày cuối; múi giờ Việt Nam (UTC+7).']];
+sh.getRange('A4').values=[['55 nhân sự: 37 đang làm việc, 18 đã nghỉ việc. Ô trống: chưa có thông tin trong nguồn.']];
+sh.getRange('A5').values=[['Nguồn: Firestore / users và workplace_memberships. Ảnh giữ nguyên URL; không xuất token thông báo và khóa bí mật xác thực.']];
+for(let i=0;i<fields.length;i++){const k=fields[i][0],r=sh.getRange(`${col(i)}8:${col(i)}${end}`);if(dates.has(k))r.setNumberFormat(k.endsWith('At')?'dd/mm/yyyy hh:mm:ss':'dd/mm/yyyy');if(['phone','idCard','bankAccount','contractNumber','uid','documentId'].includes(k))r.setNumberFormat('@');if(k==='permanentAddress')r.format.wrapText=true;}
+const ms=wb.worksheets.add('Lich su noi lam viec');
+const mkeys=[['userId','UID nhân sự',32],['personName','Họ và tên',27],['employmentStatus','Trạng thái làm việc',23],['workplace.type','Loại nơi làm việc',20],['workplace.id','ID nơi làm việc',32],['workplaceName','Tên nơi làm việc',32],['status','Trạng thái phân công',22],['effectiveFrom','Hiệu lực từ',24],['effectiveTo','Hiệu lực đến',24],['version','Phiên bản',13],['id','ID phân công',36],['createdAt','Ngày tạo phân công',24],['createdBy','Người tạo',32],['updatedAt','Ngày cập nhật',24],['updatedBy','Người cập nhật',32],['documentId','ID bản ghi Firestore',36],['raw','Thông tin phân công đầy đủ (JSON)',60]];
+const mrows=d.workplace_memberships.map(m=>mkeys.map(([k])=>{const u=users.get(m.userId);if(k==='personName')return u?.name;if(k==='employmentStatus')return u?.isActive?'Đang làm việc':'Đã nghỉ việc';if(k==='workplaceName')return names[m.workplace?.type]?.get(m.workplace?.id)||null;if(k==='raw')return JSON.stringify(m);if(['effectiveFrom','effectiveTo','createdAt','updatedAt'].includes(k))return localDate(m[k]);return asText(k.startsWith('workplace.')?m.workplace?.[k.split('.')[1]]:m[k]);}));
+const mend=table(ms,mkeys.map(x=>x[1]),mrows,mkeys.map(x=>x[2]),'PhanCong');
+ms.getRange('A2').values=[['LỊCH SỬ NƠI LÀM VIỆC']];
+ms.getRange('A3').values=[['Các bản ghi phân công trong workplace_memberships của 55 nhân sự đã lọc theo createdAt.']];
+ms.getRange('A4').values=[['Gồm cả phân công còn hiệu lực và đã kết thúc; trạng thái phân công khác với trạng thái làm việc.']];
+ms.getRange('A5').values=[['Nguồn: Firestore / workplace_memberships. Nhân sự chưa có bản ghi phân công vẫn được giữ ở trang Nhan su.']];
+for(let i=0;i<mkeys.length;i++)if(['effectiveFrom','effectiveTo','createdAt','updatedAt'].includes(mkeys[i][0]))ms.getRange(`${col(i)}8:${col(i)}${mend}`).setNumberFormat('dd/mm/yyyy hh:mm:ss');
+wb.recalculate();
+if(d.users.length!==55||new Set(d.users.map(u=>u.documentId)).size!==55||d.users.filter(u=>u.isActive).length!==37)throw new Error('Count validation failed');
+if(sh.getRange(`A8:A${end}`).values.length!==d.users.length)throw new Error('Export row count failed');
+console.log((await wb.inspect({kind:'table',range:'Nhan su!A7:D10',tableMaxRows:4,tableMaxCols:4,maxChars:1800})).ndjson);
+for(const [sheet,range,file] of [['Nhan su','A1:D11','preview-main.png'],['Lich su noi lam viec','A1:D11','preview-memberships.png']]){const blob=await wb.render({sheetName:sheet,range,scale:1.5,format:'png'});await fs.writeFile(new URL(file,dir),new Uint8Array(await blob.arrayBuffer()));}
+const output=await SpreadsheetFile.exportXlsx(wb);await output.save(new URL('Danh_sach_nhan_su_01-07_den_19-10-2026.xlsx',dir).pathname.replace(/^\/([A-Za-z]:)/,'$1'));
+console.log(JSON.stringify({rows:d.users.length,active:d.meta.active,inactive:d.meta.inactive,columns:fields.length,memberships:mrows.length}));

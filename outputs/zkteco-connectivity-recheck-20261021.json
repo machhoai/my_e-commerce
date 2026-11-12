@@ -1,0 +1,22 @@
+{
+  "local_tcp": {
+    "checked_at_utc": "2026-10-21T06:59:24.901855+00:00",
+    "host": "bduck.fortiddns.com",
+    "port": 4370,
+    "protocol": "TCP",
+    "tcp_connected": false,
+    "error": "timed out",
+    "duration_seconds": 5.3
+  },
+  "checks_used_this_turn": 1,
+  "setup_check_budget_used": 9,
+  "deviceSyncState": {
+    "deviceId": "store-01-zk",
+    "exists": true,
+    "isActive": true,
+    "lastSyncAt": "2026-10-21T05:27:26.194Z",
+    "lastSyncStatus": "ERROR",
+    "lastSyncError": "ZKTeco worker error [500] /api/zkteco/logs?device_id=store-01-zk: {\"detail\":\"timed out\"}"
+  },
+  "firestore_config_reads_total": 3
+}

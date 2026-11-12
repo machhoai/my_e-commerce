@@ -1,0 +1,16 @@
+{
+  "checked_at_utc": "2026-10-27T09:10:36.630796+00:00",
+  "host": "bduck.ddns.net",
+  "port": 4370,
+  "protocol": "TCP",
+  "origin": "local computer",
+  "application_data_sent": false,
+  "cloud_run_invoked": false,
+  "resolved_ipv4": [
+    "113.171.86.171"
+  ],
+  "tcp_connected": true,
+  "connected_ip": "113.171.86.171",
+  "duration_seconds": 0.08,
+  "tcp_timeout_seconds": 10
+}

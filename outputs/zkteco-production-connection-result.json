@@ -1,0 +1,23 @@
+{
+  "revision": "jw-erp-trial-00002-yup",
+  "traffic": [
+    {
+      "percent": 100,
+      "revisionName": "jw-erp-trial-00002-yup",
+      "tag": "zkteco-ready",
+      "url": "https://zkteco-ready---jw-erp-trial-cxwygwr7wa-as.a.run.app"
+    }
+  ],
+  "serviceMax": "1",
+  "secretReference": "jw-zkteco-bridge-api-key:1",
+  "bridgeEndpoint": "https://jw-zkteco-bridge-cxwygwr7wa-as.a.run.app",
+  "firestoreConfigReads": 2,
+  "businessWrites": 0,
+  "httpChecks": 7,
+  "tcpChecks": 1,
+  "hardwareReadSucceeded": false,
+  "hardwareStatus": "timeout; operator reports device may be unpowered",
+  "dnsChanged": false,
+  "vercelChanged": false,
+  "renderChanged": false
+}

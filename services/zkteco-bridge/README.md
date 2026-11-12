@@ -1,5 +1,14 @@
 # ZKTeco Bridge — Python Microservice
 
+Cloud Run deployment and approved cost scope are documented in
+[`docs/zkteco-cloud-run-migration.md`](../../docs/zkteco-cloud-run-migration.md).
+The container uses one worker; deploy with concurrency 1 and max instances 1.
+Use `/` to check the HTTP process on Cloud Run without connecting to hardware.
+The `/healthz` alias returned a Google 404 during deployment checks. Device APIs
+require an explicit `ZK_API_KEY` and device host/map; the sample key and missing
+configuration do not authorize access. Set `ZK_ALLOW_WRITES=false` for a read-only
+trial. This process lock does not coordinate with an existing Render bridge.
+
 Hardware bridge between the **B.Duck Cityfuns** Next.js ERP and a physical ZKTeco biometric attendance device.
 
 ## Why a separate service?

@@ -1,0 +1,14 @@
+[
+  {
+    "url": "https://erp.joyworld.vn/login",
+    "status": 200,
+    "expected": 200,
+    "passed": true
+  },
+  {
+    "url": "https://employee.joyworld.vn/login",
+    "status": 200,
+    "expected": 200,
+    "passed": true
+  }
+]

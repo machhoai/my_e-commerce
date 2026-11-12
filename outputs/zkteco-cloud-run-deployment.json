@@ -1,0 +1,35 @@
+{
+  "url": "https://jw-zkteco-bridge-cxwygwr7wa-as.a.run.app",
+  "revision": "jw-zkteco-bridge-00001-b6v",
+  "device_access_tested": false,
+  "earlier_regional_url_checks": {
+    "count": 2,
+    "result": "Non-JSON Google response; second response confirmed HTTP 404"
+  },
+  "http_requests_total": 5,
+  "checks_before_final_probes": [
+    {
+      "method": "GET",
+      "path": "/healthz",
+      "status": 404,
+      "expected": 200,
+      "passed": false
+    }
+  ],
+  "checks": [
+    {
+      "method": "GET",
+      "path": "/",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/zkteco/device/restart",
+      "status": 403,
+      "expected": 403,
+      "passed": true
+    }
+  ]
+}

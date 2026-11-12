@@ -2,7 +2,9 @@
  * lib/zkteco-worker.ts
  *
  * Server-only thin client for the ZKTeco FastAPI bridge worker.
- * The bridge endpoint comes from attendance_devices. The shared API key remains
+ * The bridge endpoint comes from attendance_devices unless this deployment has
+ * an explicit ZKTECO_WORKER_URL_OVERRIDE for a provider migration.
+ * The shared API key remains
  * server-only in ZKTECO_API_KEY and is never stored in Firestore.
  *
  * Usage (in a Next.js Route Handler):
@@ -32,9 +34,10 @@ export interface ZkRawLog {
 // ---------------------------------------------------------------------------
 
 function getWorkerConfig(baseUrlOverride?: string): { baseUrl: string; apiKey: string } {
-    const baseUrl = (baseUrlOverride
+    const deploymentEndpoint = process.env.ZKTECO_WORKER_URL_OVERRIDE?.trim();
+    const baseUrl = (deploymentEndpoint || (baseUrlOverride
         ?? process.env.ZKTECO_WORKER_URL
-        ?? 'http://localhost:8001').replace(/\/$/, '');
+        ?? 'http://localhost:8001')).replace(/\/$/, '');
     const apiKey = process.env.ZKTECO_API_KEY ?? '';
     return { baseUrl, apiKey };
 }

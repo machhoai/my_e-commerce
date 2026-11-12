@@ -26,6 +26,7 @@ import { fetchAllEmployees, fetchWorkplaceMembers } from '@/lib/workplace/client
 import ExportEmployeesExcel from '@/components/hr/ExportEmployeesExcel';
 import StoreMultiSelect from '@/components/hr/StoreMultiSelect';
 import { getAgeFromDob } from '@/lib/hr/employee-age';
+import { hasBankAccount, isProfileComplete } from '@/lib/profile-completion';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface FormState {
@@ -58,13 +59,6 @@ function initials(name: string) {
     return name.split(' ').slice(-1)[0]?.[0]?.toUpperCase() || '?';
 }
 
-function isProfileComplete(e: UserDoc): boolean {
-    const hasValidEmail = !!e.email && e.email.includes('@') && !e.email.endsWith('@company.com');
-    if (!hasValidEmail) return false;
-    const isAdmin = e.role === 'admin' || e.role === 'super_admin';
-    if (isAdmin) return true;
-    return !!(e.avatar && e.idCard && e.dob && e.gender && e.permanentAddress && e.idCardFrontPhoto && e.idCardBackPhoto);
-}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -169,6 +163,7 @@ function EmployeeCard({
     const profileOk = isProfileComplete(employee);
     const age = getAgeFromDob(employee.dob);
     const isUnder18 = age !== null && age < 18;
+    const missingBankAccount = !hasBankAccount(employee);
 
     // Resolve role display
     const colorMap: Record<string, string> = {
@@ -211,7 +206,7 @@ function EmployeeCard({
                 'bg-white rounded-2xl border shadow-sm overflow-hidden active:scale-[0.99] transition-transform',
                 !isActive
                     ? 'border-gray-100 opacity-70'
-                    : isUnder18
+                    : isUnder18 || missingBankAccount
                         ? 'border-rose-300 bg-rose-50/70 ring-1 ring-rose-200'
                         : 'border-gray-100',
             )}
@@ -224,7 +219,7 @@ function EmployeeCard({
                 {/* Avatar */}
                 <div className={cn(
                     'w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold shrink-0 overflow-hidden',
-                    isUnder18 && 'ring-2 ring-rose-300 ring-offset-1',
+                    (isUnder18 || missingBankAccount) && 'ring-2 ring-rose-300 ring-offset-1',
                     !employee.avatar && (isActive
                         ? 'bg-gradient-to-br from-primary-400 to-violet-500 text-white'
                         : 'bg-gray-200 text-gray-400'),
@@ -237,7 +232,7 @@ function EmployeeCard({
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <p className={cn('font-semibold text-sm truncate', isActive ? 'text-gray-900' : 'text-gray-400')}>
                             {employee.name}
                         </p>
@@ -250,6 +245,12 @@ function EmployeeCard({
                             <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2 py-0.5 text-[9px] font-bold text-rose-700">
                                 <AlertTriangle className="h-3 w-3" />
                                 Chưa đủ 18 · {age} tuổi
+                            </span>
+                        )}
+                        {missingBankAccount && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2 py-0.5 text-[9px] font-bold text-rose-700">
+                                <AlertTriangle className="h-3 w-3" />
+                                Thiếu số tài khoản Techcombank
                             </span>
                         )}
                     </div>

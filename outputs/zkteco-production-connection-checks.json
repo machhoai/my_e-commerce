@@ -1,0 +1,32 @@
+{
+  "phase": "production-connection",
+  "hardware_read_only": true,
+  "firestore_business_writes": 0,
+  "checks": [
+    {
+      "path": "/",
+      "authorized": false,
+      "status": 200,
+      "expected": 200,
+      "duration_seconds": 0.17,
+      "passed": true
+    },
+    {
+      "path": "/api/zkteco/users?device_id=store-01-zk",
+      "authorized": false,
+      "status": 401,
+      "expected": 401,
+      "duration_seconds": 0.12,
+      "passed": true
+    },
+    {
+      "path": "/api/zkteco/logs?device_id=store-01-zk",
+      "authorized": true,
+      "status": 500,
+      "expected": 200,
+      "duration_seconds": 40.36,
+      "passed": false,
+      "detail": "timed out"
+    }
+  ]
+}

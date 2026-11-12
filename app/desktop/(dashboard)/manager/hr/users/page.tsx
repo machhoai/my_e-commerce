@@ -20,6 +20,7 @@ import { fetchAllEmployees, fetchWorkplaceMembers } from '@/lib/workplace/client
 import LocationPicker, { deriveLocationType, locationIcon, locationLabel, type LocationType } from '@/components/hr/LocationPicker';
 import StoreMultiSelect from '@/components/hr/StoreMultiSelect';
 import { getAgeFromDob } from '@/lib/hr/employee-age';
+import { hasBankAccount, isProfileComplete } from '@/lib/profile-completion';
 
 function ManagerUsersPageContent() {
     const { user, userDoc, loading: authLoading, hasPermission, effectiveStoreId: contextStoreId, managedStoreIds, activeWorkplace, workplaces } = useAuth();
@@ -369,13 +370,6 @@ function ManagerUsersPageContent() {
     const inactiveEmployees = employees.filter(e => e.isActive === false);
 
     // Profile completion check
-    const isProfileComplete = (e: UserDoc): boolean => {
-        const hasValidEmail = !!e.email && e.email.includes('@') && !e.email.endsWith('@company.com');
-        if (!hasValidEmail) return false;
-        const isAdmin = e.role === 'admin' || e.role === 'super_admin';
-        if (isAdmin) return true;
-        return !!(e.avatar && e.idCard && e.dob && e.gender && e.permanentAddress && e.idCardFrontPhoto && e.idCardBackPhoto);
-    };
     const incompleteProfiles = activeEmployees.filter(e => !isProfileComplete(e));
 
     // Default status filter to 'true' (active) when not set in URL
@@ -615,13 +609,14 @@ function ManagerUsersPageContent() {
                                                 const isSubmitting = actionLoading === e.uid;
                                                 const age = getAgeFromDob(e.dob);
                                                 const isUnder18 = age !== null && age < 18;
+                                                const missingBankAccount = !hasBankAccount(e);
 
                                                 return (
                                                     <tr key={e.uid} className={cn(
                                                         'group transition-all duration-200',
                                                         !isActive
                                                             ? 'bg-surface-50/50 hover:bg-surface-100/70'
-                                                            : isUnder18
+                                                            : isUnder18 || missingBankAccount
                                                                 ? 'bg-danger-50/70 hover:bg-danger-100/70 ring-1 ring-inset ring-danger-200'
                                                                 : 'hover:bg-primary-50/30',
                                                     )}>
@@ -630,7 +625,7 @@ function ManagerUsersPageContent() {
                                                                 {/* Avatar */}
                                                                 <div className={cn(
                                                                     'w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-transform group-hover:scale-110 overflow-hidden',
-                                                                    isUnder18 && 'ring-2 ring-danger-300 ring-offset-1',
+                                                                    (isUnder18 || missingBankAccount) && 'ring-2 ring-danger-300 ring-offset-1',
                                                                     !e.avatar && (isActive
                                                                         ? 'bg-gradient-to-br from-primary-400 to-accent-500 text-white shadow-sm'
                                                                         : 'bg-surface-200 text-surface-500')
@@ -643,7 +638,7 @@ function ManagerUsersPageContent() {
                                                                     )}
                                                                 </div>
                                                                 <div className="min-w-0">
-                                                                    <div className="flex items-center gap-2">
+                                                                    <div className="flex flex-wrap items-center gap-2">
                                                                         <div
                                                                             className={cn(
                                                                                 `font-semibold transition-colors ${!isActive ? 'text-surface-400' : 'text-surface-900 group-hover:text-primary-700'}`,
@@ -660,6 +655,12 @@ function ManagerUsersPageContent() {
                                                                             >
                                                                                 <AlertTriangle className="h-3 w-3" />
                                                                                 Chưa đủ 18 · {age} tuổi
+                                                                            </span>
+                                                                        )}
+                                                                        {missingBankAccount && (
+                                                                            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-danger-200 bg-danger-100 px-2 py-0.5 text-[10px] font-bold text-danger-700">
+                                                                                <AlertTriangle className="h-3 w-3" />
+                                                                                Thiếu số tài khoản Techcombank
                                                                             </span>
                                                                         )}
                                                                     </div>

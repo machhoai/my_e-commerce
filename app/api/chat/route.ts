@@ -11,6 +11,7 @@ import { classifyIntent, extractDateRange, classifyDateScope, dateScopeLabel } f
 import { buildDataContext } from '@/lib/ai/context-builder';
 import { buildStaticSystemPrompt, buildDataPrompt, buildRichModeInstruction } from '@/lib/ai/system-prompt';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { isDisabledPermission } from '@/lib/disabled-features';
 
 // ── Model registry ──────────────────────────────────────────
 interface ModelOption {
@@ -156,6 +157,12 @@ async function validateProvider(provider: 'anthropic' | 'groq' | 'google'): Prom
 }
 
 export async function POST(req: Request) {
+    if (isDisabledPermission('action.ai.chat')) {
+        return Response.json(
+            { error: 'Chức năng AI đã được vô hiệu hóa.', code: 'AI_DISABLED' },
+            { status: 410, headers: { 'Cache-Control': 'no-store' } },
+        );
+    }
     try {
         const body = await req.json();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

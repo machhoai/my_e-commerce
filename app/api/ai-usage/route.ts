@@ -2,11 +2,18 @@
 // API endpoint để check usage thống kê của AI Claude
 
 import { getAdminDb } from '@/lib/firebase-admin';
+import { isDisabledPermission } from '@/lib/disabled-features';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+    if (isDisabledPermission('action.ai.chat')) {
+        return Response.json(
+            { error: 'Chức năng AI đã được vô hiệu hóa.', code: 'AI_DISABLED' },
+            { status: 410, headers: { 'Cache-Control': 'no-store' } },
+        );
+    }
     try {
         const db = getAdminDb();
         const now = new Date(Date.now() + 7 * 3600000);

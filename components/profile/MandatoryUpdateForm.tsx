@@ -32,6 +32,7 @@ export default function MandatoryUpdateForm() {
     const [permanentAddress, setPermanentAddress] = useState(userDoc?.permanentAddress || '');
     const [idCardFrontPhoto, setIdCardFrontPhoto] = useState(userDoc?.idCardFrontPhoto || '');
     const [idCardBackPhoto, setIdCardBackPhoto] = useState(userDoc?.idCardBackPhoto || '');
+    const [bankAccount, setBankAccount] = useState(userDoc?.bankAccount || '');
 
     // ── UI state ─────────────────────────────────────────────────────────────
     const [isCCCDOpen, setIsCCCDOpen] = useState(false);
@@ -58,9 +59,10 @@ export default function MandatoryUpdateForm() {
             gender &&
             permanentAddress &&
             idCardFrontPhoto &&
-            idCardBackPhoto
+            idCardBackPhoto &&
+            /^\d+$/.test(bankAccount.trim())
         );
-    }, [isEmailValid, isAdmin, avatar, idCard, dob, gender, permanentAddress, idCardFrontPhoto, idCardBackPhoto]);
+    }, [isEmailValid, isAdmin, avatar, idCard, dob, gender, permanentAddress, idCardFrontPhoto, idCardBackPhoto, bankAccount]);
 
     // ── Handlers ─────────────────────────────────────────────────────────────
     const handleCCCDComplete = (result: CCCDScanResult) => {
@@ -117,7 +119,6 @@ export default function MandatoryUpdateForm() {
             }
 
             const payload = {
-                uid: user.uid,
                 email,
                 ...(cccdName ? { name: cccdName } : {}),
                 ...(!isAdmin ? {
@@ -128,10 +129,11 @@ export default function MandatoryUpdateForm() {
                     permanentAddress,
                     idCardFrontPhoto: frontUrl,
                     idCardBackPhoto: backUrl,
+                    bankAccount: bankAccount.trim(),
                 } : {}),
             };
 
-            const result = await submitMandatoryProfile(payload);
+            const result = await submitMandatoryProfile(await user.getIdToken(), payload);
 
             if (result.success) {
                 await refreshUserDoc();
@@ -213,6 +215,27 @@ export default function MandatoryUpdateForm() {
                         {/* ── Employee-only sections ───────────────────────── */}
                         {!isAdmin && (
                             <>
+                                <div className="space-y-2">
+                                    <label htmlFor="mandatory-bank-account" className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                        <CreditCard className="w-4 h-4 text-indigo-500" />
+                                        Số tài khoản Techcombank <span className="text-red-400">*</span>
+                                    </label>
+                                    <input
+                                        id="mandatory-bank-account"
+                                        type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]+"
+                                        required
+                                        value={bankAccount}
+                                        onChange={event => setBankAccount(event.target.value.replace(/\D/g, ''))}
+                                        placeholder="Nhập số tài khoản Techcombank"
+                                        aria-describedby="mandatory-bank-account-note"
+                                        className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+                                    />
+                                    <p id="mandatory-bank-account-note" className="text-xs text-slate-500">
+                                        Bắt buộc cung cấp số tài khoản ngân hàng Techcombank.
+                                    </p>
+                                </div>
                                 {/* ── Avatar ───────────────────────────────── */}
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-slate-700 flex items-center gap-2">

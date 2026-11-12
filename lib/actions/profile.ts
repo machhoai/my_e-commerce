@@ -1,10 +1,10 @@
 'use server';
 
-import { getAdminDb } from '@/lib/firebase-admin';
+import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import type { UserDoc } from '@/types';
+import { isProfileComplete } from '@/lib/profile-completion';
 
 interface MandatoryProfilePayload {
-    uid: string;
     name?: string;
     email?: string;
     avatar?: string;
@@ -14,6 +14,7 @@ interface MandatoryProfilePayload {
     permanentAddress?: string;
     idCardFrontPhoto?: string;
     idCardBackPhoto?: string;
+    bankAccount?: string;
 }
 
 interface ActionResult {
@@ -22,13 +23,12 @@ interface ActionResult {
 }
 
 export async function submitMandatoryProfile(
+    idToken: string,
     payload: MandatoryProfilePayload
 ): Promise<ActionResult> {
-    const { uid, email, ...firestoreFields } = payload;
-
-    if (!uid) {
-        return { success: false, error: 'Thiếu UID người dùng.' };
-    }
+    const identity = await getAdminAuth().verifyIdToken(idToken).catch(() => null);
+    if (!identity) return { success: false, error: 'Phiên đăng nhập không hợp lệ.' };
+    const { uid } = identity;
 
     try {
         const adminDb = getAdminDb();
@@ -41,13 +41,21 @@ export async function submitMandatoryProfile(
         // ── Step 2: Update Firestore user document ───────────────────────
         const now = new Date().toISOString();
         const updateData: Record<string, unknown> = {
-            ...firestoreFields,
+            name: payload.name,
+            avatar: payload.avatar,
+            idCard: payload.idCard,
+            dob: payload.dob,
+            gender: payload.gender,
+            permanentAddress: payload.permanentAddress,
+            idCardFrontPhoto: payload.idCardFrontPhoto,
+            idCardBackPhoto: payload.idCardBackPhoto,
+            bankAccount: payload.bankAccount,
             updatedAt: now,
         };
 
         // Include email in Firestore update as well
-        if (email) {
-            updateData.email = email;
+        if (payload.email) {
+            updateData.email = payload.email;
         }
 
         // Remove undefined keys so we don't accidentally null out existing fields
@@ -63,21 +71,14 @@ export async function submitMandatoryProfile(
 
             const current = { uid, ...snapshot.data() } as UserDoc;
             const merged = { ...current, ...updateData } as UserDoc;
-            const hasValidEmail = Boolean(
-                merged.email
-                && merged.email.includes('@')
-                && !merged.email.endsWith('@company.com')
-            );
             const isAdmin = merged.role === 'admin' || merged.role === 'super_admin';
-            const setupIsComplete = hasValidEmail && (isAdmin || Boolean(
-                merged.avatar
-                && merged.idCard
-                && merged.dob
-                && merged.gender
-                && merged.permanentAddress
-                && merged.idCardFrontPhoto
-                && merged.idCardBackPhoto
-            ));
+            if (!isAdmin) {
+                if (typeof merged.bankAccount !== 'string' || !/^\d+$/.test(merged.bankAccount.trim())) {
+                    throw new Error('Vui lòng nhập số tài khoản ngân hàng Techcombank hợp lệ.');
+                }
+                updateData.bankAccount = merged.bankAccount.trim();
+            }
+            const setupIsComplete = isProfileComplete(merged);
 
             if (setupIsComplete && !current.setupCompletedAt) {
                 updateData.setupCompletedAt = now;

@@ -4,19 +4,13 @@ import { useState } from 'react';
 import { UserDoc } from '@/types';
 import { Download, Loader2 } from 'lucide-react';
 import { showToast } from '@/lib/utils/toast';
+import { isProfileComplete } from '@/lib/profile-completion';
 
 interface ExportEmployeesExcelProps {
     employees: UserDoc[];
     className?: string;
 }
 
-function isProfileComplete(e: UserDoc): boolean {
-    const hasValidEmail = !!e.email && e.email.includes('@') && !e.email.endsWith('@company.com');
-    if (!hasValidEmail) return false;
-    const isAdmin = e.role === 'admin' || e.role === 'super_admin';
-    if (isAdmin) return true;
-    return !!(e.avatar && e.idCard && e.dob && e.gender && e.permanentAddress && e.idCardFrontPhoto && e.idCardBackPhoto);
-}
 
 /** Strip the `data:image/...;base64,` prefix from a data URI and return raw base64 + extension */
 function parseBase64Image(dataUri: string): { base64: string; extension: 'png' | 'jpeg' | 'gif' } | null {

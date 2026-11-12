@@ -55,6 +55,7 @@ import { buildDetailedAttendanceWorkbook } from '@/lib/attendance-detailed-expor
 import EmployeeProfilePopup from '@/components/shared/EmployeeProfilePopup';
 import AttendancePolicyPanel from '@/components/attendance/AttendancePolicyPanel';
 import AttendancePunchDialog from '@/components/attendance/AttendancePunchDialog';
+import { DateDmyInput, Time24Input } from '@/components/attendance/AttendanceRuleInputs';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Date / formatting helpers
@@ -202,7 +203,10 @@ export default function AttendancePage() {
             for (const [name, entry] of Object.entries(shiftRules)) {
                 const specialDatesRecord: Record<string, AttendanceRule> = {};
                 for (const { date, rule } of entry.specialDates) {
-                    if (date.trim()) specialDatesRecord[date.trim()] = rule;
+                    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+                        throw new Error(`Vui lòng chọn đủ ngày/tháng/năm cho ngày đặc biệt của ${name}.`);
+                    }
+                    specialDatesRecord[date] = rule;
                 }
                 byShift[name] = {
                     defaultWeekday: entry.weekday,
@@ -1541,11 +1545,10 @@ export default function AttendancePage() {
                                                     {entry.specialDates.map(({ date, rule }, idx) => (
                                                         <div key={idx} className="bg-rose-50 border border-rose-200 rounded-xl p-3">
                                                             <div className="flex items-center gap-2 mb-3">
-                                                                <input
-                                                                    type="date"
+                                                                <DateDmyInput
+                                                                    label={`Ngày đặc biệt ${idx + 1} của ${shiftName}`}
                                                                     value={date}
-                                                                    onChange={(e) => setSpecialDate(shiftName, idx, e.target.value)}
-                                                                    className="flex-1 px-3 py-1.5 text-sm border border-rose-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-rose-300"
+                                                                    onChange={(value) => setSpecialDate(shiftName, idx, value)}
                                                                 />
                                                                 <button
                                                                     onClick={() => removeSpecialDate(shiftName, idx)}
@@ -1629,24 +1632,22 @@ function RuleFields({
 }) {
     return (
         <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-                <span className="text-xs font-medium text-surface-500 mb-1 block">Giờ vào (startTime)</span>
-                <input
-                    type="time"
+            <div className="block">
+                <span className="text-xs font-medium text-surface-500 mb-1 block">Giờ vào (24 giờ)</span>
+                <Time24Input
+                    label="Giờ vào"
                     value={rule.startTime}
-                    onChange={(e) => onChange('startTime', e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-surface-200 rounded-xl bg-surface-50 focus:outline-none focus:ring-2 focus:ring-primary-300"
+                    onChange={(value) => onChange('startTime', value)}
                 />
-            </label>
-            <label className="block">
-                <span className="text-xs font-medium text-surface-500 mb-1 block">Giờ ra (endTime)</span>
-                <input
-                    type="time"
+            </div>
+            <div className="block">
+                <span className="text-xs font-medium text-surface-500 mb-1 block">Giờ ra (24 giờ)</span>
+                <Time24Input
+                    label="Giờ ra"
                     value={rule.endTime}
-                    onChange={(e) => onChange('endTime', e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-surface-200 rounded-xl bg-surface-50 focus:outline-none focus:ring-2 focus:ring-primary-300"
+                    onChange={(value) => onChange('endTime', value)}
                 />
-            </label>
+            </div>
             <label className="block">
                 <span className="text-xs font-medium text-surface-500 mb-1 block">Cho phép vào sớm (phút)</span>
                 <input

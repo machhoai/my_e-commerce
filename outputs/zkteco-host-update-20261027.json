@@ -1,0 +1,61 @@
+{
+  "revision": "jw-zkteco-bridge-00002-9j6",
+  "traffic": [
+    {
+      "latestRevision": true,
+      "percent": 100,
+      "revisionName": "jw-zkteco-bridge-00002-9j6"
+    }
+  ],
+  "serviceMax": "1",
+  "revisionAnnotations": {
+    "autoscaling.knative.dev/maxScale": "1",
+    "run.googleapis.com/client-name": "gcloud",
+    "run.googleapis.com/client-version": "567.0.0",
+    "run.googleapis.com/cpu-throttling": "true",
+    "run.googleapis.com/startup-cpu-boost": "false"
+  },
+  "identity": "jw-zkteco-bridge@jw-system-f2104.iam.gserviceaccount.com",
+  "resources": {
+    "limits": {
+      "cpu": "1",
+      "memory": "512Mi"
+    }
+  },
+  "concurrency": 1,
+  "timeout": 60,
+  "image": "asia-southeast1-docker.pkg.dev/jw-system-f2104/cloud-run-source-deploy/jw-zkteco-bridge:20261020-1",
+  "deviceSettings": [
+    {
+      "name": "ZK_DEVICE_ID",
+      "value": "store-01-zk"
+    },
+    {
+      "name": "ZK_DEVICE_HOST",
+      "value": "bduck.ddns.net"
+    },
+    {
+      "name": "ZK_DEVICE_PORT",
+      "value": "4370"
+    },
+    {
+      "name": "ZK_DEVICE_TIMEOUT",
+      "value": "15"
+    },
+    {
+      "name": "ZK_ALLOW_WRITES",
+      "value": "false"
+    }
+  ],
+  "secretRef": [
+    {
+      "name": "ZK_API_KEY",
+      "valueFrom": {
+        "secretKeyRef": {
+          "key": "1",
+          "name": "jw-zkteco-bridge-api-key"
+        }
+      }
+    }
+  ]
+}

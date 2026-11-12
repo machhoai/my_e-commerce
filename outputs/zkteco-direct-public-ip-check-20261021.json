@@ -1,0 +1,12 @@
+{
+  "checked_at_utc": "2026-10-21T07:07:42.115405+00:00",
+  "host": "113.171.86.171",
+  "port": 4370,
+  "protocol": "TCP",
+  "origin": "local computer",
+  "application_data_sent": false,
+  "authorization": "explicit user request to test this IP; no Cloud Run invocation",
+  "tcp_connected": false,
+  "error": "timed out",
+  "duration_seconds": 5.01
+}

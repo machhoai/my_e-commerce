@@ -7,11 +7,14 @@ Hardware: Every endpoint follows the connect → disable → operate → enable 
 """
 
 import json
+import logging
 import os
+import secrets
+import threading
 from datetime import datetime
 from typing import Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from zk import ZK
 
@@ -20,12 +23,14 @@ from zk import ZK
 # ---------------------------------------------------------------------------
 
 LEGACY_DEVICE_ID = os.getenv("ZK_DEVICE_ID", "legacy-device")
-DEVICE_HOST = os.getenv("ZK_DEVICE_HOST", "113.171.86.171")
+DEVICE_HOST = os.getenv("ZK_DEVICE_HOST", "")
 DEVICE_PORT = int(os.getenv("ZK_DEVICE_PORT", "4370"))
 DEVICE_TIMEOUT = int(os.getenv("ZK_DEVICE_TIMEOUT", "15"))
 
-# Load API key from env; fall back to a safe default for local dev only.
-API_KEY = os.getenv("ZK_API_KEY", "change-me-in-production")
+# A missing or sample key must never authorize access to physical devices.
+API_KEY = os.getenv("ZK_API_KEY", "").strip()
+_DEVICE_LOCK = threading.Lock()
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # FastAPI App
@@ -42,14 +47,63 @@ app = FastAPI(
 # ---------------------------------------------------------------------------
 
 
-def verify_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> str:
+def verify_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Key")) -> str:
     """Validate the X-API-Key header on every request."""
-    if x_api_key != API_KEY:
+    if not API_KEY or API_KEY == "change-me-in-production":
+        raise HTTPException(status_code=503, detail="Bridge API key is not configured.")
+    if not x_api_key or not secrets.compare_digest(x_api_key, API_KEY):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API key.",
         )
     return x_api_key
+
+
+def exclusive_device_access(request: Request, _: str = Depends(verify_api_key)):
+    """Protect the single device socket for the entire request, including cleanup."""
+    if request.method not in ("GET", "HEAD") and os.getenv("ZK_ALLOW_WRITES", "true").lower() != "true":
+        raise HTTPException(status_code=403, detail="Device write operations are disabled.")
+    if not _DEVICE_LOCK.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail="Device operation already in progress.")
+    try:
+        yield
+    finally:
+        _DEVICE_LOCK.release()
+
+
+router = APIRouter(dependencies=[Depends(exclusive_device_access)])
+
+
+@app.get("/", include_in_schema=False)
+@app.get("/healthz", include_in_schema=False)
+def health():
+    """Liveness only: never connect to or enumerate a device."""
+    return {"status": "ok", "service": "zkteco-bridge"}
+
+
+def _disconnect_safely(conn, restore_device: bool = True):
+    """Restore the device even on a read failure and always release its socket."""
+    if conn is None:
+        return
+    try:
+        if restore_device:
+            try:
+                conn.enable_device()
+            except Exception:
+                logger.warning("Could not restore device UI before disconnect.")
+    finally:
+        try:
+            conn.disconnect()
+        except Exception:
+            logger.warning("Device disconnect did not complete cleanly.")
+            # pyzk closes its socket only after a successful CMD_EXIT response.
+            # A failed command must not leave a live TCP connection behind.
+            sock = getattr(conn, "_ZK__sock", None)
+            if sock is not None:
+                try:
+                    sock.close()
+                except Exception:
+                    logger.warning("Could not close the device socket.")
 
 
 # ---------------------------------------------------------------------------
@@ -66,6 +120,8 @@ def _device_configs() -> dict:
             return {str(device["device_id"]): device for device in devices}
         except (json.JSONDecodeError, KeyError, TypeError) as exc:
             raise RuntimeError(f"Invalid ZK_DEVICES_JSON: {exc}") from exc
+    if not DEVICE_HOST:
+        raise HTTPException(status_code=503, detail="Bridge device host is not configured.")
     return {
         LEGACY_DEVICE_ID: {
             "device_id": LEGACY_DEVICE_ID,
@@ -127,7 +183,7 @@ class VoiceRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-@app.get(
+@router.get(
     "/api/zkteco/info",
     tags=["Device Info"],
     summary="Get device firmware, serial, time, and capacity info",
@@ -169,14 +225,12 @@ def get_device_info(device_id: Optional[str] = None, _: str = Depends(verify_api
             },
         }
 
-        conn.enable_device()
         return result
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if conn:
-            conn.disconnect()
+        _disconnect_safely(conn if conn is not None else zk, restore_device=conn is not None)
 
 
 # ---------------------------------------------------------------------------
@@ -184,7 +238,7 @@ def get_device_info(device_id: Optional[str] = None, _: str = Depends(verify_api
 # ---------------------------------------------------------------------------
 
 
-@app.get(
+@router.get(
     "/api/zkteco/users",
     tags=["Users"],
     summary="Retrieve all enrolled users from the device",
@@ -209,17 +263,15 @@ def get_users(device_id: Optional[str] = None, _: str = Depends(verify_api_key))
             for u in users
         ]
 
-        conn.enable_device()
         return result
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if conn:
-            conn.disconnect()
+        _disconnect_safely(conn if conn is not None else zk, restore_device=conn is not None)
 
 
-@app.post(
+@router.post(
     "/api/zkteco/users",
     tags=["Users"],
     summary="Create or update a user on the device",
@@ -245,17 +297,15 @@ def create_or_update_user(
             user_id=body.user_id,
         )
 
-        conn.enable_device()
         return {"message": f"User uid={body.uid} saved successfully."}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if conn:
-            conn.disconnect()
+        _disconnect_safely(conn if conn is not None else zk, restore_device=conn is not None)
 
 
-@app.delete(
+@router.delete(
     "/api/zkteco/users/{uid}",
     tags=["Users"],
     summary="Delete a user by their internal UID",
@@ -269,14 +319,12 @@ def delete_user(uid: int, device_id: Optional[str] = None, _: str = Depends(veri
 
         conn.delete_user(uid=uid)
 
-        conn.enable_device()
         return {"message": f"User uid={uid} deleted successfully."}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if conn:
-            conn.disconnect()
+        _disconnect_safely(conn if conn is not None else zk, restore_device=conn is not None)
 
 
 # ---------------------------------------------------------------------------
@@ -284,7 +332,7 @@ def delete_user(uid: int, device_id: Optional[str] = None, _: str = Depends(veri
 # ---------------------------------------------------------------------------
 
 
-@app.get(
+@router.get(
     "/api/zkteco/logs",
     tags=["Attendance"],
     summary="Retrieve all attendance/punch records from the device",
@@ -308,17 +356,15 @@ def get_attendance_logs(device_id: Optional[str] = None, _: str = Depends(verify
             for a in attendances
         ]
 
-        conn.enable_device()
         return result
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if conn:
-            conn.disconnect()
+        _disconnect_safely(conn if conn is not None else zk, restore_device=conn is not None)
 
 
-@app.delete(
+@router.delete(
     "/api/zkteco/logs",
     tags=["Attendance"],
     summary="⚠️ Clear ALL attendance records from the device",
@@ -332,14 +378,12 @@ def clear_attendance_logs(device_id: Optional[str] = None, _: str = Depends(veri
 
         conn.clear_attendance()
 
-        conn.enable_device()
         return {"message": "All attendance records cleared successfully."}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if conn:
-            conn.disconnect()
+        _disconnect_safely(conn if conn is not None else zk, restore_device=conn is not None)
 
 
 # ---------------------------------------------------------------------------
@@ -347,7 +391,7 @@ def clear_attendance_logs(device_id: Optional[str] = None, _: str = Depends(veri
 # ---------------------------------------------------------------------------
 
 
-@app.post(
+@router.post(
     "/api/zkteco/device/restart",
     tags=["Device Control"],
     summary="⚠️ Restart the biometric device",
@@ -367,14 +411,10 @@ def restart_device(device_id: Optional[str] = None, _: str = Depends(verify_api_
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if conn:
-            try:
-                conn.disconnect()
-            except Exception:
-                pass  # Socket may already be gone after restart
+        _disconnect_safely(conn if conn is not None else zk, restore_device=False)
 
 
-@app.post(
+@router.post(
     "/api/zkteco/device/voice",
     tags=["Device Control"],
     summary="Trigger a voice test on the device",
@@ -392,17 +432,15 @@ def test_voice(
 
         conn.test_voice(index=body.index)
 
-        conn.enable_device()
         return {"message": f"Voice index {body.index} triggered successfully."}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if conn:
-            conn.disconnect()
+        _disconnect_safely(conn if conn is not None else zk, restore_device=conn is not None)
 
 
-@app.post(
+@router.post(
     "/api/zkteco/device/time",
     tags=["Device Control"],
     summary="Sync device clock to server time (or a provided datetime)",
@@ -425,7 +463,6 @@ def set_device_time(
 
         conn.set_time(target_time)
 
-        conn.enable_device()
         return {
             "message": "Device time synchronized successfully.",
             "synced_time": target_time.isoformat(),
@@ -436,5 +473,7 @@ def set_device_time(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if conn:
-            conn.disconnect()
+        _disconnect_safely(conn if conn is not None else zk, restore_device=conn is not None)
+
+
+app.include_router(router)
